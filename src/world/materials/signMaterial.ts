@@ -2,9 +2,10 @@
 import { DoubleSide, MeshBasicNodeMaterial, Color } from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import { U } from '../../atmosphere/uniforms';
+import { lutColor } from './lut';
 
 const T = TSL as any;
-const { Fn, attribute, float, vec2, floor, fract, step, smoothstep, mix, hash, uv, uniformArray, min, sin, abs } = T;
+const { Fn, attribute, float, vec2, floor, fract, step, smoothstep, mix, hash, uv, min, sin, abs } = T;
 
 /** Indexed by SignColor (src/world/fabric/types.ts) */
 export const SIGN_PALETTE = [
@@ -30,12 +31,12 @@ export function getSignMaterial(): MeshBasicNodeMaterial {
   const iSign = attribute('iSign', 'vec4');
   const kind = attribute('iKind', 'float');
   const size = vec2(iSign.x, iSign.y);
-  const color = uniformArray(SIGN_PALETTE, 'color').element(iSign.z.add(0.5).toInt());
+  const color = lutColor(SIGN_PALETTE, iSign.z);
   const seed = iSign.w;
   const p = uv().mul(size);
   const minSide = min(size.x, size.y);
 
-  const color2 = uniformArray(SIGN_PALETTE, 'color').element(floor(hash(seed.mul(7919)).mul(7.99)).toInt());
+  const color2 = lutColor(SIGN_PALETTE, floor(hash(seed.mul(7919)).mul(7.99)));
 
   m.colorNode = Fn(() => {
     // glyph rows: characters are square cells sized to the short side
@@ -66,7 +67,7 @@ export function getSignMaterial(): MeshBasicNodeMaterial {
     const neon = color.mul(glyph.mul(1.3).add(border.mul(0.9)).add(0.07));
     const isBillboard = step(1.5, kind);
     const out = mix(neon, billboard.mul(1.2), isBillboard);
-    return out.mul(U.signPower).mul(flick).mul(2.2);
+    return out.mul(U.signPower).mul(flick).mul(1.5);
   })();
   shared = m;
   return m;

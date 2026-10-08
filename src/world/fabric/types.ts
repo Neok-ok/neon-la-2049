@@ -2,7 +2,7 @@
 import type { District, CityLayout } from '../layout';
 import type { Rng } from '../../core/rng';
 
-/** Facade style ids. Must match the switch in src/world/materials/cityMaterial.ts. */
+/** Facade style ids. Index into the per-style tables in src/world/materials/cityMaterial.ts. */
 export const Style = {
   Ground: 0,
   Megablock: 1,

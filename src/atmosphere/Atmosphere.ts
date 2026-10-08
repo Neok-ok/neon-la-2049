@@ -36,7 +36,7 @@ export class DayNight {
 }
 
 const c = (r: number, g: number, b: number) => new Color(r, g, b);
-const NIGHT = { zenith: c(0.008, 0.01, 0.016), horizon: c(0.085, 0.058, 0.042), fog: c(0.07, 0.052, 0.042) };
+const NIGHT = { zenith: c(0.005, 0.006, 0.01), horizon: c(0.06, 0.04, 0.03), fog: c(0.042, 0.031, 0.026) };
 const DUSK = { zenith: c(0.07, 0.07, 0.09), horizon: c(0.5, 0.28, 0.16), fog: c(0.36, 0.23, 0.15) };
 const DAY = { zenith: c(0.33, 0.35, 0.37), horizon: c(0.58, 0.55, 0.49), fog: c(0.5, 0.48, 0.43) };
 const SMOG_TINT = c(0.85, 0.55, 0.3);
@@ -122,7 +122,7 @@ export class Atmosphere {
     this.sun.color.copy(U.sunColor.value as Color);
     this.scene.environmentIntensity = 0.25 + 0.6 * dayF;
 
-    this.exposure = 1.35 - 0.45 * dayF;
+    this.exposure = 1.15 - 0.25 * dayF;
     renderer.toneMappingExposure = this.exposure;
   }
 }

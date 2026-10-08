@@ -19,7 +19,7 @@ function extrudeProfile(pts: number[][], width: number): BufferGeometry {
   const g = new ExtrudeGeometry(sh, { depth: width, bevelEnabled: false });
   g.rotateY(Math.PI / 2); // shape X (forward) -> -Z
   g.translate(-width / 2, 0, 0);
-  return g.toNonIndexed();
+  return g;
 }
 
 function colored(g: BufferGeometry, c: Color): BufferGeometry {

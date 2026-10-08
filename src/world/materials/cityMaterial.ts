@@ -3,20 +3,21 @@
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import { U } from '../../atmosphere/uniforms';
+import { lut } from './lut';
 
 // TSL typings are very loose in @types/three; shader modules use untyped TSL deliberately.
 const T = TSL as any;
 const {
   Fn, attribute, float, vec2, vec3, floor, fract, step, smoothstep, mix, hash, mx_noise_float, normalLocal,
-  positionWorld, cameraPosition, uniformArray, fwidth, max, clamp, length,
+  positionWorld, cameraPosition, fwidth, max, clamp, length,
 } = T;
 
 // Per-style tables, indexed by Style id (src/world/fabric/types.ts)
 //                     ground  mega  office indus market coast resid civic sprawl neon
 const CELL_W = [1, 3.6, 2.2, 9.0, 3.2, 5.0, 3.2, 6.0, 3.4, 3.0];
 const CELL_H = [1, 3.6, 4.0, 7.0, 3.2, 3.4, 3.1, 5.5, 3.2, 3.4];
-const WIN_W = [0, 0.55, 0.8, 0.3, 0.6, 0.35, 0.5, 0.25, 0.45, 0.6];
-const WIN_H = [0, 0.45, 0.6, 0.25, 0.5, 0.35, 0.45, 0.2, 0.45, 0.5];
+const WIN_W = [0, 0.55, 0.7, 0.3, 0.6, 0.35, 0.5, 0.25, 0.45, 0.6];
+const WIN_H = [0, 0.45, 0.5, 0.25, 0.5, 0.35, 0.45, 0.2, 0.45, 0.5];
 const ALBEDO = [0.06, 0.2, 0.15, 0.2, 0.24, 0.3, 0.22, 0.3, 0.25, 0.17];
 const WARMTH = [0, 0.55, 0.25, 0.7, 0.9, 0.5, 0.75, 0.3, 0.8, 0.6];
 
@@ -30,16 +31,16 @@ export function getCityMaterial(): MeshStandardNodeMaterial {
   const facade = attribute('facade', 'vec2');
   const bdata = attribute('bdata', 'vec4');
   const seed = bdata.x;
-  const styleI = bdata.y.add(0.5).toInt();
+  const styleF = bdata.y;
   const lit = bdata.z;
   const tint = bdata.w;
 
-  const cellW = uniformArray(CELL_W, 'float').element(styleI);
-  const cellH = uniformArray(CELL_H, 'float').element(styleI);
-  const winW = uniformArray(WIN_W, 'float').element(styleI);
-  const winH = uniformArray(WIN_H, 'float').element(styleI);
-  const albedo = uniformArray(ALBEDO, 'float').element(styleI);
-  const warmth = uniformArray(WARMTH, 'float').element(styleI);
+  const cellW = lut(CELL_W, styleF);
+  const cellH = lut(CELL_H, styleF);
+  const winW = lut(WIN_W, styleF);
+  const winH = lut(WIN_H, styleF);
+  const albedo = lut(ALBEDO, styleF);
+  const warmth = lut(WARMTH, styleF);
 
   const isRoof = step(0.5, normalLocal.y);
   const isGround = step(bdata.y, 0.5);
@@ -59,16 +60,19 @@ export function getCityMaterial(): MeshStandardNodeMaterial {
   const k1 = hash(cell.x.add(floor(seed.mul(4096)).mul(512)));
   const h1 = hash(cell.y.add(k1.mul(65536)));
   const h2 = hash(h1.mul(9137.0).add(cell.x));
-  const litMask = step(h1, lit.mul(U.windowLit));
+  // the film's towers read as dark masses with sparse lights: only ~half of the nominal lit fraction
+  const litFrac = lit.mul(U.windowLit).mul(0.45);
+  const litMask = step(h1, litFrac);
   const warmC = vec3(1.0, 0.58, 0.26);
   const coolC = vec3(0.55, 0.78, 1.0);
-  const winColor = mix(coolC, warmC, step(h2, warmth)).mul(h2.mul(1.6).add(0.5));
+  const winColor = mix(coolC, warmC, step(h2, warmth)).mul(h2.mul(0.9).add(0.35));
   const nearWindows = winColor.mul(litMask).mul(winMask);
   // average for distant / grazing views (prevents moire + keeps the city glowing far away)
-  const avgWindows = mix(coolC, warmC, warmth).mul(lit.mul(U.windowLit).mul(winW.mul(winH)).mul(1.25));
+  // perceptually a field of sub-pixel lights reads darker than its true mean: scale the average down
+  const avgWindows = mix(coolC, warmC, warmth).mul(litFrac.mul(winW.mul(winH)).mul(0.45));
   const footprint = fwidth(g.x).add(fwidth(g.y));
-  const farFade = max(smoothstep(0.35, 1.0, footprint), smoothstep(900.0, 2600.0, distCam));
-  const windows = mix(nearWindows, avgWindows, farFade).mul(isWall).mul(1.6);
+  const farFade = max(smoothstep(0.7, 1.3, footprint), smoothstep(900.0, 2600.0, distCam));
+  const windows = mix(nearWindows, avgWindows, farFade).mul(isWall).mul(1.1);
 
   // ---- ground sprawl lights (far LOD: low-rise city rendered as a carpet of lights) ----
   const gcell = floor(wpos.xz.add(100000).div(7.0));

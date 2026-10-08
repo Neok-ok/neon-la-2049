@@ -36,7 +36,7 @@ function defaultPose(): Pose {
 }
 
 export class App {
-  readonly renderer: WebGPURenderer;
+  renderer!: WebGPURenderer;
   readonly scene = new Scene();
   readonly camera = new PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 60000);
   readonly query = new CityQuery();
@@ -65,6 +65,7 @@ export class App {
   private slowTime = 0;
   private started = false;
   private loadingEl = document.getElementById('loading');
+  private startMs = performance.now();
 
   constructor(private canvas: HTMLCanvasElement) {
     const dev = probeDevice();
@@ -74,17 +75,26 @@ export class App {
     const urlTier = (TIERS as string[]).includes(params.quality ?? '') ? (params.quality as Tier) : null;
     this.qualityChoice = urlTier ?? storedTier();
     this.quality = settingsFor(this.qualityChoice === 'auto' ? auto.tier : this.qualityChoice);
-    this.renderer = new WebGPURenderer({
-      canvas,
-      antialias: this.quality.antialias,
-      forceWebGL: params.forceWebGL,
-      reversedDepthBuffer: true,
-      powerPreference: 'high-performance',
-    });
   }
 
   async init(): Promise<void> {
-    const r = this.renderer;
+    // Pick the backend up front: reversed-Z is only safe on WebGPU (on the WebGL2 fallback it breaks the
+    // MSAA depth blit used by post-processing), and WebGL2 compensates with an adaptive near plane.
+    let webgpu = !params.forceWebGL && 'gpu' in navigator;
+    if (webgpu) {
+      try {
+        webgpu = !!(await (navigator as unknown as { gpu: { requestAdapter(): Promise<unknown> } }).gpu.requestAdapter());
+      } catch {
+        webgpu = false;
+      }
+    }
+    const r = (this.renderer = new WebGPURenderer({
+      canvas: this.canvas,
+      antialias: this.quality.antialias,
+      forceWebGL: !webgpu,
+      reversedDepthBuffer: webgpu,
+      powerPreference: 'high-performance',
+    }));
     await r.init();
     this.backend = (r.backend as unknown as { isWebGPUBackend?: boolean }).isWebGPUBackend ? 'WebGPU' : 'WebGL2';
     r.toneMapping = ACESFilmicToneMapping;
@@ -193,7 +203,7 @@ export class App {
     if (!this.quality.bloom) return;
     const scenePass = T.pass(this.scene, this.camera);
     const color = scenePass.getTextureNode('output');
-    const glow = bloom(color, 0.55, 0.35, 0.92);
+    const glow = bloom(color, 0.4, 0.3, 1.0);
     this.pipeline = new RenderPipeline(this.renderer, color.add(glow));
   }
 
@@ -287,7 +297,7 @@ export class App {
     this.adaptQuality(dt);
     this.input.endFrame();
 
-    if (this.loadingEl && (this.streamer.isIdle() || this.elapsed > 8) && this.frames > 5) {
+    if (this.loadingEl && (this.streamer.isIdle() || performance.now() - this.startMs > 8000) && this.frames > 5) {
       this.loadingEl.remove();
       this.loadingEl = null;
     }
@@ -323,6 +333,28 @@ export class App {
       setTime: (h: number) => (this.atmosphere.dayNight.hours = h),
       setWeather: (w: WeatherId, instant = true) => this.atmosphere.weather.set(w, instant),
       cut: () => this.cams.cine.cut(),
+      /** Walk mode on the centre line of the street nearest to (x, z) or to a landmark/POI id, facing along it. */
+      streetView: (target: string | number, zArg = 0, along = 0) => {
+        let x = typeof target === 'number' ? target : 0, z = zArg;
+        if (typeof target === 'string') {
+          const p = this.query.layout.poiById(target) ?? this.query.layout.landmarkById(target);
+          if (!p) return false;
+          x = p.x;
+          z = p.z;
+        }
+        let best = null as null | ReturnType<CityQuery['fabricAt']>['blocks'][number];
+        let bd = Infinity;
+        for (const b of this.query.fabricAt(x, z).blocks) {
+          const d = Math.hypot(b.cx - x, b.cz - z);
+          if (d < bd) { bd = d; best = b; }
+        }
+        if (!best) return false;
+        const off = best.la / 2 + best.street / 2;
+        const px = best.cx + best.ax * off + best.bx * along, pz = best.cz + best.az * off + best.bz * along;
+        this.cams.setMode('walk');
+        this.cams.setPose({ position: new Vector3(px, best.ground + 2, pz), heading: Math.atan2(best.bx, -best.bz), pitch: 0.05 });
+        return true;
+      },
       geoToLocal,
       stats: () => ({ ...this.streamer.stats, fps: this.hud.fps, backend: this.backend, tier: this.quality.tier, mode: this.cams.mode, shot: this.cams.cine.label }),
     };
