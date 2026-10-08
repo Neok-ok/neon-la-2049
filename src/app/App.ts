@@ -333,6 +333,7 @@ export class App {
       setTime: (h: number) => (this.atmosphere.dayNight.hours = h),
       setWeather: (w: WeatherId, instant = true) => this.atmosphere.weather.set(w, instant),
       cut: () => this.cams.cine.cut(),
+      holdShot: (on: boolean) => (this.cams.cine.hold = on),
       /** Walk mode on the centre line of the street nearest to (x, z) or to a landmark/POI id, facing along it. */
       streetView: (target: string | number, zArg = 0, along = 0) => {
         let x = typeof target === 'number' ? target : 0, z = zArg;

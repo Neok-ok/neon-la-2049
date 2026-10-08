@@ -51,9 +51,16 @@ export class FlyController implements Controller {
     this.input.pointerLockWanted = false;
   }
 
-  /** Leave the spinner parked where it is (walk mode). */
-  park(visible: boolean): void {
+  /** Show/hide the parked spinner; optionally set it down at a street position (walk mode). */
+  park(visible: boolean, at?: Vector3, heading = this.heading): void {
     this.spinner.visible = visible;
+    if (!at) return;
+    this.pos.copy(at);
+    this.heading = heading;
+    this.pitch = 0;
+    this.bank = 0;
+    this.spinner.position.copy(at);
+    this.spinner.rotation.set(0, -heading, 0, 'YXZ');
   }
 
   private solid(p: Vector3): boolean {

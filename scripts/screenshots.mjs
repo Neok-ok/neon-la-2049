@@ -28,7 +28,7 @@ const shots = [
   // street level in the Little Tokyo night market
   { name: 'walk-street', ctx: desktop, q: `mode=walk&at=noodle-bar&time=22&weather=rain&${common}`, after: () => window.__nla.streetView('noodle-bar', 0, -20) },
   // cinematic camera (random shot; letterboxed)
-  { name: 'cinematic', ctx: desktop, q: `mode=cine&time=20&weather=drizzle&freeze=1&quality=high${GPU ? '' : '&webgl=1'}`, cine: true },
+  { name: 'cinematic', ctx: desktop, q: `mode=cine&time=20&weather=drizzle&freeze=1&ui=0&quality=high${GPU ? '' : '&webgl=1'}`, cine: true },
   // phone-sized viewport with touch controls, flying past LAPD HQ
   { name: 'iphone-fly', ctx: iphone, q: `mode=fly&at=lapd-hq&time=21&weather=rain&freeze=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}` },
   // daytime smog toward the pyramid
@@ -57,9 +57,14 @@ for (const s of shots) {
     await page.waitForFunction(() => window.__nla.isIdle(), null, { timeout: 120_000, polling: 1000 }).catch(() => {});
   }
   if (s.cine) {
-    // let the director settle into a shot whose area has streamed in
-    await page.evaluate(() => window.__nla.cut());
-    await page.waitForTimeout(1500);
+    // cut until the director lands on a wide establishing shot, then let its area stream in
+    for (let k = 0; k < 12; k++) {
+      await page.evaluate(() => window.__nla.cut());
+      await page.waitForTimeout(800);
+      const shot = await page.evaluate(() => window.__nla.stats().shot);
+      if (/^(orbit|telephoto|flyover) /.test(shot)) break;
+    }
+    await page.evaluate(() => window.__nla.holdShot(true));
     await page.waitForFunction(() => window.__nla.isIdle(), null, { timeout: 120_000, polling: 1000 }).catch(() => {});
   }
   await page.waitForTimeout(2500);

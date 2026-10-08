@@ -49,10 +49,16 @@ export class CameraSystem {
         pose = { position: from.position.clone().add(new Vector3(0, 4, 0)), heading: from.heading, pitch: 0.1 };
       }
     }
-    // the spinner stays parked where you stepped out; it disappears in cinematic mode
-    this.fly.park(m === 'walk' && prev === 'fly');
+    this.fly.park(false);
     this.current = this.get(m);
     this.current.enter(pose);
+    // stepping out of the spinner lands it on the street beside you; it disappears in cinematic mode
+    if (m === 'walk' && prev === 'fly') {
+      const w = this.walk.pos;
+      const h = this.walk.heading;
+      const spot = new Vector3(w.x + Math.cos(h) * 4, w.y + 0.05, w.z + Math.sin(h) * 4);
+      this.fly.park(true, spot, h);
+    }
     this.onChange(m);
   }
 

@@ -50,6 +50,8 @@ export class CinematicDirector implements Controller {
   shotCount = 0;
   /** extra streaming focus point (pre-loads the next shot's area) */
   prefetch: Vector3 | null = null;
+  /** debug/automation: freeze the current shot (no clock, no fades) */
+  hold = false;
 
   constructor(
     private camera: PerspectiveCamera,
@@ -87,7 +89,7 @@ export class CinematicDirector implements Controller {
 
   update(dt: number): void {
     if (!this.active || !this.shot) return;
-    this.t += dt;
+    if (!this.hold) this.t += dt;
     const s = this.shot;
     if (!this.next && s.duration - this.t < 3) {
       this.next = this.plan();
@@ -106,7 +108,7 @@ export class CinematicDirector implements Controller {
     // slow fades on ~1/3 of transitions, hard cuts otherwise
     const fadeIn = cur.signature.charCodeAt(0) % 3 === 0 ? Math.min(1, this.t / 0.8) : 1;
     const fadeOut = cur.signature.charCodeAt(1) % 3 === 0 ? Math.min(1, (cur.duration - this.t) / 0.8) : 1;
-    this.fade(1 - Math.min(fadeIn, fadeOut));
+    this.fade(this.hold ? 0 : 1 - Math.min(fadeIn, fadeOut));
     this.camera.position.copy(this.pos);
     this.camera.up.set(0, 1, 0);
     this.camera.lookAt(this.look);

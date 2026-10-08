@@ -171,7 +171,7 @@ or add their own LOD rules.
 &webgl=1 &hud=1 &ui=0 &freeze=1 &touch=1`
 
 `window.__nla` (console and automation): `isIdle()`, `setMode(m)`, `setPose(x,y,z,yaw°,pitch°)`, `streetView(idOrX, z?, along?)`,
-`setTime(h)`, `setWeather(id)`, `cut()`, `stats()`, `geoToLocal(lat,lon)`, `app`.
+`setTime(h)`, `setWeather(id)`, `cut()`, `holdShot(on)`, `stats()`, `geoToLocal(lat,lon)`, `app`.
 
 Keys: `1/2/3` fly/walk/cinematic, `F` toggle fly↔walk, `V` cockpit, `N` next shot, `H` HUD, `M` mute, `[ ]` time −/+ 1 h, `B` next weather.
 
