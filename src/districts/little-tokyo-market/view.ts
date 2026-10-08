@@ -44,11 +44,14 @@ export function marketCamera(layout: CityLayout, kind: MarketView): MarketPose |
     };
   }
   if (kind === 'interior' && noodle) {
-    // In the doorway, looking at the counter. The stool is too close to the back wall.
+    // Just outside the doorway, looking in. Standing on the stool or under the soffit
+    // either fills the lens with the back wall or clips the ceiling.
     const e = noodle.entrance;
+    const hx = Math.sin(e.heading);
+    const hz = -Math.cos(e.heading);
     return {
-      x: e.x, y: ground + 1.62, z: e.z,
-      heading: e.heading, pitch: 0.1, mode: 'walk',
+      x: e.x - hx * 1.85, y: ground + 1.7, z: e.z - hz * 1.85,
+      heading: e.heading, pitch: 0.05, mode: 'walk',
     };
   }
   if (kind === 'bibi' && bibi) {
@@ -58,22 +61,31 @@ export function marketCamera(layout: CityLayout, kind: MarketView): MarketPose |
     const s = noodle.street;
     const toward = towardShop(s, noodle.entrance);
     const hx = Math.sin(s.heading), hz = -Math.cos(s.heading);
-    // Beside the lane, a little low, so coats and umbrella canopies fill the frame.
+    // Just outside the noodle doorway, looking out at the sidewalk so coats fill the frame.
     return {
-      x: s.x - hx * 1.6 + toward.x * 1.15,
-      y: ground + 1.4,
-      z: s.z - hz * 1.6 + toward.z * 1.15,
-      heading: s.heading, pitch: 0.0, mode: 'walk',
+      x: s.x + toward.x * 2.05 + hx * 0.6,
+      y: ground + 1.7,
+      z: s.z + toward.z * 2.05 + hz * 0.6,
+      heading: Math.atan2(-toward.x, toward.z),
+      pitch: 0.02,
+      mode: 'walk',
     };
   }
   if (noodle) {
     const s = noodle.street;
     const toward = towardShop(s, noodle.entrance);
-    // The sidewalk anchor sits in the pedestrian lane. Step into the doorway so a coat
-    // does not fill the lens; the crowd stays a couple of metres off to the side.
+    const ax = Math.sin(s.heading), az = -Math.cos(s.heading);
+    // Off the facade, turned toward the street, so the near wall is at the edge of the
+    // frame and the lanes run beside the look direction instead of through the lens.
+    const lx = ax * 0.6 - toward.x * 0.4;
+    const lz = az * 0.6 - toward.z * 0.4;
     return {
-      x: s.x + toward.x * 1.7, y: ground + 1.7, z: s.z + toward.z * 1.7,
-      heading: s.heading, pitch: 0.04, mode: 'walk',
+      x: s.x + toward.x * 1.15,
+      y: ground + 1.7,
+      z: s.z + toward.z * 1.15,
+      heading: Math.atan2(lx, -lz),
+      pitch: -0.02,
+      mode: 'walk',
     };
   }
   return { x: fallback.x, y: ground + 1.7, z: fallback.z, heading: 0.6, pitch: 0.05, mode: 'walk' };

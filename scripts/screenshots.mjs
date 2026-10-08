@@ -89,7 +89,12 @@ for (const s of shots) {
     await page.waitForFunction(() => window.__nla.isIdle(), null, { timeout: 120_000, polling: 1000 }).catch(() => {});
   }
   await page.waitForTimeout(2500);
-  const stats = await page.evaluate(() => window.__nla?.stats());
+  const stats = await page.evaluate(() => {
+    const s = window.__nla?.stats?.() ?? null;
+    const c = window.__nla?.app?.camera;
+    if (s && c) s.cam = [c.position.x, c.position.y, c.position.z].map((n) => Math.round(n * 10) / 10);
+    return s;
+  });
   const file = join(OUT, `${s.name}.png`);
   await page.screenshot({ path: file, timeout: 180_000 });
   console.log(`${s.name}: ${((Date.now() - t0) / 1000).toFixed(1)} s`, JSON.stringify(stats), errors.length ? `\n  errors: ${errors.slice(0, 5).join('\n  ')}` : '');
