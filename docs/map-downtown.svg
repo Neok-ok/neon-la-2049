@@ -1,0 +1,172 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="969" height="868" viewBox="0 0 969 868" font-family="Helvetica, Arial, sans-serif">
+<rect width="969" height="868" fill="#141416"/>
+<text x="60" y="34" fill="#eee" font-size="20" font-weight="bold">Neon LA 2049 — downtown core inset</text>
+<text x="60" y="54" fill="#999" font-size="11">1 px = 5 m · grid = 0.5 km in engine metres (origin 34.0522, -118.2437; +X east, +Z south) · unlabelled dark land = basin sprawl</text>
+<line x1="82.0" y1="100" x2="82.0" y2="808" stroke="#222" stroke-width="1"/>
+<text x="82.0" y="822" fill="#666" font-size="10" text-anchor="middle">-2.5 km</text>
+<line x1="182.0" y1="100" x2="182.0" y2="808" stroke="#222" stroke-width="1"/>
+<text x="182.0" y="822" fill="#666" font-size="10" text-anchor="middle">-2 km</text>
+<line x1="282.0" y1="100" x2="282.0" y2="808" stroke="#222" stroke-width="1"/>
+<text x="282.0" y="822" fill="#666" font-size="10" text-anchor="middle">-1.5 km</text>
+<line x1="382.0" y1="100" x2="382.0" y2="808" stroke="#222" stroke-width="1"/>
+<text x="382.0" y="822" fill="#666" font-size="10" text-anchor="middle">-1 km</text>
+<line x1="482.0" y1="100" x2="482.0" y2="808" stroke="#222" stroke-width="1"/>
+<text x="482.0" y="822" fill="#666" font-size="10" text-anchor="middle">-0.5 km</text>
+<line x1="582.0" y1="100" x2="582.0" y2="808" stroke="#222" stroke-width="1"/>
+<text x="582.0" y="822" fill="#666" font-size="10" text-anchor="middle">0 km</text>
+<line x1="682.0" y1="100" x2="682.0" y2="808" stroke="#222" stroke-width="1"/>
+<text x="682.0" y="822" fill="#666" font-size="10" text-anchor="middle">0.5 km</text>
+<line x1="782.0" y1="100" x2="782.0" y2="808" stroke="#222" stroke-width="1"/>
+<text x="782.0" y="822" fill="#666" font-size="10" text-anchor="middle">1 km</text>
+<line x1="882.0" y1="100" x2="882.0" y2="808" stroke="#222" stroke-width="1"/>
+<text x="882.0" y="822" fill="#666" font-size="10" text-anchor="middle">1.5 km</text>
+<line x1="60" y1="149.4" x2="909" y2="149.4" stroke="#222" stroke-width="1"/>
+<text x="54" y="149.4" fill="#666" font-size="10" text-anchor="end">-1.5</text>
+<line x1="60" y1="249.4" x2="909" y2="249.4" stroke="#222" stroke-width="1"/>
+<text x="54" y="249.4" fill="#666" font-size="10" text-anchor="end">-1</text>
+<line x1="60" y1="349.4" x2="909" y2="349.4" stroke="#222" stroke-width="1"/>
+<text x="54" y="349.4" fill="#666" font-size="10" text-anchor="end">-0.5</text>
+<line x1="60" y1="449.4" x2="909" y2="449.4" stroke="#222" stroke-width="1"/>
+<text x="54" y="449.4" fill="#666" font-size="10" text-anchor="end">0</text>
+<line x1="60" y1="549.4" x2="909" y2="549.4" stroke="#222" stroke-width="1"/>
+<text x="54" y="549.4" fill="#666" font-size="10" text-anchor="end">0.5</text>
+<line x1="60" y1="649.4" x2="909" y2="649.4" stroke="#222" stroke-width="1"/>
+<text x="54" y="649.4" fill="#666" font-size="10" text-anchor="end">1</text>
+<line x1="60" y1="749.4" x2="909" y2="749.4" stroke="#222" stroke-width="1"/>
+<text x="54" y="749.4" fill="#666" font-size="10" text-anchor="end">1.5</text>
+<ellipse cx="-4699.2" cy="-607.7" rx="1040" ry="640" transform="rotate(-15 -4699.2 -607.7)" fill="#2a2a1e" stroke="#3a3a28"/>
+<ellipse cx="-3407.9" cy="-939.4" rx="960" ry="600" transform="rotate(-5 -3407.9 -939.4)" fill="#2a2a1e" stroke="#3a3a28"/>
+<ellipse cx="-2301.1" cy="-1160.5" rx="920" ry="520" transform="rotate(0 -2301.1 -1160.5)" fill="#2a2a1e" stroke="#3a3a28"/>
+<ellipse cx="-1286.6" cy="-1204.8" rx="840" ry="440" transform="rotate(5 -1286.6 -1204.8)" fill="#2a2a1e" stroke="#3a3a28"/>
+<ellipse cx="-364.3" cy="-1271.1" rx="640" ry="520" transform="rotate(0 -364.3 -1271.1)" fill="#2a2a1e" stroke="#3a3a28"/>
+<ellipse cx="650.3" cy="-209.6" rx="240" ry="320" transform="rotate(-20 650.3 -209.6)" fill="#2a2a1e" stroke="#3a3a28"/>
+<ellipse cx="-1655.5" cy="1426.9" rx="360" ry="300" transform="rotate(0 -1655.5 1426.9)" fill="#2a2a1e" stroke="#3a3a28"/>
+<ellipse cx="-1655.5" cy="6800.8" rx="1240" ry="920" transform="rotate(0 -1655.5 6800.8)" fill="#2a2a1e" stroke="#3a3a28"/>
+<ellipse cx="2033.8" cy="5916.2" rx="180" ry="160" transform="rotate(0 2033.8 5916.2)" fill="#2a2a1e" stroke="#3a3a28"/>
+<ellipse cx="3140.5" cy="1050.9" rx="480" ry="300" transform="rotate(0 3140.5 1050.9)" fill="#2a2a1e" stroke="#3a3a28"/>
+<path d="M1664.8,940.4 L2863.8,1161.5 L2863.8,2709.5 L1664.8,2709.5 Z" fill="#6a4a2a" fill-opacity="0.55" stroke="#6a4a2a" stroke-width="1.5"/>
+<path d="M-1194.4,984.6 L650.3,1050.9 L1019.2,3373.0 L-1194.4,3373.0 Z" fill="#4f6a5a" fill-opacity="0.55" stroke="#4f6a5a" stroke-width="1.5"/>
+<path d="M1019.2,3373.0 L3786.2,3373.0 L3786.2,6026.8 L1019.2,6026.8 Z" fill="#4f6a5a" fill-opacity="0.55" stroke="#4f6a5a" stroke-width="1.5"/>
+<path d="M-3592.4,-386.5 L96.9,-165.4 L-13.8,719.2 L-1194.4,984.6 L-2854.5,1825.0 L-3776.8,940.4 Z" fill="#4a4a4a" fill-opacity="0.55" stroke="#4a4a4a" stroke-width="1.5"/>
+<path d="M-2485.6,3151.8 L1019.2,3373.0 L1019.2,6026.8 L-1747.7,5805.6 L-2116.7,4257.6 Z" fill="#6a4a2a" fill-opacity="0.55" stroke="#6a4a2a" stroke-width="1.5"/>
+<path d="M1388.1,6026.8 L3417.2,6026.8 L3417.2,7243.1 L1388.1,7021.9 Z" fill="#4a5a78" fill-opacity="0.55" stroke="#4a5a78" stroke-width="1.5"/>
+<path d="M871.6,-165.4 L2679.4,276.9 L2679.4,1161.5 L853.2,940.4 Z" fill="#4a4a4a" fill-opacity="0.55" stroke="#4a4a4a" stroke-width="1.5"/>
+<path d="M613.4,100.0 L871.6,232.7 L853.2,829.8 L465.8,984.6 L-13.8,785.6 L96.9,365.4 Z" fill="#4a5a78" fill-opacity="0.55" stroke="#4a5a78" stroke-width="1.5"/>
+<path d="M650.3,1095.2 L1664.8,1161.5 L1664.8,1935.5 L650.3,1935.5 Z" fill="#6a4a2a" fill-opacity="0.55" stroke="#6a4a2a" stroke-width="1.5"/>
+<path d="M-1747.7,-828.8 L-87.6,-718.2 L96.9,-165.4 L-1932.2,-276.0 Z" fill="#a03a8a" fill-opacity="0.55" stroke="#a03a8a" stroke-width="1.5"/>
+<path d="M-4699.2,608.6 L-3776.8,940.4 L-2854.5,1825.0 L-2485.6,2709.5 L-2024.4,4257.6 L-1747.7,5584.5 L-2208.9,5695.0 L-2393.4,4699.9 L-2854.5,3594.1 L-3444.8,2377.8 L-4145.8,1382.7 L-4975.9,807.7 Z" fill="#6e7a80" fill-opacity="0.55" stroke="#6e7a80" stroke-width="1.5"/>
+<path d="M-456.5,6026.8 L2310.5,6026.8 L2310.5,7132.5 L650.3,7574.8 L-456.5,7796.0 Z" fill="#3a5a6a" fill-opacity="0.55" stroke="#3a5a6a" stroke-width="1.5"/>
+<path d="M281.4,299.0 L484.3,365.4 L355.1,608.6 L189.1,652.9 L96.9,498.1 Z" fill="#6a7fb0" fill-opacity="0.55" stroke="#6a7fb0" stroke-width="1.5"/>
+<path d="M521.2,299.0 L687.2,343.3 L650.3,498.1 L521.2,476.0 Z" fill="#8c8c9c" fill-opacity="0.55" stroke="#8c8c9c" stroke-width="1.5"/>
+<path d="M447.4,431.7 L576.5,476.0 L447.4,719.2 L318.2,675.0 Z" fill="#b04ad0" fill-opacity="0.55" stroke="#b04ad0" stroke-width="1.5"/>
+<path d="M687.2,453.8 L853.2,498.1 L834.7,940.4 L650.3,874.0 Z" fill="#7a5a3a" fill-opacity="0.55" stroke="#7a5a3a" stroke-width="1.5"/>
+<path d="M-2854.5,2643.2 L-1932.2,2643.2 L-1932.2,3151.8 L-2854.5,3151.8 Z" fill="#3a6a8a" fill-opacity="0.55" stroke="#3a6a8a" stroke-width="1.5"/>
+<path d="M576.5,453.8 L742.5,464.9 L724.1,586.5 L576.5,575.5 Z" fill="#d0457a" fill-opacity="0.55" stroke="#d0457a" stroke-width="1.5"/>
+<path d="M2642.5,4611.4 L2937.6,4611.4 L2937.6,4854.7 L2642.5,4854.7 Z" fill="#c06a3a" fill-opacity="0.55" stroke="#c06a3a" stroke-width="1.5"/>
+<path d="M-5990.4,719.2 L-5621.5,719.2 L-4883.6,807.7 L-4422.5,1050.9 L-4108.9,1382.7 L-3813.7,1714.4 L-3592.4,2046.1 L-3371.0,2355.7 L-3223.4,2643.2 L-3002.1,3151.8 L-2799.2,3594.1 L-2540.9,4147.0 L-2319.6,4699.9 L-2153.6,5142.2 L-2153.6,5584.5 L-2245.8,5916.2 L-2485.6,6247.9 L-2743.8,6690.2 L-2485.6,7243.1 L-1932.2,7685.4 L-1378.8,7906.5 L-641.0,8017.1 L-179.8,8017.1 L281.4,7906.5 L650.3,7574.8 L1203.7,7243.1 L1664.8,7021.9 L2126.0,6867.1 L2771.6,7132.5 L3232.8,7464.2 L3970.6,8017.1 L4339.6,8459.4 L4524.0,8680.5 L4524.0,10449.7 L-7835.0,10449.7 L-7835.0,719.2 Z" fill="#0c1a26" stroke="#2a4a66" stroke-width="1"/>
+<path d="M-87.6,-1824.0 L650.3,-607.7 L871.6,55.8 L853.2,719.2 L834.7,1382.7 L1480.4,2156.7 L1757.1,3151.8 L1757.1,4478.7 L1295.9,5805.6 L1295.9,6800.8" fill="none" stroke="#3a6a8a" stroke-width="22" stroke-linejoin="round"/>
+<path d="M-4016.6,1349.5 L-3223.4,1095.2 L-2301.1,918.2 L-1747.7,874.0 L-1009.9,785.6 L-272.0,719.2 L96.9,829.8 L558.1,1006.7 L1019.2,1050.9 L1572.6,829.8 L2310.5,166.3" fill="none" stroke="#e0a040" stroke-opacity="0.75" stroke-width="14" stroke-linejoin="round"/>
+<text x="-272.0" y="719.2" fill="#e0a040" font-size="10" dx="4">I-10</text>
+<path d="M465.8,55.8 L244.5,365.4 L41.6,719.2 L4.7,1050.9 L-106.0,1825.0 L-106.0,3151.8 L-198.2,4478.7 L-272.0,6026.8 L-179.8,7353.7" fill="none" stroke="#e0a040" stroke-opacity="0.75" stroke-width="16" stroke-linejoin="round"/>
+<text x="-106.0" y="1825.0" fill="#e0a040" font-size="10" dx="4">I-110</text>
+<path d="M-1747.7,-1713.4 L-1378.8,-1271.1 L-1009.9,-607.7 L-364.3,-276.0 L465.8,55.8 L834.7,321.1 L1111.4,608.6" fill="none" stroke="#e0a040" stroke-opacity="0.75" stroke-width="14" stroke-linejoin="round"/>
+<text x="-364.3" y="-276.0" fill="#e0a040" font-size="10" dx="4">US-101</text>
+<path d="M-3592.4,-1934.6 L-3131.2,55.8 L-2762.3,940.4 L-2301.1,1825.0 L-1932.2,2709.5 L-1747.7,3151.8 L-1194.4,4036.4 L-272.0,4699.9 L1019.2,5252.7 L2310.5,5473.9 L3232.8,5805.6 L4155.1,6247.9" fill="none" stroke="#e0a040" stroke-opacity="0.75" stroke-width="16" stroke-linejoin="round"/>
+<text x="-1194.4" y="4036.4" fill="#e0a040" font-size="10" dx="4">I-405</text>
+<path d="M96.9,-1271.1 L465.8,-607.7 L1019.2,55.8 L1203.7,719.2 L1572.6,1095.2 L2494.9,1825.0 L3232.8,2488.4 L4155.1,3151.8" fill="none" stroke="#e0a040" stroke-opacity="0.75" stroke-width="14" stroke-linejoin="round"/>
+<text x="1572.6" y="1095.2" fill="#e0a040" font-size="10" dx="4">I-5</text>
+<path d="M-2116.7,3151.8 L-87.6,3151.8 L1388.1,3373.0 L2863.8,3594.1 L4155.1,3704.7" fill="none" stroke="#e0a040" stroke-opacity="0.75" stroke-width="14" stroke-linejoin="round"/>
+<text x="1388.1" y="3373.0" fill="#e0a040" font-size="10" dx="4">I-105</text>
+<path d="M1941.5,166.3 L1941.5,1050.9 L1941.5,2709.5 L1572.6,4257.6 L1295.9,6026.8 L1388.1,6690.2" fill="none" stroke="#e0a040" stroke-opacity="0.75" stroke-width="14" stroke-linejoin="round"/>
+<text x="1572.6" y="4257.6" fill="#e0a040" font-size="10" dx="4">I-710</text>
+<path d="M-5252.5,752.4 L-4865.2,840.8 L-4394.8,1084.1 L-4075.7,1409.2 L-3786.1,1736.5 L-3561.0,2063.8 L-3337.8,2366.8 L-3190.2,2654.3 L-2968.9,3156.3 L-2762.3,3598.6 L-2504.0,4147.0 L-2282.7,4695.5 L-2116.7,5131.1 L-2113.0,5573.4 L-2162.8,5849.8" fill="none" stroke="#c8d0d8" stroke-width="25" stroke-linejoin="round"/>
+<text x="-3190.2" y="2654.3" fill="#c8d0d8" font-size="11" dx="-8" text-anchor="end">Sepulveda Sea Wall (90 m)</text>
+<path d="M-364.3,7840.2 L244.5,7840.2 L631.8,7508.5 L1185.2,7187.8 L1655.6,6966.6 L2126.0,6822.9 L2790.1,7088.3 L3251.2,7420.0 L3989.1,7972.9" fill="none" stroke="#c8d0d8" stroke-width="21" stroke-linejoin="round"/>
+<text x="1655.6" y="6966.6" fill="#c8d0d8" font-size="11" dx="-8" text-anchor="end">Harbor Sea Wall (southern continuation) (75 m)</text>
+<text x="481.2" y="549.7" fill="#fff" fill-opacity="0.85" font-size="10" text-anchor="middle">Downtown Megablocks · S4</text>
+<text x="281.4" y="484.8" fill="#fff" fill-opacity="0.85" font-size="10" text-anchor="middle">Financial District Megatowers · S3</text>
+<text x="594.9" y="404.1" fill="#fff" fill-opacity="0.85" font-size="10" text-anchor="middle">Civic Center (LAPD HQ) · S5</text>
+<text x="654.9" y="520.2" fill="#fff" fill-opacity="0.85" font-size="10" text-anchor="middle">Little Tokyo Night Market · S2</text>
+<text x="447.4" y="575.5" fill="#fff" fill-opacity="0.85" font-size="10" text-anchor="middle">Broadway Neon Canyon · S6</text>
+<text x="756.3" y="691.6" fill="#fff" fill-opacity="0.85" font-size="10" text-anchor="middle">Arts District Works · S9</text>
+<text x="1157.6" y="1531.9" fill="#fff" fill-opacity="0.85" font-size="10" text-anchor="middle">Wallace Corporation Precinct (Vernon) · S7</text>
+<text x="2264.3" y="1880.2" fill="#fff" fill-opacity="0.85" font-size="10" text-anchor="middle">Southeast Refinery Belt · S15</text>
+<text x="-179.8" y="2195.4" fill="#fff" fill-opacity="0.85" font-size="10" text-anchor="middle">South LA Megablocks · S12</text>
+<text x="2402.7" y="4699.9" fill="#fff" fill-opacity="0.85" font-size="10" text-anchor="middle">Lakewood / Downey Megablocks · S11</text>
+<text x="2790.1" y="4733.1" fill="#fff" fill-opacity="0.85" font-size="10" text-anchor="middle">K&#39;s Megablock · S8</text>
+<text x="-1889.2" y="652.9" fill="#fff" fill-opacity="0.85" font-size="10" text-anchor="middle">Westside Sprawl (Mid-Wilshire to Culver) · S13</text>
+<text x="-917.7" y="-497.1" fill="#fff" fill-opacity="0.85" font-size="10" text-anchor="middle">Hollywood Entertainment Strip · S16</text>
+<text x="-3134.3" y="2873.6" fill="#fff" fill-opacity="0.85" font-size="10" text-anchor="middle">Grey Coast (behind the Sea Wall) · S10</text>
+<text x="-2393.4" y="2897.5" fill="#fff" fill-opacity="0.85" font-size="10" text-anchor="middle">LAX Off-World Spaceport · S17</text>
+<text x="-862.3" y="4523.0" fill="#fff" fill-opacity="0.85" font-size="10" text-anchor="middle">South Bay Refineries · S18</text>
+<text x="871.6" y="6911.4" fill="#fff" fill-opacity="0.85" font-size="10" text-anchor="middle">Harbor &amp; Container Port · S19</text>
+<text x="2402.7" y="6579.6" fill="#fff" fill-opacity="0.85" font-size="10" text-anchor="middle">Long Beach Secondary Core · S20</text>
+<text x="1770.9" y="553.4" fill="#fff" fill-opacity="0.85" font-size="10" text-anchor="middle">East LA Sprawl · S21</text>
+<rect x="1068.1" y="1173.2" width="640" height="640" transform="rotate(0 1388.1 1493.2)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<circle cx="1388.1" cy="1493.2" r="2.5" fill="#ff9a2e"/>
+<text x="1388.1" y="1493.2" dx="6" dy="-4" fill="#ffcf8a" font-size="11">Wallace Corporation Earth Headquarters (3500 m)</text>
+<rect x="1481.3" y="904.4" width="72" height="72" transform="rotate(0 1517.3 940.4)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<circle cx="1517.3" cy="940.4" r="2.5" fill="#ff9a2e"/>
+<text x="1517.3" y="940.4" dx="6" dy="-4" fill="#ffcf8a" font-size="11">Wallace Tower A (1400 m)</text>
+<rect x="1687.2" y="1880.4" width="66" height="66" transform="rotate(0 1720.2 1913.4)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<circle cx="1720.2" cy="1913.4" r="2.5" fill="#ff9a2e"/>
+<text x="1720.2" y="1913.4" dx="6" dy="-4" fill="#ffcf8a" font-size="11">Wallace Tower B (1250 m)</text>
+<rect x="841.6" y="2016.1" width="60" height="60" transform="rotate(0 871.6 2046.1)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<circle cx="871.6" cy="2046.1" r="2.5" fill="#ff9a2e"/>
+<text x="871.6" y="2046.1" dx="6" dy="-4" fill="#ffcf8a" font-size="11">Wallace Tower C (1100 m)</text>
+<rect x="560.0999999999999" y="446" width="14.4" height="20" transform="rotate(38 567.3 456.0)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<circle cx="567.3" cy="456.0" r="2.5" fill="#ff9a2e"/>
+<text x="567.3" y="456.0" dx="6" dy="-4" fill="#ffcf8a" font-size="11">LAPD Headquarters (2049) (216 m)</text>
+<rect x="596" y="411.7" width="9" height="9" transform="rotate(38 600.5 416.2)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<circle cx="600.5" cy="416.2" r="2.5" fill="#ff9a2e"/>
+<text x="600.5" y="416.2" dx="6" dy="-4" fill="#ffcf8a" font-size="11">Old City Hall (heritage) (138 m)</text>
+<rect x="347.3" y="447.40000000000003" width="15.6" height="12.8" transform="rotate(38 355.1 453.8)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<circle cx="355.1" cy="453.8" r="2.5" fill="#ff9a2e"/>
+<text x="355.1" y="453.8" dx="6" dy="-4" fill="#ffcf8a" font-size="11">Megatower 1 (420 m)</text>
+<rect x="292.8" y="508.79999999999995" width="14" height="14" transform="rotate(38 299.8 515.8)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<circle cx="299.8" cy="515.8" r="2.5" fill="#ff9a2e"/>
+<text x="299.8" y="515.8" dx="6" dy="-4" fill="#ffcf8a" font-size="11">Megatower 2 (360 m)</text>
+<rect x="418.59999999999997" y="386.09999999999997" width="13.2" height="11.6" transform="rotate(38 425.2 391.9)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<circle cx="425.2" cy="391.9" r="2.5" fill="#ff9a2e"/>
+<text x="425.2" y="391.9" dx="6" dy="-4" fill="#ffcf8a" font-size="11">Megatower 3 (330 m)</text>
+<rect x="242" y="567.0999999999999" width="12.4" height="12.4" transform="rotate(38 248.2 573.3)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<circle cx="248.2" cy="573.3" r="2.5" fill="#ff9a2e"/>
+<text x="248.2" y="573.3" dx="6" dy="-4" fill="#ffcf8a" font-size="11">Megatower 4 (300 m)</text>
+<rect x="296.1" y="343.9" width="14.8" height="12" transform="rotate(38 303.5 349.9)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<circle cx="303.5" cy="349.9" r="2.5" fill="#ff9a2e"/>
+<text x="303.5" y="349.9" dx="6" dy="-4" fill="#ffcf8a" font-size="11">Megatower 5 (385 m)</text>
+<rect x="349.1" y="625.1999999999999" width="12" height="11.2" transform="rotate(38 355.1 630.8)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<circle cx="355.1" cy="630.8" r="2.5" fill="#ff9a2e"/>
+<text x="355.1" y="630.8" dx="6" dy="-4" fill="#ffcf8a" font-size="11">Megatower 6 (280 m)</text>
+<rect x="2767.1" y="4724.6" width="46" height="17" transform="rotate(0 2790.1 4733.1)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<circle cx="2790.1" cy="4733.1" r="2.5" fill="#ff9a2e"/>
+<text x="2790.1" y="4733.1" dx="6" dy="-4" fill="#ffcf8a" font-size="11">K&#39;s Apartment Megabuilding (185 m)</text>
+<rect x="-2717.9" y="2765.3" width="520" height="260" transform="rotate(0 -2457.9 2895.3)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<circle cx="-2457.9" cy="2895.3" r="2.5" fill="#ff9a2e"/>
+<text x="-2457.9" y="2895.3" dx="6" dy="-4" fill="#ffcf8a" font-size="11">LAX Off-World Launch Gantries (420 m)</text>
+<rect x="-2534.9" y="3439.9" width="320" height="220" transform="rotate(0 -2374.9 3549.9)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<circle cx="-2374.9" cy="3549.9" r="2.5" fill="#ff9a2e"/>
+<text x="-2374.9" y="3549.9" dx="6" dy="-4" fill="#ffcf8a" font-size="11">El Segundo Refinery Flare Stacks (140 m)</text>
+<circle cx="646.6" cy="515.8" r="2" fill="#29d8ff"/>
+<text x="646.6" y="515.8" dx="5" dy="12" fill="#8fe8ff" font-size="10">Bibi&#39;s Bar &amp; vending market</text>
+<circle cx="665.0" cy="526.8" r="2" fill="#29d8ff"/>
+<text x="665.0" y="526.8" dx="5" dy="12" fill="#8fe8ff" font-size="10">Noodle bar counter (enterable)</text>
+<circle cx="473.2" cy="546.7" r="2" fill="#29d8ff"/>
+<text x="473.2" y="546.7" dx="5" dy="12" fill="#8fe8ff" font-size="10">Hologram footbridge (giant pink ad)</text>
+<circle cx="504.6" cy="487.0" r="2" fill="#29d8ff"/>
+<text x="504.6" y="487.0" dx="5" dy="12" fill="#8fe8ff" font-size="10">Bradbury Building (heritage, 1982 film)</text>
+<circle cx="2790.1" cy="4733.1" r="2" fill="#29d8ff"/>
+<text x="2790.1" y="4733.1" dx="5" dy="12" fill="#8fe8ff" font-size="10">K&#39;s apartment (enterable)</text>
+<circle cx="-3168.1" cy="2576.9" r="2" fill="#29d8ff"/>
+<text x="-3168.1" y="2576.9" dx="5" dy="12" fill="#8fe8ff" font-size="10">Sea wall finale site</text>
+<circle cx="3970.6" cy="7353.7" r="2" fill="#29d8ff"/>
+<text x="3970.6" y="7353.7" dx="5" dy="12" fill="#8fe8ff" font-size="10">Southern exit toward the San Diego trash mesa (out of bounds)</text>
+<rect x="659" y="687" width="12" height="12" fill="#ff9a2e"/><text x="677" y="697" fill="#ccc" font-size="11">landmark footprint (to scale)</text>
+<rect x="659" y="703" width="12" height="12" fill="#29d8ff"/><text x="677" y="713" fill="#ccc" font-size="11">point of interest (interiors / set pieces)</text>
+<rect x="659" y="719" width="12" height="12" fill="#e0a040"/><text x="677" y="729" fill="#ccc" font-size="11">freeway trench (open corridor)</text>
+<rect x="659" y="735" width="12" height="12" fill="#c8d0d8"/><text x="677" y="745" fill="#ccc" font-size="11">sea wall</text>
+<rect x="659" y="751" width="12" height="12" fill="#3a6a8a"/><text x="677" y="761" fill="#ccc" font-size="11">LA River channel</text>
+<rect x="659" y="767" width="12" height="12" fill="#2a2a1e"/><text x="677" y="777" fill="#ccc" font-size="11">hills (gaussian height bumps)</text>
+<line x1="60" y1="844" x2="260" y2="844" stroke="#ccc" stroke-width="3"/><text x="60" y="860" fill="#ccc" font-size="11">1 km</text>
+<text x="909" y="90" fill="#ccc" font-size="14" text-anchor="end">N ↑</text>
+</svg>
