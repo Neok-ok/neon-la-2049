@@ -42,6 +42,15 @@ export class UI {
     }
     this.nextBtn = button('Next shot ▸', () => cb.nextShot());
     this.bar.appendChild(this.nextBtn);
+    // secondary controls collapse behind a toggle on phones / narrow screens
+    const more = document.createElement('div');
+    more.className = 'more';
+    const moreBtn = button('⋯', () => this.bar.classList.toggle('open'));
+    moreBtn.className = 'more-toggle';
+    moreBtn.title = 'More settings';
+    this.bar.appendChild(moreBtn);
+    this.bar.appendChild(more);
+    if (matchMedia('(pointer: coarse)').matches) this.bar.classList.add('touch');
 
     this.qualitySel = document.createElement('select');
     this.qualitySel.title = 'Quality';
@@ -49,7 +58,7 @@ export class UI {
     for (const t of TIERS) this.qualitySel.appendChild(new Option(t[0].toUpperCase() + t.slice(1), t));
     this.qualitySel.value = opts.quality;
     this.qualitySel.addEventListener('change', () => cb.setQuality(this.qualitySel.value as Tier | 'auto'));
-    this.bar.appendChild(this.qualitySel);
+    more.appendChild(this.qualitySel);
 
     const weatherSel = document.createElement('select');
     weatherSel.title = 'Weather (changes on its own; pick to force)';
@@ -59,7 +68,7 @@ export class UI {
       if (weatherSel.value) cb.setWeather(weatherSel.value as WeatherId);
       weatherSel.value = '';
     });
-    this.bar.appendChild(weatherSel);
+    more.appendChild(weatherSel);
 
     const timeSel = document.createElement('select');
     timeSel.title = 'Jump to time of day';
@@ -69,17 +78,17 @@ export class UI {
       if (timeSel.value) cb.setTime(Number(timeSel.value));
       timeSel.value = '';
     });
-    this.bar.appendChild(timeSel);
+    more.appendChild(timeSel);
 
     this.soundBtn = button('Sound: on', () => {
       const on = cb.toggleSound();
       this.soundBtn.textContent = `Sound: ${on ? 'on' : 'off'}`;
     });
-    this.bar.appendChild(this.soundBtn);
-    this.bar.appendChild(button('HUD', () => cb.toggleHUD()));
+    more.appendChild(this.soundBtn);
+    more.appendChild(button('HUD', () => cb.toggleHUD()));
     const help = button('?', () => this.showHelp());
     help.title = 'Controls';
-    this.bar.appendChild(help);
+    more.appendChild(help);
 
     if (opts.showTitle) this.showTitle();
   }
@@ -108,7 +117,7 @@ export class UI {
   showHelp(): void {
     this.flash(
       'Fly: WASD thrust · mouse/arrow keys steer · Space/E up · C/Q down · Shift boost · V cockpit<br/>' +
-        'Walk: WASD · mouse look · Shift run<br/>1 Fly · 2 Walk · 3 Cinematic · F toggle fly/walk · N next shot · H HUD · M mute · [ ] time speed',
+        'Walk: WASD · mouse look · Shift run<br/>1 Fly · 2 Walk · 3 Cinematic · F toggle fly/walk · N next shot · H HUD · M mute · [ ] time −/+1 h · B next weather',
       7000,
     );
   }

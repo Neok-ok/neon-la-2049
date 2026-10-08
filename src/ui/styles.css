@@ -93,7 +93,13 @@ canvas#view { position: fixed; inset: 0; width: 100vw; height: 100dvh; display: 
 }
 .fly-buttons { position: absolute; right: calc(160px + env(safe-area-inset-right)); bottom: calc(96px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 8px; pointer-events: auto; }
 .tbtn { width: 54px; height: 44px; border-radius: 10px; border: 1px solid rgba(255,154,46,0.6); background: rgba(0,0,0,0.4); color: #fff; font-size: 18px; touch-action: none; }
-@media (max-width: 520px) {
+.toolbar .more { display: contents; }
+.toolbar .more-toggle { display: none; }
+.toolbar.touch { bottom: auto; top: max(8px, env(safe-area-inset-top)); }
+@media (max-width: 760px), (pointer: coarse) {
   .toolbar { gap: 4px; padding: 4px; }
-  .toolbar button, .toolbar select { padding: 7px 7px; font-size: 10px; }
+  .toolbar button, .toolbar select { padding: 7px 8px; font-size: 10px; }
+  .toolbar .more-toggle { display: inline-block; }
+  .toolbar .more { display: none; width: 100%; gap: 4px; flex-wrap: wrap; justify-content: center; }
+  .toolbar.open .more { display: flex; }
 }
