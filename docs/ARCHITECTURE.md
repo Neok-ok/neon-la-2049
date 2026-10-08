@@ -24,7 +24,9 @@ src/
     detail/registry.ts     main-thread LOD0 street-detail modules (lamps, props...)
     materials/             node materials: city fabric, neon signs, ocean, LUT helper
     landmarks/             hand-built landmark generators + sea walls + beacons + flares
-    CityQuery.ts           collision / ground / "where am I" queries (regenerates fabric on demand, LRU cached)
+    CityQuery.ts           collision / ground / "where am I". Frame loop reads a worker-filled LRU; cold calls still generate on the main thread
+    query.worker.ts        packs colliders + block records for CityQuery
+    queryPack.ts           shared collider filter (worker and main thread)
   districts/
     fabric-index.ts        worker-side registry entry: imports every archetype module
     detail-index.ts        main-thread registry entry: imports every detail module
@@ -163,17 +165,21 @@ All controllers implement `Controller { enter(pose), exit(), update(dt), pose() 
 | Post | none (bloom is high/ultra only) |
 
 New district stages must keep a LOD0 chunk under ~40 k triangles and ~4 draw calls (fabric + signs + ≤ 2 detail batches),
-or add their own LOD rules.
+or add their own LOD rules. Little Tokyo is the documented exception: a dressed chunk adds kit opaque, an optional
+fade pass, steam and neon pools (about four detail draws). Props are capped per tier. The acceptance test is still
+the global medium budget, not the two-batch guide.
 
 ## URL parameters and debug API
 
 `?mode=fly|walk|cine &at=<landmark|poi id> &x= &y= &z= &yaw=° &pitch=° &time=0–24 &weather=<id> &quality=low|medium|high|ultra
-&webgl=1 &hud=1 &ui=0 &freeze=1 &touch=1`
+&webgl=1 &hud=1 &ui=0 &freeze=1 &touch=1 &refl=0|1`
 
 `window.__nla` (console and automation): `isIdle()`, `setMode(m)`, `setPose(x,y,z,yaw°,pitch°)`, `streetView(idOrX, z?, along?)`,
-`setTime(h)`, `setWeather(id)`, `cut()`, `holdShot(on)`, `stats()`, `geoToLocal(lat,lon)`, `app`.
+`marketView('street'|'interior'|'crowd'|'roof'|'bibi')`, `setTime(h)`, `setWeather(id)`, `cut()`, `holdShot(on)`, `stats()`,
+`geoToLocal(lat,lon)`, `app`. `stats()` includes draw calls, triangles, crowd count and query-worker counters.
 
-Keys: `1/2/3` fly/walk/cinematic, `F` toggle fly↔walk, `V` cockpit, `N` next shot, `H` HUD, `M` mute, `[ ]` time −/+ 1 h, `B` next weather.
+Keys: `1/2/3` fly/walk/cinematic, `F` toggle fly↔walk, `V` cockpit, `E` sit / stand at a market stool (walk mode; in fly mode `E` is still up),
+`N` next shot, `H` HUD, `M` mute, `[ ]` time −/+ 1 h, `B` next weather. The iPhone joystick has no sit button.
 
 ## Testing
 
@@ -184,8 +190,9 @@ Keys: `1/2/3` fly/walk/cinematic, `F` toggle fly↔walk, `V` cockpit, `N` next s
 
 ## Known technical debts
 
-* `CityQuery` regenerates fabric on the main thread (≈ 5–40 ms per 500 m cell, LRU 48 cells). Fast walking/flying into a new cell can hitch.
-  A worker-side collision service is a candidate for the performance stage.
+* Frame-loop collision reads worker cells. A miss that frame does not collide (the cell is queued). `fabricAt`, `findStreetSpot` and cinematic
+  solid-checks still call `generateFabric` on the main thread, and a dressed Little Tokyo cell is about 30 ms. Do not call `fabricAt` from the frame loop.
+* The crowd walk is a foot slide, not a skeleton. Umbrellas are on or off per person, not a hand-held prop with a grip.
 * Fabric windows are procedural. Interiors behind windows (parallax interior mapping) are not yet implemented.
 * No shadows (night-first look). Daytime sun shadows would need cascaded shadow maps on high/ultra.
 * The WebGL2 fallback has no reversed-Z (it breaks the MSAA depth blit), so the near plane adapts to altitude instead.

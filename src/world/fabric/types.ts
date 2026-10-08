@@ -14,6 +14,8 @@ export const Style = {
   Civic: 7,
   Sprawl: 8,
   Neon: 9,
+  /** Flat stained wall, no windows. Interiors, counters, shutters. */
+  Solid: 10,
 } as const;
 export type StyleId = (typeof Style)[keyof typeof Style];
 
@@ -129,6 +131,8 @@ export interface FabricCtx {
     h: number,
     color: number,
     kind: SignKind,
+    /** Overrides the random seed so a sign can target a known atlas cell. */
+    seed?: number,
   ): void;
 }
 

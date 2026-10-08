@@ -97,6 +97,24 @@ registerDetail('little-tokyo-stalls', ['little-tokyo-market'], (ctx) => {
 * Use `_shared/streetLamps.ts` as the reference. If your district wants its own lamps, add the id to its `NO_LAMPS` set.
 * Then add the import to `src/districts/detail-index.ts`.
 
+### The street kit (copy this, do not fork it)
+
+Stage 2 put the reusable pieces in `src/districts/_shared/kit/`:
+
+| File | What it is |
+|---|---|
+| `templates.ts` | Unit meshes: `box`, `awning` (local +Z sticks out of the wall), `canopy`, `cyl` (Y-up), `quadY`, `quadZ`, `stool`. `getTemplate(id)`. |
+| `batch.ts` | `KitInstance` + `buildKitMeshes()`. One mesh per pass (`opaque`, `fade`, `add`). Yaw maps local +Z onto the facade normal (`atan2(nx, nz)`). Pitch is applied in local X after yaw, so a cylinder with pitch `π/2` lies along local −Z. |
+| `materials.ts` | Shared node materials. Do not clone them per chunk. `getSteamMaterial()` reads `iSteam.x` as a seed. `getPoolMaterial()` reads `iLight` as rgb + intensity and fades with `U.reflMix` when the planar mirror is on. |
+
+A prop is a `KitInstance` plus a `rank`. Rank 0 always draws. Rank 1 needs `quality.detailScale ≥ 0.45` (medium and up). Rank 2 needs `≥ 0.75` (high/ultra). Rank 3 needs `≥ 0.95` (ultra). Give each chunk a hard cap and stride through the list so you do not delete only the last blocks.
+
+Little Tokyo's pure dresser (`src/districts/little-tokyo-market/dress.ts`) is the pattern for "the collision boxes and the props are the same function": the archetype emits `dressBlock().boxes/signs`, and `details.ts` emits `dressBlock().props/steam/pools`. The module must stay free of `three` and DOM. `import type` from the kit is not enough if a value import sneaks in — keep the prop struct in the dresser file, as `MarketProp` does.
+
+Sign copy lives in `src/world/materials/signPhrases.ts` (64 cells). `phraseSeed(i)` is the sign seed that samples cell `i`. Pass it as the optional last argument of `ctx.sign`. Tall signs (`h > w`) turn the cell so the line runs the long way.
+
+Crowds, stools-you-can-sit-on, the market bed and the wet reflector are still app-level. The second dressed district should promote them to a registry instead of editing `App.ts` again.
+
 ## 5. Landmarks and POIs
 
 Unique buildings belong in `landmarks[]` (with `reserveRadius` so the fabric leaves room) and get a builder registered with

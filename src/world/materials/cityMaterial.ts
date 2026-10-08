@@ -13,13 +13,13 @@ const {
 } = T;
 
 // Per-style tables, indexed by Style id (src/world/fabric/types.ts)
-//                     ground  mega  office indus market coast resid civic sprawl neon
-const CELL_W = [1, 3.6, 2.2, 9.0, 3.2, 5.0, 3.2, 6.0, 3.4, 3.0];
-const CELL_H = [1, 3.6, 4.0, 7.0, 3.2, 3.4, 3.1, 5.5, 3.2, 3.4];
-const WIN_W = [0, 0.55, 0.7, 0.3, 0.6, 0.35, 0.5, 0.25, 0.45, 0.6];
-const WIN_H = [0, 0.45, 0.5, 0.25, 0.5, 0.35, 0.45, 0.2, 0.45, 0.5];
-const ALBEDO = [0.06, 0.2, 0.15, 0.2, 0.24, 0.3, 0.22, 0.3, 0.25, 0.17];
-const WARMTH = [0, 0.55, 0.25, 0.7, 0.9, 0.5, 0.75, 0.3, 0.8, 0.6];
+//                     ground  mega  office indus market coast resid civic sprawl neon  solid
+const CELL_W = [1, 3.6, 2.2, 9.0, 3.2, 5.0, 3.2, 6.0, 3.4, 3.0, 4.0];
+const CELL_H = [1, 3.6, 4.0, 7.0, 3.2, 3.4, 3.1, 5.5, 3.2, 3.4, 3.2];
+const WIN_W = [0, 0.55, 0.7, 0.3, 0.6, 0.35, 0.5, 0.25, 0.45, 0.6, 0];
+const WIN_H = [0, 0.45, 0.5, 0.25, 0.5, 0.35, 0.45, 0.2, 0.45, 0.5, 0];
+const ALBEDO = [0.06, 0.2, 0.15, 0.2, 0.24, 0.3, 0.22, 0.3, 0.25, 0.17, 0.14];
+const WARMTH = [0, 0.55, 0.25, 0.7, 0.9, 0.5, 0.75, 0.3, 0.8, 0.6, 0.45];
 
 let shared: MeshStandardNodeMaterial | null = null;
 
@@ -120,7 +120,8 @@ export function getCityMaterial(): MeshStandardNodeMaterial {
   const darken = mix(1.0, 0.55, wet.mul(isGround.add(isRoof).min(1)).add(wet.mul(isWall).mul(0.35)));
   baseColor = baseColor.mul(darken);
   const neonRefl = neonCol.mul(fres).mul(wet).mul(puddle.mul(0.75).add(0.25)).mul(streaks.mul(0.6).add(0.4))
-    .mul(U.night.mul(0.8).add(0.2)).mul(U.signPower).mul(neonAmt).mul(smoothstep(120.0, 500.0, distCam).oneMinus()).mul(0.9);
+    .mul(U.night.mul(0.8).add(0.2)).mul(U.signPower).mul(neonAmt).mul(smoothstep(140.0, 520.0, distCam).oneMinus())
+    .mul(mix(float(1.15), float(0.4), U.reflMix));
 
   const upness = clamp(normalLocal.y, 0, 1);
   const snowAmt = U.snow.mul(smoothstep(0.55, 0.95, upness)).mul(

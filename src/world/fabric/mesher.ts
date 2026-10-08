@@ -39,6 +39,7 @@ const SPRAWL_LIGHTS: Record<string, number> = {
   'sprawl-dense': 1,
   'megablock-residential': 0.8,
   'street-market': 1,
+  'little-tokyo-market': 1,
   'neon-canyon': 1,
   entertainment: 1,
   'coastal-grey': 0.25,
@@ -52,6 +53,7 @@ const SPRAWL_LIGHTS: Record<string, number> = {
 /** How strongly wet streets reflect neon, by archetype (0..1). */
 const STREET_NEON: Record<string, number> = {
   'street-market': 1,
+  'little-tokyo-market': 1,
   'neon-canyon': 1,
   entertainment: 1,
   'megablock-market': 0.8,

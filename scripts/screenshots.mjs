@@ -22,6 +22,8 @@ const iphone = {
     'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
 };
 
+const only = new Set((process.env.ONLY ?? '').split(',').map((s) => s.trim()).filter(Boolean));
+
 const shots = [
   // above Little Tokyo / Bunker Hill looking south-east over downtown toward the Wallace pyramid
   { name: 'fly-downtown', ctx: desktop, q: `mode=fly&x=-900&y=330&z=-900&yaw=140&pitch=-9&time=21.5&weather=rain&${common}` },
@@ -33,6 +35,15 @@ const shots = [
   { name: 'iphone-fly', ctx: iphone, q: `mode=fly&at=lapd-hq&time=21&weather=rain&freeze=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}` },
   // daytime smog toward the pyramid
   { name: 'day-smog-pyramid', ctx: desktop, q: `mode=fly&at=wallace-pyramid&time=15&weather=smog&${common}` },
+  // Stage 2 — Little Tokyo night market. Cameras come from __nla.marketView.
+  { name: 'market-street', ctx: desktop, q: `mode=walk&at=noodle-bar&time=22.5&weather=rain&${common}`, after: () => window.__nla.marketView('street') },
+  { name: 'market-roof', ctx: desktop, q: `mode=fly&at=noodle-bar&time=22.5&weather=rain&${common}`, after: () => window.__nla.marketView('roof') },
+  { name: 'market-interior', ctx: desktop, q: `mode=walk&at=noodle-bar&time=22.5&weather=rain&${common}`, after: () => window.__nla.marketView('interior') },
+  { name: 'market-crowd', ctx: desktop, q: `mode=walk&at=noodle-bar&time=22.5&weather=rain&${common}`, after: () => window.__nla.marketView('crowd') },
+  { name: 'market-medium', ctx: desktop, q: `mode=walk&at=noodle-bar&time=22.5&weather=rain&freeze=1&ui=0&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.marketView('street') },
+  { name: 'market-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=noodle-bar&time=22.5&weather=rain&freeze=1&ui=0&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.marketView('street') },
+  { name: 'market-low', ctx: desktop, q: `mode=walk&at=noodle-bar&time=22.5&weather=rain&freeze=1&ui=0&quality=low${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.marketView('street') },
+  { name: 'market-ultra', ctx: desktop, q: `mode=walk&at=noodle-bar&time=22.5&weather=rain&freeze=1&ui=0&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.marketView('street') },
 ];
 
 const args = GPU
@@ -41,7 +52,7 @@ const args = GPU
 const browser = await chromium.launch({ executablePath: process.env.CHROME || undefined, args, headless: true });
 
 for (const s of shots) {
-  if (process.env.ONLY && process.env.ONLY !== s.name) continue;
+  if (only.size && !only.has(s.name)) continue;
   const ctx = await browser.newContext(s.ctx);
   const page = await ctx.newPage();
   const errors = [];

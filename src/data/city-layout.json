@@ -60,7 +60,7 @@
       "id": "little-tokyo-market",
       "name": "Little Tokyo Night Market",
       "loreSector": "Sector 5 - Little Tokyo Shopping District / Bar District",
-      "archetype": "street-market",
+      "archetype": "little-tokyo-market",
       "priority": 4,
       "grid": { "bearingDeg": 38, "block": [62, 44], "street": 7 },
       "stage": 2,

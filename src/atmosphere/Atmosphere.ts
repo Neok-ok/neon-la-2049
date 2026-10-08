@@ -105,7 +105,7 @@ export class Atmosphere {
     U.time.value = elapsed % 3600;
     U.wetness.value = this.weather.wetness;
     U.snow.value = this.weather.snowCover;
-    U.fogDensity.value = w.fog;
+    U.fogDensity.value = w.fog * (1 + Number(U.streetFog.value));
     U.fogFalloff.value = 1 / w.falloff;
     U.haze.value = 0.00003 + w.fog * 0.02;
 

@@ -81,7 +81,7 @@ class Ctx implements FabricCtx {
     return b;
   }
 
-  sign(s: number, t: number, hb: number, ha: number, face: FaceDir, along: number, y: number, w: number, h: number, color: number, kind: SignKind): void {
+  sign(s: number, t: number, hb: number, ha: number, face: FaceDir, along: number, y: number, w: number, h: number, color: number, kind: SignKind, seed?: number): void {
     const bl = this.block;
     // outward normal in block space
     let ns = 0, nt = 0, ps = s, pt = t;
@@ -98,7 +98,7 @@ class Ctx implements FabricCtx {
     const nz = bl.az * ns + bl.bz * nt;
     // blade signs are perpendicular to the facade (visible down the street)
     const yaw = kind === 1 ? Math.atan2(nx, nz) + Math.PI / 2 : Math.atan2(nx, nz);
-    this.signs.push({ x, y: bl.ground + y, z, yaw, w, h, color, seed: this.rng.next(), kind });
+    this.signs.push({ x, y: bl.ground + y, z, yaw, w, h, color, seed: seed ?? this.rng.next(), kind });
   }
 }
 

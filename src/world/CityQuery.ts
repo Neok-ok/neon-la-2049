@@ -1,8 +1,13 @@
-// Main-thread spatial queries against the deterministic fabric (collision, spawn points, district lookup).
-// Uses the same pure generator as the worker, in layout-only mode, with an LRU cache of 500 m cells.
+// Spatial queries against the deterministic fabric (collision, spawn points, district lookup).
+// Hot paths (walk / fly, every frame) read an LRU of 500 m cells filled by a worker.
+// A miss does not generate on the main thread — the cell is queued and that frame has no
+// fabric collision there. fabricAt, findStreetSpot and cinematic checks still generate
+// synchronously, because they need a correct answer once rather than every frame.
 import { generateFabric } from './fabric/generator';
-import type { Box, FabricOutput } from './fabric/types';
+import type { FabricOutput } from './fabric/types';
 import { getLayout, type CityLayout, type District } from './layout';
+import { COLLIDER_STRIDE, QUERY_BLOCK_STRIDE, packQuery } from './queryPack';
+import type { QueryWorkerRequest, QueryWorkerResponse } from './query.worker';
 
 export const QUERY_CELL = 500;
 const BUCKET = 50;
@@ -18,20 +23,73 @@ export interface Collider {
   top: number;
 }
 
+export interface PackedBlock {
+  cx: number;
+  cz: number;
+  ax: number;
+  az: number;
+  la: number;
+  lb: number;
+  street: number;
+  districtIndex: number;
+  seed: number;
+  ground: number;
+}
+
 interface Cell {
-  fab: FabricOutput;
   colliders: Collider[];
   buckets: Map<number, Collider[]>;
+  blocks: PackedBlock[];
+  fab?: FabricOutput;
 }
 
-function toCollider(b: Box): Collider {
-  return { x: b.x, z: b.z, hw: b.w / 2, hd: b.d / 2, c: Math.cos(b.yaw), s: Math.sin(b.yaw), y0: b.y0, top: b.y0 + b.h };
-}
-
-/** Point in collider local space. */
 function local(cl: Collider, x: number, z: number): [number, number] {
   const dx = x - cl.x, dz = z - cl.z;
   return [dx * cl.c - dz * cl.s, dx * cl.s + dz * cl.c];
+}
+
+function collidersFrom(buf: Float32Array): Collider[] {
+  const n = buf.length / COLLIDER_STRIDE;
+  const out: Collider[] = new Array(n);
+  for (let i = 0; i < n; i++) {
+    const o = i * COLLIDER_STRIDE;
+    out[i] = {
+      x: buf[o], z: buf[o + 1], hw: buf[o + 2], hd: buf[o + 3],
+      c: buf[o + 4], s: buf[o + 5], y0: buf[o + 6], top: buf[o + 7],
+    };
+  }
+  return out;
+}
+
+function blocksFrom(buf: Float32Array): PackedBlock[] {
+  const n = buf.length / QUERY_BLOCK_STRIDE;
+  const out: PackedBlock[] = new Array(n);
+  for (let i = 0; i < n; i++) {
+    const o = i * QUERY_BLOCK_STRIDE;
+    out[i] = {
+      cx: buf[o], cz: buf[o + 1], ax: buf[o + 2], az: buf[o + 3],
+      la: buf[o + 4], lb: buf[o + 5], street: buf[o + 6],
+      districtIndex: buf[o + 7], seed: buf[o + 8], ground: buf[o + 9],
+    };
+  }
+  return out;
+}
+
+function buildBuckets(colliders: Collider[]): Map<number, Collider[]> {
+  const buckets = new Map<number, Collider[]>();
+  for (const cl of colliders) {
+    const r = Math.max(cl.hw, cl.hd) * 1.42;
+    const bx0 = Math.floor((cl.x - r) / BUCKET), bx1 = Math.floor((cl.x + r) / BUCKET);
+    const bz0 = Math.floor((cl.z - r) / BUCKET), bz1 = Math.floor((cl.z + r) / BUCKET);
+    for (let i = bx0; i <= bx1; i++)
+      for (let j = bz0; j <= bz1; j++) {
+        const k = i * 100003 + j;
+        let arr = buckets.get(k);
+        if (!arr) buckets.set(k, (arr = []));
+        arr.push(cl);
+      }
+  }
+  return buckets;
 }
 
 export class CityQuery {
@@ -39,66 +97,90 @@ export class CityQuery {
   private cells = new Map<string, Cell>();
   private extra: Collider[] = [];
   private maxCells = 48;
+  private worker: Worker | null = null;
+  private workerDead = false;
+  private busy = false;
+  private order: Array<[number, number]> = [];
+  private queued = new Set<string>();
+  private waiters = new Map<string, Array<() => void>>();
+  /** Main-thread generateFabric calls (cold path). The frame loop should stay at zero. */
+  syncCount = 0;
+  /** Last worker cell time, ms. */
+  lastQueryMs = 0;
+
+  constructor() {
+    try {
+      const w = new Worker(new URL('./query.worker.ts', import.meta.url), { type: 'module' });
+      w.onmessage = (e: MessageEvent<QueryWorkerResponse>) => this.onWorker(e.data);
+      w.onerror = () => this.killWorker();
+      this.worker = w;
+    } catch (err) {
+      console.error('query worker failed to start', err);
+      this.workerDead = true;
+    }
+  }
+
+  get pending(): number {
+    return this.order.length + (this.busy ? 1 : 0);
+  }
 
   /** Landmarks register their own coarse colliders (boxes) here. */
   addColliders(list: Array<Omit<Collider, 'c' | 's'> & { yaw: number }>): void {
     for (const b of list) this.extra.push({ ...b, c: Math.cos(b.yaw), s: Math.sin(b.yaw) });
   }
 
-  private cell(ix: number, iz: number): Cell {
-    const key = `${ix},${iz}`;
-    let c = this.cells.get(key);
-    if (c) {
-      this.cells.delete(key);
-      this.cells.set(key, c);
-      return c;
-    }
-    const fab = generateFabric(this.layout, ix * QUERY_CELL, iz * QUERY_CELL, QUERY_CELL);
-    const colliders = fab.boxes.filter((b) => b.detail <= 1 && b.w > 1.5 && b.d > 1.5).map(toCollider);
-    const buckets = new Map<number, Collider[]>();
-    for (const cl of colliders) {
-      const r = Math.max(cl.hw, cl.hd) * 1.42;
-      const bx0 = Math.floor((cl.x - r) / BUCKET), bx1 = Math.floor((cl.x + r) / BUCKET);
-      const bz0 = Math.floor((cl.z - r) / BUCKET), bz1 = Math.floor((cl.z + r) / BUCKET);
-      for (let i = bx0; i <= bx1; i++)
-        for (let j = bz0; j <= bz1; j++) {
-          const k = i * 100003 + j;
-          let arr = buckets.get(k);
-          if (!arr) buckets.set(k, (arr = []));
-          arr.push(cl);
-        }
-    }
-    c = { fab, colliders, buckets };
-    this.cells.set(key, c);
-    if (this.cells.size > this.maxCells) this.cells.delete(this.cells.keys().next().value!);
-    return c;
+  /**
+   * Fill the 3×3 cells around (x, z) before the frame loop. Waits up to 4 s, then
+   * generates the centre cell on the main thread if the worker has not answered.
+   */
+  prime(x: number, z: number): Promise<void> {
+    const ix = Math.floor(x / QUERY_CELL), iz = Math.floor(z / QUERY_CELL);
+    const jobs: Promise<void>[] = [];
+    for (let i = ix - 1; i <= ix + 1; i++)
+      for (let j = iz - 1; j <= iz + 1; j++) jobs.push(this.whenReady(i, j));
+    const timeout = new Promise<void>((resolve) => setTimeout(resolve, 4000));
+    return Promise.race([Promise.all(jobs).then(() => undefined), timeout]).then(() => {
+      if (!this.cells.has(`${ix},${iz}`)) this.cellSync(ix, iz);
+    });
   }
 
-  /** Fabric (blocks/boxes/signs) for the 500 m query cell containing (x,z). */
-  fabricAt(x: number, z: number): FabricOutput {
-    return this.cell(Math.floor(x / QUERY_CELL), Math.floor(z / QUERY_CELL)).fab;
+  /** Keep a one-cell ring around the camera, and around a point a bit ahead, in the queue. */
+  warm(x: number, z: number, ax: number, az: number): void {
+    const spots: Array<[number, number]> = [[x, z], [ax, az]];
+    for (const [px, pz] of spots) {
+      const ix = Math.floor(px / QUERY_CELL), iz = Math.floor(pz / QUERY_CELL);
+      for (let i = ix - 1; i <= ix + 1; i++)
+        for (let j = iz - 1; j <= iz + 1; j++) this.enqueue(i, j);
+    }
   }
 
-  private near(x: number, z: number, r: number, cb: (c: Collider) => void): void {
-    const i0 = Math.floor((x - r - 300) / QUERY_CELL), i1 = Math.floor((x + r + 300) / QUERY_CELL);
-    const j0 = Math.floor((z - r - 300) / QUERY_CELL), j1 = Math.floor((z + r + 300) / QUERY_CELL);
-    const seen = new Set<Collider>();
-    const bx0 = Math.floor((x - r) / BUCKET), bx1 = Math.floor((x + r) / BUCKET);
-    const bz0 = Math.floor((z - r) / BUCKET), bz1 = Math.floor((z + r) / BUCKET);
+  /** Blocks already in the cache near (x, z). Does not generate. */
+  cachedBlocks(x: number, z: number, r: number): PackedBlock[] {
+    const out: PackedBlock[] = [];
+    const i0 = Math.floor((x - r) / QUERY_CELL), i1 = Math.floor((x + r) / QUERY_CELL);
+    const j0 = Math.floor((z - r) / QUERY_CELL), j1 = Math.floor((z + r) / QUERY_CELL);
+    const r2 = (r + 40) * (r + 40);
     for (let i = i0; i <= i1; i++)
       for (let j = j0; j <= j1; j++) {
-        const cell = this.cell(i, j);
-        for (let a = bx0; a <= bx1; a++)
-          for (let b = bz0; b <= bz1; b++) {
-            const arr = cell.buckets.get(a * 100003 + b);
-            if (!arr) continue;
-            for (const cl of arr) if (!seen.has(cl)) { seen.add(cl); cb(cl); }
-          }
+        const cell = this.cells.get(`${i},${j}`);
+        if (!cell) continue;
+        for (const b of cell.blocks) {
+          const dx = b.cx - x, dz = b.cz - z;
+          if (dx * dx + dz * dz <= r2) out.push(b);
+        }
       }
-    for (const cl of this.extra) {
-      const rr = Math.max(cl.hw, cl.hd) * 1.42 + r;
-      if (Math.abs(cl.x - x) < rr && Math.abs(cl.z - z) < rr) cb(cl);
+    return out;
+  }
+
+  /** Fabric for the 500 m cell containing (x, z). Synchronous — cinematic and debug only. */
+  fabricAt(x: number, z: number): FabricOutput {
+    const ix = Math.floor(x / QUERY_CELL), iz = Math.floor(z / QUERY_CELL);
+    const cell = this.cellSync(ix, iz);
+    if (!cell.fab) {
+      this.syncCount++;
+      cell.fab = generateFabric(this.layout, ix * QUERY_CELL, iz * QUERY_CELL, QUERY_CELL);
     }
+    return cell.fab;
   }
 
   /** Cheap test against landmark colliders only (no fabric generation). */
@@ -123,23 +205,23 @@ export class CityQuery {
   }
 
   /** Highest solid surface under (x,z) at or below y (ground if none). */
-  floorBelow(x: number, y: number, z: number): number {
+  floorBelow(x: number, y: number, z: number, sync = false): number {
     let best = this.layout.isOcean(x, z) ? 0 : this.groundHeight(x, z);
     this.near(x, z, 0.5, (cl) => {
       if (cl.top > y + 0.01 || cl.top <= best) return;
       const [lx, lz] = local(cl, x, z);
       if (Math.abs(lx) <= cl.hw && Math.abs(lz) <= cl.hd) best = cl.top;
-    });
+    }, sync);
     return best;
   }
 
-  insideSolid(x: number, y: number, z: number, pad = 0): boolean {
+  insideSolid(x: number, y: number, z: number, pad = 0, sync = false): boolean {
     let hit = false;
     this.near(x, z, pad + 0.5, (cl) => {
       if (hit || y < cl.y0 - pad || y > cl.top + pad) return;
       const [lx, lz] = local(cl, x, z);
       if (Math.abs(lx) <= cl.hw + pad && Math.abs(lz) <= cl.hd + pad) hit = true;
-    });
+    }, sync);
     return hit;
   }
 
@@ -147,7 +229,7 @@ export class CityQuery {
    * Resolve a vertical capsule (radius r, from y to y+height) against building boxes.
    * Returns the corrected XZ position.
    */
-  resolveCircle(x: number, z: number, y: number, height: number, r: number): [number, number] {
+  resolveCircle(x: number, z: number, y: number, height: number, r: number, sync = false): [number, number] {
     for (let iter = 0; iter < 3; iter++) {
       let moved = false;
       this.near(x, z, r + 1, (cl) => {
@@ -156,7 +238,7 @@ export class CityQuery {
         const qx = Math.max(-cl.hw, Math.min(cl.hw, lx));
         const qz = Math.max(-cl.hd, Math.min(cl.hd, lz));
         let dx = lx - qx, dz = lz - qz;
-        let d2 = dx * dx + dz * dz;
+        const d2 = dx * dx + dz * dz;
         let pushX = 0, pushZ = 0;
         if (d2 > 1e-8) {
           if (d2 >= r * r) return;
@@ -164,26 +246,23 @@ export class CityQuery {
           pushX = (dx / d) * (r - d);
           pushZ = (dz / d) * (r - d);
         } else {
-          // centre inside the box: exit through the nearest face
           const ex = cl.hw - Math.abs(lx), ez = cl.hd - Math.abs(lz);
           if (ex < ez) pushX = Math.sign(lx || 1) * (ex + r);
           else pushZ = Math.sign(lz || 1) * (ez + r);
-          dx = dz = d2 = 0;
         }
-        // back to world space (inverse of local())
         x += pushX * cl.c + pushZ * cl.s;
         z += -pushX * cl.s + pushZ * cl.c;
         moved = true;
-      });
+      }, sync);
       if (!moved) break;
     }
     return [x, z];
   }
 
-  /** Nearest open street-level spot to (x,z) (spiral search). */
+  /** Nearest open street-level spot to (x,z) (spiral search). Synchronous collision. */
   findStreetSpot(x: number, z: number, maxR = 400): [number, number] {
     const ok = (px: number, pz: number) =>
-      !this.layout.isOcean(px, pz) && !this.insideSolid(px, this.groundHeight(px, pz) + 1, pz, 1.2);
+      !this.layout.isOcean(px, pz) && !this.insideSolid(px, this.groundHeight(px, pz) + 1, pz, 0.45, true);
     if (ok(x, z)) return [x, z];
     for (let r = 4; r < maxR; r += 4) {
       const n = Math.max(8, Math.floor(r / 2));
@@ -194,5 +273,137 @@ export class CityQuery {
       }
     }
     return [x, z];
+  }
+
+  private key(ix: number, iz: number): string {
+    return `${ix},${iz}`;
+  }
+
+  private touch(key: string, cell: Cell): Cell {
+    this.cells.delete(key);
+    this.cells.set(key, cell);
+    return cell;
+  }
+
+  private store(ix: number, iz: number, colliders: Collider[], blocks: PackedBlock[], fab?: FabricOutput): Cell {
+    const key = this.key(ix, iz);
+    const prev = this.cells.get(key);
+    const cell: Cell = {
+      colliders, buckets: buildBuckets(colliders), blocks,
+      fab: fab ?? prev?.fab,
+    };
+    this.touch(key, cell);
+    while (this.cells.size > this.maxCells) this.cells.delete(this.cells.keys().next().value!);
+    this.queued.delete(key);
+    const wait = this.waiters.get(key);
+    if (wait) {
+      this.waiters.delete(key);
+      for (const fn of wait) fn();
+    }
+    return cell;
+  }
+
+  private cellSync(ix: number, iz: number): Cell {
+    const key = this.key(ix, iz);
+    const hit = this.cells.get(key);
+    if (hit) return this.touch(key, hit);
+    this.syncCount++;
+    const fab = generateFabric(this.layout, ix * QUERY_CELL, iz * QUERY_CELL, QUERY_CELL);
+    const packed = packQuery(fab);
+    return this.store(ix, iz, collidersFrom(packed.colliders), blocksFrom(packed.blocks), fab);
+  }
+
+  private cellPeek(ix: number, iz: number): Cell | null {
+    const key = this.key(ix, iz);
+    const hit = this.cells.get(key);
+    if (hit) return this.touch(key, hit);
+    this.enqueue(ix, iz);
+    return null;
+  }
+
+  private enqueue(ix: number, iz: number): void {
+    const key = this.key(ix, iz);
+    if (this.cells.has(key) || this.queued.has(key)) return;
+    if (this.workerDead || !this.worker) {
+      this.cellSync(ix, iz);
+      return;
+    }
+    this.queued.add(key);
+    this.order.push([ix, iz]);
+    this.pump();
+  }
+
+  private pump(): void {
+    if (this.busy || !this.order.length || !this.worker) return;
+    const next = this.order.shift();
+    if (!next) return;
+    const [ix, iz] = next;
+    if (this.cells.has(this.key(ix, iz))) {
+      this.queued.delete(this.key(ix, iz));
+      this.pump();
+      return;
+    }
+    this.busy = true;
+    const req: QueryWorkerRequest = { id: 1, x0: ix * QUERY_CELL, z0: iz * QUERY_CELL, ix, iz };
+    this.worker.postMessage(req);
+  }
+
+  private onWorker(res: QueryWorkerResponse): void {
+    this.busy = false;
+    this.lastQueryMs = res.ms;
+    this.queued.delete(this.key(res.ix, res.iz));
+    if (!this.cells.has(this.key(res.ix, res.iz))) {
+      this.store(res.ix, res.iz, collidersFrom(res.colliders), blocksFrom(res.blocks));
+    } else {
+      const wait = this.waiters.get(this.key(res.ix, res.iz));
+      if (wait) {
+        this.waiters.delete(this.key(res.ix, res.iz));
+        for (const fn of wait) fn();
+      }
+    }
+    this.pump();
+  }
+
+  private killWorker(): void {
+    this.workerDead = true;
+    this.busy = false;
+    this.worker = null;
+    const left = this.order.splice(0);
+    this.queued.clear();
+    for (const [ix, iz] of left) if (!this.cells.has(this.key(ix, iz))) this.cellSync(ix, iz);
+  }
+
+  private whenReady(ix: number, iz: number): Promise<void> {
+    const key = this.key(ix, iz);
+    if (this.cells.has(key)) return Promise.resolve();
+    return new Promise((resolve) => {
+      let list = this.waiters.get(key);
+      if (!list) this.waiters.set(key, (list = []));
+      list.push(resolve);
+      this.enqueue(ix, iz);
+    });
+  }
+
+  private near(x: number, z: number, r: number, cb: (c: Collider) => void, sync: boolean): void {
+    const i0 = Math.floor((x - r - 300) / QUERY_CELL), i1 = Math.floor((x + r + 300) / QUERY_CELL);
+    const j0 = Math.floor((z - r - 300) / QUERY_CELL), j1 = Math.floor((z + r + 300) / QUERY_CELL);
+    const seen = new Set<Collider>();
+    const bx0 = Math.floor((x - r) / BUCKET), bx1 = Math.floor((x + r) / BUCKET);
+    const bz0 = Math.floor((z - r) / BUCKET), bz1 = Math.floor((z + r) / BUCKET);
+    for (let i = i0; i <= i1; i++)
+      for (let j = j0; j <= j1; j++) {
+        const cell = sync ? this.cellSync(i, j) : this.cellPeek(i, j);
+        if (!cell) continue;
+        for (let a = bx0; a <= bx1; a++)
+          for (let b = bz0; b <= bz1; b++) {
+            const arr = cell.buckets.get(a * 100003 + b);
+            if (!arr) continue;
+            for (const cl of arr) if (!seen.has(cl)) { seen.add(cl); cb(cl); }
+          }
+      }
+    for (const cl of this.extra) {
+      const rr = Math.max(cl.hw, cl.hd) * 1.42 + r;
+      if (Math.abs(cl.x - x) < rr && Math.abs(cl.z - z) < rr) cb(cl);
+    }
   }
 }

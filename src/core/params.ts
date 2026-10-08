@@ -1,6 +1,7 @@
 // URL parameters (handy for debugging, screenshots and sharing a view).
 //   ?mode=fly|walk|cine  &at=<landmark|poi id>  &x=&y=&z=&yaw=&pitch=  (yaw/pitch in degrees)
 //   &time=22.5  &weather=rain  &quality=low|medium|high|ultra  &webgl=1  &hud=1  &ui=0  &freeze=1  &seed=123
+//   &refl=1 forces the planar wet-street mirror; &refl=0 keeps the cheap fake pools only
 const q = new URLSearchParams(location.search);
 
 const num = (k: string): number | undefined => {
@@ -26,4 +27,6 @@ export const params = {
   ui: q.get('ui') !== '0',
   freeze: q.get('freeze') === '1',
   seed: num('seed'),
+  /** 1 force planar reflector, 0 force off, undefined = auto (high/ultra, real GPU, in the market). */
+  refl: q.get('refl') === '1' ? 1 : q.get('refl') === '0' ? 0 : undefined,
 };

@@ -129,7 +129,8 @@ Positions are in [`city-layout.json`](../src/data/city-layout.json) (`landmarks`
 ## 7. Districts — visual language
 
 All districts are in `city-layout.json` with their polygon, grid, archetype and **stage number** (the roadmap stage that builds them out
-in full detail). Heights below are the Stage 1 blockout values (see `src/districts/_shared/archetypes.ts`).
+in full detail). Heights below are the Stage 1 blockout, except Little Tokyo, which Stage 2 dresses in full
+(see [§7.1](#71-little-tokyo-night-market-stage-2)).
 
 | District (stage) | Lore sector | Palette | Materials | Signage | Typologies | Heights | Streets | Traffic |
 |---|---|---|---|---|---|---|---|---|
@@ -150,6 +151,18 @@ in full detail). Heights below are the Stage 1 blockout values (see `src/distric
 | **LAX Spaceport** (17) | Sector 12 | white floodlight, red beacons | metal, concrete apron | sparse, wayfinding | gantries, hangars, terminal | gantries 420 m | 60 m | launches, cargo |
 | **Harbor & Container Port** (19) | Sector 12 docks | sodium, rust, sea fog | steel, containers | sparse | cranes, container stacks, sheds | 10–80 m | 30 m | cargo |
 | **Long Beach Secondary Core** (20) | southern sectors | as downtown, dimmer | concrete | medium | megablocks | 60–180 m | 30 m | moderate |
+
+### 7.1 Little Tokyo night market (stage 2)
+
+The market is the reference district. Later districts copy its kit, not its layout.
+
+* **Where.** Real Little Tokyo, downtown grid bearing 38°, blocks 62 × 44 m, **7 m** streets (the lane width in the row above). The polygon is the present-day district pushed a little south and east so it sits under the film's Sector 5 shopping streets, between the Civic Center and the industrial east side. `confidence: invented` for the exact frontage mix; the place and the 7 m lanes are from the film's market streets read against the real grid.
+* **Vertical.** Shophouses are **8–18 m** (about 2–5 storeys), a few **22–40 m**. About one block in five grows a **72–112 m** tower out of a corner so the mega-structure reads as rising through the market into the smog, not as a separate campus. Those heights sit inside the district row (7–38 m, a few 55–95 m) with the towers at the top of that band and a little over it where a base has to clear the sign stack. `confidence: invented`, reasoned from the film's market-under-megablock shots.
+* **Street section.** Facade, then a **2.6 m** soffit you can walk under, awning out to about **1.6–2.2 m**, stall counters in the street (**1.5 m** deep, **1.1 m** counter), two sidewalk lanes at **2.45 m** and **3.15 m** outside the facade so neighbouring blocks do not both claim the centreline. Curb, bollards, a bin and a vending machine sit on the owned edges only (`a+` and `b+`), which is how the block avoids dressing the same street twice.
+* **The noodle bar** (`noodle-bar`, 34.0487 N, 118.2392 W) is a real recess: back wall, side walls, counter at **1.06 m**, stools at **0.75 m**, a cook behind the counter, two steam pots, a warm ceiling strip, menu signs. Eye height seated is **1.15 m**. `E` sits; walking stands you up. There is no sit control on the iPhone joystick yet. **Bibi's** (`bibis-bar`) is the same kit, shallower, a walk-up bar rather than a second interior. The names on the signs (NOODLES, HOT BROTH, KASAI, MIDORI, STEAM BAR, and the stroke-glyph lines) are invented. No film logos, no real brands.
+* **Light.** Signs are an 8×8 canvas atlas (Latin via `fillText`, kana / hangul / hanzi / devanagari as original strokes). They tint the wet street with instanced additive pools on every tier. A planar mirror (`ReflectorNode`) turns on for high/ultra on a real GPU when you are under 28 m in the market; `?refl=0` forces it off, `?refl=1` forces it on. Software renders (the screenshot VM) stay on the fake pools.
+* **People and air.** Instanced coats and lit umbrellas walk the lanes and slow down when the person ahead is inside **0.9 m**. Counts: about **56 / 160 / 340 / 680** on low / medium / high / ultra. Steam cards rise off grates and pots. High and ultra add three haze sheets near the ground. Rain streaks pick up neon while `neonWet` is high.
+* **Sound.** Rain on awnings, a murmur, stall sizzle and a distant spinner, all procedural, positional with equal-power panners, mixed into the existing ambience. No music.
 
 ## 8. Vehicles and traffic
 
