@@ -51,4 +51,4 @@ Frontage rhythm, the corner towers, the catwalk, Bibi's as a walk-up rather than
 
 ## Left for a polish pass
 
-Sign atlas contrast and the flip of tall blades, pipe and cable silhouettes, the crowd cycle, the planar mirror on a real GPU (SwiftShader screenshots do not show it), bowls and a moving cook, how the stair feels under the capsule, and the plastic sheets.
+Sign atlas contrast and the flip of tall blades, pipe and cable silhouettes, the crowd cycle (feet slide), the planar mirror on a real GPU (SwiftShader screenshots do not show it), a cook who moves, how the stair feels under the capsule, and the plastic sheets. Bowls, the soffit and the menu panels are in; they are still flat kit pieces.
