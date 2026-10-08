@@ -10,7 +10,7 @@ const { Fn, float, vec3, exp, clamp, mix, max, pow, dot, normalize, smoothstep, 
 /** Shared fog colour for a view direction: base fog + forward sun scatter + warm city under-glow. */
 const fogColorFor = (dir: any) => {
   const sunScatter = pow(max(dot(dir, U.sunDir), 0.0), 6.0).mul(U.daylight).mul(0.35);
-  const lowGlow = smoothstep(0.25, -0.05, dir.y).mul(U.night).mul(0.35);
+  const lowGlow = smoothstep(-0.05, 0.25, dir.y).oneMinus().mul(U.night).mul(0.35);
   return (U.fogColor as any).add(U.sunColor.mul(sunScatter)).add(U.fogColor.mul(lowGlow)).add(vec3(U.lightning.mul(0.5)));
 };
 
@@ -30,7 +30,7 @@ export function installSkyAndFog(scene: Scene): void {
     col = col.add(U.sunColor.mul(pow(sd, 64.0).mul(0.6).add(pow(sd, 8.0).mul(0.12))).mul(U.daylight));
     // blend into the same colour the fog converges to so geometry melts into the horizon
     const fogC = fogColorFor(dir);
-    col = mix(col, fogC, smoothstep(0.18, -0.02, up));
+    col = mix(col, fogC, smoothstep(-0.02, 0.18, up).oneMinus());
     return col.add(vec3(U.lightning.mul(0.35)));
   })();
 

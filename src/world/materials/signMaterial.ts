@@ -57,7 +57,7 @@ export function getSignMaterial(): MeshBasicNodeMaterial {
     const t = U.time;
     const band = sin(uv().y.mul(6.0).add(t.mul(0.6)).add(seed.mul(20.0))).mul(0.5).add(0.5);
     const scan = step(0.5, fract(p.y.mul(1.2).sub(t.mul(2.0)))).mul(0.25).add(0.75);
-    const shape = smoothstep(0.42, 0.38, abs(uv().x.sub(0.5).add(sin(t.mul(0.3).add(seed.mul(9.0))).mul(0.12))));
+    const shape = smoothstep(0.38, 0.42, abs(uv().x.sub(0.5).add(sin(t.mul(0.3).add(seed.mul(9.0))).mul(0.12)))).oneMinus();
     const billboard = mix(color, color2, band).mul(scan).mul(shape.mul(0.9).add(0.25));
 
     // flicker on ~8% of signs

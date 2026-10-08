@@ -73,7 +73,7 @@ export class Precipitation {
 
     m.colorNode = Fn(() => {
       const d = length(center.sub(cameraPosition));
-      const fade = smoothstep(0.5, 2.5, d).mul(smoothstep(box.x * 0.5, box.x * 0.25, d));
+      const fade = smoothstep(0.5, 2.5, d).mul(smoothstep(box.x * 0.25, box.x * 0.5, d).oneMinus());
       const base = isRain ? U.fogColor.mul(2.2).add(vec3(0.05, 0.06, 0.07)) : mix(vec3(0.75, 0.78, 0.85), U.fogColor.mul(3.0), 0.3);
       const a = isRain ? fade.mul(0.55) : fade.mul(0.85);
       return T.vec4(base.add(vec3(U.lightning)), a);

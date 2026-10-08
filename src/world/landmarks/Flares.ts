@@ -52,8 +52,8 @@ export class Flares {
     m.colorNode = Fn(() => {
       const r = length(k);
       const n = mx_noise_float(vec3(k.x.mul(2.0), k.y.mul(2.0).sub(U.time.mul(3.0)), c.x)).mul(0.5).add(0.5);
-      const core = smoothstep(1.0, 0.1, r.add(n.mul(0.35)));
-      const col = vec3(1.0, 0.45, 0.1).mul(core).add(vec3(1.0, 0.85, 0.5).mul(smoothstep(0.45, 0.0, r)));
+      const core = smoothstep(0.1, 1.0, r.add(n.mul(0.35))).oneMinus();
+      const col = vec3(1.0, 0.45, 0.1).mul(core).add(vec3(1.0, 0.85, 0.5).mul(smoothstep(0.0, 0.45, r).oneMinus()));
       const d = length(c.xyz.sub(cameraPosition));
       const att = exp(d.mul(U.fogDensity).mul(-0.35));
       return vec4(col.mul(att).mul(3.0), float(1));

@@ -51,7 +51,7 @@ export class SpinnerTraffic {
     gm.colorNode = T.Fn(() => {
       const c = T.attribute('gcol', 'vec4');
       const r = T.length(T.uv().sub(0.5)).mul(2.0);
-      const fall = T.smoothstep(1.0, 0.0, r).pow(2.5);
+      const fall = T.smoothstep(0.0, 1.0, r).oneMinus().pow(2.5);
       const d = T.length(T.positionWorld.sub(T.cameraPosition));
       const att = T.exp(d.mul(U.fogDensity).mul(-0.3));
       const strobe = T.mix(T.float(1), T.step(0.5, T.fract(U.time.mul(2.5).add(c.w))), T.step(0.5, c.w));
