@@ -1,0 +1,401 @@
+{
+  "meta": {
+    "version": 1,
+    "title": "Neon LA 2049 city layout plan",
+    "units": "meters",
+    "axes": "+X = east, +Y = up, +Z = south (three.js right-handed, north = -Z)",
+    "origin": { "lat": 34.0522, "lon": -118.2437, "note": "Downtown LA reference point (Civic Center / Pershing Sq. area)" },
+    "projection": "Equirectangular around origin: x = (lon - lon0) * 111320 * cos(lat0); z = (lat0 - lat) * 110574",
+    "worldBounds": { "north": 34.160, "south": 33.680, "west": -118.600, "east": -118.050 },
+    "seaLevel": 0,
+    "groundLevel": 0,
+    "notes": [
+      "The LA basin floor is flattened to y=0 (real DTLA sits ~90 m above sea level). Hills are added as gaussian bumps from `hills`.",
+      "Districts are resolved by priority: highest priority polygon containing a point wins. Points on land outside every polygon use `defaultDistrict`.",
+      "Freeway and river polylines reserve open corridors (no fabric) of the given width: these become the deep glowing traffic trenches.",
+      "Landmarks reserve their footprint (reserveRadius) so procedural fabric never intersects them.",
+      "See docs/BIBLE.md for the evidence and reasoning behind every number."
+    ]
+  },
+  "defaultDistrict": {
+    "id": "basin-sprawl",
+    "name": "Basin Sprawl",
+    "loreSector": "unnamed residential sectors",
+    "archetype": "basin-sprawl",
+    "grid": { "bearingDeg": 0, "block": [180, 95], "street": 16 },
+    "stage": 14
+  },
+  "districts": [
+    {
+      "id": "dtla",
+      "name": "Downtown Megablocks",
+      "loreSector": "Sector 5 / Sector 9 fringe",
+      "archetype": "megablock-downtown",
+      "priority": 2,
+      "grid": { "bearingDeg": 38, "block": [205, 125], "street": 34 },
+      "stage": 4,
+      "polygon": [[34.0680, -118.2420], [34.0620, -118.2280], [34.0350, -118.2290], [34.0280, -118.2500], [34.0370, -118.2760], [34.0560, -118.2700]]
+    },
+    {
+      "id": "financial-megatowers",
+      "name": "Financial District Megatowers",
+      "loreSector": "Sector 9 - Financial District",
+      "archetype": "megatower-core",
+      "priority": 3,
+      "grid": { "bearingDeg": 38, "block": [205, 125], "street": 38 },
+      "stage": 3,
+      "polygon": [[34.0590, -118.2600], [34.0560, -118.2490], [34.0450, -118.2560], [34.0430, -118.2650], [34.0500, -118.2700]]
+    },
+    {
+      "id": "civic-center",
+      "name": "Civic Center (LAPD HQ)",
+      "loreSector": "Sector 5 - Central District",
+      "archetype": "civic",
+      "priority": 3,
+      "grid": { "bearingDeg": 38, "block": [205, 125], "street": 40 },
+      "stage": 5,
+      "polygon": [[34.0590, -118.2470], [34.0570, -118.2380], [34.0500, -118.2400], [34.0510, -118.2470]]
+    },
+    {
+      "id": "little-tokyo-market",
+      "name": "Little Tokyo Night Market",
+      "loreSector": "Sector 5 - Little Tokyo Shopping District / Bar District",
+      "archetype": "street-market",
+      "priority": 4,
+      "grid": { "bearingDeg": 38, "block": [62, 44], "street": 7 },
+      "stage": 2,
+      "polygon": [[34.0520, -118.2440], [34.0515, -118.2350], [34.0460, -118.2360], [34.0465, -118.2440]]
+    },
+    {
+      "id": "historic-core",
+      "name": "Broadway Neon Canyon",
+      "loreSector": "Sector 9 - Retirement Row / Bradbury",
+      "archetype": "neon-canyon",
+      "priority": 3,
+      "grid": { "bearingDeg": 38, "block": [110, 70], "street": 18 },
+      "stage": 6,
+      "polygon": [[34.0530, -118.2510], [34.0510, -118.2440], [34.0400, -118.2510], [34.0420, -118.2580]]
+    },
+    {
+      "id": "arts-district",
+      "name": "Arts District Works",
+      "loreSector": "Sector 4 fringe",
+      "archetype": "industrial-dense",
+      "priority": 3,
+      "grid": { "bearingDeg": 0, "block": [160, 110], "street": 20 },
+      "stage": 9,
+      "polygon": [[34.0520, -118.2380], [34.0500, -118.2290], [34.0300, -118.2300], [34.0330, -118.2400]]
+    },
+    {
+      "id": "wallace-vernon",
+      "name": "Wallace Corporation Precinct (Vernon)",
+      "loreSector": "Sector 4 - Industrial District",
+      "archetype": "industrial",
+      "priority": 2,
+      "grid": { "bearingDeg": 0, "block": [240, 160], "street": 30 },
+      "stage": 7,
+      "polygon": [[34.0230, -118.2400], [34.0200, -118.1850], [33.9850, -118.1850], [33.9850, -118.2400]]
+    },
+    {
+      "id": "southeast-industrial",
+      "name": "Southeast Refinery Belt",
+      "loreSector": "Sector 4 - Industrial District",
+      "archetype": "industrial",
+      "priority": 1,
+      "grid": { "bearingDeg": 0, "block": [260, 170], "street": 26 },
+      "stage": 15,
+      "polygon": [[34.0300, -118.1850], [34.0200, -118.1200], [33.9500, -118.1200], [33.9500, -118.1850]]
+    },
+    {
+      "id": "south-la-megablocks",
+      "name": "South LA Megablocks",
+      "loreSector": "residential sectors",
+      "archetype": "megablock-residential",
+      "priority": 1,
+      "grid": { "bearingDeg": 0, "block": [200, 120], "street": 24 },
+      "stage": 12,
+      "polygon": [[34.0280, -118.3400], [34.0250, -118.2400], [33.9200, -118.2200], [33.9200, -118.3400]]
+    },
+    {
+      "id": "lakewood-megablocks",
+      "name": "Lakewood / Downey Megablocks",
+      "loreSector": "residential sectors (K's sector on the 2049 spinner map)",
+      "archetype": "megablock-residential",
+      "priority": 1,
+      "grid": { "bearingDeg": 0, "block": [210, 130], "street": 26 },
+      "stage": 11,
+      "polygon": [[33.9200, -118.2200], [33.9200, -118.0700], [33.8000, -118.0700], [33.8000, -118.2200]]
+    },
+    {
+      "id": "k-megablock",
+      "name": "K's Megablock",
+      "loreSector": "residential; centre of the on-screen spinner map (~Woodruff Ave & South St)",
+      "archetype": "megablock-market",
+      "priority": 4,
+      "grid": { "bearingDeg": 0, "block": [150, 90], "street": 12 },
+      "stage": 8,
+      "polygon": [[33.8640, -118.1320], [33.8640, -118.1160], [33.8530, -118.1160], [33.8530, -118.1320]]
+    },
+    {
+      "id": "westside",
+      "name": "Westside Sprawl (Mid-Wilshire to Culver)",
+      "loreSector": "Sector 2 / 3 (Uptown)",
+      "archetype": "sprawl-dense",
+      "priority": 1,
+      "grid": { "bearingDeg": 0, "block": [190, 100], "street": 18 },
+      "stage": 13,
+      "polygon": [[34.0900, -118.4700], [34.0800, -118.2700], [34.0400, -118.2760], [34.0280, -118.3400], [33.9900, -118.4300], [34.0300, -118.4800]]
+    },
+    {
+      "id": "hollywood",
+      "name": "Hollywood Entertainment Strip",
+      "loreSector": "Sector 1 - Entertainment District",
+      "archetype": "entertainment",
+      "priority": 2,
+      "grid": { "bearingDeg": 0, "block": [160, 90], "street": 22 },
+      "stage": 16,
+      "polygon": [[34.1100, -118.3700], [34.1050, -118.2800], [34.0800, -118.2700], [34.0850, -118.3800]]
+    },
+    {
+      "id": "coastal-strip",
+      "name": "Grey Coast (behind the Sea Wall)",
+      "loreSector": "coastal sectors",
+      "archetype": "coastal-grey",
+      "priority": 2,
+      "grid": { "bearingDeg": 322, "block": [170, 100], "street": 20 },
+      "stage": 10,
+      "polygon": [[34.0450, -118.5300], [34.0300, -118.4800], [33.9900, -118.4300], [33.9500, -118.4100], [33.8800, -118.3850], [33.8200, -118.3700], [33.8150, -118.3950], [33.8600, -118.4050], [33.9100, -118.4300], [33.9650, -118.4620], [34.0100, -118.5000], [34.0360, -118.5450]]
+    },
+    {
+      "id": "lax-spaceport",
+      "name": "LAX Off-World Spaceport",
+      "loreSector": "Sector 12 - LAX Spaceport",
+      "archetype": "spaceport",
+      "priority": 3,
+      "grid": { "bearingDeg": 0, "block": [420, 260], "street": 60 },
+      "stage": 17,
+      "polygon": [[33.9530, -118.4300], [33.9530, -118.3800], [33.9300, -118.3800], [33.9300, -118.4300]]
+    },
+    {
+      "id": "south-bay-refineries",
+      "name": "South Bay Refineries",
+      "loreSector": "industrial (the 1982 'Hades' landscape)",
+      "archetype": "industrial",
+      "priority": 1,
+      "grid": { "bearingDeg": 0, "block": [260, 170], "street": 24 },
+      "stage": 18,
+      "polygon": [[33.9300, -118.4100], [33.9200, -118.2200], [33.8000, -118.2200], [33.8100, -118.3700], [33.8800, -118.3900]]
+    },
+    {
+      "id": "harbor",
+      "name": "Harbor & Container Port",
+      "loreSector": "Sector 12 - Warehouse District / Sea Wall Docks",
+      "archetype": "port",
+      "priority": 2,
+      "grid": { "bearingDeg": 0, "block": [300, 180], "street": 30 },
+      "stage": 19,
+      "polygon": [[33.8000, -118.3000], [33.8000, -118.1500], [33.7500, -118.1500], [33.7300, -118.2400], [33.7200, -118.3000]]
+    },
+    {
+      "id": "long-beach",
+      "name": "Long Beach Secondary Core",
+      "loreSector": "southern sectors",
+      "archetype": "megablock-downtown",
+      "priority": 1,
+      "grid": { "bearingDeg": 0, "block": [190, 120], "street": 30 },
+      "stage": 20,
+      "polygon": [[33.8000, -118.2000], [33.8000, -118.0900], [33.7450, -118.0900], [33.7550, -118.2000]]
+    },
+    {
+      "id": "east-la",
+      "name": "East LA Sprawl",
+      "loreSector": "eastern sectors",
+      "archetype": "sprawl-dense",
+      "priority": 1,
+      "grid": { "bearingDeg": 0, "block": [170, 95], "street": 16 },
+      "stage": 21,
+      "polygon": [[34.0800, -118.2280], [34.0600, -118.1300], [34.0200, -118.1300], [34.0300, -118.2290]]
+    }
+  ],
+  "landmarks": [
+    {
+      "id": "wallace-pyramid",
+      "name": "Wallace Corporation Earth Headquarters",
+      "type": "wallace-pyramid",
+      "lat": 34.0050, "lon": -118.2000,
+      "bearingDeg": 0,
+      "height": 3500, "baseWidth": 3200, "topWidth": 420,
+      "reserveRadius": 2400,
+      "confidence": "height from production (Weta 1:600 bigature = ~3.5 km); location inferred (lore: Sector 4 Industrial District -> Vernon)"
+    },
+    {
+      "id": "wallace-satellite-a",
+      "name": "Wallace Tower A",
+      "type": "wallace-tower",
+      "lat": 34.0300, "lon": -118.1930,
+      "bearingDeg": 0, "height": 1400, "baseWidth": 360, "topWidth": 60,
+      "reserveRadius": 260,
+      "confidence": "invented placement for the 'three towers' around the main pyramid (Gassner)"
+    },
+    {
+      "id": "wallace-satellite-b",
+      "name": "Wallace Tower B",
+      "type": "wallace-tower",
+      "lat": 33.9860, "lon": -118.1820,
+      "bearingDeg": 0, "height": 1250, "baseWidth": 330, "topWidth": 55,
+      "reserveRadius": 240,
+      "confidence": "invented placement"
+    },
+    {
+      "id": "wallace-satellite-c",
+      "name": "Wallace Tower C",
+      "type": "wallace-tower",
+      "lat": 33.9800, "lon": -118.2280,
+      "bearingDeg": 0, "height": 1100, "baseWidth": 300, "topWidth": 50,
+      "reserveRadius": 220,
+      "confidence": "invented placement"
+    },
+    {
+      "id": "lapd-hq",
+      "name": "LAPD Headquarters (2049)",
+      "type": "lapd-hq",
+      "lat": 34.0519, "lon": -118.2445,
+      "bearingDeg": 38,
+      "height": 216, "baseWidth": 72, "baseDepth": 100, "crownWidth": 132, "crownDepth": 165, "crownHeight": 62,
+      "reserveRadius": 110,
+      "confidence": "height from Weta 4.5 m miniature at 1:48 = 216 m; location = real LAPD HQ, 100 W 1st St"
+    },
+    {
+      "id": "city-hall",
+      "name": "Old City Hall (heritage)",
+      "type": "heritage-tower",
+      "lat": 34.0537, "lon": -118.2427,
+      "bearingDeg": 38, "height": 138, "baseWidth": 45, "baseDepth": 45,
+      "reserveRadius": 70,
+      "confidence": "real building (1928, 138 m); its survival into 2049 is an assumption"
+    },
+    {
+      "id": "megatower-1", "name": "Megatower 1", "type": "megatower",
+      "lat": 34.0520, "lon": -118.2560, "bearingDeg": 38, "height": 420, "baseWidth": 78, "baseDepth": 64, "reserveRadius": 95,
+      "confidence": "invented; heights bracketed by LAPD (216 m) and Wallace pyramid"
+    },
+    {
+      "id": "megatower-2", "name": "Megatower 2", "type": "megatower",
+      "lat": 34.0492, "lon": -118.2590, "bearingDeg": 38, "height": 360, "baseWidth": 70, "baseDepth": 70, "reserveRadius": 90,
+      "confidence": "invented"
+    },
+    {
+      "id": "megatower-3", "name": "Megatower 3", "type": "megatower",
+      "lat": 34.0548, "lon": -118.2522, "bearingDeg": 38, "height": 330, "baseWidth": 66, "baseDepth": 58, "reserveRadius": 85,
+      "confidence": "invented"
+    },
+    {
+      "id": "megatower-4", "name": "Megatower 4", "type": "megatower",
+      "lat": 34.0466, "lon": -118.2618, "bearingDeg": 38, "height": 300, "baseWidth": 62, "baseDepth": 62, "reserveRadius": 80,
+      "confidence": "invented"
+    },
+    {
+      "id": "megatower-5", "name": "Megatower 5", "type": "megatower",
+      "lat": 34.0567, "lon": -118.2588, "bearingDeg": 38, "height": 385, "baseWidth": 74, "baseDepth": 60, "reserveRadius": 90,
+      "confidence": "invented"
+    },
+    {
+      "id": "megatower-6", "name": "Megatower 6", "type": "megatower",
+      "lat": 34.0440, "lon": -118.2560, "bearingDeg": 38, "height": 280, "baseWidth": 60, "baseDepth": 56, "reserveRadius": 75,
+      "confidence": "invented"
+    },
+    {
+      "id": "k-megablock-tower",
+      "name": "K's Apartment Megabuilding",
+      "type": "megablock-slab",
+      "lat": 33.8585, "lon": -118.1240,
+      "bearingDeg": 0, "height": 185, "baseWidth": 230, "baseDepth": 85,
+      "reserveRadius": 140,
+      "confidence": "location from the 2049 spinner map (centre ~ Woodruff Ave & South St, Lakewood); size estimated from film exteriors"
+    },
+    {
+      "id": "lax-spaceport-towers",
+      "name": "LAX Off-World Launch Gantries",
+      "type": "spaceport",
+      "lat": 33.9416, "lon": -118.4085,
+      "bearingDeg": 0, "height": 420, "baseWidth": 2600, "baseDepth": 1300,
+      "reserveRadius": 0,
+      "confidence": "lore: LAX became the off-world spaceport (Luv heads to LAX). Structures invented."
+    },
+    {
+      "id": "el-segundo-refinery",
+      "name": "El Segundo Refinery Flare Stacks",
+      "type": "flare-field",
+      "lat": 33.9120, "lon": -118.4040,
+      "bearingDeg": 0, "height": 140, "baseWidth": 1600, "baseDepth": 1100,
+      "reserveRadius": 0,
+      "confidence": "real refinery site; homage to the 1982 'Hades' opening"
+    }
+  ],
+  "pois": [
+    { "id": "bibis-bar", "name": "Bibi's Bar & vending market", "lat": 34.0492, "lon": -118.2402, "kind": "interior-candidate", "stage": 2 },
+    { "id": "noodle-bar", "name": "Noodle bar counter (enterable)", "lat": 34.0487, "lon": -118.2392, "kind": "interior", "stage": 2 },
+    { "id": "joi-bridge", "name": "Hologram footbridge (giant pink ad)", "lat": 34.0478, "lon": -118.2496, "kind": "set-piece", "stage": 6 },
+    { "id": "bradbury", "name": "Bradbury Building (heritage, 1982 film)", "lat": 34.0505, "lon": -118.2479, "kind": "heritage", "stage": 6 },
+    { "id": "k-apartment", "name": "K's apartment (enterable)", "lat": 33.8585, "lon": -118.1240, "kind": "interior", "stage": 8 },
+    { "id": "sea-wall-fight", "name": "Sea wall finale site", "lat": 33.9560, "lon": -118.4470, "kind": "set-piece", "stage": 10 },
+    { "id": "trash-mesa-gate", "name": "Southern exit toward the San Diego trash mesa (out of bounds)", "lat": 33.7400, "lon": -118.0600, "kind": "edge", "stage": 99 }
+  ],
+  "coastline": [
+    [34.0400, -118.6000], [34.0400, -118.5800], [34.0360, -118.5400], [34.0250, -118.5150], [34.0100, -118.4980],
+    [33.9950, -118.4820], [33.9800, -118.4700], [33.9660, -118.4580], [33.9530, -118.4500], [33.9300, -118.4380],
+    [33.9100, -118.4270], [33.8850, -118.4130], [33.8600, -118.4010], [33.8400, -118.3920], [33.8200, -118.3920],
+    [33.8050, -118.3970], [33.7900, -118.4100], [33.7700, -118.4240], [33.7450, -118.4100], [33.7250, -118.3800],
+    [33.7150, -118.3500], [33.7100, -118.3100], [33.7100, -118.2850], [33.7150, -118.2600], [33.7300, -118.2400],
+    [33.7450, -118.2100], [33.7550, -118.1850], [33.7620, -118.1600], [33.7500, -118.1250], [33.7350, -118.1000],
+    [33.7100, -118.0600], [33.6900, -118.0400], [33.6800, -118.0300]
+  ],
+  "oceanClosure": [[33.6000, -118.0300], [33.6000, -118.7000], [34.0400, -118.7000]],
+  "seaWalls": [
+    {
+      "id": "sepulveda-sea-wall",
+      "name": "Sepulveda Sea Wall",
+      "crestHeight": 90, "baseWidth": 120, "crestWidth": 28, "terraces": 6,
+      "points": [
+        [34.0385, -118.5600], [34.0345, -118.5390], [34.0235, -118.5135], [34.0088, -118.4962],
+        [33.9940, -118.4805], [33.9792, -118.4683], [33.9655, -118.4562], [33.9525, -118.4482],
+        [33.9298, -118.4362], [33.9098, -118.4250], [33.8850, -118.4110], [33.8602, -118.3990],
+        [33.8405, -118.3900], [33.8205, -118.3898], [33.8080, -118.3925]
+      ]
+    },
+    {
+      "id": "harbor-sea-wall",
+      "name": "Harbor Sea Wall (southern continuation)",
+      "crestHeight": 75, "baseWidth": 100, "crestWidth": 24, "terraces": 5,
+      "points": [
+        [33.7180, -118.2950], [33.7180, -118.2620], [33.7330, -118.2410], [33.7475, -118.2110],
+        [33.7575, -118.1855], [33.7640, -118.1600], [33.7520, -118.1240], [33.7370, -118.0990],
+        [33.7120, -118.0590]
+      ]
+    }
+  ],
+  "freeways": [
+    { "id": "I-10", "name": "Santa Monica Fwy trench", "width": 70, "points": [[34.0115, -118.4930], [34.0230, -118.4500], [34.0310, -118.4000], [34.0330, -118.3700], [34.0370, -118.3300], [34.0400, -118.2900], [34.0350, -118.2700], [34.0270, -118.2450], [34.0250, -118.2200], [34.0350, -118.1900], [34.0650, -118.1500]] },
+    { "id": "I-110", "name": "Harbor Fwy trench", "width": 80, "points": [[34.0700, -118.2500], [34.0560, -118.2620], [34.0400, -118.2730], [34.0250, -118.2750], [33.9900, -118.2810], [33.9300, -118.2810], [33.8700, -118.2860], [33.8000, -118.2900], [33.7400, -118.2850]] },
+    { "id": "US-101", "name": "Hollywood Fwy trench", "width": 70, "points": [[34.1500, -118.3700], [34.1300, -118.3500], [34.1000, -118.3300], [34.0850, -118.2950], [34.0700, -118.2500], [34.0580, -118.2300], [34.0450, -118.2150]] },
+    { "id": "I-405", "name": "San Diego Fwy trench", "width": 80, "points": [[34.1600, -118.4700], [34.0700, -118.4450], [34.0300, -118.4250], [33.9900, -118.4000], [33.9500, -118.3800], [33.9300, -118.3700], [33.8900, -118.3400], [33.8600, -118.2900], [33.8350, -118.2200], [33.8250, -118.1500], [33.8100, -118.1000], [33.7900, -118.0500]] },
+    { "id": "I-5", "name": "Golden State Fwy trench", "width": 70, "points": [[34.1300, -118.2700], [34.1000, -118.2500], [34.0700, -118.2200], [34.0400, -118.2100], [34.0230, -118.1900], [33.9900, -118.1400], [33.9600, -118.1000], [33.9300, -118.0500]] },
+    { "id": "I-105", "name": "Century Fwy trench", "width": 70, "points": [[33.9300, -118.3900], [33.9300, -118.2800], [33.9200, -118.2000], [33.9100, -118.1200], [33.9050, -118.0500]] },
+    { "id": "I-710", "name": "Long Beach Fwy trench", "width": 70, "points": [[34.0650, -118.1700], [34.0250, -118.1700], [33.9500, -118.1700], [33.8800, -118.1900], [33.8000, -118.2050], [33.7700, -118.2000]] }
+  ],
+  "rivers": [
+    { "id": "la-river", "name": "LA River channel", "width": 110, "points": [[34.1550, -118.2800], [34.1000, -118.2400], [34.0700, -118.2280], [34.0400, -118.2290], [34.0100, -118.2300], [33.9750, -118.1950], [33.9300, -118.1800], [33.8700, -118.1800], [33.8100, -118.2050], [33.7650, -118.2050]] }
+  ],
+  "hills": [
+    { "name": "Santa Monica Mtns W", "lat": 34.1000, "lon": -118.5300, "rx": 5200, "rz": 3200, "h": 430, "rotDeg": 15 },
+    { "name": "Santa Monica Mtns C", "lat": 34.1150, "lon": -118.4600, "rx": 4800, "rz": 3000, "h": 460, "rotDeg": 5 },
+    { "name": "Santa Monica Mtns E", "lat": 34.1250, "lon": -118.4000, "rx": 4600, "rz": 2600, "h": 420, "rotDeg": 0 },
+    { "name": "Hollywood Hills", "lat": 34.1270, "lon": -118.3450, "rx": 4200, "rz": 2200, "h": 380, "rotDeg": -5 },
+    { "name": "Griffith Park", "lat": 34.1300, "lon": -118.2950, "rx": 3200, "rz": 2600, "h": 330, "rotDeg": 0 },
+    { "name": "Elysian Park", "lat": 34.0820, "lon": -118.2400, "rx": 1200, "rz": 1600, "h": 110, "rotDeg": 20 },
+    { "name": "Baldwin Hills", "lat": 34.0080, "lon": -118.3650, "rx": 1800, "rz": 1500, "h": 150, "rotDeg": 0 },
+    { "name": "Palos Verdes", "lat": 33.7650, "lon": -118.3650, "rx": 6200, "rz": 4600, "h": 420, "rotDeg": 0 },
+    { "name": "Signal Hill", "lat": 33.8050, "lon": -118.1650, "rx": 900, "rz": 800, "h": 110, "rotDeg": 0 },
+    { "name": "Montebello Hills", "lat": 34.0250, "lon": -118.1050, "rx": 2400, "rz": 1500, "h": 120, "rotDeg": 0 }
+  ]
+}
