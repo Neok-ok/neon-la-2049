@@ -383,8 +383,8 @@ export function dressBlock(b: MarketBlock, layout: CityLayout): Dressing {
         prop('stool', sx, gy, sz, outYaw, 1, 1, 1, [0.12, 0.08, 0.07], [0, 0, 0], 0.35, 0);
         seats.push({ x: sx, y: gy, z: sz, heading: headingOf(-nx, -nz), yaw: yawOf(-nx, -nz) });
       }
-      // cook just behind the counter
-      const cookD = cFromInner - 0.48;
+      // cook stands in the gap behind the counter, not inside the back-wall solid
+      const cookD = cFromInner - 0.08;
       const ks = sl.s + sl.os * (cookD - sl.depth / 2);
       const kt = sl.t + sl.ot * (cookD - sl.depth / 2);
       const [kx, kz] = world(ks, kt);
@@ -400,16 +400,27 @@ export function dressBlock(b: MarketBlock, layout: CityLayout): Dressing {
       // ceiling strip
       const [mx, mz] = world(fs - sl.os * (openD * 0.45), ft - sl.ot * (openD * 0.45));
       prop('box', mx, gy + 2.48, mz, outYaw, sl.w * 0.55, 0.06, 0.35, [1, 0.55, 0.22], [1.4, 0.55, 0.16], 0, 0);
-      // menu signs on the back wall, facing the street
-      const backFace: FaceDir = sl.face === 'a+' ? 'a-' : sl.face === 'a-' ? 'a+' : sl.face === 'b+' ? 'b-' : 'b+';
-      signs.push({
-        s: sl.s, t: sl.t, hb: sl.w / 2, ha: sl.depth / 2, face: backFace, along: 0, y: 1.85,
-        w: Math.min(2.4, sl.w * 0.55), h: 0.62, color: SignColor.Amber, kind: 0, seed: phraseSeed(bar ? 3 : 0),
-      });
-      signs.push({
-        s: sl.s, t: sl.t, hb: sl.w / 2, ha: sl.depth / 2, face: backFace, along: sl.w * 0.28, y: 1.7,
-        w: 0.7, h: 1.5, color: bar ? SignColor.Violet : SignColor.Red, kind: 1, seed: phraseSeed(bar ? 21 : 9),
-      });
+      // Menu panels on the street side of the back wall. The sign helper offsets 0.35 m
+      // past a virtual face, so that face is set just inside the wall.
+      const placeFacingStreet = (along: number, y: number, w: number, h: number, color: number, seed: number) => {
+        const want = backD - sl.depth / 2 + 0.12;
+        const ha = 0.05;
+        const hb = 0.05;
+        const out = 0.35;
+        let s = sl.s;
+        let t = sl.t;
+        if (sl.face === 'a+' || sl.face === 'a-') {
+          const ns = sl.face === 'a+' ? 1 : -1;
+          s = sl.s + ns * (want - ha - out);
+        } else {
+          const nt = sl.face === 'b+' ? 1 : -1;
+          t = sl.t + nt * (want - hb - out);
+        }
+        signs.push({ s, t, hb, ha, face: sl.face, along, y, w, h, color, kind: 0, seed });
+      };
+      placeFacingStreet(0, 1.95, Math.min(2.6, sl.w * 0.5), 0.58, SignColor.Amber, phraseSeed(bar ? 3 : 0));
+      placeFacingStreet(-sl.w * 0.28, 1.72, Math.min(1.3, sl.w * 0.28), 0.7, bar ? SignColor.Violet : SignColor.Red, phraseSeed(bar ? 21 : 9));
+      placeFacingStreet(sl.w * 0.28, 1.72, Math.min(1.3, sl.w * 0.28), 0.7, SignColor.Cyan, phraseSeed(bar ? 16 : 40));
 
       const entranceS = fs - sl.os * 0.85;
       const entranceT = ft - sl.ot * 0.85;
@@ -423,6 +434,44 @@ export function dressBlock(b: MarketBlock, layout: CityLayout): Dressing {
       };
       if (bar) bibi = spot;
       else noodle = spot;
+
+      // Backsplash and a soffit. Fabric boxes are shells (no underside), so the recess needs its own ceiling.
+      const [bwx, bwz] = world(sl.s + sl.os * (backD - sl.depth / 2), sl.t + sl.ot * (backD - sl.depth / 2));
+      prop('quadZ', bwx + nx * 0.08, gy + 1.42, bwz + nz * 0.08, outYaw, Math.min(sl.w * 0.88, 5.6), 2.2, 1,
+        [0.34, 0.15, 0.07], [1.05, 0.42, 0.12], 0.04, 0);
+      const [sox, soz] = world(fs - sl.os * (openD * 0.52), ft - sl.ot * (openD * 0.52));
+      prop('box', sox, gy + SOFFIT - 0.06, soz, outYaw, sl.w * 0.98, 0.1, openD * 1.12,
+        [0.16, 0.09, 0.05], [0.62, 0.26, 0.08], 0, 0);
+      // wood cladding on the street face of the (otherwise black) solid counter
+      prop('box', cx + nx * 0.4, gy + 0.54, cz + nz * 0.4, outYaw, cW * 0.98, 1.08, 0.1,
+        [0.3, 0.14, 0.06], [0.16, 0.05, 0.02], 0.12, 0);
+      prop('box', cx + nx * 0.02, gy + 1.09, cz + nz * 0.02, outYaw, cW * 0.96, 0.05, 0.66,
+        [0.2, 0.1, 0.06], [0.28, 0.1, 0.03], 0.2, 0);
+      const bowls = bar ? 3 : 4;
+      for (let i = 0; i < bowls; i++) {
+        const u = (i - (bowls - 1) / 2) * 0.46;
+        prop('cyl', cx + lx * u + nx * 0.1, gy + 1.16, cz + lz * u + nz * 0.1, 0, 0.16, 0.07, 0.16,
+          [0.82, 0.78, 0.7], [0.2, 0.1, 0.04], 0.08, 0);
+      }
+      // shelf and bottles on the back wall, above the cook
+      const [shx, shz] = world(
+        sl.s + sl.os * (backD - sl.depth / 2 + 0.2),
+        sl.t + sl.ot * (backD - sl.depth / 2 + 0.2),
+      );
+      prop('box', shx, gy + 1.78, shz, outYaw, Math.min(cW * 0.72, 3.4), 0.05, 0.26,
+        [0.22, 0.12, 0.07], [0.1, 0.04, 0.02], 0.2, 0);
+      for (let i = 0; i < 5; i++) {
+        const u = (i - 2) * 0.36;
+        prop('cyl', shx + lx * u, gy + 1.94, shz + lz * u, 0, 0.07, 0.22, 0.07,
+          [0.12, 0.18, 0.16], [0.04, 0.16, 0.1], 0.45, 0);
+      }
+      // noren strips in the doorway
+      for (let i = 0; i < 5; i++) {
+        const u = (i - 2) * (sl.w * 0.14);
+        prop('quadZ', fx + lx * u + nx * 0.05, gy + 2.2, fz + lz * u + nz * 0.05, outYaw, Math.max(0.28, sl.w * 0.09), 0.72, 1,
+          [0.42, 0.05, 0.07], [0.4, 0.05, 0.06], 0.02, 0);
+      }
+      prop('box', mx, gy + 2.12, mz, outYaw, 0.26, 0.34, 0.26, [0.95, 0.4, 0.1], [1.7, 0.5, 0.1], 0.05, 0);
 
       // warm pool inside and a neon pool out front
       pools.push({ x: mx, y: gy + 0.04, z: mz, yaw: alongYaw, len: 3.2, wid: 2.2, rgb: [1, 0.45, 0.15], intensity: 1.3, rank: 0 });
@@ -444,6 +493,15 @@ export function dressBlock(b: MarketBlock, layout: CityLayout): Dressing {
           addBox(ps, pt, alongA ? 0.42 : frontD, alongA ? frontD : 0.42, SOFFIT, 0, Style.Solid, 1, 0.05, tint);
         }
       }
+    }
+
+    // Soffit under open arcades. Building boxes are shells (no bottom face), so without this
+    // you look up through the floor plate into the sky.
+    if (sl.open && !sl.special) {
+      const frontD = Math.min(3.1, sl.depth * 0.4);
+      const [sx, sz] = world(fs - sl.os * (frontD * 0.5), ft - sl.ot * (frontD * 0.5));
+      prop('box', sx, b.ground + SOFFIT - 0.04, sz, outYaw, sl.w * 0.94, 0.05, frontD * 0.96,
+        [0.08, 0.06, 0.05], [0.12, 0.06, 0.03], 0, 0);
     }
 
     // awning — every shop, the market's silhouette

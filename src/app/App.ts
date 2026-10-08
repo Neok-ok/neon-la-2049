@@ -412,7 +412,10 @@ export class App {
         const p = marketCamera(this.query.layout, kind);
         if (!p) return false;
         this.cams.setMode(p.mode);
+        if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
         this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
+        // Walk enter forces a street pitch. Put the requested one back for interior / crowd shots.
+        if (p.mode === 'walk') this.cams.walk.pitch = p.pitch;
         return true;
       },
       stats: () => ({

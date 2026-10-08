@@ -61,11 +61,21 @@ for (const s of shots) {
   const url = `${BASE}?${s.q}`;
   const t0 = Date.now();
   await page.goto(url);
-  await page.waitForFunction(() => window.__nla?.isIdle?.(), null, { timeout: 240_000, polling: 1000 }).catch(() => console.warn(`${s.name}: streaming not idle, shooting anyway`));
+  const market = s.name.startsWith('market-');
+  if (market) {
+    // The whole basin rarely goes idle on SwiftShader. The market shot only needs the
+    // blocks around the camera dressed.
+    await page.waitForFunction(() => {
+      const st = window.__nla?.stats?.();
+      return st && st.lod0 >= 6 && st.queryPending === 0 && st.drawCalls > 40 && st.fps > 0;
+    }, null, { timeout: 90_000, polling: 500 }).catch(() => console.warn(`${s.name}: market chunks not ready, shooting anyway`));
+  } else {
+    await page.waitForFunction(() => window.__nla?.isIdle?.(), null, { timeout: 240_000, polling: 1000 }).catch(() => console.warn(`${s.name}: streaming not idle, shooting anyway`));
+  }
   if (s.after) {
     await page.evaluate(s.after);
-    await page.waitForTimeout(1500);
-    await page.waitForFunction(() => window.__nla.isIdle(), null, { timeout: 120_000, polling: 1000 }).catch(() => {});
+    await page.waitForTimeout(market ? 2500 : 1500);
+    if (!market) await page.waitForFunction(() => window.__nla.isIdle(), null, { timeout: 120_000, polling: 1000 }).catch(() => {});
   }
   if (s.cine) {
     // cut until the director lands on a wide establishing shot, then let its area stream in

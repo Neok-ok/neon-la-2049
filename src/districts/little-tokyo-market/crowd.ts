@@ -266,7 +266,8 @@ export class CrowdField {
       canopy.set(a.canopy, i * 3);
       const moving = a.vendor ? 0.12 : Math.min(1, a.speed / 1.15);
       const hasUmbrella = !a.vendor && umbrella > 0 && i % 5 !== 0 ? 1 : 0;
-      const hidden = a.x > 1e5;
+      // Keep a body out of the lens. The cook stays if the camera has stepped back from the counter.
+      const hidden = a.x > 1e5 || (!a.vendor && Math.hypot(a.x - x, a.z - z) < 1.05);
       _s.set(hidden ? 0 : 1, hidden ? 0 : 1, hidden ? 0 : 1);
       this.mesh.setMatrixAt(i, _m.compose(_p, _q, _s));
       _s.set(1, 1, 1);
