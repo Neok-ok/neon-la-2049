@@ -20,6 +20,7 @@ the Wallace pyramid on the horizon and the Sepulveda Sea Wall holding back the P
 | Move | `WASD` | left stick |
 | Look / steer | mouse (click to capture) or arrow keys | right stick |
 | Up / down (fly) | `Space`/`E`, `C`/`Q` | ▲ ▼ |
+| Sit at a stall (walk) | `E` again to stand, or just walk | — |
 | Boost / run | `Shift` | » |
 | Fly ↔ walk | `F` (or `1`/`2`; `3` = cinematic) | toolbar |
 | Cockpit view | `V` | — |

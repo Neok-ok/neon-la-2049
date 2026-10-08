@@ -35,6 +35,17 @@ export class SpinnerTraffic {
     return this.cars;
   }
 
+  /** Closest spinner to a point, for the market's distant-engine layer. */
+  nearestTo(x: number, y: number, z: number): { x: number; y: number; z: number; dist: number } | null {
+    let best: Car | null = null;
+    let bd = Infinity;
+    for (const c of this.cars) {
+      const d = Math.hypot(c.p.x - x, c.p.y - y, c.p.z - z);
+      if (d < bd) { bd = d; best = c; }
+    }
+    return best ? { x: best.p.x, y: best.p.y, z: best.p.z, dist: bd } : null;
+  }
+
   constructor(scene: Scene | Group, private query: CityQuery, readonly max: number) {
     const g = spinnerGeometries();
     const m = spinnerMaterials();

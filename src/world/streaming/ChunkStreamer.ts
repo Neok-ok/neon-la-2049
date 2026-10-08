@@ -100,6 +100,19 @@ export class ChunkStreamer {
     this.quality = q;
   }
 
+  /**
+   * Rebuild LOD0 chunks so a quality change picks up a new prop density.
+   * In-flight results are integrated with the quality that is current at upload time.
+   */
+  invalidateLod0(): void {
+    for (const s of this.supers.values()) {
+      if (!s.children) continue;
+      for (const c of s.children) {
+        if (c.shownLod === 0 && c.pendingLod !== 0) c.shownLod = -1;
+      }
+    }
+  }
+
   /** True when nothing is queued or in flight (used by screenshot automation). */
   isIdle(): boolean {
     if (this.jobs.size > 0 || this.ready.length > 0) return false;

@@ -88,6 +88,15 @@ export class Ambience {
     wind.connect(wbp).connect(this.windGain).connect(this.master);
   }
 
+  get context(): AudioContext | null {
+    return this.ctx;
+  }
+
+  /** Master bus. Market layers connect here so mute applies to them too. */
+  get output(): GainNode | null {
+    return this.ctx ? this.master : null;
+  }
+
   setMuted(m: boolean): void {
     this.muted = m;
     if (this.master) this.master.gain.value = m ? 0 : 0.8;

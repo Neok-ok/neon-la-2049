@@ -1,11 +1,14 @@
-// Procedural neon sign / hologram panel material (generic glyph blocks: no real logos or brands).
+// Neon sign / hologram panel. Wall and blade signs sample a canvas atlas of invented phrases
+// (Latin text + original stroke glyphs). Billboards stay procedural hologram bands.
 import { DoubleSide, MeshBasicNodeMaterial, Color } from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import { U } from '../../atmosphere/uniforms';
 import { lutColor } from './lut';
+import { getSignAtlas } from './signAtlas';
+import { SIGN_ATLAS_COLS, SIGN_ATLAS_ROWS } from './signPhrases';
 
 const T = TSL as any;
-const { Fn, attribute, float, vec2, floor, fract, step, smoothstep, mix, hash, uv, min, sin, abs } = T;
+const { Fn, attribute, float, vec2, vec3, floor, fract, step, smoothstep, mix, hash, uv, sin, abs } = T;
 
 /** Indexed by SignColor (src/world/fabric/types.ts) */
 export const SIGN_PALETTE = [
@@ -27,47 +30,49 @@ export function getSignMaterial(): MeshBasicNodeMaterial {
   const m = new MeshBasicNodeMaterial();
   m.name = 'NeonSign';
   m.side = DoubleSide;
+  m.fog = true;
 
   const iSign = attribute('iSign', 'vec4');
   const kind = attribute('iKind', 'float');
   const size = vec2(iSign.x, iSign.y);
   const color = lutColor(SIGN_PALETTE, iSign.z);
   const seed = iSign.w;
-  const p = uv().mul(size);
-  const minSide = min(size.x, size.y);
+  const puv = uv();
 
   const color2 = lutColor(SIGN_PALETTE, floor(hash(seed.mul(7919)).mul(7.99)));
 
   m.colorNode = Fn(() => {
-    // glyph rows: characters are square cells sized to the short side
-    const cs = minSide.mul(0.78);
-    const g = p.sub(minSide.mul(0.11)).div(cs);
-    const cell = floor(g);
-    const fr = fract(g);
-    const sub = floor(fr.mul(4.0));
-    const hId = hash(cell.x.add(cell.y.mul(31.0)).add(seed.mul(10000.0)));
-    const on = step(0.5, hash(sub.x.add(sub.y.mul(4.0)).add(hId.mul(1000.0))));
-    const inChar = step(0.14, fr.x).mul(step(fr.x, 0.86)).mul(step(0.12, fr.y)).mul(step(fr.y, 0.88));
-    const inside = step(minSide.mul(0.1), p.x).mul(step(p.x, size.x.sub(minSide.mul(0.1)))).mul(step(minSide.mul(0.1), p.y)).mul(step(p.y, size.y.sub(minSide.mul(0.1))));
-    const glyph = on.mul(inChar).mul(inside);
-    const edge = min(min(p.x, size.x.sub(p.x)), min(p.y, size.y.sub(p.y)));
-    const border = step(edge, minSide.mul(0.05));
+    // Tall blades rotate the landscape atlas cell so the line runs along the long axis.
+    const tall = step(size.x, size.y);
+    const scroll = step(0.9, seed);
+    const su0 = mix(puv.x, puv.y, tall);
+    const sv = mix(puv.y, float(1).sub(puv.x), tall);
+    const su = fract(su0.add(U.time.mul(0.12).mul(scroll)));
 
-    // billboard: animated gradient bands + scanlines + slow scroll ("hologram ad" placeholder)
+    // phraseSeed(i) = (i + 0.5) / 64, so floor(seed * 64) recovers the cell. Random seeds land somewhere too.
+    const idx = floor(seed.mul(SIGN_ATLAS_COLS * SIGN_ATLAS_ROWS - 0.001));
+    const col = idx.mod(SIGN_ATLAS_COLS);
+    const row = floor(idx.div(SIGN_ATLAS_COLS));
+    const au = col.add(su).div(SIGN_ATLAS_COLS);
+    // CanvasTexture flipY puts canvas row 0 at texture v = 1.
+    const av = float(SIGN_ATLAS_ROWS - 1).sub(row).add(sv).div(SIGN_ATLAS_ROWS);
+    const sample = T.texture(getSignAtlas(), vec2(au, av));
+    const lum = sample.r.max(sample.g).max(sample.b);
+    const panel = color.mul(lum.mul(2.4).add(0.045));
+
+    // billboard: animated gradient bands + scanlines ("hologram ad", still no logos)
     const t = U.time;
-    const band = sin(uv().y.mul(6.0).add(t.mul(0.6)).add(seed.mul(20.0))).mul(0.5).add(0.5);
-    const scan = step(0.5, fract(p.y.mul(1.2).sub(t.mul(2.0)))).mul(0.25).add(0.75);
-    const shape = smoothstep(0.38, 0.42, abs(uv().x.sub(0.5).add(sin(t.mul(0.3).add(seed.mul(9.0))).mul(0.12)))).oneMinus();
+    const band = sin(puv.y.mul(6.0).add(t.mul(0.6)).add(seed.mul(20.0))).mul(0.5).add(0.5);
+    const scan = step(0.5, fract(puv.y.mul(size.y.mul(1.2)).sub(t.mul(2.0)))).mul(0.25).add(0.75);
+    const shape = smoothstep(0.38, 0.42, abs(puv.x.sub(0.5).add(sin(t.mul(0.3).add(seed.mul(9.0))).mul(0.12)))).oneMinus();
     const billboard = mix(color, color2, band).mul(scan).mul(shape.mul(0.9).add(0.25));
 
-    // flicker on ~8% of signs
     const flickSel = step(0.92, seed);
     const flick = mix(float(1), step(0.25, hash(floor(t.mul(14.0)).add(seed.mul(500.0)))), flickSel);
 
-    const neon = color.mul(glyph.mul(1.3).add(border.mul(0.9)).add(0.07));
     const isBillboard = step(1.5, kind);
-    const out = mix(neon, billboard.mul(1.2), isBillboard);
-    return out.mul(U.signPower).mul(flick).mul(1.5);
+    const out = mix(panel, billboard.mul(1.35), isBillboard);
+    return vec3(out).mul(U.signPower).mul(flick).mul(1.65);
   })();
   shared = m;
   return m;

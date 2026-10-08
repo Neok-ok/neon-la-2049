@@ -3,6 +3,7 @@ import { MathUtils, Vector3, type PerspectiveCamera } from 'three/webgpu';
 import type { Controller, Pose } from './types';
 import type { Input } from '../input/Input';
 import type { CityQuery } from '../world/CityQuery';
+import { nearestSeat } from '../world/seats';
 
 export const HUMAN = { eye: 1.7, radius: 0.32, height: 1.8, walk: 1.5, run: 4.2 };
 
@@ -14,6 +15,8 @@ export class WalkController implements Controller {
   private vy = 0;
   private bob = 0;
   private active = false;
+  private seated = false;
+  private sitLock = 0;
   /** debug: lets testers cover ground faster (not shown in UI) */
   speedScale = 1;
 
@@ -33,6 +36,7 @@ export class WalkController implements Controller {
 
   exit(): void {
     this.active = false;
+    this.seated = false;
     this.input.pointerLockWanted = false;
   }
 
@@ -49,15 +53,30 @@ export class WalkController implements Controller {
 
     const speed = (inp.boost ? HUMAN.run : HUMAN.walk) * this.speedScale;
     const f = MathUtils.clamp(inp.forward, -1, 1), s = MathUtils.clamp(inp.strafe, -1, 1);
+    this.sitLock = Math.max(0, this.sitLock - dt);
+    if (inp.wasPressed('KeyE') && this.sitLock <= 0) {
+      if (this.seated) this.seated = false;
+      else {
+        const seat = nearestSeat(this.pos.x, this.pos.z);
+        if (seat) {
+          this.seated = true;
+          this.sitLock = 0.35;
+          this.pos.set(seat.x, seat.y, seat.z);
+          this.heading = seat.heading;
+          this.vy = 0;
+        }
+      }
+    }
+    if (this.seated && (Math.abs(f) > 0.2 || Math.abs(s) > 0.2)) this.seated = false;
     const sh = Math.sin(this.heading), ch = Math.cos(this.heading);
     let dx = (sh * f + ch * s) * speed * dt;
     let dz = (-ch * f + sh * s) * speed * dt;
     const len = Math.hypot(dx, dz), maxLen = speed * dt;
     if (len > maxLen) { dx *= maxLen / len; dz *= maxLen / len; }
 
-    let nx = this.pos.x + dx, nz = this.pos.z + dz;
+    let nx = this.pos.x + (this.seated ? 0 : dx), nz = this.pos.z + (this.seated ? 0 : dz);
     if (this.query.layout.isOcean(nx, nz)) { nx = this.pos.x; nz = this.pos.z; }
-    [nx, nz] = this.query.resolveCircle(nx, nz, this.pos.y + 0.45, HUMAN.height - 0.45, HUMAN.radius);
+    if (!this.seated) [nx, nz] = this.query.resolveCircle(nx, nz, this.pos.y + 0.45, HUMAN.height - 0.45, HUMAN.radius);
     this.pos.x = nx;
     this.pos.z = nz;
 
@@ -71,10 +90,11 @@ export class WalkController implements Controller {
       this.pos.y = Math.max(floor, this.pos.y + this.vy * dt);
     }
 
-    const moving = Math.hypot(dx, dz) / Math.max(dt, 1e-4);
+    const moving = this.seated ? 0 : Math.hypot(dx, dz) / Math.max(dt, 1e-4);
     this.bob += moving * dt * 2.2;
     const bobY = Math.sin(this.bob * Math.PI) * 0.025 * Math.min(1, moving / 1.5);
-    this.camera.position.set(this.pos.x, this.pos.y + HUMAN.eye + bobY, this.pos.z);
+    const eye = this.seated ? 1.15 : HUMAN.eye;
+    this.camera.position.set(this.pos.x, this.pos.y + eye + bobY, this.pos.z);
     this.camera.rotation.set(this.pitch, -this.heading, 0, 'YXZ');
   }
 }

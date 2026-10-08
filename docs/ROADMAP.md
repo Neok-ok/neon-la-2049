@@ -27,16 +27,20 @@ LOD streaming with workers, landmarks at true scale (Wallace pyramid 3.5 km, LAP
 height fog, day/night, auto weather, rain/snow, fly/walk/cinematic cameras, touch controls, quality tiers, HUD, procedural
 ambience, Pages deploy, docs and maps.
 
-## Stage 2 — Little Tokyo Night Market *(first full district; sets the bar)*
+## Stage 2 — Little Tokyo Night Market ✅
 **District:** `little-tokyo-market` · **POIs:** `noodle-bar`, `bibis-bar`
-* Replace the `street-market` archetype with `little-tokyo-market` (new folder): shophouse façades with real depth (recessed storefronts,
-  balconies, AC units, pipes, cables), layered awnings and plastic sheeting, overhead cable nets and paper/LED lanterns.
-* Detail modules: stalls with counters, stools, steaming pots (particle steam), crates, vending machines, puddles with neon reflections,
-  hanging blade signs at real sizes, umbrellas.
-* **First enterable interior:** the noodle-bar counter (the walk camera can step under the awning and sit; simple interior lighting).
-* Street-level neon reflections on wet ground: screen-space reflections or a planar/probe approach within budget.
-* Signage generator v2: invented brand names in multiple scripts (Latin / katakana-like / hangul-like glyph sets, all original), animated LED panels.
-* Acceptance: a street-level walk from the LAPD steps into the market looks dense, wet and alive at 30+ fps on medium.
+
+The first fully dressed district, and the kit later districts should copy (`src/districts/_shared/kit/`, `src/districts/little-tokyo-market/`).
+
+* Shophouse arcades (soffit you can walk under), awnings, shutters, stall counters, lanterns, AC units, pipes, cable sags, curbs, bollards, bins, vending machines, a corner tower, and on some blocks a catwalk with a stair.
+* Sign atlas v2: invented Latin / kana / hangul / hanzi / devanagari phrases, flicker, a few scrolling panels, vertical blades, hologram billboards left procedural.
+* Wet street: additive neon pools on every tier; planar reflector on high/ultra real GPUs (`?refl=`).
+* Instanced crowd with umbrellas, lane avoidance, density by tier. Steam cards. Ground haze sheets on high/ultra. Rain streaks pick up neon in the market.
+* Enterable noodle bar (counter, stools, cook, steam, menu). `E` sits. Bibi's is a shallower walk-up of the same kit.
+* Market bed in the ambience bus: awning rain, murmur, sizzle, distant spinner. No music.
+* City queries for the frame loop come from a worker. `fabricAt` / street spawn / cinematic checks still generate on the main thread when they need a correct answer once.
+
+What the next district should not copy blindly: the per-chunk draw-call exception (kit opaque + fade + steam + pools, documented in the district README), and the fact that crowds, seats and the reflector are wired from `App.ts` rather than a generic district hook. Generalise those when the second dressed district needs them.
 
 ## Stage 3 — Financial District Megatowers
 `financial-megatowers`: real tower silhouettes for the six landmark megatowers (setbacks, crowns, masts, fins), podium plazas, sky
@@ -97,14 +101,14 @@ and the El Segundo flare field in full.
 
 | Stage | Adds | Notes |
 |---|---|---|
-| **X1 Crowds** | instanced pedestrians with umbrellas, GPU-animated walk cycles, density from district data | after Stage 2, so the market can be populated |
+| **X1 Crowds** | The market shipped the first crowd (instanced coats, umbrellas, lane follow, cheap avoidance, tier counts). Generalise it: density from district data, more than two sidewalk loops, and a walk cycle that is more than a foot slide. | the market is the reference scene |
 | **X2 Ground traffic** | cars and trucks in streets and freeway trenches, traffic lights | |
-| **X3 Interiors framework** | portal/door system, interior streaming, interior lighting, the walk camera entering buildings | built with Stage 2's noodle bar, generalised for K's apartment and LAPD |
-| **X4 Holograms** | shared hologram system (giant animated figures, ad loops, scanline/flicker shader, light spill) | before Stages 3, 6 and 16 |
-| **X5 Audio** | positional sources (market chatter, PA announcements in invented languages, spinner engines, sea-wall surf) mixed with ambience; still no music | |
-| **X6 Performance** | worker-side collision service, GPU-driven culling, texture-free interior mapping, a shadow option on high/ultra, iPhone profiling pass | whenever HUD budgets are exceeded |
+| **X3 Interiors framework** | The noodle bar is a recess in the street mesh, not a portal. A real interior stream (separate light, occluded exterior, door volumes) still has to be built before K's apartment and the LAPD lobby. | Stage 2 proved the walk camera can enter a soffit |
+| **X4 Holograms** | shared hologram system (giant animated figures, ad loops, scanline/flicker shader, light spill) | before Stages 3, 6 and 16. Market billboards are still the Stage 1 procedural panel. |
+| **X5 Audio** | Market bed is in (awning rain, murmur, sizzle, distant spinner), on the ambience bus, equal-power panners. Still to do: PA in invented languages, sea-wall surf, per-stall variety, and a bus that districts can register without editing `App.ts`. | no music |
+| **X6 Performance** | Frame-loop collision is now a worker with a sync fallback for cinematic queries and street spawn. Still open: GPU culling, interior mapping, shadows on high/ultra, and an iPhone profiling pass on device (the VM only has SwiftShader). | do this if a later district blows the 250-draw / 1.5 M budget |
 | **X7 Photo mode** | free camera, depth of field, film grain, screenshot export | |
 
 ## Suggested order
 
-2 → X4 → 3 → 4 → 5 → 6 → X1 → 8 → 7 → 10 → X2 → 11 → 12 → 9 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21, with X3/X5/X6/X7 where they unblock the next district.
+Stage 2 is done. Next: X4 → 3 → 4 → 5 → 6 → (X1 only if a second district needs a crowd that is not the market's) → 8 → 7 → 10 → X2 → 11 → 12 → 9 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21, with X3/X5/X6/X7 where they unblock the next district.

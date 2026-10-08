@@ -19,9 +19,17 @@ import { WalkController } from '../camera/WalkController';
 import { CinematicDirector } from '../camera/CinematicDirector';
 import { CameraSystem } from '../camera/CameraSystem';
 import type { ModeId, Pose } from '../camera/types';
+import { U } from '../atmosphere/uniforms';
+import { GroundHaze } from '../atmosphere/GroundHaze';
+import { WetReflector } from '../atmosphere/WetReflector';
 import { Ambience } from '../audio/Ambience';
+import { MarketAudio } from '../audio/MarketAudio';
 import { HUD } from '../ui/HUD';
 import { UI } from '../ui/UI';
+import { CrowdField } from '../districts/little-tokyo-market/crowd';
+import { marketCamera, type MarketView } from '../districts/little-tokyo-market/view';
+import { marketSpots } from '../districts/little-tokyo-market/spots';
+import { setSeats } from '../world/seats';
 import '../districts/detail-index';
 
 const T = TSL as any;
@@ -57,6 +65,12 @@ export class App {
   ui!: UI;
   hud!: HUD;
   readonly ambience = new Ambience();
+  readonly marketAudio: MarketAudio;
+  readonly crowd = new CrowdField();
+  readonly haze = new GroundHaze();
+  readonly wet: WetReflector;
+  private readonly software: boolean;
+  private lastCam = new Vector3();
 
   private pipeline: RenderPipeline | null = null;
   private timer = new Timer();
@@ -69,12 +83,15 @@ export class App {
 
   constructor(private canvas: HTMLCanvasElement) {
     const dev = probeDevice();
+    this.software = /swiftshader|llvmpipe|software|basic render/.test(dev.gpu.toLowerCase());
     const auto = autoTier(dev);
     this.autoTier = auto.tier;
     this.autoReason = auto.reason;
     const urlTier = (TIERS as string[]).includes(params.quality ?? '') ? (params.quality as Tier) : null;
     this.qualityChoice = urlTier ?? storedTier();
     this.quality = settingsFor(this.qualityChoice === 'auto' ? auto.tier : this.qualityChoice);
+    this.marketAudio = new MarketAudio(this.ambience);
+    this.wet = new WetReflector(this.scene);
   }
 
   async init(): Promise<void> {
@@ -117,7 +134,10 @@ export class App {
     const ultra = settingsFor('ultra');
     this.rain = new Precipitation('rain', ultra.rainCount);
     this.snow = new Precipitation('snow', ultra.snowCount);
-    this.scene.add(this.rain.mesh, this.snow.mesh);
+    this.scene.add(this.rain.mesh, this.snow.mesh, this.crowd.mesh, this.haze.group);
+
+    const spots = marketSpots(this.query.layout);
+    setSeats([...(spots.noodle?.seats ?? []), ...(spots.bibi?.seats ?? [])]);
 
     this.input = new Input(this.canvas);
     if (TouchControls.wanted()) this.touch = new TouchControls(this.input.touch);
@@ -130,7 +150,9 @@ export class App {
     const urlMode = MODES.includes(params.mode as ModeId) ? (params.mode as ModeId) : null;
     const showTitle = !urlMode && params.ui;
     const startMode: ModeId = urlMode ?? 'cine';
-    this.cams = new CameraSystem(fly, walk, cine, startMode, this.initialPose());
+    const startPose = this.initialPose();
+    await this.query.prime(startPose.position.x, startPose.position.z);
+    this.cams = new CameraSystem(fly, walk, cine, startMode, startPose);
     this.cams.onChange = (m) => {
       this.ui.setMode(m);
       this.touch?.setMode(m);
@@ -220,6 +242,7 @@ export class App {
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, this.quality.pixelRatio));
     this.renderer.setSize(innerWidth, innerHeight, false);
     this.streamer.setQuality(this.quality);
+    this.streamer.invalidateLod0();
     if (had !== this.quality.bloom) this.buildPipeline();
     this.slowTime = 0;
   }
@@ -269,14 +292,28 @@ export class App {
     this.cams.update(dt);
 
     const cam = this.camera.position;
+    const ground = this.query.groundHeight(cam.x, cam.z);
+    const alt = cam.y - ground;
+    const districtNow = this.query.district(cam.x, cam.z);
+    const inMarket = districtNow.id === 'little-tokyo-market';
+    U.neonWet.value = inMarket && alt < 140 ? 0.92 : 0.22;
+    U.streetFog.value = inMarket ? Math.max(0, Math.min(1, 1 - alt / 70)) * 0.8 : 0;
+    const dtSafe = Math.max(dt, 1e-4);
+    this.query.warm(cam.x, cam.z, cam.x + ((cam.x - this.lastCam.x) / dtSafe) * 0.45, cam.z + ((cam.z - this.lastCam.z) / dtSafe) * 0.45);
+    this.lastCam.copy(cam);
+
     const foci = [cam];
     if (this.cams.mode === 'cine' && this.cams.cine.prefetch) foci.push(this.cams.cine.prefetch);
     this.streamer.update(foci);
     this.traffic.update(dt, this.camera, this.quality.traffic);
     this.atmosphere.update(dt, this.elapsed, this.renderer);
-
-    const ground = this.query.groundHeight(cam.x, cam.z);
-    const alt = cam.y - ground;
+    this.crowd.update(dt, cam.x, cam.z, this.query, this.quality, this.atmosphere.weather.params.rain);
+    this.haze.update(cam.x, cam.z, ground, alt, this.quality.tier);
+    const wantRefl = params.refl === 1 || (
+      params.refl !== 0 && !this.software && (this.quality.tier === 'high' || this.quality.tier === 'ultra')
+      && inMarket && alt < 28 && this.atmosphere.weather.wetness > 0.35
+    );
+    this.wet.place(cam.x, ground, cam.z, wantRefl);
     // depth precision fallback when reversed-Z is unavailable (WebGL2 without EXT_clip_control)
     const near = this.renderer.reversedDepthBuffer ? 0.1 : MathUtils.clamp(alt * 0.004, 0.15, 6);
     if (Math.abs(near - this.camera.near) > 0.01) {
@@ -289,6 +326,19 @@ export class App {
     this.rain.update(dt, cam, w.params.rain * aboveClouds, w.params.wind, w.windDir, this.quality.rainCount);
     this.snow.update(dt, cam, w.params.snow * aboveClouds, w.params.wind, w.windDir, this.quality.snowCount);
     this.ambience.update(w.params.rain, w.params.snow, w.params.wind, alt);
+    this.camera.updateMatrixWorld();
+    const e = this.camera.matrixWorld.elements;
+    const cook = marketSpots(this.query.layout).noodle?.cook ?? null;
+    this.marketAudio.update(
+      cam,
+      { x: -e[8], y: -e[9], z: -e[10] },
+      { x: e[4], y: e[5], z: e[6] },
+      w.params.rain,
+      inMarket,
+      alt,
+      cook,
+      this.traffic.nearestTo(cam.x, cam.y, cam.z),
+    );
 
     if (this.pipeline) this.pipeline.render();
     else this.renderer.render(this.scene, this.camera);
@@ -312,7 +362,8 @@ export class App {
     const a = this.atmosphere;
     return [
       ['gpu', `${this.backend} · ${this.quality.tier}${this.qualityChoice === 'auto' ? ' (auto)' : ''} · dpr ${this.renderer.getPixelRatio().toFixed(2)}`],
-      ['draw', `${info.drawCalls} calls · ${(info.triangles / 1e6).toFixed(2)} M tris`],
+      ['draw', `${info.drawCalls} calls · ${(info.triangles / 1e6).toFixed(2)} M tris · crowd ${this.crowd.count}`],
+      ['query', `sync ${this.query.syncCount} · pending ${this.query.pending} · cell ${this.query.lastQueryMs.toFixed(0)} ms`],
       ['chunks', `far ${s.supersFar} · near ${s.chunksNear} · lod0 ${s.lod0} · jobs ${s.inFlight} · queue ${s.readyQueue} · gen ${s.lastGenMs.toFixed(0)} ms`],
       ['pos', `${p.x.toFixed(0)}, ${p.y.toFixed(0)}, ${p.z.toFixed(0)} m · ${alt.toFixed(0)} m AGL`],
       ['geo', `${lat.toFixed(4)}, ${lon.toFixed(4)}`],
@@ -357,7 +408,30 @@ export class App {
         return true;
       },
       geoToLocal,
-      stats: () => ({ ...this.streamer.stats, fps: this.hud.fps, backend: this.backend, tier: this.quality.tier, mode: this.cams.mode, shot: this.cams.cine.label }),
+      marketView: (kind: MarketView) => {
+        const p = marketCamera(this.query.layout, kind);
+        if (!p) return false;
+        this.cams.setMode(p.mode);
+        if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
+        this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
+        // Walk enter forces a street pitch. Put the requested one back for interior / crowd shots.
+        if (p.mode === 'walk') this.cams.walk.pitch = p.pitch;
+        return true;
+      },
+      stats: () => ({
+        ...this.streamer.stats,
+        fps: this.hud.fps,
+        backend: this.backend,
+        tier: this.quality.tier,
+        mode: this.cams.mode,
+        shot: this.cams.cine.label,
+        drawCalls: this.renderer.info.render.drawCalls,
+        triangles: this.renderer.info.render.triangles,
+        crowd: this.crowd.count,
+        querySyncs: this.query.syncCount,
+        queryPending: this.query.pending,
+        refl: this.wet.enabled,
+      }),
     };
   }
 }

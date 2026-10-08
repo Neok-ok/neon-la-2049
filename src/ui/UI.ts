@@ -117,7 +117,7 @@ export class UI {
   showHelp(): void {
     this.flash(
       'Fly: WASD thrust · mouse/arrow keys steer · Space/E up · C/Q down · Shift boost · V cockpit<br/>' +
-        'Walk: WASD · mouse look · Shift run<br/>1 Fly · 2 Walk · 3 Cinematic · F toggle fly/walk · N next shot · H HUD · M mute · [ ] time −/+1 h · B next weather',
+        'Walk: WASD · mouse look · Shift run · E sit at a stall<br/>1 Fly · 2 Walk · 3 Cinematic · F toggle fly/walk · N next shot · H HUD · M mute · [ ] time −/+1 h · B next weather',
       7000,
     );
   }

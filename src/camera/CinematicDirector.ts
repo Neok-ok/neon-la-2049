@@ -266,7 +266,7 @@ export class CinematicDirector implements Controller {
     // validate the path stays in open air
     for (let k = 0; k <= 4; k++) {
       const q = start.clone().add(new Vector3(dx, 0, dz).multiplyScalar(speed * dur * (k / 4)));
-      if (this.query.insideSolid(q.x, q.y, q.z, 0.8)) return null;
+      if (this.query.insideSolid(q.x, q.y, q.z, 0.8, true)) return null;
     }
     const heading = Math.atan2(dx, -dz) + (crane ? r.range(-0.4, 0.4) : r.range(-0.15, 0.15));
     const pitch0 = crane ? r.range(0.25, 0.55) : r.range(0.02, 0.22);
@@ -291,7 +291,7 @@ export class CinematicDirector implements Controller {
     const a = r.range(0, Math.PI * 2);
     const camY = r.range(120, 420);
     const pos0 = new Vector3(l.x + Math.cos(a) * dist, camY, l.z + Math.sin(a) * dist);
-    if (this.query.insideSolid(pos0.x, pos0.y, pos0.z, 3) || this.query.insideLandmark(pos0.x, pos0.y, pos0.z, 10)) return null;
+    if (this.query.insideSolid(pos0.x, pos0.y, pos0.z, 3, true) || this.query.insideLandmark(pos0.x, pos0.y, pos0.z, 10)) return null;
     const target = new Vector3(l.x, H * r.range(0.35, 0.75), l.z);
     const drift = new Vector3(r.range(-1, 1), r.range(-0.3, 0.3), r.range(-1, 1)).multiplyScalar(r.range(4, 12));
     const dur = r.range(9, 14);
@@ -373,7 +373,7 @@ export class CinematicDirector implements Controller {
     // stand near an edge
     pos0.x += Math.cos(b.yaw) * b.w * 0.4 * (r.chance(0.5) ? 1 : -1);
     pos0.z += Math.sin(b.yaw) * b.d * 0.4 * (r.chance(0.5) ? 1 : -1);
-    if (this.query.insideSolid(pos0.x, pos0.y, pos0.z, 0.5)) return null;
+    if (this.query.insideSolid(pos0.x, pos0.y, pos0.z, 0.5, true)) return null;
     const h0 = r.range(0, Math.PI * 2);
     const pan = r.range(0.3, 0.8) * (r.chance(0.5) ? 1 : -1);
     const pitch = -r.range(0.02, 0.2);

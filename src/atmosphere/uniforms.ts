@@ -30,4 +30,10 @@ export const U = {
   signPower: uniform(1),
   /** 0..1 flash */
   lightning: uniform(0),
+  /** 0..1 how strongly street-level rain should pick up neon (set from the district under the camera). */
+  neonWet: uniform(0.35),
+  /** Extra ground-fog in a dressed market, 0..1. */
+  streetFog: uniform(0),
+  /** 1 when the planar wet reflector is drawing, so the fake neon streaks step back. */
+  reflMix: uniform(0),
 };
