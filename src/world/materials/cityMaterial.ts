@@ -9,7 +9,7 @@ import { lut } from './lut';
 const T = TSL as any;
 const {
   Fn, attribute, float, vec2, vec3, floor, fract, step, smoothstep, mix, hash, mx_noise_float, normalLocal,
-  positionWorld, cameraPosition, fwidth, max, clamp, length,
+  positionWorld, cameraPosition, fwidth, max, clamp, length, normalize, pow, abs,
 } = T;
 
 // Per-style tables, indexed by Style id (src/world/fabric/types.ts)
@@ -66,7 +66,14 @@ export function getCityMaterial(): MeshStandardNodeMaterial {
   const warmC = vec3(1.0, 0.58, 0.26);
   const coolC = vec3(0.55, 0.78, 1.0);
   const winColor = mix(coolC, warmC, step(h2, warmth)).mul(h2.mul(0.9).add(0.35));
-  const nearWindows = winColor.mul(litMask).mul(winMask);
+  // window interior read: mullion + transom, brighter ceiling, some blinds half drawn
+  const lx = f.x.sub(0.5).div(max(winW, 0.01)).add(0.5);
+  const ly = f.y.sub(float(0.55).sub(winH.mul(0.5))).div(max(winH, 0.01));
+  const mullion = step(0.035, abs(lx.sub(0.5))).mul(step(0.04, abs(ly.sub(0.72))));
+  const h3 = hash(h1.mul(4513.0).add(cell.y));
+  const blinds = mix(float(1), float(0.3), step(0.62, h3).mul(step(ly, h3.sub(0.62).mul(2.6).add(0.35)).oneMinus()));
+  const interior = ly.mul(0.55).add(0.6).mul(blinds).mul(mullion.mul(0.85).add(0.15));
+  const nearWindows = winColor.mul(litMask).mul(winMask).mul(interior);
   // average for distant / grazing views (prevents moire + keeps the city glowing far away)
   // perceptually a field of sub-pixel lights reads darker than its true mean: scale the average down
   const avgWindows = mix(coolC, warmC, warmth).mul(litFrac.mul(winW.mul(winH)).mul(0.45));
@@ -81,6 +88,16 @@ export function getCityMaterial(): MeshStandardNodeMaterial {
   const gFoot = fwidth(wpos.x).div(7.0);
   const gAvg = lit.mul(0.16).mul(U.windowLit).mul(0.8);
   const groundLights = mix(gLights, gAvg, smoothstep(0.3, 1.0, gFoot)).mul(warmC).mul(isGround).mul(step(0.001, lit)).mul(2.0);
+
+  // ---- fake neon reflections on wet streets (near camera only) ----
+  // ground bdata.w = 1 + district neon amount (see mesher emitGround)
+  const neonAmt = clamp(tint.sub(1.0), 0, 1).mul(isGround);
+  const viewDir = normalize(cameraPosition.sub(wpos));
+  const fres = pow(float(1).sub(clamp(viewDir.y, 0, 1)), 2.5);
+  const nA = mx_noise_float(vec3(wpos.x.mul(0.045), wpos.z.mul(0.045), 4.0));
+  const nB = mx_noise_float(vec3(wpos.x.mul(0.11), wpos.z.mul(0.11), 9.0));
+  const neonCol = mix(mix(vec3(1.0, 0.18, 0.55), vec3(0.15, 0.85, 1.0), smoothstep(-0.25, 0.25, nA)), vec3(1.0, 0.55, 0.15), smoothstep(0.15, 0.5, nB));
+  const streaks = mx_noise_float(vec3(wpos.x.mul(0.9), wpos.z.mul(0.9), 1.0)).mul(0.5).add(0.5);
 
   // ---- albedo ----
   const stain = mx_noise_float(vec3(facade.x.mul(0.11), facade.y.mul(0.018), seed.mul(37.0))).mul(0.5).add(0.5);
@@ -102,6 +119,8 @@ export function getCityMaterial(): MeshStandardNodeMaterial {
   const wet = U.wetness;
   const darken = mix(1.0, 0.55, wet.mul(isGround.add(isRoof).min(1)).add(wet.mul(isWall).mul(0.35)));
   baseColor = baseColor.mul(darken);
+  const neonRefl = neonCol.mul(fres).mul(wet).mul(puddle.mul(0.75).add(0.25)).mul(streaks.mul(0.6).add(0.4))
+    .mul(U.night.mul(0.8).add(0.2)).mul(U.signPower).mul(neonAmt).mul(smoothstep(120.0, 500.0, distCam).oneMinus()).mul(0.9);
 
   const upness = clamp(normalLocal.y, 0, 1);
   const snowAmt = U.snow.mul(smoothstep(0.55, 0.95, upness)).mul(
@@ -118,7 +137,8 @@ export function getCityMaterial(): MeshStandardNodeMaterial {
   m.colorNode = baseColor;
   m.roughnessNode = rough;
   m.metalnessNode = mix(float(0), float(0.35), unlitGlass);
-  m.emissiveNode = Fn(() => windows.mul(float(1).sub(clamp(snowAmt, 0, 1).mul(0.6))).add(groundLights))();
+  const snowCover = float(1).sub(clamp(snowAmt, 0, 1));
+  m.emissiveNode = Fn(() => windows.mul(snowCover.mul(0.6).add(0.4)).add(groundLights).add(neonRefl.mul(snowCover)))();
 
   shared = m;
   return m;

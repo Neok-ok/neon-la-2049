@@ -36,7 +36,7 @@ export class DayNight {
 }
 
 const c = (r: number, g: number, b: number) => new Color(r, g, b);
-const NIGHT = { zenith: c(0.005, 0.006, 0.01), horizon: c(0.06, 0.04, 0.03), fog: c(0.042, 0.031, 0.026) };
+const NIGHT = { zenith: c(0.006, 0.007, 0.011), horizon: c(0.085, 0.056, 0.04), fog: c(0.05, 0.037, 0.03) };
 const DUSK = { zenith: c(0.07, 0.07, 0.09), horizon: c(0.5, 0.28, 0.16), fog: c(0.36, 0.23, 0.15) };
 const DAY = { zenith: c(0.33, 0.35, 0.37), horizon: c(0.58, 0.55, 0.49), fog: c(0.5, 0.48, 0.43) };
 const SMOG_TINT = c(0.85, 0.55, 0.3);

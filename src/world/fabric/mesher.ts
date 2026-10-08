@@ -49,6 +49,26 @@ const SPRAWL_LIGHTS: Record<string, number> = {
   'hills-sparse': 0.15,
 };
 
+/** How strongly wet streets reflect neon, by archetype (0..1). */
+const STREET_NEON: Record<string, number> = {
+  'street-market': 1,
+  'neon-canyon': 1,
+  entertainment: 1,
+  'megablock-market': 0.8,
+  'megablock-downtown': 0.6,
+  'megatower-core': 0.5,
+  'sprawl-dense': 0.35,
+  'basin-sprawl': 0.25,
+  'megablock-residential': 0.3,
+  civic: 0.2,
+  'coastal-grey': 0.1,
+  industrial: 0.1,
+  'industrial-dense': 0.15,
+  port: 0.1,
+  spaceport: 0.15,
+  'hills-sparse': 0.05,
+};
+
 class Writer {
   pos: number[] = [];
   nor: number[] = [];
@@ -131,9 +151,11 @@ function emitGround(wr: Writer, layout: CityLayout, x0: number, z0: number, size
     }
   const lightsFor = (cx: number, cz: number): number =>
     rules.groundLights ? (SPRAWL_LIGHTS[layout.districtAt(cx, cz).archetype] ?? 0.6) : 0;
+  // ground tint channel carries 1 + neon reflection strength (read by the city material)
+  const neonFor = (cx: number, cz: number): number => 1 + (STREET_NEON[layout.districtAt(cx, cz).archetype] ?? 0.2);
 
   if (flat && allLand && !rules.groundLights) {
-    wr.quad([0, 0, size, size, 0, size, size, 0, 0, 0, 0, 0], [0, 1, 0], [x0, z0 + size, x0 + size, z0 + size, x0 + size, z0, x0, z0], [0, Style.Ground, 0, 1]);
+    wr.quad([0, 0, size, size, 0, size, size, 0, 0, 0, 0, 0], [0, 1, 0], [x0, z0 + size, x0 + size, z0 + size, x0 + size, z0, x0, z0], [0, Style.Ground, 0, neonFor(x0 + size / 2, z0 + size / 2)]);
     return;
   }
   for (let j = 0; j < n; j++)
@@ -150,7 +172,7 @@ function emitGround(wr: Writer, layout: CityLayout, x0: number, z0: number, size
         [ax, h01, bz, bx, h11, bz, bx, h10, az, ax, h00, az],
         [-dx * inv, inv, -dz * inv],
         [x0 + ax, z0 + bz, x0 + bx, z0 + bz, x0 + bx, z0 + az, x0 + ax, z0 + az],
-        [0, Style.Ground, lit, 1],
+        [0, Style.Ground, lit, neonFor(x0 + ax + cs / 2, z0 + az + cs / 2)],
       );
     }
 }
