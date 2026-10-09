@@ -75,6 +75,7 @@ export class GroundTraffic {
   private cars: Van[] = [];
   private body: InstancedMesh;
   private lights: InstancedMesh;
+  readonly nodes: InstancedMesh[];
   private rng = new Rng(trueRandomSeed() ^ 0x6a11);
   count = 0;
   radius = 420;
@@ -91,6 +92,7 @@ export class GroundTraffic {
     }
     this.body.name = 'ground-body';
     this.lights.name = 'ground-lights';
+    this.nodes = [this.body, this.lights];
   }
 
   private place(c: Van, x: number, z: number): boolean {

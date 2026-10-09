@@ -123,6 +123,8 @@ it from `src/districts/landmark-index.ts` (main thread only). A district registr
 which `Landmarks.ts` registers with `registerLandmarkDefault`. Points of interest (future interiors, set pieces) go in `pois[]`.
 `?at=<id>` jumps the camera to any landmark or POI.
 
+An enterable room that should hide the city is an interior, not a deeper soffit. Call `registerInterior` from a module imported by `src/districts/interior-index.ts`. The API, the door rules and `buildCorridorRoom` are in `src/world/interiors/README.md`. Do not add a scene light for it, and do not render the street into a texture.
+
 A builder gets `(landmark, env)` and returns `{ object, colliders }`. `env` has the layout, the shared `beacons` and `flares` lists, and
 `lods`, the landmark LOD manager. Hand it your levels with `env.lods.add(id, [lod0, lod1, lod2], [d01, d12], x, z, y0, y1, radius)`.
 It switches on the distance to the structure's vertical axis minus `radius`, with 8% hysteresis. The tier's `landmarkLod` scales the

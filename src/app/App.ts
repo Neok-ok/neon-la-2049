@@ -18,6 +18,9 @@ import { dtlaCamera, type DtlaView } from '../districts/dtla/view';
 import { installDtlaHolos } from '../districts/dtla/holos';
 import { civicCamera, type CivicView } from '../districts/civic-center/view';
 import { broadwayCamera, type BroadwayView } from '../districts/historic-core/view';
+import { interiorCamera, type InteriorView } from '../districts/historic-core/interior';
+import { installInteriors } from '../districts/interior-index';
+import { InteriorSystem } from '../world/interiors';
 import { installCivicHolos } from '../districts/civic-center/holos';
 import { SpinnerTraffic } from '../vehicles/SpinnerTraffic';
 import { Input } from '../input/Input';
@@ -80,6 +83,7 @@ export class App {
   readonly crowd = new CrowdField();
   holos!: HologramField;
   landmarks!: Landmarks;
+  interiors!: InteriorSystem;
   readonly haze = new GroundHaze();
   readonly wet: WetReflector;
   private readonly software: boolean;
@@ -155,6 +159,8 @@ export class App {
     this.rain = new Precipitation('rain', ultra.rainCount);
     this.snow = new Precipitation('snow', ultra.snowCount);
     this.scene.add(this.rain.mesh, this.snow.mesh, this.crowd.mesh, this.haze.group);
+    installInteriors();
+    this.interiors = new InteriorSystem(this.scene, this.query, this.quality.tier);
 
     const spots = marketSpots(this.query.layout);
     setSeats([...(spots.noodle?.seats ?? []), ...(spots.bibi?.seats ?? [])]);
@@ -164,6 +170,12 @@ export class App {
     this.hud = new HUD(params.hud);
 
     const fly = new FlyController(this.camera, this.input, this.query, this.scene);
+    fly.blocksExtra = (x, y, z) => this.interiors.blocksFly(x, y, z);
+    this.interiors.bind({
+      toggle: [this.streamer.root, this.holos.group, this.crowd.mesh, ...this.traffic.nodes, ...this.ground.nodes],
+      suppress: [this.rain.mesh, this.snow.mesh, this.haze.group, this.wet.mesh, ...this.lanes.nodes, fly.spinner],
+      landmarks: this.landmarks.root,
+    });
     const walk = new WalkController(this.camera, this.input, this.query);
     const cine = new CinematicDirector(this.camera, this.query, this.traffic, (v) => this.ui?.fade(v));
 
@@ -263,6 +275,7 @@ export class App {
     this.renderer.setSize(innerWidth, innerHeight, false);
     this.streamer.setQuality(this.quality);
     this.streamer.invalidateLod0();
+    this.interiors.setTier(tier);
     if (had !== this.quality.bloom) this.buildPipeline();
     this.slowTime = 0;
   }
@@ -357,6 +370,9 @@ export class App {
     const aboveClouds = MathUtils.clamp(1 - (cam.y - 1400) / 600, 0, 1);
     this.rain.update(dt, cam, w.params.rain * aboveClouds, w.params.wind, w.windDir, this.quality.rainCount);
     this.snow.update(dt, cam, w.params.snow * aboveClouds, w.params.wind, w.windDir, this.quality.snowCount);
+    const at = this.cams.mode === 'walk' ? this.cams.walk.pos : cam;
+    this.interiors.update(dt, this.cams.mode, at.x, at.y, at.z, w.params.rain);
+    this.ambience.setInterior(this.interiors.blend);
     this.ambience.update(w.params.rain, w.params.snow, w.params.wind, alt);
     this.camera.updateMatrixWorld();
     const e = this.camera.matrixWorld.elements;
@@ -402,6 +418,7 @@ export class App {
       ['district', `${d.name} (stage ${d.stage})`],
       ['sky', `${a.dayNight.label} · ${a.weather.label} · wet ${a.weather.wetness.toFixed(2)}`],
       ['mode', this.cams.mode === 'cine' ? `cinematic · ${this.cams.cine.label}` : this.cams.mode],
+      ['interior', this.interiors.hudLabel()],
     ];
   }
 
@@ -483,6 +500,21 @@ export class App {
       /** Stage 4 cameras: canyon street, a lit walkway, a spinner over a roof, an avenue lane, the MT-1 plaza. */
       /** Stage 5 cameras: spinner on a pad approach, the steps, City Hall, the lobby, the mall. */
       /** Stage 6 cameras: Broadway at street level, the footbridge, the Bradbury face, spinner height, the court. */
+      /** X3 cameras: inside the Bradbury court, on the stair, the street door, the service template. */
+      interiorView: (kind: InteriorView) => {
+        const p = interiorCamera(this.query.layout, kind);
+        if (!p) return false;
+        this.query.fabricAt(p.x, p.z);
+        this.cams.setMode('walk');
+        this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
+        this.cams.walk.pitch = p.pitch;
+        this.cams.walk.heading = p.heading;
+        this.cams.walk.pos.set(p.feet.x, p.feet.y, p.feet.z);
+        this.camera.position.set(p.feet.x, p.feet.y + 1.7, p.feet.z);
+        this.camera.rotation.set(p.pitch, -p.heading, 0, 'YXZ');
+        this.camera.updateMatrixWorld();
+        return true;
+      },
       broadwayView: (kind: BroadwayView) => {
         const p = broadwayCamera(this.query.layout, kind);
         if (!p) return false;
@@ -562,6 +594,7 @@ export class App {
         querySyncs: this.query.syncCount,
         queryPending: this.query.pending,
         refl: this.wet.enabled,
+        ...this.interiors.stats,
       }),
     };
   }

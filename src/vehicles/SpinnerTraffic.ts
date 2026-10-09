@@ -36,6 +36,7 @@ export class SpinnerTraffic {
   private body: InstancedMesh;
   private lights: InstancedMesh;
   private glow: InstancedMesh;
+  readonly nodes: InstancedMesh[];
   private glowColor: InstancedBufferAttribute;
   private rng = new Rng(trueRandomSeed());
   radius = 2600;
@@ -86,6 +87,7 @@ export class SpinnerTraffic {
     }
     this.body.name = 'traffic-body';
     this.glow.name = 'traffic-glow';
+    this.nodes = [this.body, this.lights, this.glow];
   }
 
   private blank(c: Car | null): Car {

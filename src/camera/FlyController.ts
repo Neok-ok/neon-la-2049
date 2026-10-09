@@ -22,6 +22,8 @@ export class FlyController implements Controller {
   private camPos = new Vector3();
   private bank = 0;
   private active = false;
+  /** Extra solids (interior volumes). Walk mode does not use this. */
+  blocksExtra: (x: number, y: number, z: number) => boolean = () => false;
 
   constructor(private camera: PerspectiveCamera, private input: Input, private query: CityQuery, scene: Scene) {
     this.spinner = createSpinnerMesh();
@@ -64,6 +66,7 @@ export class FlyController implements Controller {
   }
 
   private solid(p: Vector3): boolean {
+    if (this.blocksExtra(p.x, p.y + 0.7, p.z)) return true;
     if (p.y > CityQuery.FABRIC_CEILING) return this.query.insideLandmark(p.x, p.y + 0.7, p.z, 2);
     return this.query.insideSolid(p.x, p.y + 0.7, p.z, 1.3);
   }

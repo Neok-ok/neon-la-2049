@@ -24,6 +24,7 @@ src/
     detail/registry.ts     main-thread LOD0 street-detail modules (lamps, props...)
     materials/             node materials: city fabric, neon signs, ocean, LUT helper
     holograms/             shared projectors: registry, scanline shader, spill, tiered field (see that folder's README)
+    interiors/             door volumes, baked interior light, occluded exterior (see that folder's README)
     landmarks/             landmark registry, LOD manager, Stage-1 blockout builders, sea walls, beacons, flares
     CityQuery.ts           collision / ground / "where am I". Frame loop reads a worker-filled LRU; cold calls still generate on the main thread
     query.worker.ts        packs colliders + block records for CityQuery
@@ -195,6 +196,18 @@ One instanced draw for every projector, plus one draw for wet-street spill cards
 
 Street-band panels cull at `lod0Radius * 0.9`. Tower-band panels cull at `nearRadius * 1.35`. Skyline-band panels (megatower crowns) cull at `max(nearRadius * 1.35, farRadius * 0.55)`. Both radii are the streaming radii above, so a tier change moves holograms with the city. Off-screen panels do not spend the cap. Spill is a wrapped falloff on the shared city and kit materials (four fixed slots, no uniform array — those mis-index on WebGL2), not a shadow-casting light. The API for Stage 3 is [`src/world/holograms/README.md`](../src/world/holograms/README.md).
 
+## Interiors
+
+`InteriorSystem` mounts rooms registered with `registerInterior` (see [`src/world/interiors/README.md`](../src/world/interiors/README.md)). A district calls it once from `src/districts/interior-index.ts`. The plan is plain data: an oriented volume, door boxes, and a `build(detail)` that returns boxes, baked lights and portal quads. `buildCorridorRoom` is the corridor-and-room template Stage 8 extends.
+
+Walk mode is the only mode that enters. An exterior door keeps the city visible while the feet are still in that box. Past it, the fabric, holograms, crowds, traffic, rain, haze and every landmark not listed in `keepLandmarks` are hidden, and a procedural card fills the opening. That card is one draw. It is not a second render of the street, so the draw-call counter stays honest. Fly mode treats every interior volume as solid, open roof included.
+
+Interior light is vertex colour plus an emissive attribute on an unlit mesh. It does not follow the night, wet or sign uniforms, and it does not add a scene light. Rain and the city bed go through a low-pass on the ambience master, so market layers muffle too. Open-court rain is a local streak mesh on medium and up.
+
+The Bradbury court (`bradbury-court`) and the service corridor behind it (`bradbury-service`) are the proof. The service corridor is the template, not K's apartment. Colliders are registered once with `CityQuery` and do not change with the tier. A tier change rebuilds the meshes (detail 0 / 1 / 2 / 3).
+
+While a walker is inside, expect the draw count to fall to the kept shell plus a handful of interior meshes. On the street in front of an open door the streamed interior adds about one draw. Both have to stay under 250 draws and 1.5 M triangles.
+
 ### iPhone performance budget (target: iPhone 13+ in Safari, medium tier, 30–60 fps)
 
 | Budget | Value |
@@ -228,8 +241,8 @@ kit / steam / pool draws the market and DTLA already add; a measured fabric chun
 &webgl=1 &hud=1 &ui=0 &freeze=1 &touch=1 &refl=0|1`
 
 `window.__nla` (console and automation): `isIdle()`, `setMode(m)`, `setPose(x,y,z,yaw°,pitch°)`, `streetView(idOrX, z?, along?)`,
-`marketView('street'|'interior'|'crowd'|'roof'|'bibi')`, `holoView('street'|'aerial'|'cine')`, `megaView('approach'|'skyline'|'street'|'lanes'|'crown')`, `dtlaView('street'|'walkway'|'roof'|'lanes'|'plaza')`, `civicView('approach'|'steps'|'hall'|'lobby'|'plaza')`, `broadwayView('street'|'bridge'|'bradbury'|'spinner'|'atrium')`, `holoSpec(id)`, `setTime(h)`, `setWeather(id)`, `cut()`, `holdShot(on)`, `stats()`,
-`geoToLocal(lat,lon)`, `app`. `stats()` includes draw calls, triangles, crowd count, hologram panel count, query-worker counters, lane cars and lanes, ground cars, landmark LOD levels and the beacon count.
+`marketView('street'|'interior'|'crowd'|'roof'|'bibi')`, `holoView('street'|'aerial'|'cine')`, `megaView('approach'|'skyline'|'street'|'lanes'|'crown')`, `dtlaView('street'|'walkway'|'roof'|'lanes'|'plaza')`, `civicView('approach'|'steps'|'hall'|'lobby'|'plaza')`, `broadwayView('street'|'bridge'|'bradbury'|'spinner'|'atrium')`, `interiorView('court'|'stair'|'door'|'service')`, `holoSpec(id)`, `setTime(h)`, `setWeather(id)`, `cut()`, `holdShot(on)`, `stats()`,
+`geoToLocal(lat,lon)`, `app`. `stats()` includes draw calls, triangles, crowd count, hologram panel count, query-worker counters, lane cars and lanes, ground cars, landmark LOD levels, the beacon count, and the interior fields (`interior`, `interiorOccluded`, `interiorMuffle`, `interiorTris`, `interiorMeshes`, `interiorMounted`).
 
 Keys: `1/2/3` fly/walk/cinematic, `F` toggle fly↔walk, `V` cockpit, `E` sit / stand at a market stool (walk mode; in fly mode `E` is still up),
 `N` next shot, `H` HUD, `M` mute, `[ ]` time −/+ 1 h, `B` next weather. The iPhone joystick has no sit button.
@@ -246,6 +259,6 @@ Keys: `1/2/3` fly/walk/cinematic, `F` toggle fly↔walk, `V` cockpit, `E` sit / 
 * Frame-loop collision reads worker cells. A miss that frame does not collide (the cell is queued). `fabricAt`, `findStreetSpot` and cinematic
   solid-checks still call `generateFabric` on the main thread, and a dressed Little Tokyo cell is about 30 ms. Do not call `fabricAt` from the frame loop.
 * The crowd walk is a foot slide, not a skeleton. Umbrellas are on or off per person, not a hand-held prop with a grip.
-* Fabric windows are procedural. Interiors behind windows (parallax interior mapping) are not yet implemented.
+* Fabric windows are procedural. Parallax interior mapping for ordinary windows is not implemented. Enterable rooms use door volumes (`src/world/interiors/`), not a window shader. The doorway card is procedural, not a live view of the street, and an open court shows the sky rather than the skyline.
 * No shadows (night-first look). Daytime sun shadows would need cascaded shadow maps on high/ultra.
 * The WebGL2 fallback has no reversed-Z (it breaks the MSAA depth blit), so the near plane adapts to altitude instead.

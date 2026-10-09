@@ -88,6 +88,18 @@ const shots = [
   { name: 'broadway-low', ctx: desktop, q: `mode=walk&at=bradbury&time=22.5&weather=rain&freeze=1&ui=0&quality=low${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.broadwayView('street'), near: true },
   { name: 'broadway-medium', ctx: desktop, q: `mode=walk&at=bradbury&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.broadwayView('street'), near: true },
   { name: 'broadway-ultra', ctx: desktop, q: `mode=walk&at=bradbury&time=22.5&weather=rain&freeze=1&ui=0&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.broadwayView('street'), near: true },
+  // X3 — interior stream. Cameras come from __nla.interiorView.
+  { name: 'interior-court', ctx: desktop, q: `mode=walk&at=bradbury&time=22.5&weather=rain&${common}`, after: () => window.__nla.interiorView('court'), near: true },
+  { name: 'interior-stair', ctx: desktop, q: `mode=walk&at=bradbury&time=22.5&weather=rain&${common}`, after: () => window.__nla.interiorView('stair'), near: true },
+  { name: 'interior-door', ctx: desktop, q: `mode=walk&at=bradbury&time=22.5&weather=rain&${common}`, after: () => window.__nla.interiorView('door'), near: true },
+  { name: 'interior-test', ctx: desktop, q: `mode=walk&at=bradbury&time=22.5&weather=rain&${common}`, after: () => window.__nla.interiorView('service'), near: true },
+  { name: 'interior-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=bradbury&time=22.5&weather=rain&freeze=1&ui=0&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.interiorView('court'), near: true },
+  { name: 'interior-low', ctx: desktop, q: `mode=walk&at=bradbury&time=22.5&weather=rain&freeze=1&ui=0&quality=low${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.interiorView('court'), near: true },
+  { name: 'interior-medium', ctx: desktop, q: `mode=walk&at=bradbury&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.interiorView('court'), near: true },
+  { name: 'interior-ultra', ctx: desktop, q: `mode=walk&at=bradbury&time=22.5&weather=rain&freeze=1&ui=0&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.interiorView('court'), near: true },
+  { name: 'interior-out-low', ctx: desktop, q: `mode=walk&at=bradbury&time=22.5&weather=rain&freeze=1&ui=0&quality=low${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.interiorView('door'), near: true },
+  { name: 'interior-out-medium', ctx: desktop, q: `mode=walk&at=bradbury&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.interiorView('door'), near: true },
+  { name: 'interior-out-ultra', ctx: desktop, q: `mode=walk&at=bradbury&time=22.5&weather=rain&freeze=1&ui=0&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.interiorView('door'), near: true },
 ];
 
 const args = GPU
@@ -123,6 +135,14 @@ for (const s of shots) {
     // camera presets are idempotent; set it again in case a slow first frame swallowed the first call
     await page.evaluate(s.after);
     await page.waitForTimeout(1500);
+    if (s.name.startsWith('interior-')) {
+      await page.evaluate(s.after);
+      await page.evaluate(() => new Promise((resolve) => {
+        const t0 = performance.now();
+        const step = () => (performance.now() - t0 >= 1400 ? resolve(0) : requestAnimationFrame(step));
+        requestAnimationFrame(step);
+      }));
+    }
   }
   if (s.cine) {
     // cut until the director lands on a wide establishing shot, then let its area stream in
