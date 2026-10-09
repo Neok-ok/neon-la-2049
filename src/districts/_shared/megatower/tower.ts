@@ -667,6 +667,22 @@ export function buildTower(plan: TowerPlan, sink: MassSink): TowerParts {
       }
     }
   }
+  // tall vertical neon banners where the shaft leaves the podium roof, the lit street zone reaching up the tower
+  if (!plan.compact && plan.podium && m.segs.length) {
+    const s0 = m.segs[0]!;
+    for (let f = 0 as Face; f < 4; f = (f + 1) as Face) {
+      if (f === holoFace || !b.r.chance(0.7)) continue;
+      const [nx, nz] = FN[f];
+      const half = f % 2 === 0 ? s0.d / 2 : s0.w / 2;
+      const len = f % 2 === 0 ? s0.w : s0.d;
+      const a = (b.r.chance(0.5) ? 1 : -1) * len * b.r.range(0.28, 0.4);
+      const h = b.r.range(26, 42);
+      b.parts.signs.push({
+        lx: s0.lx + nx * (half + 5) + (f % 2 === 0 ? a : 0), lz: s0.lz + nz * (half + 5) + (f % 2 === 0 ? 0 : a),
+        y: plan.podium.h + 6 + h / 2, face: f, w: b.r.range(3.2, 4.6), h, color: b.r.pick(NEON), kind: 1,
+      });
+    }
+  }
   b.crown(plan.crown, m.clx, m.clz, m.cw, m.cd, m.cy, crownH, holoFace);
   b.mast(m.clx, m.clz, H, plan.mast ?? 0, Math.min(m.cw, m.cd) * 0.16);
   // shaft and podium hologram slots

@@ -76,9 +76,10 @@ export function buildPyramid(p: PyramidPlan, sink: MassSink): TowerParts {
           box(ox, oz, y1 + 1, nx ? 1 : cw - 10, nz ? 1 : cw - 10, wallace ? 3.6 : 2.4, stripWarm, 1);
         }
       } else {
+        // on the outer lip, so the line still shows when the step is seen from below
         for (const [nx, nz] of FN) {
-          const e = (wt + wn) / 4;
-          box(nx * e, nz * e, y1, nx ? 1.2 : (wt + wn) / 2 - 20, nz ? 1.2 : (wt + wn) / 2 - 20, 1.8, stripCold, 1);
+          const e = wt / 2 - 0.8;
+          box(nx * e, nz * e, y1, nx ? 1.2 : wt - 24, nz ? 1.2 : wt - 24, 1.8, stripCold, 1);
         }
       }
       // corner ribs following the batter
