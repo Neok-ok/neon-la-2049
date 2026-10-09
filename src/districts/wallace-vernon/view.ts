@@ -64,8 +64,8 @@ export function wallaceCamera(layout: CityLayout, kind: WallaceView): WallacePos
   if (kind === 'plaza') {
     // North court, through the security gap, so the paving and the stair read with the portal.
     const feet = world(6, 0.16, -2068);
-    const look = world(0, 26, -1760);
-    return walk(feet, look, 0.14);
+    const look = world(0, 10, -1860);
+    return walk(feet, look, 0.05);
   }
   if (kind === 'face') {
     // On the plinth, east of the pylons, a few dozen metres off the stone.
@@ -84,8 +84,9 @@ export function wallaceCamera(layout: CityLayout, kind: WallaceView): WallacePos
   }
   if (kind === 'factories' || kind === 'convoy') {
     const sx = factoryStreetX(pyr.x);
-    const eye = { x: sx + (kind === 'convoy' ? 18 : 14), y: g + (kind === 'convoy' ? 22 : 32), z: pyr.z + 640 };
-    const look = { x: sx - 8, y: g + (kind === 'convoy' ? 12 : 16), z: pyr.z + (kind === 'convoy' ? 1080 : 1180) };
+    // The dock lane is still tens of metres up here. Look along it, not at the roofs.
+    const eye = { x: sx + (kind === 'convoy' ? 26 : 20), y: g + (kind === 'convoy' ? 48 : 40), z: pyr.z + (kind === 'convoy' ? 420 : 520) };
+    const look = { x: sx, y: g + (kind === 'convoy' ? 44 : 30), z: pyr.z + (kind === 'convoy' ? 920 : 1080) };
     return fly(eye, look);
   }
   if (kind === 'oldpyramids') {

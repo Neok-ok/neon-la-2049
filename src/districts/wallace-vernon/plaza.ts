@@ -37,6 +37,8 @@ function col(f: PlazaFrame, lx: number, lz: number, hw: number, hd: number, y0: 
 function puddles(f: PlazaFrame, parent: Group): void {
   const spots: Array<[number, number, number, number]> = [
     [-40, -2048, 14, 7],
+    [10, -2036, 22, 10],
+    [-28, -2016, 16, 8],
     [55, -2064, 9, 11],
     [-90, -2010, 8, 5],
     [18, -1992, 16, 6],

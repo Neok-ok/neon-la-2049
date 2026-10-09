@@ -69,8 +69,8 @@ const STREET_NEON: Record<string, number> = {
   civic: 0.2,
   'coastal-grey': 0.1,
   industrial: 0.1,
-  // Below the generic industrial carpet so Vernon stays black and bronze, not market neon.
-  'wallace-vernon': 0.06,
+  // No market-neon carpet. Rain in the precinct stays a dark amber haze.
+  'wallace-vernon': 0,
   'industrial-dense': 0.15,
   port: 0.1,
   spaceport: 0.15,
