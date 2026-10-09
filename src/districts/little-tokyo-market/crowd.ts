@@ -133,25 +133,56 @@ function crowdMaterial(): MeshBasicNodeMaterial {
   return m;
 }
 
-function loopsFrom(blocks: PackedBlock[], layoutId: (index: number) => string): Loop[] {
+export type CrowdSource = (blocks: PackedBlock[], query: CityQuery) => Array<Array<[number, number]>>;
+
+const crowdSources = new Map<string, CrowdSource>();
+
+/** Other districts feed the same crowd mesh. The market stays the built-in source. */
+export function registerCrowdSource(districtId: string, fn: CrowdSource): void {
+  crowdSources.set(districtId, fn);
+}
+
+function pushLoops(out: Loop[], seen: Set<string>, lists: Array<Array<[number, number]>>): void {
+  for (const pts of lists) {
+    if (pts.length < 3) continue;
+    const a = pts[0]!;
+    const key = `${a[0].toFixed(1)},${a[1].toFixed(1)}:${pts.length}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const seg: number[] = [];
+    let len = 0;
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i]!, c = pts[(i + 1) % pts.length]!;
+      const L = Math.hypot(c[0] - p[0], c[1] - p[1]);
+      seg.push(L);
+      len += L;
+    }
+    if (len > 8) out.push({ pts, len, seg });
+  }
+}
+
+function loopsFrom(blocks: PackedBlock[], query: CityQuery): Loop[] {
   const out: Loop[] = [];
+  const seen = new Set<string>();
+  const layoutId = (index: number) => {
+    const d = index === 0 ? query.layout.defaultDistrict : query.layout.districts[index - 1];
+    return d?.id ?? '';
+  };
   for (const b of blocks) {
     if (layoutId(b.districtIndex) !== 'little-tokyo-market') continue;
     const mb: MarketBlock = {
       cx: b.cx, cz: b.cz, ax: b.ax, az: b.az, la: b.la, lb: b.lb,
       street: b.street, seed: b.seed, ground: b.ground,
     };
-    for (const pts of pedestrianLoops(mb)) {
-      const seg: number[] = [];
-      let len = 0;
-      for (let i = 0; i < pts.length; i++) {
-        const a = pts[i], c = pts[(i + 1) % pts.length];
-        const L = Math.hypot(c[0] - a[0], c[1] - a[1]);
-        seg.push(L);
-        len += L;
-      }
-      if (len > 8) out.push({ pts, len, seg });
-    }
+    pushLoops(out, seen, pedestrianLoops(mb));
+  }
+  const called = new Set<string>();
+  for (const b of blocks) {
+    const id = layoutId(b.districtIndex);
+    if (id === 'little-tokyo-market' || called.has(id)) continue;
+    called.add(id);
+    const src = crowdSources.get(id);
+    if (src) pushLoops(out, seen, src(blocks, query));
   }
   return out;
 }
@@ -206,7 +237,10 @@ export class CrowdField {
 
   update(dt: number, x: number, z: number, query: CityQuery, quality: QualitySettings, rain: number): void {
     const district = query.district(x, z);
-    const want = district.id === 'little-tokyo-market' ? quality.crowd : 0;
+    const want = district.id === 'little-tokyo-market' ? quality.crowd
+      : district.id === 'dtla' ? Math.round(quality.crowd * 0.4)
+        : district.id === 'financial-megatowers' ? Math.round(quality.crowd * 0.4)
+          : 0;
     const radius = quality.crowdRadius;
     if (want <= 0) {
       this.count = 0;
@@ -217,10 +251,7 @@ export class CrowdField {
     const key = `${blocks.length}:${blocks[0]?.seed ?? 0}:${blocks[blocks.length - 1]?.seed ?? 0}:${Math.round(x / 20)}:${Math.round(z / 20)}`;
     if (key !== this.loopKey) {
       this.loopKey = key;
-      this.loops = loopsFrom(blocks, (index) => {
-        const d = index === 0 ? query.layout.defaultDistrict : query.layout.districts[index - 1];
-        return d?.id ?? '';
-      });
+      this.loops = loopsFrom(blocks, query);
       this.retarget(want, rain);
     }
     const loops = this.loops;
@@ -255,6 +286,9 @@ export class CrowdField {
         } else {
           a.x = 1e6; a.z = 1e6;
         }
+      } else if (a.vendor) {
+        // No cook list in this district. Leave the slot off the origin so it does not stand in the sea.
+        a.x = 1e6; a.z = 1e6;
       } else if (!a.vendor) {
         const p = pointOn(loops[a.loop % loops.length], a.u);
         a.x = p.x; a.z = p.z; a.yaw = p.yaw;

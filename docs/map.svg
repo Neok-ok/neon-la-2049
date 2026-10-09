@@ -187,6 +187,9 @@
 <circle cx="709.5" cy="342.2" r="2" fill="#29d8ff"/>
 <circle cx="938.0" cy="766.8" r="2" fill="#29d8ff"/>
 <circle cx="342.2" cy="551.1" r="2" fill="#29d8ff"/>
+<circle cx="698.8" cy="321.4" r="2" fill="#29d8ff"/>
+<circle cx="696.3" cy="340.0" r="2" fill="#29d8ff"/>
+<circle cx="689.4" cy="323.8" r="2" fill="#29d8ff"/>
 <circle cx="1056.1" cy="1028.8" r="2" fill="#29d8ff"/>
 <rect x="825" y="1041" width="12" height="12" fill="#ff9a2e"/><text x="843" y="1051" fill="#ccc" font-size="11">landmark footprint (to scale)</text>
 <rect x="825" y="1057" width="12" height="12" fill="#29d8ff"/><text x="843" y="1067" fill="#ccc" font-size="11">point of interest (interiors / set pieces)</text>

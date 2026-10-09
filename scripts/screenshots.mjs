@@ -59,6 +59,16 @@ const shots = [
   { name: 'mega-medium', ctx: desktop, q: `mode=fly&at=megatower-1&time=22&weather=drizzle&freeze=1&ui=0&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.megaView('lanes') },
   { name: 'mega-ultra', ctx: desktop, q: `mode=fly&at=megatower-1&time=22&weather=drizzle&freeze=1&ui=0&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.megaView('lanes') },
   { name: 'holo-medium', ctx: desktop, q: `mode=walk&at=noodle-bar&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.holoView('street'), holo: 'street' },
+  // Stage 4 — Downtown megablocks. Cameras come from __nla.dtlaView.
+  { name: 'dtla-street-rain', ctx: desktop, q: `mode=walk&at=dtla-canyon&time=22.5&weather=rain&${common}`, after: () => window.__nla.dtlaView('street'), near: true },
+  { name: 'dtla-walkway', ctx: desktop, q: `mode=walk&at=dtla-canyon&time=22&weather=rain&${common}`, after: () => window.__nla.dtlaView('walkway'), near: true },
+  { name: 'dtla-roof', ctx: desktop, q: `mode=fly&at=dtla-canyon&time=22&weather=rain&${common}`, after: () => window.__nla.dtlaView('roof') },
+  { name: 'dtla-lanes', ctx: desktop, q: `mode=fly&at=dtla-canyon&time=22&weather=drizzle&${common}`, after: () => window.__nla.dtlaView('lanes') },
+  { name: 'dtla-plaza', ctx: desktop, q: `mode=walk&at=megatower-1&time=22&weather=rain&${common}`, after: () => window.__nla.dtlaView('plaza'), near: true },
+  { name: 'dtla-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=dtla-canyon&time=22.5&weather=rain&freeze=1&ui=0&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.dtlaView('street'), near: true },
+  { name: 'dtla-low', ctx: desktop, q: `mode=walk&at=dtla-canyon&time=22.5&weather=rain&freeze=1&ui=0&quality=low${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.dtlaView('street'), near: true },
+  { name: 'dtla-medium', ctx: desktop, q: `mode=walk&at=dtla-canyon&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.dtlaView('street'), near: true },
+  { name: 'dtla-ultra', ctx: desktop, q: `mode=walk&at=dtla-canyon&time=22.5&weather=rain&freeze=1&ui=0&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.dtlaView('street'), near: true },
 ];
 
 const args = GPU
@@ -76,7 +86,7 @@ for (const s of shots) {
   const url = `${BASE}?${s.q}`;
   const t0 = Date.now();
   await page.goto(url);
-  const market = s.name.startsWith('market-') || s.holo === 'street';
+  const market = s.name.startsWith('market-') || s.holo === 'street' || s.near;
   if (market) {
     // The whole basin rarely goes idle on SwiftShader. The market shot only needs the
     // blocks around the camera dressed.

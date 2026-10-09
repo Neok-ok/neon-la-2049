@@ -98,11 +98,33 @@ export class LaneTraffic {
     this.cars = [];
     if (!this.lanes.length) return;
     const w = this.lanes.map((l) => Math.sqrt(l.length / 1000) * l.weight);
-    const total = w.reduce((a, b) => a + b, 0);
+    const total = w.reduce((a, b) => a + b, 0) || 1;
+    // Largest-remainder shares, so a lane appended late (the downtown avenues) is not starved
+    // by the earlier lanes each rounding up to at least one car.
+    const shares = w.map((wi) => (n * wi) / total);
+    const counts = shares.map((s) => Math.floor(s));
+    let used = counts.reduce((a, b) => a + b, 0);
+    const remain = shares.map((s, i) => ({ i, f: s - Math.floor(s) })).sort((a, b) => b.f - a.f);
+    for (const o of remain) {
+      if (used >= n) break;
+      counts[o.i] = (counts[o.i] ?? 0) + 1;
+      used++;
+    }
+    if (n >= this.lanes.length) {
+      for (let i = 0; i < counts.length; i++) {
+        if ((counts[i] ?? 0) > 0) continue;
+        let donor = 0;
+        for (let j = 1; j < counts.length; j++) if ((counts[j] ?? 0) > (counts[donor] ?? 0)) donor = j;
+        if ((counts[donor] ?? 0) <= 1) break;
+        counts[donor] = (counts[donor] ?? 0) - 1;
+        counts[i] = 1;
+      }
+    }
     let spin = 0, tr = 0;
     // cars travel in platoons of 1–4 at a shared speed, so a lane reads as strings of lights rather than dust
     this.lanes.forEach((lane, li) => {
-      const k = Math.max(1, Math.round((n * w[li]!) / total));
+      const k = counts[li] ?? 0;
+      if (k <= 0) return;
       let placed = 0;
       while (placed < k && this.cars.length < n) {
         const size = Math.min(k - placed, 1 + Math.floor(r.next() * r.next() * 4.2));

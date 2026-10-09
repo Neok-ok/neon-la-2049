@@ -391,6 +391,9 @@
     { "id": "bradbury", "name": "Bradbury Building (heritage, 1982 film)", "lat": 34.0505, "lon": -118.2479, "kind": "heritage", "stage": 6 },
     { "id": "k-apartment", "name": "K's apartment (enterable)", "lat": 33.8585, "lon": -118.1240, "kind": "interior", "stage": 8 },
     { "id": "sea-wall-fight", "name": "Sea wall finale site", "lat": 33.9560, "lon": -118.4470, "kind": "set-piece", "stage": 10 },
+    { "id": "dtla-canyon", "name": "Downtown canyon (between megablocks)", "lat": 34.05989, "lon": -118.25370, "kind": "street", "stage": 4 },
+    { "id": "mt1-plaza", "name": "Megatower 1 podium plaza", "lat": 34.05148, "lon": -118.25507, "kind": "plaza", "stage": 4 },
+    { "id": "mt5-edge", "name": "Megatower 5 / DTLA shared edge", "lat": 34.05878, "lon": -118.25879, "kind": "street", "stage": 4 },
     { "id": "trash-mesa-gate", "name": "Southern exit toward the San Diego trash mesa (out of bounds)", "lat": 33.7400, "lon": -118.0600, "kind": "edge", "stage": 99 }
   ],
   "coastline": [

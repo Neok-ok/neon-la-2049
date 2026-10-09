@@ -189,6 +189,12 @@
 <text x="2790.1" y="4733.1" dx="5" dy="12" fill="#8fe8ff" font-size="10">K&#39;s apartment (enterable)</text>
 <circle cx="-3168.1" cy="2576.9" r="2" fill="#29d8ff"/>
 <text x="-3168.1" y="2576.9" dx="5" dy="12" fill="#8fe8ff" font-size="10">Sea wall finale site</text>
+<circle cx="397.6" cy="279.4" r="2" fill="#29d8ff"/>
+<text x="397.6" y="279.4" dx="5" dy="12" fill="#8fe8ff" font-size="10">Downtown canyon (between megablocks)</text>
+<circle cx="372.3" cy="465.3" r="2" fill="#29d8ff"/>
+<text x="372.3" y="465.3" dx="5" dy="12" fill="#8fe8ff" font-size="10">Megatower 1 podium plaza</text>
+<circle cx="303.7" cy="303.9" r="2" fill="#29d8ff"/>
+<text x="303.7" y="303.9" dx="5" dy="12" fill="#8fe8ff" font-size="10">Megatower 5 / DTLA shared edge</text>
 <circle cx="3970.6" cy="7353.7" r="2" fill="#29d8ff"/>
 <text x="3970.6" y="7353.7" dx="5" dy="12" fill="#8fe8ff" font-size="10">Southern exit toward the San Diego trash mesa (out of bounds)</text>
 <rect x="659" y="687" width="12" height="12" fill="#ff9a2e"/><text x="677" y="697" fill="#ccc" font-size="11">landmark footprint (to scale)</text>

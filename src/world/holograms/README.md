@@ -77,3 +77,16 @@ Designs and colours per tower are in `src/districts/financial-megatowers/specs.t
 The avenue crane is `financial-canyon-crane`. `placeCanyon` in `showcase.ts` searches up to 360 m around megatower 1 for a clear gap outside the (larger) Stage 3 reserves, preferring about 210 m out, so it moves by itself if a footprint grows over it.
 
 Do not build a second shader. A new design means a new branch in `material.ts` plus a name in `HOLO_DESIGNS`, and a line in the bible with `confidence: invented`.
+
+## Stage 4 placements
+
+`installDtlaHolos` in `src/districts/dtla/holos.ts` (called from `App` next to the showcase):
+
+| Id | Where | Design | Band |
+|---|---|---|---|
+| `dtla-canyon-ribbon` | Avenue beside block (0, −10), facing the sidewalk | ribbon-column | street |
+| `dtla-canyon-lantern` | A few metres down that avenue | lantern-loop | street |
+| `dtla-mt1-lease` | MT-1 podium apron, spill 22 m | lease-loop | street |
+| `dtla-mt5-glyph` | First clear DTLA point on a 230 m ring around MT-5 | glyph-loop | tower |
+
+Do not reuse `dtla-hero-0` / `dtla-hero-1` (the flyover billboards in `showcase.ts`). Megablock kind-2 signs at least 16 × 10 m are promoted by the field with everything else.

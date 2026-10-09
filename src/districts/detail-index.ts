@@ -2,3 +2,5 @@
 // District stages add `import './<district>/details';` here.
 import './_shared/streetLamps';
 import './little-tokyo-market/details';
+import './dtla/details';
+import './dtla/crowd';
