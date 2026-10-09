@@ -7,7 +7,7 @@ import type { QualitySettings } from '../../core/quality';
 import { buildKitMeshes, type KitInstance } from '../_shared/kit/batch';
 import { makeCross } from '../_shared/kit/templates';
 import { planArts, type ArtsProp, type ArtsPuff } from './plan';
-import { getArtsSparkMaterial, getArtsSteamMaterial } from './particles';
+import { getArtsSparkMaterial, getArtsSteamMaterial, getArtsVentMaterial } from './particles';
 import type { ArtsBlock } from './spec';
 
 const CAP: Record<QualitySettings['tier'], { props: number; steam: number; sparks: number }> = {
@@ -111,9 +111,9 @@ registerDetail('arts-street', ['arts-district'], (ctx) => {
   const plumes = steam.filter((p) => p.kind === 2);
   const drift = steam.filter((p) => p.kind !== 2);
   const keptPlumes = thin(plumes, steamCap);
-  const keptSteam = keptPlumes.concat(thin(drift, Math.max(0, steamCap - keptPlumes.length)));
+  const keptDrift = thin(drift, Math.max(0, steamCap - keptPlumes.length));
   const keptSparks = thin(sparks, cap.sparks);
-  if (!keptProps.length && !keptSteam.length && !keptSparks.length) return null;
+  if (!keptProps.length && !keptPlumes.length && !keptDrift.length && !keptSparks.length) return null;
   const group = new Group();
   group.name = 'arts-street';
   const kit: KitInstance[] = keptProps.map((p) => ({
@@ -125,7 +125,8 @@ registerDetail('arts-street', ['arts-district'], (ctx) => {
     alpha: p.alpha, pass: p.pass,
   }));
   for (const mesh of buildKitMeshes(kit, 'arts-kit')) group.add(mesh);
-  if (keptSteam.length) group.add(cards(keptSteam, 'arts-steam', getArtsSteamMaterial()));
+  if (keptPlumes.length) group.add(cards(keptPlumes, 'arts-steam', getArtsSteamMaterial()));
+  if (keptDrift.length) group.add(cards(keptDrift, 'arts-vent', getArtsVentMaterial()));
   if (keptSparks.length) group.add(cards(keptSparks, 'arts-spark', getArtsSparkMaterial()));
   return group;
 });

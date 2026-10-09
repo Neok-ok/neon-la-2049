@@ -16,7 +16,7 @@ The city wall colour is a grey albedo. Rust is the rank-0 brick dado and the rus
 
 ## Steam and sparks
 
-`particles.ts` is two materials. Plumes (kind 2) stay put and add. Vents and grates rise. Sparks and the pour flare are a second additive mesh. Each stack also has a rank-0 additive cross so the column reads on the low tier when the card cap is small. Low tier keeps plumes only. Medium keeps every plume and about half of the other steam, and the spark cap is 28. Caps are in `details.ts`.
+`particles.ts` is three materials. Plumes (kind 2) stay put and add. Vents and grates are a softer mesh that fades out if the camera is inside it. Sparks and the pour flare are additive. Each stack also has a rank-0 additive cross so the column reads on the low tier when the card cap is small. Low tier keeps plumes only. Medium keeps every plume and about half of the other steam, and the spark cap is 28. Caps are in `details.ts`.
 
 A dressed chunk is more than fabric + signs + two detail draws: one kit mesh, steam cards, spark cards near a foundry, and the shared sodium lamps (this district is not in `NO_LAMPS`). Triangle counts stay under the LOD0 budget. See the Bible for the measured chunk.
 
