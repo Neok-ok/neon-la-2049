@@ -23,6 +23,8 @@ import { kCamera, type KView } from '../districts/k-megablock/view';
 import { wallaceCamera, type WallaceView } from '../districts/wallace-vernon/view';
 import { updateWallace } from '../districts/wallace-vernon/live';
 import { wallaceFaceSectorCount } from '../districts/wallace-vernon/faceDetail';
+import { coastCamera, type CoastView } from '../districts/coastal-strip/view';
+import { coastSegmentCount, installCoast, updateCoast } from '../districts/coastal-strip/live';
 import { installInteriors } from '../districts/interior-index';
 import { InteriorSystem } from '../world/interiors';
 import { installCivicHolos } from '../districts/civic-center/holos';
@@ -151,6 +153,7 @@ export class App {
     this.streamer = new ChunkStreamer(this.scene, this.quality);
     this.landmarks = new Landmarks(this.query);
     this.scene.add(this.landmarks.root);
+    installCoast(this.scene, this.query, this.quality.tier);
     installShowcase(this.query.layout);
     installDtlaHolos(this.query.layout);
     installCivicHolos(this.query.layout);
@@ -340,18 +343,22 @@ export class App {
     const walLm = this.query.layout.landmarkById('wallace-pyramid');
     const inWallace = districtNow.id === 'wallace-vernon'
       || (!!walLm && Math.hypot(cam.x - walLm.x, cam.z - walLm.z) < walLm.reserveRadius + 40);
+    const coast = updateCoast(cam, this.quality.tier, dt, this.elapsed, this.atmosphere.weather.params.rain, this.atmosphere.weather.params.wind, this.query.layout);
+    const inCoast = districtNow.id === 'coastal-strip' || coast.near > 0.45;
     const inCanyon = inDtla || (districtNow.id === 'financial-megatowers' && alt < 40);
     U.neonWet.value = inMarket && alt < 140 ? 0.92
       : inHistoric && alt < 120 ? 0.88
         : inCanyon && alt < 90 ? 0.62
           : inK && alt < 48 ? 0.5
-            : 0.22;
-    U.streetFog.value = inMarket ? Math.max(0, Math.min(1, 1 - alt / 70)) * 0.8
+            : inCoast ? 0.06
+              : 0.22;
+    const districtFog = inMarket ? Math.max(0, Math.min(1, 1 - alt / 70)) * 0.8
       : inHistoric && alt < 90 ? 0.42 * (1 - alt / 90)
         : inDtla && alt < 80 ? 0.28 * (1 - alt / 80)
           : inK && alt < 40 ? 0.36 * (1 - alt / 40)
             : inWallace && alt < 110 ? 0.78 * (1 - alt / 110)
               : 0;
+    U.streetFog.value = Math.max(districtFog, coast.fog);
     const dtSafe = Math.max(dt, 1e-4);
     this.query.warm(cam.x, cam.z, cam.x + ((cam.x - this.lastCam.x) / dtSafe) * 0.45, cam.z + ((cam.z - this.lastCam.z) / dtSafe) * 0.45);
     this.lastCam.copy(cam);
@@ -382,7 +389,7 @@ export class App {
 
     const w = this.atmosphere.weather;
     const aboveClouds = MathUtils.clamp(1 - (cam.y - 1400) / 600, 0, 1);
-    this.rain.update(dt, cam, w.params.rain * aboveClouds, w.params.wind, w.windDir, this.quality.rainCount);
+    this.rain.update(dt, cam, w.params.rain * aboveClouds, w.params.wind * (1 + coast.crest * 0.85), w.windDir, this.quality.rainCount);
     this.snow.update(dt, cam, w.params.snow * aboveClouds, w.params.wind, w.windDir, this.quality.snowCount);
     const at = this.cams.mode === 'walk' ? this.cams.walk.pos : cam;
     this.interiors.update(dt, this.cams.mode, at.x, at.y, at.z, w.params.rain);
@@ -396,6 +403,7 @@ export class App {
     this.ambience.setInterior(this.interiors.blend);
     this.ambience.setHum(this.interiors.humAmount);
     this.ambience.setMachinery(inWallace ? Math.max(0, 1 - alt / 140) * 0.82 : 0);
+    this.ambience.setSurf(coast.surf, coast.impact, coast.crest);
     this.ambience.update(w.params.rain, w.params.snow, w.params.wind, alt);
     this.camera.updateMatrixWorld();
     const e = this.camera.matrixWorld.elements;
@@ -526,6 +534,29 @@ export class App {
       /** X3 cameras: inside the Bradbury court, on the stair, the street door, the service template. */
       /** Stage 8 cameras: the slab, the market, the lobby, the corridor, the apartment, the roof pad. */
       /** Stage 7 cameras: the causeway, the plaza, the pyramid face, a satellite, the factories, a convoy, the old pyramids, the atrium. */
+      /** Stage 10 cameras: crest, terraces, apron from the water, spray, drowned piers, coastal blocks, aerial. */
+      coastView: (kind: CoastView) => {
+        const pre = coastCamera(this.query.layout, kind);
+        if (!pre) return false;
+        this.query.fabricAt(pre.x, pre.z);
+        const p = kind === 'blocks'
+          ? coastCamera(this.query.layout, kind, (x, z) => this.query.findStreetSpot(x, z, 120)) ?? pre
+          : pre;
+        this.cams.setMode(p.mode);
+        if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
+        this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
+        if (p.mode === 'walk') {
+          this.cams.walk.pitch = p.pitch;
+          this.cams.walk.heading = p.heading;
+          if (p.feet) {
+            this.cams.walk.pos.set(p.feet.x, p.feet.y, p.feet.z);
+            this.camera.position.set(p.feet.x, p.feet.y + 1.7, p.feet.z);
+            this.camera.rotation.set(p.pitch, -p.heading, 0, 'YXZ');
+            this.camera.updateMatrixWorld();
+          }
+        }
+        return true;
+      },
       wallaceView: (kind: WallaceView) => {
         const p = wallaceCamera(this.query.layout, kind);
         if (!p) return false;
@@ -659,6 +690,7 @@ export class App {
         refl: this.wet.enabled,
         ...this.interiors.stats,
         faceSectors: wallaceFaceSectorCount(),
+        coastSegments: coastSegmentCount(),
       }),
     };
   }

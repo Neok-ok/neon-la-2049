@@ -107,6 +107,10 @@ modules register through `src/districts/landmark-index.ts` and override the Stag
 `registerLandmarkDefault`. A builder returns `{ object, colliders }` and may add beacons or flares. Geometry goes through `GeoWriter`
 and uses the **same vertex layout and material as the fabric**, so a landmark gets windows, wetness and snow for free.
 Sea walls are extruded along their polylines with a terraced profile, and the ocean is a single shape at `SEA_LEVEL_2049 = 6 m`.
+Stage 10 keeps that far mesh. Within about a kilometre, `src/districts/coastal-strip/surface.ts` streams one near segment per frame
+(formwork, joints, drains, ladders, lamps, parapet, towers). Colliders are stepped slices from `coastal-strip/collision.ts`:
+local X runs along the wall and local Z runs seaward. A swell ribbon, spray cards and a wet sheet live in `coastal-strip/waves.ts`
+and shut off on the low tier. The finale apron, drowned piers and the coastal fabric are documented in `coastal-strip/README.md`.
 
 * **LODs** (`LandmarkLods.ts`): a builder can hand `env.lods.add(id, levels, dists, x, z, y0, y1, r)` up to three levels. Each frame
   the manager measures the distance to the structure's vertical axis segment minus its footprint radius, scales the switch distances
@@ -241,7 +245,7 @@ kit / steam / pool draws the market and DTLA already add; a measured fabric chun
 &webgl=1 &hud=1 &ui=0 &freeze=1 &touch=1 &refl=0|1`
 
 `window.__nla` (console and automation): `isIdle()`, `setMode(m)`, `setPose(x,y,z,yaw°,pitch°)`, `streetView(idOrX, z?, along?)`,
-`marketView('street'|'interior'|'crowd'|'roof'|'bibi')`, `holoView('street'|'aerial'|'cine')`, `megaView('approach'|'skyline'|'street'|'lanes'|'crown')`, `dtlaView('street'|'walkway'|'roof'|'lanes'|'plaza')`, `civicView('approach'|'steps'|'hall'|'lobby'|'plaza')`, `broadwayView('street'|'bridge'|'bradbury'|'spinner'|'atrium')`, `interiorView('court'|'stair'|'door'|'service')`, `kView('street'|'market'|'lobby'|'corridor'|'apartment'|'roof'|'aerial')`, `wallaceView('approach'|'plaza'|'face'|'satellite'|'factories'|'convoy'|'oldpyramids'|'atrium')`, `holoSpec(id)`, `setTime(h)`, `setWeather(id)`, `cut()`, `holdShot(on)`, `stats()`,
+`marketView('street'|'interior'|'crowd'|'roof'|'bibi')`, `holoView('street'|'aerial'|'cine')`, `megaView('approach'|'skyline'|'street'|'lanes'|'crown')`, `dtlaView('street'|'walkway'|'roof'|'lanes'|'plaza')`, `civicView('approach'|'steps'|'hall'|'lobby'|'plaza')`, `broadwayView('street'|'bridge'|'bradbury'|'spinner'|'atrium')`, `interiorView('court'|'stair'|'door'|'service')`, `kView('street'|'market'|'lobby'|'corridor'|'apartment'|'roof'|'aerial')`, `wallaceView('approach'|'plaza'|'face'|'satellite'|'factories'|'convoy'|'oldpyramids'|'atrium')`, `coastView('crest'|'terraces'|'apron'|'spray'|'piers'|'blocks'|'aerial')`, `holoSpec(id)`, `setTime(h)`, `setWeather(id)`, `cut()`, `holdShot(on)`, `stats()`,
 `geoToLocal(lat,lon)`, `app`. `stats()` includes draw calls, triangles, crowd count, hologram panel count, query-worker counters, lane cars and lanes, ground cars, landmark LOD levels, the beacon count, and the interior fields (`interior`, `interiorOccluded`, `interiorMuffle`, `interiorTris`, `interiorMeshes`, `interiorMounted`).
 
 Keys: `1/2/3` fly/walk/cinematic, `F` toggle fly↔walk, `V` cockpit, `E` sit / stand at a market stool (walk mode; in fly mode `E` is still up),

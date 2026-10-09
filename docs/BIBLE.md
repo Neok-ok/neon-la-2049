@@ -124,7 +124,7 @@ Positions are in [`city-layout.json`](../src/data/city-layout.json) (`landmarks`
 | `wallace-approach` | North causeway, inside the pyramid reserve | 7 |
 | `wallace-plaza` | On the entrance plinth, facing the sealed portal | 7 |
 | `wallace-atrium` | Water-lit room behind the human door | 7 |
-| `sea-wall-fight` | Sea-wall finale site | 10 |
+| `sea-wall-fight` | Sea-wall finale apron at the toe nearest this pin (the pin stays inland) | 10 |
 | `trash-mesa-gate` | Southern edge toward the San Diego trash mesa (out of bounds, vista only) | — |
 | `lapd-steps` | Foot of the LAPD stair, where the walk up to the door starts | 5 |
 | `lapd-lobby` | Inside the LAPD recess, on the lobby floor | 5 |
@@ -140,7 +140,18 @@ Positions are in [`city-layout.json`](../src/data/city-layout.json) (`landmarks`
   a landward batter. Southern continuation (Harbor Sea Wall) **75 m / 100 m / 24 m / 5 terraces**.
 * **Why 90 m:** in the finale, waves of a few metres hit the toe while the wall rises many spinner-lengths above (>15 × 5 m). It has to
   hold back a sea several metres above old land plus storm surge, and it reads as taller than the surrounding coastal blocks (40–70 m)
-  but far below LAPD. Estimate; adjust only together with the coastal stage.
+  but far below LAPD. Stage 10 keeps 90 m: there are no licensed frames to remeasure, and changing it would rescale every terrace.
+  `confidence: invented`.
+* **Stage 10 surface.** Within about a kilometre the wall streams board-formed lines, an expansion joint every 40 m, drain outfalls,
+  service ladders, catwalks, cold work lights and darker salt staining near the waterline. Past that, the Stage 1 extrusion is the wall.
+  The harbor wall uses the same stream at a shorter reach and a lower density. The port around it is Stage 19.
+  `confidence: invented` — the film shows a stained stepped wall; the joint module is what lets one segment appear in a single frame.
+* **Walkable crest.** A 1.15 m parapet (above the 0.45 m step-up) and access towers every 520 m (780 m on the harbor wall) sit on the crest road.
+  Colliders are short stepped slices. Stage 1 stored the along-wall half-extent in `hd` and the across-wall half-extent in `hw`, which,
+  with `yaw = atan2(nx, nz)`, laid a phantom crest a couple of kilometres wide. `confidence: invented` — the parapet is high enough that walk mode cannot step over it.
+* **Apron.** POI `sea-wall-fight` stays at 33.956 N / 118.447 W, about 275 m inland of the wall. The apron is the toe nearest that pin:
+  deck at **7.05 m** (1 m above the sea), from the first dry terrace out to 1 m inside the ocean polygon, so walk mode can stand on it.
+  Stairs rise at most **0.40 m**. `confidence: invented` — original layout, not a filmed set. See [§7.9](#79-grey-coast-and-the-sepulveda-sea-wall-stage-10).
 * **Route:** a continuous line just inland of the real coastline, from Pacific Palisades through Santa Monica, Venice, Marina del Rey,
   Playa del Rey and the LAX bluff to Manhattan, Hermosa and Redondo Beach. The harbor wall runs from San Pedro along the Port to Seal Beach.
   Palos Verdes is high ground and needs no wall.
@@ -150,7 +161,7 @@ Positions are in [`city-layout.json`](../src/data/city-layout.json) (`landmarks`
 
 All districts are in `city-layout.json` with their polygon, grid, archetype and **stage number** (the roadmap stage that builds them out
 in full detail). Heights below are the Stage 1 blockout unless a later subsection replaces them
-([§7.1](#71-little-tokyo-night-market-stage-2) through [§7.8](#78-wallace-precinct-stage-7)).
+([§7.1](#71-little-tokyo-night-market-stage-2) through [§7.9](#79-grey-coast-and-the-sepulveda-sea-wall-stage-10)).
 
 | District (stage) | Lore sector | Palette | Materials | Signage | Typologies | Heights | Streets | Traffic |
 |---|---|---|---|---|---|---|---|---|
@@ -274,6 +285,19 @@ The films are full of giant animated ads. None of those designs are reproduced. 
 * **Old pyramids.** The Stage 3 models are unchanged. A detail module on `southeast-industrial` dresses a ring from about **18 m** to **170 m** outside each reserve. `confidence: invented` — see the §5.3 row.
 * **Cameras.** `__nla.wallaceView('approach'|'plaza'|'face'|'satellite'|'factories'|'convoy'|'oldpyramids'|'atrium')`.
 
+### 7.9 Grey Coast and the Sepulveda Sea Wall (stage 10)
+
+`coastal-strip`, both sea walls, POI `sea-wall-fight`. No hologram and no interior. The megablock kit is the wrong family for 15–60 m salt slabs, so the fabric is plain `Style.Coastal` boxes.
+
+* **Blocks.** Archetype `coastal-grey` replaces the Stage 1 blockout. Slabs **15–60 m** on the 322° grid, a darker podium, a shuttered base, a rare roof tank, and a dim white or cyan sign (OPEN LATE, SECTOR 5, SALT BOWL, VENDING, 2049). Lots inside the wall reserve or on the apron are skipped. `confidence: invented` — the row in §7 asks for low salt slabs and sparse signs; the phrases are atlas cells that already exist.
+* **Street.** Shared sodium lamps are off. LOD0 adds sandbags, a rusted rail, dark puddles and a scrap of litter, two kit draws, capped at 36 / 80 / 140 / 200 instances. Far-LOD light carpet for `coastal-grey` is 0.08 and street neon is 0.04. `confidence: invented` — the coast is not a neon district.
+* **Traffic.** One ground hauler loops the landward maintenance strip near the apron. One police spinner patrols the crest (`coast-patrol`, crest + 18 m, weight 0.2, platoon of 1, `altBias` 0, fade 90 m). There is no street graph on this polygon. `confidence: invented` — the row says almost no traffic.
+* **Apron.** Wide slick pad, bollards with a landing gap, a drainage grate, a crumpled barrier, and a caged stair up the terraces to the crest. A ladder beside the lowest flight is rails you can bump and rungs you cannot climb: a vertical ladder would need a step-up the walker does not have. Waves wash the lip. A spinner can rest on the pad in fly mode. `confidence: invented` — original arrangement, placed at the toe nearest the published pin.
+* **Piers.** Two small instanced clusters seaward of the wall, nearest the real Santa Monica (34.0094 N, 118.4973 W) and Venice (33.986 N, 118.472 W) pins. Pier tops, pilings, lamp posts, rooftops, a partial wheel and a coaster spine. Unbranded, no gondolas. `confidence: invented` — the real piers are drowned; these shapes are not a reproduction of either pier.
+* **Breakers.** A camera-following ribbon displaces in the shader. Foam is colour. Spray is instanced cards. A wet sheet sits on the apron, or on the lowest dry terrace elsewhere. Low tier draws none of it. The phase is `waveClock` in JavaScript, and the surf bus uses that same impact. `confidence: invented` — calm is about a 9 s swell and a storm is about 5 s, so a few metres of water reach a deck 1 m above the sea.
+* **Atmosphere.** Heavier sea fog is `U.streetFog` within about a kilometre of the wall, denser near the water, lighter on the crest. The fog colour stays the shared atmosphere. Rain wind is multiplied on the crest. Surf is `Ambience.setSurf`: a brown-noise wash and a band-passed impact, no music and no film audio. `confidence: invented` — same path Stage 7 used for precinct fog and machinery, so the coast does not add a second bus.
+* **Cameras.** `__nla.coastView('crest'|'terraces'|'apron'|'spray'|'piers'|'blocks'|'aerial')`.
+
 ## 8. Vehicles and traffic
 
 | Vehicle | Size | Notes |
@@ -282,8 +306,8 @@ The films are full of giant animated ads. None of those designs are reproduced. 
 | Player spinner cruise / boost | 75 / 260 m/s | arcade-fast for a 50 km city; real spinners are slower on screen |
 | AI spinner layers | Outside downtown: 55–90 m (low), 175–260 m (main), 320–520 m (high). Over DTLA / financial / civic the low share follows the street graph at **74 m and 112 m** (between the walkway decks, ±11 m so a 5.6 m bridge is missed) and the free remainder is **340–520 m**. The 175–260 m band over those districts belongs to the avenue lanes. Over the Broadway canyon, spinners stay **off** the 18 m graph and fly free at **148–260 m** (above the 110 m roofs). | `SpinnerTraffic.ts`, `streetGraph.ts` |
 | Transport hauler | **14 m long, 5.2 m wide, 3.6 m tall** | Invented heavy cargo spinner for the sky lanes (`transportModel.ts`): boxy body, amber running lights. Sized like a large rigid truck. |
-| Sky lanes (Stage 3–5, pad runs through Stage 8, Wallace freight in Stage 7) | High avenues 430–860 m. **Downtown avenues at 188, 222 and 250 m** on the street centre lines (up to three runs each way, split where a hero collider crosses). Holding patterns 140 m over MT-1, around the MT-2/MT-4 pair, over LAPD (`hold-lapd`, police-heavy, unchanged) and at the Wallace apex (~3.2 km) and mid-height, corridors 360–3,240 m. **LAPD pad runs** (`lapd-pad-a`…`d`, plus a slow `lapd-pad-circuit`) leave the ~190 m avenue band, cross one roof pad at **222.5 m**, and leave again. **K's pad runs** (`k-pad-ew`, `k-pad-ns`) cross the south side of the megablock pad at **191 m** and climb away. One open polyline is both the arrival and the departure. | `skyLanes.ts`, `LaneTraffic.ts`, `civic-center/lanes.ts`, `k-megablock/lanes.ts`, `wallace-vernon/lanes.ts`. Right-hand traffic. High avenues separate directions by 16–30 m; downtown avenues by **11 m** (the street is 34 m). Opposite directions also sit **7 m** apart in height (`altBias`, default 7). Pad lanes set `altBias` to **0**. LAPD fades the ends over **70 m**; K's pad fades over **60 m**. Platoons of 1–4, bank, blink. Counts 60 / 140 / 240 / 380 by tier, dealt by length × weight so the lower avenues are not starved. **Wallace freight** (Stage 7) is three more open polylines (`wallace-freight-in`, `wallace-dock-ns`, `wallace-dock-ew`): transports only, platoons of 2–5, `altBias` 0, low and slow. A lane that omits `platoon` keeps the original roll. Ground haulers on the causeway are not this mesh. |
-| Ground vehicles | cars ~4.2 × 1.9 × 1.4 m, vans a little longer and taller; canyon rickshaws are the same mesh at **0.5 × 1.22 × 0.7** | `groundTraffic.ts` on the same street graph. Avenue curb lane ±7.2 m; historic-core lanes ±3.15 m. 8–16 m/s (rickshaws 6–11), about one in five a van, about one in four canyon vehicles a rickshaw. Counts 10 / 22 / 40 / 64 by tier. Two draws (wet body shared with the spinner, headlights). Freeway trenches are still empty. |
+| Sky lanes (Stage 3–5, pad runs through Stage 8, Wallace freight in Stage 7, coast patrol in Stage 10) | High avenues 430–860 m. **Downtown avenues at 188, 222 and 250 m** on the street centre lines (up to three runs each way, split where a hero collider crosses). Holding patterns 140 m over MT-1, around the MT-2/MT-4 pair, over LAPD (`hold-lapd`, police-heavy, unchanged) and at the Wallace apex (~3.2 km) and mid-height, corridors 360–3,240 m. **LAPD pad runs** (`lapd-pad-a`…`d`, plus a slow `lapd-pad-circuit`) leave the ~190 m avenue band, cross one roof pad at **222.5 m**, and leave again. **K's pad runs** (`k-pad-ew`, `k-pad-ns`) cross the south side of the megablock pad at **191 m** and climb away. One open polyline is both the arrival and the departure. **Coast patrol** (`coast-patrol`) is one open polyline along the Sepulveda crest at **crest + 18 m**, police only, platoon of 1, weight 0.2. | `skyLanes.ts`, `LaneTraffic.ts`, `civic-center/lanes.ts`, `k-megablock/lanes.ts`, `wallace-vernon/lanes.ts`, `coastal-strip/lanes.ts`. Right-hand traffic. High avenues separate directions by 16–30 m; downtown avenues by **11 m** (the street is 34 m). Opposite directions also sit **7 m** apart in height (`altBias`, default 7). Pad lanes and the coast patrol set `altBias` to **0**. LAPD fades the ends over **70 m**; K's pad fades over **60 m**; the coast patrol fades over **90 m**. Platoons of 1–4, bank, blink. Counts 60 / 140 / 240 / 380 by tier, dealt by length × weight so the lower avenues are not starved. **Wallace freight** (Stage 7) is three more open polylines (`wallace-freight-in`, `wallace-dock-ns`, `wallace-dock-ew`): transports only, platoons of 2–5, `altBias` 0, low and slow. A lane that omits `platoon` keeps the original roll. Ground haulers on the causeway, and the one coast hauler, are not this mesh. |
+| Ground vehicles | cars ~4.2 × 1.9 × 1.4 m, vans a little longer and taller; canyon rickshaws are the same mesh at **0.5 × 1.22 × 0.7** | `groundTraffic.ts` on the same street graph. Avenue curb lane ±7.2 m; historic-core lanes ±3.15 m. 8–16 m/s (rickshaws 6–11), about one in five a van, about one in four canyon vehicles a rickshaw. Counts 10 / 22 / 40 / 64 by tier. Two draws (wet body shared with the spinner, headlights). Freeway trenches are still empty. The Grey Coast is not on this graph: one salt hauler loops the landward strip behind the wall (`coastal-strip/hauler.ts`). |
 
 ## 9. Weather and time-of-day looks
 
@@ -353,4 +377,3 @@ It rains most of the time, and it **snows** in the finale. The weather state mac
 * Whether the first film's pyramids still stand in 2049. Stage 3 keeps two unnamed 1982-style pyramids as dormant Wallace holdings (§5.3). If later evidence places them elsewhere, or shows they were demolished, move or delete `old-pyramid-*` in the JSON.
 * Megatower heights. The film never gives numbers; 520–1,020 m is read from the aerials against LAPD and Wallace. Stage 4 kept the megablocks at 90–250 m (kit towers to 300 m). They still read as the canyon floor under the slabs, which is the relationship the aerials show, so the hero heights stay.
 * Ground-level freeway use in 2049 (trench traffic vs. abandoned).
-* Sea wall crest height: 90 m is a reasoned estimate. Revisit with frame-by-frame analysis in Stage 10.

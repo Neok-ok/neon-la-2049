@@ -43,7 +43,7 @@ const SPRAWL_LIGHTS: Record<string, number> = {
   'neon-canyon': 1,
   'historic-core': 1,
   entertainment: 1,
-  'coastal-grey': 0.25,
+  'coastal-grey': 0.08,
   industrial: 0.35,
   'wallace-vernon': 0,
   'industrial-dense': 0.5,
@@ -67,7 +67,7 @@ const STREET_NEON: Record<string, number> = {
   'basin-sprawl': 0.25,
   'megablock-residential': 0.3,
   civic: 0.2,
-  'coastal-grey': 0.1,
+  'coastal-grey': 0.04,
   industrial: 0.1,
   // No market-neon carpet. Rain in the precinct stays a dark amber haze.
   'wallace-vernon': 0,

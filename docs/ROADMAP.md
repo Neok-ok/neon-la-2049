@@ -118,7 +118,7 @@ What Stage 8 should know: call `registerInterior` and start from `buildCorridorR
 * **Old pyramids.** A ring of tanks, pipes and a low wall just outside each reserve, on `southeast-industrial` only. No rename, no Tyrell mark.
 * **Cameras.** `__nla.wallaceView('approach'|'plaza'|'face'|'satellite'|'factories'|'convoy'|'oldpyramids'|'atrium')`.
 
-What the next stage should know: Stage 10 (Grey Coast and the Sepulveda Sea Wall) is next. The pyramid is still the tallest thing. Fabric here stays under 60 m. Do not add a street graph on this polygon. Do not put a logo on the stone. The old pyramids' archetype is still the shared `industrial` one; Stage 15 dresses the belt. The atrium is a room, not a ride — do not reuse `rides` here.
+What the next stage should know: Stage 10 has shipped. Sea-wall colliders are stepped slices; do not put the segment length back into `hd`. The coast has no street graph. Next after Stage 10 is X2 Ground traffic. The pyramid is still the tallest thing. Fabric here stays under 60 m. Do not add a street graph on this polygon. Do not put a logo on the stone. The old pyramids' archetype is still the shared `industrial` one; Stage 15 dresses the belt. The atrium is a room, not a ride — do not reuse `rides` here.
 
 ## Stage 8 — K's Megablock ✅
 
@@ -136,9 +136,14 @@ What the next stage should know: Stage 7 shipped after this one. The doorway car
 ## Stage 9 — Arts District Works
 `arts-district`: warehouses, foundries, pipe racks, steam and sparks, the LA River edge.
 
-## Stage 10 — Grey Coast and the Sepulveda Sea Wall
-`coastal-strip` + both sea walls + POI `sea-wall-fight`: wall surface detail (formwork lines, drains, ladders, lights), wave and spray
-simulation at the toe, the finale apron, the drowned piers, coastal blocks.
+## Stage 10 — Grey Coast and the Sepulveda Sea Wall ✅
+`coastal-strip` + both sea walls + POI `sea-wall-fight`: wall surface, breakers, the finale apron, drowned piers, coastal blocks.
+
+* **Wall.** The Stage 1 extrusion and the published profile stay (crest 90 m, and 75 m on the harbor wall). Near detail streams one 72 m segment per frame (128 m on the harbor wall), caps 2 / 4 / 7 / 10 by tier, reach 420 / 780 / 1,000 / 1,200 m (harbor × 0.62). Formwork, joints every 40 m, drains, ladders, catwalks, cold lamps, access towers, a crest road and a 1.15 m parapet. Colliders are stepped ~160 m slices. Stage 1 had `hw` and `hd` swapped for `yaw = atan2(nx, nz)`.
+* **Water.** Shader swell, foam, and instanced spray share `waveClock` with `Ambience.setSurf`. Low tier draws no swell. A wet sheet rides the apron, or the lowest dry terrace. Sea fog is `U.streetFog`, not a new fog colour. Crest rain uses the existing wind.
+* **Apron and coast.** The pin stays inland. The pad is at the toe nearest it, deck 7.05 m, outside the ocean polygon. Stairs rise ≤ 0.40 m. `__nla.coastView('crest'|'terraces'|'apron'|'spray'|'piers'|'blocks'|'aerial')`. Fabric is 15–60 m `Style.Coastal`, not the megablock kit. One hauler, one crest patrol. No hologram, no interior, no street graph. Piers are unbranded and instanced.
+
+What the next stage should know: X2 Ground traffic is next. Do not add a street graph on `coastal-strip`, and do not fill the coast with cars — the hauler and the patrol are the traffic. Harbor cranes and ships are Stage 19; the harbor wall already has the lower-density surface. Crest height stays 90 m. Surf is `setSurf` on the existing bus. Sea fog is `streetFog`.
 
 ## Stages 11–12 — Residential Megablocks
 `lakewood-megablocks` (11) and `south-la-megablocks` (12): residential megablock families, courtyards, laundry and AC clutter, low traffic,
@@ -172,10 +177,10 @@ and the El Segundo flare field in full.
 | **X2 Ground traffic** | cars and trucks in streets and freeway trenches, traffic lights | |
 | **X3 Interiors framework** | ✅ Door volumes, baked light, occluded exterior, muffled rain. API in `src/world/interiors/README.md`. The Bradbury court is the proof; `buildCorridorRoom` is the template. K's apartment, the lobby, the corridor, the roof head-house and three lift cars now call `registerInterior`. The noodle bar and the LAPD lobby stay soffits. | Later rooms call `registerInterior`. A floor change uses `rides` (a fade, not a moving car) |
 | **X4 Holograms** | shared hologram system (giant animated figures, ad loops, scanline/flicker shader, light spill) | ✅ API in `src/world/holograms/README.md`. Showcase set is on the market lane, the megatower crowns, shafts and podiums (Stage 3), the financial avenue and two downtown billboards. Kind-2 panels under 140 m² stay the cheap sign. Stages 6/16 only call `registerHologram`. |
-| **X5 Audio** | Market bed is in (awning rain, murmur, sizzle, distant spinner), on the ambience bus, equal-power panners. Still to do: PA in invented languages, sea-wall surf, per-stall variety, and a bus that districts can register without editing `App.ts`. | no music |
+| **X5 Audio** | Market bed is in (awning rain, murmur, sizzle, distant spinner), on the ambience bus, equal-power panners. Sea-wall surf is in: a brown-noise wash and a band-passed impact on that same bus (`Ambience.setSurf`), phased with the visible breaker, plus crest wind on the existing wind gain. Still to do: PA in invented languages, per-stall variety, and a bus that districts can register without editing `App.ts`. | no music |
 | **X6 Performance** | Frame-loop collision is now a worker with a sync fallback for cinematic queries and street spawn. Still open: GPU culling, interior mapping, shadows on high/ultra, and an iPhone profiling pass on device (the VM only has SwiftShader). | do this if a later district blows the 250-draw / 1.5 M budget |
 | **X7 Photo mode** | free camera, depth of field, film grain, screenshot export | |
 
 ## Suggested order
 
-Stages 2, 3, 4, 5, 6, 7, 8, X3 and X4 are done. Next: 10 → X2 → 11 → 12 → 9 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21, with X1/X5/X6/X7 where they unblock the next district. Later stages add holograms by calling `registerHologram`, not by replacing the field, and interiors by calling `registerInterior`. Build anything taller than 320 m with the megatower kit as a landmark. Civic Center already calls `registerCrowdSource` on the market mesh. Stage 8 consumed X3; it did not add a second interior system. Stage 7 calls `registerInterior` for one room and does not add a street graph.
+Stages 2, 3, 4, 5, 6, 7, 8, 10, X3 and X4 are done. Next: X2 → 11 → 12 → 9 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21, with X1/X5/X6/X7 where they unblock the next district. Later stages add holograms by calling `registerHologram`, not by replacing the field, and interiors by calling `registerInterior`. Build anything taller than 320 m with the megatower kit as a landmark. Civic Center already calls `registerCrowdSource` on the market mesh. Stage 8 consumed X3; it did not add a second interior system. Stage 7 calls `registerInterior` for one room and does not add a street graph. Stage 10 does not add a street graph on the coast.
