@@ -226,7 +226,7 @@ for (const s of shots) {
     await page.waitForFunction(() => {
       const st = window.__nla?.stats?.();
       return st && st.viewSignal === 'stop' && st.groundCars >= 2;
-    }, null, { timeout: 18_000, polling: 200 }).catch(() => console.warn(`${s.name}: signal not red, shooting anyway`));
+    }, null, { timeout: 45_000, polling: 250 }).catch(() => console.warn(`${s.name}: signal not red, shooting anyway`));
   }
   if (s.coast && s.q.includes('weather=downpour') && !s.q.includes('quality=low')) {
     await page.waitForFunction(() => (window.__nla?.stats?.().coastImpact ?? 0) > 0.55, null, { timeout: 12_000, polling: 40 }).catch(() => {});

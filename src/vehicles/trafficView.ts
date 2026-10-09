@@ -60,7 +60,7 @@ function streetShot(layout: CityLayout, back: number, pitch: number): TrafficPos
   const e = hit.edge;
   const dist = Math.min(back, Math.max(12, e.length * 0.42));
   const t = hit.inbound > 0 ? 1 - dist / e.length : dist / e.length;
-  const pose = poseOn(g, e.index, t, hit.inbound, Math.min(e.lane + 5, 14.5));
+  const pose = poseOn(g, e.index, t, hit.inbound, Math.min(4.6, e.lane * 0.7));
   const ground = layout.heightAt(pose.x, pose.z);
   return {
     x: pose.x,
@@ -91,10 +91,10 @@ function freewayShot(layout: CityLayout): TrafficPose | null {
   const grade = layout.heightAt(pose.x, pose.z);
   return {
     x: pose.x,
-    y: grade + 55 - 1.22,
+    y: grade + 28 - 1.22,
     z: pose.z,
     heading: headingOf(pose.fx, pose.fz),
-    pitch: -0.48,
+    pitch: -0.72,
     mode: 'fly',
     cockpit: true,
   };
@@ -119,8 +119,8 @@ export function trafficCamera(layout: CityLayout, kind: TrafficView): TrafficPos
     const p = broadwayCamera(layout, 'street');
     return p ? { ...p } : null;
   }
-  if (kind === 'intersection') return streetShot(layout, 20, 0.16);
-  if (kind === 'rain') return streetShot(layout, 32, 0.06);
+  if (kind === 'intersection') return streetShot(layout, 26, 0.07);
+  if (kind === 'rain') return streetShot(layout, 38, 0.03);
   if (kind === 'freeway') return freewayShot(layout);
   if (kind === 'aerial-night') return aerial(layout);
   return null;

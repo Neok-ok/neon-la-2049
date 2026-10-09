@@ -255,6 +255,33 @@ export class GroundTraffic {
     return true;
   }
 
+  /** Keep a few street cars on the edge under the camera so a crossing reads as a queue. */
+  private anchorStreet(g: StreetGraph, x: number, z: number): void {
+    let close = 0;
+    let far: Agent | null = null;
+    let farD = -1;
+    for (const c of this.street) {
+      if (!c.live) continue;
+      const d2 = (c.p.x - x) ** 2 + (c.p.z - z) ** 2;
+      if (d2 < 55 * 55) close++;
+      else if (d2 > farD) { farD = d2; far = c; }
+    }
+    if (close >= 5 || !far) return;
+    const near = edgeNear(g, x, z, 90, 'street');
+    if (!near) return;
+    const e = g.edges[near.edge];
+    if (!e) return;
+    far.edge = near.edge;
+    far.t = Math.min(0.9, Math.max(0.1, near.t + (this.rng.next() - 0.5) * 0.12));
+    far.dir = this.rng.chance(0.5) ? 1 : -1;
+    far.side = (this.rng.chance(0.5) ? 1 : -1) * e.lane;
+    far.freeway = false;
+    far.salt = this.rng.int(1, 9000);
+    Object.assign(far, this.style(e, false));
+    this.commit(far, g);
+    far.live = true;
+  }
+
   private pick(list: number[], g: StreetGraph): number {
     let sum = 0;
     for (const i of list) {
@@ -480,6 +507,7 @@ export class GroundTraffic {
     };
     maintain(this.street, false, STREET_R);
     maintain(this.freeway, true, FREEWAY_R);
+    for (let n = 0; n < 4; n++) this.anchorStreet(g, cam.x, cam.z);
     this.separate(this.street, g, elapsed, false);
     this.separate(this.freeway, g, elapsed, true);
 
@@ -526,11 +554,12 @@ export class GroundTraffic {
     this.viewSignal = this.readSignal(g, camera, elapsed);
     this.repaintSignals(g, cam, elapsed);
     this.paintPools(cam, tier !== 'low' && U.wetness.value > 0.22);
+    const alt = cam.y - this.query.layout.heightAt(cam.x, cam.z);
     if (this.dress.streaks) {
       const low = tier === 'low';
       this.dress.streaks.count = low ? this.dress.streakTotal : this.dress.freewayStreaks;
       this.dress.streaks.visible = this.dress.streaks.count > 0;
-      streakNear.value = low ? -180 : 32;
+      streakNear.value = low || alt > 16 ? -180 : 32;
       this.streakCount = this.dress.streaks.count;
     } else this.streakCount = 0;
 
@@ -549,7 +578,6 @@ export class GroundTraffic {
     };
     hear(this.street, false);
     hear(this.freeway, true);
-    const alt = cam.y - this.query.layout.heightAt(cam.x, cam.z);
     let bed = Math.min(1, near / 5) * 0.7 + Math.min(1, fwy / 3) * 0.5;
     if (this.freewayPick.length && alt < 45) bed = Math.max(bed, 0.32);
     const fade = alt < 28 ? 1 : Math.max(0, 1 - (alt - 28) / 150);

@@ -1,5 +1,6 @@
 // Pure module (worker-safe). Turns fabric output into packed vertex arrays for one chunk mesh.
 import type { CityLayout } from '../layout';
+import { TRENCH_CUT, TRENCH_LIP, trenchDistance } from '../../vehicles/trenchQuery';
 import type { Box, FabricOutput } from './types';
 import { Style } from './types';
 
@@ -137,6 +138,16 @@ function emitBox(wr: Writer, b: Box, ox: number, oz: number): void {
   );
 }
 
+function chunkHitsTrench(layout: CityLayout, x0: number, z0: number, size: number): boolean {
+  const pad = TRENCH_LIP + size * 0.25;
+  for (let j = 0; j <= 4; j++) {
+    for (let i = 0; i <= 4; i++) {
+      if (trenchDistance(layout, x0 + (i / 4) * size, z0 + (j / 4) * size) < pad) return true;
+    }
+  }
+  return false;
+}
+
 function emitGround(wr: Writer, layout: CityLayout, x0: number, z0: number, size: number, rules: LodRules): void {
   const n = Math.max(1, Math.round(size / rules.groundCell));
   const cs = size / n;
@@ -161,27 +172,54 @@ function emitGround(wr: Writer, layout: CityLayout, x0: number, z0: number, size
     rules.groundLights ? (SPRAWL_LIGHTS[layout.districtAt(cx, cz).archetype] ?? 0.6) : 0;
   // ground tint channel carries 1 + neon reflection strength (read by the city material)
   const neonFor = (cx: number, cz: number): number => 1 + (STREET_NEON[layout.districtAt(cx, cz).archetype] ?? 0.2);
+  const cut = chunkHitsTrench(layout, x0, z0, size);
 
-  if (flat && allLand && !rules.groundLights) {
+  if (flat && allLand && !rules.groundLights && !cut) {
     wr.quad([0, 0, size, size, 0, size, size, 0, 0, 0, 0, 0], [0, 1, 0], [x0, z0 + size, x0 + size, z0 + size, x0 + size, z0, x0, z0], [0, Style.Ground, 0, neonFor(x0 + size / 2, z0 + size / 2)]);
     return;
   }
+
+  const emitCell = (ax: number, az: number, bx: number, bz: number, h00: number, h10: number, h01: number, h11: number): void => {
+    const span = Math.max(bx - ax, bz - az);
+    const cx = x0 + (ax + bx) / 2;
+    const cz = z0 + (az + bz) / 2;
+    const dist = cut ? trenchDistance(layout, cx, cz) : Infinity;
+    if (cut && span > 28 && dist < TRENCH_LIP + span * 0.5) {
+      const mx = (ax + bx) / 2;
+      const mz = (az + bz) / 2;
+      const hM0 = layout.heightAt(x0 + mx, z0 + az);
+      const h0M = layout.heightAt(x0 + ax, z0 + mz);
+      const hMM = layout.heightAt(x0 + mx, z0 + mz);
+      const h1M = layout.heightAt(x0 + bx, z0 + mz);
+      const hM1 = layout.heightAt(x0 + mx, z0 + bz);
+      emitCell(ax, az, mx, mz, h00, hM0, h0M, hMM);
+      emitCell(mx, az, bx, mz, hM0, h10, hMM, h1M);
+      emitCell(ax, mz, mx, bz, h0M, hMM, h01, hM1);
+      emitCell(mx, mz, bx, bz, hMM, h1M, hM1, h11);
+      return;
+    }
+    if (dist < TRENCH_CUT) return;
+    const dx = (h10 + h11 - h00 - h01) / (2 * span || 1);
+    const dz = (h01 + h11 - h00 - h10) / (2 * span || 1);
+    const inv = 1 / Math.sqrt(dx * dx + 1 + dz * dz);
+    const lit = lightsFor(cx, cz);
+    wr.quad(
+      [ax, h01, bz, bx, h11, bz, bx, h10, az, ax, h00, az],
+      [-dx * inv, inv, -dz * inv],
+      [x0 + ax, z0 + bz, x0 + bx, z0 + bz, x0 + bx, z0 + az, x0 + ax, z0 + az],
+      [0, Style.Ground, lit, neonFor(cx, cz)],
+    );
+  };
+
   for (let j = 0; j < n; j++)
     for (let i = 0; i < n; i++) {
       if (!land[j * n + i]) continue;
       const ax = i * cs, az = j * cs, bx = ax + cs, bz = az + cs;
-      const h00 = H[j * (n + 1) + i], h10 = H[j * (n + 1) + i + 1], h01 = H[(j + 1) * (n + 1) + i], h11 = H[(j + 1) * (n + 1) + i + 1];
-      // approximate normal from the cell gradient
-      const dx = (h10 + h11 - h00 - h01) / (2 * cs);
-      const dz = (h01 + h11 - h00 - h10) / (2 * cs);
-      const inv = 1 / Math.sqrt(dx * dx + 1 + dz * dz);
-      const lit = lightsFor(x0 + ax + cs / 2, z0 + az + cs / 2);
-      wr.quad(
-        [ax, h01, bz, bx, h11, bz, bx, h10, az, ax, h00, az],
-        [-dx * inv, inv, -dz * inv],
-        [x0 + ax, z0 + bz, x0 + bx, z0 + bz, x0 + bx, z0 + az, x0 + ax, z0 + az],
-        [0, Style.Ground, lit, neonFor(x0 + ax + cs / 2, z0 + az + cs / 2)],
-      );
+      const h00 = H[j * (n + 1) + i]!;
+      const h10 = H[j * (n + 1) + i + 1]!;
+      const h01 = H[(j + 1) * (n + 1) + i]!;
+      const h11 = H[(j + 1) * (n + 1) + i + 1]!;
+      emitCell(ax, az, bx, bz, h00, h10, h01, h11);
     }
 }
 

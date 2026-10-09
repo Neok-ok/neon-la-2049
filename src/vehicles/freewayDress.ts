@@ -10,6 +10,7 @@ import * as TSL from 'three/tsl';
 import type { CityLayout } from '../world/layout';
 import { U } from '../atmosphere/uniforms';
 import { NO_STREET_GRAPH, freewayRoutes, type FreewayTrafficSpec } from './trafficRegistry';
+import { TRENCH_LIP } from './trenchQuery';
 import { poseOn, streetGraph, type StreetGraph } from './streetGraph';
 
 const T = TSL as any;
@@ -70,6 +71,9 @@ function trenchMaterial(): MeshStandardNodeMaterial {
   m.colorNode = col.mul(T.mix(T.float(1), T.float(0.6), U.wetness));
   m.roughnessNode = T.mix(T.float(0.88), T.float(0.26), U.wetness);
   m.metalness = 0.04;
+  m.polygonOffset = true;
+  m.polygonOffsetFactor = -1;
+  m.polygonOffsetUnits = -2;
   return m;
 }
 
@@ -134,7 +138,7 @@ function addTrench(layout: CityLayout, spec: FreewayTrafficSpec, ribbon: Ribbon)
   const line = layout.freeways.find((f) => f.id === spec.id);
   if (!line) return;
   const halfRoad = spec.inset + (spec.lanes - 1) * spec.spacing + 2.4;
-  const halfOut = Math.min(36, Math.max(halfRoad + 6, line.width * 0.5 - 3));
+  const halfOut = TRENCH_LIP;
   const chains = walk(layout, line.pts as Array<[number, number]>, 32, spec.depth);
   for (const chain of chains) {
     const frames = chain.map((s, i) => {
@@ -150,8 +154,8 @@ function addTrench(layout: CityLayout, spec: FreewayTrafficSpec, ribbon: Ribbon)
     for (let i = 0; i < frames.length - 1; i++) {
       const a = frames[i]!, b = frames[i + 1]!;
       const y0 = a.s.y, y1 = b.s.y;
-      const lip0 = a.s.y + spec.depth - 0.05;
-      const lip1 = b.s.y + spec.depth - 0.05;
+      const lip0 = a.s.y + spec.depth + 0.22;
+      const lip1 = b.s.y + spec.depth + 0.22;
       ribbon.quad(at(a, -halfRoad, y0), at(b, -halfRoad, y1), at(b, halfRoad, y1), at(a, halfRoad, y0), DECK);
       ribbon.quad(at(a, -halfRoad, lip0), at(a, -halfRoad, y0), at(b, -halfRoad, y1), at(b, -halfRoad, lip1), WALL);
       ribbon.quad(at(a, halfRoad, y0), at(a, halfRoad, lip0), at(b, halfRoad, lip1), at(b, halfRoad, y1), WALL);
@@ -220,9 +224,9 @@ function streetStreaks(layout: CityLayout, g: StreetGraph, out: StreakSlot[]): v
 }
 
 function fillStreaks(slots: StreakSlot[]): InstancedMesh {
-  const geo = new PlaneGeometry(0.7, 7.4);
+  const geo = new PlaneGeometry(1.6, 14);
   geo.rotateX(-Math.PI / 2);
-  geo.translate(0, 0, -3.7);
+  geo.translate(0, 0, -7);
   const data = new Float32Array(slots.length * 4);
   const mesh = new InstancedMesh(geo, streakMaterial(), slots.length);
   mesh.name = 'traffic-streaks';
