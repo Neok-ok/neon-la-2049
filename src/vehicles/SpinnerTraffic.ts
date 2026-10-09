@@ -102,10 +102,11 @@ export class SpinnerTraffic {
   private onGraph(car: Car, x: number, z: number, low: boolean): boolean {
     const g = downtownGraph(this.query.layout);
     let hit: { edge: number; t: number } | null = null;
-    for (let k = 0; k < 8; k++) {
+    for (let k = 0; k < 16; k++) {
       const tryHit = edgeAround(g, x, z, this.radius * 0.9, this.rng);
       if (!tryHit) return false;
-      if ((g.edges[tryHit.edge]?.lane ?? 7.2) < 5) continue;
+      const edge = g.edges[tryHit.edge];
+      if (!edge || edge.kind === 'freeway' || (edge.lane ?? 7.2) < 5) continue;
       hit = tryHit;
       break;
     }

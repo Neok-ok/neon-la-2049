@@ -140,6 +140,17 @@ const shots = [
   { name: 'coast-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=sea-wall-fight&time=22&weather=downpour&surf=1&freeze=1&ui=0&hud=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.coastView('spray'), near: true, coast: true },
   { name: 'coast-medium', ctx: desktop, q: `mode=fly&at=sea-wall-fight&time=22&weather=downpour&surf=1&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.coastView('apron'), near: true, coast: true },
   { name: 'coast-ultra', ctx: desktop, q: `mode=fly&at=sea-wall-fight&time=22&weather=downpour&surf=1&freeze=1&ui=0&hud=1&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.coastView('apron'), near: true, coast: true },
+  // X2 — ground traffic. Cameras come from __nla.trafficView.
+  { name: 'traffic-intersection', ctx: desktop, q: `mode=walk&time=22&weather=drizzle&${common}`, after: () => window.__nla.trafficView('intersection'), near: true, signal: true },
+  { name: 'traffic-freeway', ctx: desktop, q: `mode=fly&time=22&weather=rain&${common}`, after: () => window.__nla.trafficView('freeway'), near: true },
+  { name: 'traffic-rain', ctx: desktop, q: `mode=walk&time=22.5&weather=rain&${common}`, after: () => window.__nla.trafficView('rain'), near: true, signal: true },
+  { name: 'traffic-canyon', ctx: desktop, q: `mode=walk&at=bradbury&time=22.5&weather=rain&${common}`, after: () => window.__nla.trafficView('canyon'), near: true },
+  { name: 'traffic-aerial', ctx: desktop, q: `mode=fly&time=22&weather=clear&${common}`, after: () => window.__nla.trafficView('aerial-night') },
+  { name: 'traffic-low', ctx: desktop, q: `mode=fly&time=22&weather=rain&freeze=1&ui=0&hud=1&quality=low${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.trafficView('freeway'), near: true },
+  { name: 'traffic-medium', ctx: desktop, q: `mode=walk&time=22&weather=drizzle&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.trafficView('intersection'), near: true, signal: true },
+  { name: 'traffic-freeway-medium', ctx: desktop, q: `mode=fly&time=22&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.trafficView('freeway'), near: true },
+  { name: 'traffic-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&time=22&weather=drizzle&freeze=1&ui=0&hud=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.trafficView('intersection'), near: true, signal: true },
+  { name: 'traffic-ultra', ctx: desktop, q: `mode=walk&time=22&weather=drizzle&freeze=1&ui=0&hud=1&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.trafficView('intersection'), near: true, signal: true },
 ];
 
 const args = GPU
@@ -211,6 +222,12 @@ for (const s of shots) {
     await page.waitForFunction(() => window.__nla.isIdle(), null, { timeout: 120_000, polling: 1000 }).catch(() => {});
   }
   await page.waitForTimeout(2500);
+  if (s.signal) {
+    await page.waitForFunction(() => {
+      const st = window.__nla?.stats?.();
+      return st && st.viewSignal === 'stop' && st.groundCars >= 2;
+    }, null, { timeout: 18_000, polling: 200 }).catch(() => console.warn(`${s.name}: signal not red, shooting anyway`));
+  }
   if (s.coast && s.q.includes('weather=downpour') && !s.q.includes('quality=low')) {
     await page.waitForFunction(() => (window.__nla?.stats?.().coastImpact ?? 0) > 0.55, null, { timeout: 12_000, polling: 40 }).catch(() => {});
   }
