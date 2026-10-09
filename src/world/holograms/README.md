@@ -21,7 +21,7 @@ registerHologram({
   color: SignColor.Cyan,
   seed: 0.42,      // 0..1, animation phase
   rank: 0,         // 0 kept first when the tier cap binds
-  band: 'tower',   // 'street' culls with LOD0, 'tower' with the near radius
+  band: 'tower',   // 'street' culls with LOD0, 'tower' with the near radius, 'skyline' out to ~half the far radius
   spill: 40,       // metres of coloured wash. 0 disables spill and the ground card
 });
 ```
@@ -54,16 +54,26 @@ Each frame, using the **live** quality tier (the FPS governor writes that tier):
 | high | 32 | + one ghost slice on the nearest 5 | 4 | 12 |
 | ultra | 48 | + a second ghost slice | 4 | 16 |
 
-- **Street band** drops past `lod0Radius * 0.9`. **Tower band** drops past `nearRadius * 1.35`. Both radii are the streaming radii, so a tier drop pulls holograms in with the city.
+- **Street band** drops past `lod0Radius * 0.9`. **Tower band** drops past `nearRadius * 1.35`. **Skyline band** (megatower crowns, anything meant to read across the basin) drops past `max(nearRadius * 1.35, farRadius * 0.55)`. All three use the streaming radii, so a tier drop pulls holograms in with the city.
 - Off-screen panels (more than ~77° off the look direction, and not under the camera) do not spend the cap.
 - Lower `rank` wins ties. Streamed billboard figures are rank 2. Give a hero `0`.
 - Spill is the nearest shown panels with `spill > 0`, uploaded as four wrapped lights into the city fabric and the street kit. Ground cards are the wet-street disc under panels whose centre is within 80 m of the ground. Low tier sets `U.holoSpill` to 0.
 - Cost when anything is visible: **2 instanced draws** (panels, cards) and a few hundred triangles. Ghost slices are extra instances on the same draw.
 
-## Stage 3 notes
+## Stage 3 placements
 
-The six megatowers already register `${id}-holo-a` (figure, rank 0) and `${id}-holo-b` (ad loop, rank 1) on the two faces the blockout used for kind-2 signs. Replace or add ids in `Landmarks.ts` when the real crowns land. A crown panel is just another `registerHologram` with `band: 'tower'`.
+Megatower and skybridge panels come from the megatower kit's hologram slots and are registered by `placeKit` in `src/districts/_shared/megatower/place.ts`. Ids per landmark:
 
-The avenue crane is `financial-canyon-crane` (a gap beside megatower 1, facing away from the tower). Move it if a tower footprint grows over it.
+| Id | Slot | Band |
+|---|---|---|
+| `${id}-holo-a` | first shaft panel (kept stable for `holoView('aerial')`) | tower |
+| `${id}-holo-b` | podium panel | tower |
+| `${id}-holo-crown` | crown panel, the biggest (up to ~120 m) | skyline |
+| `${id}-holo-gap` | panel in a setback gap | tower |
+| `${id}-holo-i` (`i` = slot index) | any further slot, including the two side panels of each skybridge | tower |
+
+Designs and colours per tower are in `src/districts/financial-megatowers/specs.ts` (`designs`, `colors`). Kit towers in the fabric emit their slots as kind-2 billboards (`FabricSink.holoPanels`), so the big ones are promoted by the field like any other billboard.
+
+The avenue crane is `financial-canyon-crane`. `placeCanyon` in `showcase.ts` searches up to 360 m around megatower 1 for a clear gap outside the (larger) Stage 3 reserves, preferring about 210 m out, so it moves by itself if a footprint grows over it.
 
 Do not build a second shader. A new design means a new branch in `material.ts` plus a name in `HOLO_DESIGNS`, and a line in the bible with `confidence: invented`.
