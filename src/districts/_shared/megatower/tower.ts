@@ -610,7 +610,8 @@ function mainSegs(b: Builder, crownH: number): { segs: Seg[]; cw: number; cd: nu
     }
     case 'blade': {
       const a = P + (top - P) * 0.42, c = P + (top - P) * 0.76;
-      out.push(seg(0, 0, p.w, p.d, P, a, Style.Office, { w1: p.w * 0.88, d1: p.d * 0.94, fins: 0 }));
+      // a straight finned base, then the taper begins above the first setback
+      out.push(seg(0, 0, p.w, p.d, P, a, Style.Office));
       out.push(seg(0, 0, p.w * 0.84, p.d * 0.92, a, c, Style.Ribbon, { w1: p.w * 0.7, d1: p.d * 0.84, fins: 0 }));
       out.push(seg(0, 0, p.w * 0.66, p.d * 0.82, c, top, Style.Office, { w1: p.w * 0.5, d1: p.d * 0.74, fins: 0 }));
       return {
@@ -661,7 +662,8 @@ export function buildTower(plan: TowerPlan, sink: MassSink): TowerParts {
       const [nx, nz] = FN[f];
       const half = f % 2 === 0 ? plan.d / 2 : plan.w / 2;
       const len = f % 2 === 0 ? plan.w : plan.d;
-      for (const t of [-0.36, 0, 0.36]) {
+      // the entrance face keeps its centre clear for the lobby portal
+      for (const t of f === 0 ? [-0.36, 0.36] : [-0.36, 0, 0.36]) {
         const a = t * len;
         b.buttress(nx * half + (f % 2 === 0 ? a : 0), nz * half + (f % 2 === 0 ? 0 : a), f, 9, H * 0.045, H * 0.17, 1);
       }

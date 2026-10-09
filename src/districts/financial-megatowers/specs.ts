@@ -60,7 +60,7 @@ export const HERO_SPECS: Record<string, HeroSpec> = {
   },
   // A tapering blade, narrow end to the street.
   'megatower-6': {
-    form: 'blade', crown: 'stepped', podium: { w: 150, d: 120, h: 36 }, turn: 0, mast: 32,
+    form: 'blade', crown: 'stepped', podium: { w: 150, d: 120, h: 36 }, turn: 0, mast: 32, fins: 6,
     lit: 0.38, tint: 0.95, holo: 3, designs: ['glyph-loop', 'ribbon-column', 'lease-loop'],
     colors: [SignColor.Cyan, SignColor.Pink, SignColor.Amber],
   },
