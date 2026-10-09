@@ -1,5 +1,6 @@
 // Corridor + room. Door at the origin, the street on +Z, the corridor running toward −Z,
-// the room beyond that. Stage 8 tints `warmth` and appends furniture; it should not rebuild the shell.
+// the room beyond that. Stage 8 tints `warmth`, punches `sideDoors` / `backDoor`, and appends
+// furniture. It should not rebuild the shell.
 // warmth 0 is a pale tube, 1 is tungsten. No three.js imports: the result is plain data.
 import type { InteriorBox, InteriorCollider, InteriorDetail, InteriorLight, InteriorPortal, RGB } from './types';
 
@@ -9,11 +10,27 @@ export interface CorridorRoomSize {
   height: number;
 }
 
+export interface WallGap {
+  /** Corridor: metres from the front door toward −Z. Back wall: local X of the centre. Omitted on a back door means the middle. */
+  at?: number;
+  width?: number;
+  height?: number;
+}
+
 export interface CorridorRoomOpts {
   warmth: number;
   corridor: CorridorRoomSize;
   room: CorridorRoomSize;
   detail: InteriorDetail;
+  /** Openings in the corridor side walls. `side` −1 is local −X. */
+  sideDoors?: Array<WallGap & { side: -1 | 1 }>;
+  /** Opening in the room's far wall. Omitted leaves that wall solid. */
+  backDoor?: WallGap;
+  /**
+   * The room's +X window and its portal card. Default on.
+   * Pass false for a hall with no exterior on that wall (a lobby, a corridor).
+   */
+  window?: boolean;
   extras?: InteriorBox[];
 }
 
@@ -43,6 +60,57 @@ function wall(
   cols.push({ x, z, hw: w / 2, hd: d / 2, y0, top, yaw: 0 });
 }
 
+function span(
+  boxes: InteriorBox[], cols: InteriorCollider[],
+  x: number, z: number, w: number, d: number, y0: number, h: number, color: RGB,
+): void {
+  if (w < 0.04 || d < 0.04 || h < 0.04) return;
+  box(boxes, x, y0, z, w, h, d, color);
+  wall(cols, x, z, w, d, y0, y0 + h);
+}
+
+/** Solid runs along Z, with lintels over each gap. `zHi` is the street end. */
+function cutZ(
+  boxes: InteriorBox[], cols: InteriorCollider[],
+  x: number, th: number, zHi: number, zLo: number, height: number, color: RGB,
+  gaps: Array<{ z: number; w: number; h: number }>,
+): void {
+  const list = gaps
+    .map((g) => ({ z: g.z, w: g.w, h: Math.min(height - 0.04, g.h) }))
+    .filter((g) => g.z + g.w / 2 < zHi - 0.08 && g.z - g.w / 2 > zLo + 0.08)
+    .sort((a, b) => b.z - a.z);
+  let z = zHi;
+  for (const g of list) {
+    const near = g.z + g.w / 2;
+    const far = g.z - g.w / 2;
+    if (z - near > 0.05) span(boxes, cols, x, (z + near) / 2, th, z - near, 0, height, color);
+    if (height - g.h > 0.05) span(boxes, cols, x, g.z, th, g.w, g.h, height - g.h, color);
+    z = far;
+  }
+  if (z - zLo > 0.05) span(boxes, cols, x, (z + zLo) / 2, th, z - zLo, 0, height, color);
+}
+
+/** Solid runs along X. `x0` < `x1`. */
+function cutX(
+  boxes: InteriorBox[], cols: InteriorCollider[],
+  z: number, th: number, x0: number, x1: number, height: number, color: RGB,
+  gaps: Array<{ x: number; w: number; h: number }>,
+): void {
+  const list = gaps
+    .map((g) => ({ x: g.x, w: g.w, h: Math.min(height - 0.04, g.h) }))
+    .filter((g) => g.x - g.w / 2 > x0 + 0.08 && g.x + g.w / 2 < x1 - 0.08)
+    .sort((a, b) => a.x - b.x);
+  let x = x0;
+  for (const g of list) {
+    const left = g.x - g.w / 2;
+    const right = g.x + g.w / 2;
+    if (left - x > 0.05) span(boxes, cols, (x + left) / 2, z, left - x, th, 0, height, color);
+    if (height - g.h > 0.05) span(boxes, cols, g.x, z, g.w, th, g.h, height - g.h, color);
+    x = right;
+  }
+  if (x1 - x > 0.05) span(boxes, cols, (x + x1) / 2, z, x1 - x, th, 0, height, color);
+}
+
 /** Local plan. `detail` drops trim; the colliders stay the same at every tier. */
 export function buildCorridorRoom(o: CorridorRoomOpts): CorridorRoomPlan {
   const t = Math.max(0, Math.min(1, o.warmth));
@@ -66,10 +134,16 @@ export function buildCorridorRoom(o: CorridorRoomOpts): CorridorRoomPlan {
   box(boxes, 0, 0, cZ, C.width, 0.12, C.length, floorC);
   wall(cols, 0, cZ, C.width, C.length, 0, 0.12);
   box(boxes, 0, C.height, cZ, C.width, th, C.length, ceilC);
-  box(boxes, -(C.width / 2 + th / 2), 0, cZ, th, C.height + th, C.length, wallC);
-  box(boxes, C.width / 2 + th / 2, 0, cZ, th, C.height + th, C.length, wallC);
-  wall(cols, -(C.width / 2 + th / 2), cZ, th, C.length, 0, C.height);
-  wall(cols, C.width / 2 + th / 2, cZ, th, C.length, 0, C.height);
+  const sideGaps = (side: -1 | 1) => (o.sideDoors ?? [])
+    .filter((d) => d.side === side)
+    .map((d) => ({
+      z: -(d.at ?? 0),
+      w: d.width ?? 0.96,
+      h: d.height ?? Math.min(2.08, C.height - 0.12),
+    }));
+  const wallH = C.height + th;
+  cutZ(boxes, cols, -(C.width / 2 + th / 2), th, 0, -C.length, wallH, wallC, sideGaps(-1));
+  cutZ(boxes, cols, C.width / 2 + th / 2, th, 0, -C.length, wallH, wallC, sideGaps(1));
 
   const cheekW = (C.width - doorW) / 2;
   const cheekX = doorW / 2 + cheekW / 2;
@@ -97,8 +171,15 @@ export function buildCorridorRoom(o: CorridorRoomOpts): CorridorRoomPlan {
   wall(cols, -(R.width / 2 + th / 2), rZ, th, R.length, 0, R.height);
   wall(cols, R.width / 2 + th / 2, rZ, th, R.length, 0, R.height);
   const backZ = -C.length - R.length - th / 2;
-  box(boxes, 0, 0, backZ, R.width + th * 2, R.height + th, th, wallC);
-  wall(cols, 0, backZ, R.width + th * 2, th, 0, R.height);
+  const backHalf = R.width / 2 + th;
+  const backGaps = o.backDoor
+    ? [{
+      x: o.backDoor.at ?? 0,
+      w: o.backDoor.width ?? 1.2,
+      h: o.backDoor.height ?? Math.min(2.15, R.height - 0.12),
+    }]
+    : [];
+  cutX(boxes, cols, backZ, th, -backHalf, backHalf, R.height + th, wallC, backGaps);
 
   const shoulder = (R.width - C.width) / 2;
   if (shoulder > 0.08) {
@@ -126,7 +207,8 @@ export function buildCorridorRoom(o: CorridorRoomOpts): CorridorRoomPlan {
   const winX = R.width / 2 - 0.02;
   const winY = 1.5;
   const winZ = -C.length - R.length * 0.46;
-  if (o.detail >= 2) {
+  const wantWindow = o.window !== false;
+  if (wantWindow && o.detail >= 2) {
     const ft = 0.06;
     box(boxes, winX - 0.04, winY - winH / 2 - ft, winZ, ft, ft, winW + ft * 2, trimC, { detail: 2 });
     box(boxes, winX - 0.04, winY + winH / 2, winZ, ft, ft, winW + ft * 2, trimC, { detail: 2 });
@@ -142,8 +224,8 @@ export function buildCorridorRoom(o: CorridorRoomOpts): CorridorRoomPlan {
     { x: 0, y: C.height - 0.15, z: -C.length * 0.45, color: tube, intensity: 3.4, range: Math.max(6, C.length) },
     { x: 0, y: R.height - 0.15, z: rZ, color: tube, intensity: 3.6, range: Math.max(6, R.length + 1) },
   ];
-  const portals: InteriorPortal[] = [
-    { x: winX, y: winY, z: winZ, w: winW, h: winH, yaw: -Math.PI / 2 },
-  ];
+  const portals: InteriorPortal[] = wantWindow
+    ? [{ x: winX, y: winY, z: winZ, w: winW, h: winH, yaw: -Math.PI / 2 }]
+    : [];
   return { boxes, lights, ambient, portals, colliders: cols };
 }

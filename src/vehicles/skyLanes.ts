@@ -9,6 +9,7 @@ import type { CityQuery } from '../world/CityQuery';
 import type { Landmark } from '../world/layout';
 import { DOWNTOWN_BLOCK_A, DOWNTOWN_BLOCK_B, gridAxes } from '../districts/_shared/megablock/grid';
 import { lapdPadRuns } from '../districts/civic-center/lanes';
+import { kPadRuns } from '../districts/k-megablock/lanes';
 
 export type LaneClass = 'civilian' | 'police' | 'transport';
 
@@ -161,6 +162,16 @@ export function buildSkyLanes(q: CityQuery): SkyLane[] {
     if (pts) lanes.push(lane('hold-lapd', pts, true, { weight: 0.7, police: 0.85, transport: 0, speed: [30, 50], sep: 0 }));
     // Roof pads: arrivals and departures on the same polylines. The holding pattern above stays as it was.
     for (const run of lapdPadRuns(lapd, (x, y, z) => q.insideLandmark(x, y, z, 3.5))) {
+      lanes.push(lane(run.id, run.pts.map((p) => new Vector3(p[0], p[1], p[2])), run.loop, {
+        weight: run.weight, police: run.police, transport: run.transport,
+        speed: run.speed, sep: run.sep, altBias: run.altBias, fade: run.fade,
+      }));
+    }
+  }
+  const kSlab = lm('k-megablock-tower');
+  if (kSlab) {
+    const g = q.layout.heightAt(kSlab.x, kSlab.z);
+    for (const run of kPadRuns(kSlab, g, (x, y, z) => q.insideLandmark(x, y, z, 3.5))) {
       lanes.push(lane(run.id, run.pts.map((p) => new Vector3(p[0], p[1], p[2])), run.loop, {
         weight: run.weight, police: run.police, transport: run.transport,
         speed: run.speed, sep: run.sep, altBias: run.altBias, fade: run.fade,

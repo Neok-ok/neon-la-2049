@@ -130,7 +130,7 @@
       "id": "k-megablock",
       "name": "K's Megablock",
       "loreSector": "residential; centre of the on-screen spinner map (~Woodruff Ave & South St)",
-      "archetype": "megablock-market",
+      "archetype": "k-megablock",
       "priority": 4,
       "grid": { "bearingDeg": 0, "block": [150, 90], "street": 12 },
       "stage": 8,
@@ -381,7 +381,7 @@
       "lat": 33.8585, "lon": -118.1240,
       "bearingDeg": 0, "height": 185, "baseWidth": 230, "baseDepth": 85,
       "reserveRadius": 140,
-      "confidence": "location from the 2049 spinner map (centre ~ Woodruff Ave & South St, Lakewood); size estimated from film exteriors"
+      "confidence": "location from the 2049 spinner map (centre ~ Woodruff Ave & South St, Lakewood); size estimated from film exteriors. Stage 8 massing, market, pad and interior path are invented"
     },
     {
       "id": "lax-spaceport-towers",

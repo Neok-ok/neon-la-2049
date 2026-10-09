@@ -204,7 +204,7 @@ Walk mode is the only mode that enters. An exterior door keeps the city visible 
 
 Interior light is vertex colour plus an emissive attribute on an unlit mesh. It does not follow the night, wet or sign uniforms, and it does not add a scene light. Rain and the city bed go through a low-pass on the ambience master, so market layers muffle too. Open-court rain is a local streak mesh on medium and up.
 
-The Bradbury court (`bradbury-court`) and the service corridor behind it (`bradbury-service`) are the proof. The service corridor is the template, not K's apartment. Colliders are registered once with `CityQuery` and do not change with the tier. A tier change rebuilds the meshes (detail 0 / 1 / 2 / 3).
+The Bradbury court (`bradbury-court`) and the service corridor behind it (`bradbury-service`) are the proof. The service corridor is the template. K's megablock is the second caller: `k-lobby`, `k-corridor`, `k-apartment`, `k-head`, and three lift cars, all through `registerInterior`. A ride fades between those cars. It is not a moving mesh and not a portal chain. Colliders are registered once with `CityQuery` and do not change with the tier. A tier change rebuilds the meshes (detail 0 / 1 / 2 / 3).
 
 While a walker is inside, expect the draw count to fall to the kept shell plus a handful of interior meshes. On the street in front of an open door the streamed interior adds about one draw. Both have to stay under 250 draws and 1.5 M triangles.
 

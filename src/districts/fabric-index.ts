@@ -6,3 +6,4 @@ import './financial-megatowers/archetype';
 import './dtla/archetype';
 import './civic-center/archetype';
 import './historic-core/archetype';
+import './k-megablock/archetype';

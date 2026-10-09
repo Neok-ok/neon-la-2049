@@ -98,10 +98,30 @@ export interface InteriorBuild {
   openSky?: OpenSky;
 }
 
+/**
+ * Stand in `door` and the walker is moved to `to` / `toDoor`.
+ * A fade, not a moving mesh: the car at each stop is its own interior.
+ * Nested rooms are still not a portal chain.
+ */
+export interface InteriorRide {
+  door: string;
+  to: string;
+  toDoor: string;
+  /** Seconds in the door before the fade. Default 0.8. */
+  dwell?: number;
+}
+
 export interface InteriorSpec {
   id: string;
   volume: OrientedBox;
   doors: DoorVolume[];
+  /** Call panels. The system fades, then the app moves the walker. */
+  rides?: InteriorRide[];
+  /**
+   * 0..1 quiet sine under the muffled bed while this interior is occluded.
+   * One oscillator for the whole city. Default 0.
+   */
+  hum?: number;
   /** Other interiors that stay in the frame while this one is active. */
   links?: string[];
   /** Landmark group names kept when the rest of the city is hidden. */

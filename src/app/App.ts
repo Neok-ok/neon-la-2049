@@ -19,6 +19,7 @@ import { installDtlaHolos } from '../districts/dtla/holos';
 import { civicCamera, type CivicView } from '../districts/civic-center/view';
 import { broadwayCamera, type BroadwayView } from '../districts/historic-core/view';
 import { interiorCamera, type InteriorView } from '../districts/historic-core/interior';
+import { kCamera, type KView } from '../districts/k-megablock/view';
 import { installInteriors } from '../districts/interior-index';
 import { InteriorSystem } from '../world/interiors';
 import { installCivicHolos } from '../districts/civic-center/holos';
@@ -177,6 +178,7 @@ export class App {
       landmarks: this.landmarks.root,
     });
     const walk = new WalkController(this.camera, this.input, this.query);
+    walk.spawnHook = (x, y, z) => this.interiors.walkHandoff(x, y, z);
     const cine = new CinematicDirector(this.camera, this.query, this.traffic, (v) => this.ui?.fade(v));
 
     const urlMode = MODES.includes(params.mode as ModeId) ? (params.mode as ModeId) : null;
@@ -331,14 +333,18 @@ export class App {
     const inMarket = districtNow.id === 'little-tokyo-market';
     const inDtla = districtNow.id === 'dtla';
     const inHistoric = districtNow.id === 'historic-core';
+    const inK = districtNow.id === 'k-megablock';
     const inCanyon = inDtla || (districtNow.id === 'financial-megatowers' && alt < 40);
     U.neonWet.value = inMarket && alt < 140 ? 0.92
       : inHistoric && alt < 120 ? 0.88
         : inCanyon && alt < 90 ? 0.62
-          : 0.22;
+          : inK && alt < 48 ? 0.5
+            : 0.22;
     U.streetFog.value = inMarket ? Math.max(0, Math.min(1, 1 - alt / 70)) * 0.8
       : inHistoric && alt < 90 ? 0.42 * (1 - alt / 90)
-        : inDtla && alt < 80 ? 0.28 * (1 - alt / 80) : 0;
+        : inDtla && alt < 80 ? 0.28 * (1 - alt / 80)
+          : inK && alt < 40 ? 0.36 * (1 - alt / 40)
+            : 0;
     const dtSafe = Math.max(dt, 1e-4);
     this.query.warm(cam.x, cam.z, cam.x + ((cam.x - this.lastCam.x) / dtSafe) * 0.45, cam.z + ((cam.z - this.lastCam.z) / dtSafe) * 0.45);
     this.lastCam.copy(cam);
@@ -372,7 +378,15 @@ export class App {
     this.snow.update(dt, cam, w.params.snow * aboveClouds, w.params.wind, w.windDir, this.quality.snowCount);
     const at = this.cams.mode === 'walk' ? this.cams.walk.pos : cam;
     this.interiors.update(dt, this.cams.mode, at.x, at.y, at.z, w.params.rain);
+    const ride = this.interiors.consumeRide();
+    if (ride && this.cams.mode === 'walk') {
+      this.cams.walk.pos.set(ride.x, ride.y, ride.z);
+      this.cams.walk.heading = ride.heading;
+      this.camera.position.set(ride.x, ride.y + 1.7, ride.z);
+      this.camera.rotation.set(this.cams.walk.pitch, -ride.heading, 0, 'YXZ');
+    }
     this.ambience.setInterior(this.interiors.blend);
+    this.ambience.setHum(this.interiors.humAmount);
     this.ambience.update(w.params.rain, w.params.snow, w.params.wind, alt);
     this.camera.updateMatrixWorld();
     const e = this.camera.matrixWorld.elements;
@@ -501,6 +515,26 @@ export class App {
       /** Stage 5 cameras: spinner on a pad approach, the steps, City Hall, the lobby, the mall. */
       /** Stage 6 cameras: Broadway at street level, the footbridge, the Bradbury face, spinner height, the court. */
       /** X3 cameras: inside the Bradbury court, on the stair, the street door, the service template. */
+      /** Stage 8 cameras: the slab, the market, the lobby, the corridor, the apartment, the roof pad. */
+      kView: (kind: KView) => {
+        const p = kCamera(this.query.layout, kind);
+        if (!p) return false;
+        this.query.fabricAt(p.x, p.z);
+        this.cams.setMode(p.mode);
+        if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
+        this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
+        if (p.mode === 'walk') {
+          this.cams.walk.pitch = p.pitch;
+          this.cams.walk.heading = p.heading;
+          if (p.feet) {
+            this.cams.walk.pos.set(p.feet.x, p.feet.y, p.feet.z);
+            this.camera.position.set(p.feet.x, p.feet.y + 1.7, p.feet.z);
+            this.camera.rotation.set(p.pitch, -p.heading, 0, 'YXZ');
+            this.camera.updateMatrixWorld();
+          }
+        }
+        return true;
+      },
       interiorView: (kind: InteriorView) => {
         const p = interiorCamera(this.query.layout, kind);
         if (!p) return false;

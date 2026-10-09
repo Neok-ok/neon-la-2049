@@ -100,6 +100,21 @@ const shots = [
   { name: 'interior-out-low', ctx: desktop, q: `mode=walk&at=bradbury&time=22.5&weather=rain&freeze=1&ui=0&quality=low${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.interiorView('door'), near: true },
   { name: 'interior-out-medium', ctx: desktop, q: `mode=walk&at=bradbury&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.interiorView('door'), near: true },
   { name: 'interior-out-ultra', ctx: desktop, q: `mode=walk&at=bradbury&time=22.5&weather=rain&freeze=1&ui=0&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.interiorView('door'), near: true },
+  // Stage 8 — K's megablock. Cameras come from __nla.kView.
+  { name: 'k-aerial', ctx: desktop, q: `mode=fly&at=k-megablock-tower&time=22&weather=rain&${common}`, after: () => window.__nla.kView('aerial'), near: true },
+  { name: 'k-street', ctx: desktop, q: `mode=walk&at=k-megablock-tower&time=22.5&weather=rain&${common}`, after: () => window.__nla.kView('street'), near: true },
+  { name: 'k-market-rain', ctx: desktop, q: `mode=walk&at=k-megablock-tower&time=22.5&weather=rain&${common}`, after: () => window.__nla.kView('market'), near: true },
+  { name: 'interior-k-lobby', ctx: desktop, q: `mode=walk&at=k-megablock-tower&time=22.5&weather=rain&${common}`, after: () => window.__nla.kView('lobby'), near: true },
+  { name: 'interior-k-corridor', ctx: desktop, q: `mode=walk&at=k-megablock-tower&time=22.5&weather=rain&${common}`, after: () => window.__nla.kView('corridor'), near: true },
+  { name: 'interior-k-apartment', ctx: desktop, q: `mode=walk&at=k-megablock-tower&time=22.5&weather=rain&${common}`, after: () => window.__nla.kView('apartment'), near: true },
+  { name: 'k-roof', ctx: desktop, q: `mode=fly&at=k-megablock-tower&time=22&weather=rain&${common}`, after: () => window.__nla.kView('roof'), near: true },
+  { name: 'k-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=k-megablock-tower&time=22.5&weather=rain&freeze=1&ui=0&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.kView('market'), near: true },
+  { name: 'k-low', ctx: desktop, q: `mode=walk&at=k-megablock-tower&time=22.5&weather=rain&freeze=1&ui=0&quality=low${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.kView('market'), near: true },
+  { name: 'k-medium', ctx: desktop, q: `mode=walk&at=k-megablock-tower&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.kView('market'), near: true },
+  { name: 'k-ultra', ctx: desktop, q: `mode=walk&at=k-megablock-tower&time=22.5&weather=rain&freeze=1&ui=0&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.kView('market'), near: true },
+  { name: 'interior-k-low', ctx: desktop, q: `mode=walk&at=k-megablock-tower&time=22.5&weather=rain&freeze=1&ui=0&quality=low${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.kView('apartment'), near: true },
+  { name: 'interior-k-medium', ctx: desktop, q: `mode=walk&at=k-megablock-tower&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.kView('apartment'), near: true },
+  { name: 'interior-k-ultra', ctx: desktop, q: `mode=walk&at=k-megablock-tower&time=22.5&weather=rain&freeze=1&ui=0&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.kView('apartment'), near: true },
 ];
 
 const args = GPU
