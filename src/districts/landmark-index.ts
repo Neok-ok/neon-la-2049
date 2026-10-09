@@ -4,3 +4,5 @@ import './financial-megatowers/landmarks';
 import './wallace-vernon/pyramid';
 import './civic-center/hq';
 import './civic-center/hall';
+import './historic-core/bradbury';
+import './historic-core/bridge';

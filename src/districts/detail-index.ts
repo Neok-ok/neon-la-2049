@@ -6,3 +6,5 @@ import './dtla/details';
 import './dtla/crowd';
 import './civic-center/details';
 import './civic-center/crowd';
+import './historic-core/details';
+import './historic-core/crowd';

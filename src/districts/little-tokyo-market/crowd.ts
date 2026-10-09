@@ -237,11 +237,12 @@ export class CrowdField {
 
   update(dt: number, x: number, z: number, query: CityQuery, quality: QualitySettings, rain: number): void {
     const district = query.district(x, z);
-    const want = district.id === 'little-tokyo-market' ? quality.crowd
-      : district.id === 'dtla' ? Math.round(quality.crowd * 0.4)
-        : district.id === 'financial-megatowers' ? Math.round(quality.crowd * 0.4)
-          : district.id === 'civic-center' ? Math.round(quality.crowd * 0.22)
+    const share = district.id === 'little-tokyo-market' ? 1
+      : district.id === 'dtla' || district.id === 'financial-megatowers' ? 0.4
+        : district.id === 'civic-center' ? 0.22
+          : district.id === 'historic-core' ? 0.72
             : 0;
+    const want = Math.round(quality.crowd * share);
     const radius = quality.crowdRadius;
     if (want <= 0) {
       this.count = 0;

@@ -100,6 +100,8 @@ Positions are in [`city-layout.json`](../src/data/city-layout.json) (`landmarks`
 | Id | What | Size | Location and reasoning | Confidence |
 |---|---|---|---|---|
 | `city-hall` | Old City Hall, kept and re-clad (Stage 5) | **138 m** to the lamp. Dark jacketed base **92 × 62 × 28 m**, pale shaft **34 m** square to 100 m, neck **26 m** to 114 m, pyramid to 132 m, warm lamp to 138 m. Ceremonial stair on the face toward LAPD. | Real building (1928, 138 m) at **200 N Spring St** (34.0537 N, 118.2427 W). Survival to 2049 is assumed, as the Bradbury survived in 2019. The massing is a homage, not a traced 1928 ornament, and there is no seal. The year band is the atlas cell "2049". `confidence: invented` for the jacket, the stair and the lamp; the place and the height are the real building. | medium (place, height); invented (cladding) |
+| `bradbury-building` | Bradbury Building exterior and court (Stage 6) | Masonry front **38 × 48 × 22.4 m** (five storeys). Court **14 × 14 m** behind an **8 × 4.8 × 7.2 m** entrance. Galleries at 4.4 / 8.8 / 13.2 / 17.6 m. Panel jacket on the back and the south side to **27 m**. | Real building at **304 S Broadway** (3rd & Broadway). The landmark centre is the depth behind the east façade (34.050468 N, 118.247755 W). The Wikipedia pin sits on the façade, not the centre. Width and the court are reasoned from the lot. The iron atrium is not copied. Reserve radius **0**: the archetype leaves a rectangular hole so side bays and the Broadway lane stay. | medium (place); invented (width, court, jacket) |
+| `canyon-bridge` | Veil House footbridge (Stage 6) | Deck at **11.2 m**, **16.4 × 3.6 m**, piers on the sidewalks. Stairs **32 × 0.35 m**. Pink figure **14 × 46 m** (`veil-dancer`). | Invented. The Stage 1 pin sat 11 m off the street one block east of Broadway; the deck is snapped to that centreline (34.047860 N, 118.249688 W). The figure is original. Reserve **0** so cars drive under the deck. | invented |
 | `megatower-1…7` | Financial District megastructures (Stage 3) | **520–1,020 m**; shafts 100–170 m × 70–130 m on podiums up to 220 × 150 m. MT-1 1,020 m slab with raking buttresses, hammer crown, landing pads and an 85 m mast; MT-5 880 m twin slab; MT-2 760 m stack; MT-3 660 m stepped; MT-4 600 m cross plan with a lantern crown; MT-7 560 m slab with a cage crown; MT-6 520 m blade | Real Bunker Hill / Financial District sites, rotated to the 38° grid. Heights: the film's downtown aerials show slab-and-buttress masses many times taller than LAPD that rise out of the smog and still sit well below Wallace; see [§7.3](#73-financial-district-megatowers-stage-3) and rule 7. Hologram slots on crowns, shafts and podiums are X4 projectors (`${id}-holo-a`, `-b`, `-crown`, `-gap`). | invented |
 | `legacy-tower-1…3` | 2019-era stepped towers | 310–420 m, 58–66 m shafts, ziggurat crowns with flame stacks | Lore: the city of the 1982 film survives under the 2049 megastructures. Their ziggurat tops and rooftop flames are an homage to its skyline, built new. | invented |
 | `skybridge-1…4` | Enclosed skybridges between heroes | decks at 336–560 m, 22–28 m wide, 12–16 m deep, spans 150–330 m | Downtown in the film is layered and connected above the street. Decks stay above the 320 m fabric ceiling so background towers never cut through them. | invented |
@@ -113,8 +115,8 @@ Positions are in [`city-layout.json`](../src/data/city-layout.json) (`landmarks`
 |---|---|---|
 | `noodle-bar` | Noodle-bar counter, enterable | 2 |
 | `bibis-bar` | Bar and vending market | 2 |
-| `joi-bridge` | Footbridge with the giant pink hologram (generic dancer, original design) | 6 |
-| `bradbury` | Bradbury Building (heritage, 1982 film) | 6 |
+| `joi-bridge` | Footbridge with the Veil House dancer (original pink figure) | 6 |
+| `bradbury` | Bradbury Building, west sidewalk in front of the court | 6 |
 | `k-apartment` | K's apartment, enterable | 8 |
 | `sea-wall-fight` | Sea-wall finale site | 10 |
 | `trash-mesa-gate` | Southern edge toward the San Diego trash mesa (out of bounds, vista only) | — |
@@ -142,7 +144,7 @@ Positions are in [`city-layout.json`](../src/data/city-layout.json) (`landmarks`
 
 All districts are in `city-layout.json` with their polygon, grid, archetype and **stage number** (the roadmap stage that builds them out
 in full detail). Heights below are the Stage 1 blockout unless a later subsection replaces them
-([§7.1](#71-little-tokyo-night-market-stage-2) through [§7.5](#75-civic-center-stage-5)).
+([§7.1](#71-little-tokyo-night-market-stage-2) through [§7.6](#76-broadway-neon-canyon-stage-6)).
 
 | District (stage) | Lore sector | Palette | Materials | Signage | Typologies | Heights | Streets | Traffic |
 |---|---|---|---|---|---|---|---|---|
@@ -150,7 +152,7 @@ in full detail). Heights below are the Stage 1 blockout unless a later subsectio
 | **Financial District Megatowers** (3) | Sector 9 | blue-grey, white LED, cyan holograms, red aviation lights | ribbed and board-formed concrete, dark glass, lit window bands | billboards low, giant holograms on crowns and shafts | podium + tower, stepped towers, kit towers, hero megastructures | 90–155 m megablocks, 165–305 m kit towers; heroes 520–1,020 m, legacy 310–420 m | 38 m avenues | spinner layer 175–260 m, sky avenues 430–860 m, holding patterns over the crowns |
 | **Downtown Megablocks** (4) | Sector 5/9 fringe | grey-brown, warm windows, pink/cyan ads, amber walkway lips | ribbed, coffered and panelled concrete; cantilevered upper masses | dense at street level, billboards on the shaft | cantilever, slab-on-podium, bar, courtyard; rooftop tanks, masts, pads | 90–250 m, a few kit towers 200–300 m | 34 m, lit decks at 46 / 68 / 92 / 118 m | ground cars on the street graph, low spinners at 74 and 112 m, avenue lanes at 188 / 222 / 250 m |
 | **Civic Center** (5) | Sector 5 central | cold grey, white light, police red/blue | monumental concrete; a kept stone tower in a dark jacket | sparse: SECTOR 5 and a year mark, one glyph hologram | colonnade wings, compact slabs, two monuments, a paved mall | fabric 36–122 m, City Hall 138 m, LAPD 216 m | 40 m | police pads on the LAPD roof; the downtown street graph and avenue lanes already cover the polygon |
-| **Broadway Neon Canyon** (6) | Sector 9 Retirement Row | magenta, violet, amber neon on black | old masonry under new cladding | **extreme**, vertical blade signs stacked up façades | narrow deep canyon, heritage façades at the base | 40–110 m | 18 m | pedestrians, rickshaws |
+| **Broadway Neon Canyon** (6) | Sector 9 Retirement Row | magenta, violet, amber neon on black | old masonry under new cladding | **extreme**, vertical blade signs stacked up façades | narrow deep canyon, heritage façades at the base | 40–110 m | 18 m, driving line ±3.15 m | pedestrians, rickshaws; spinners free at 148–260 m |
 | **Wallace Precinct (Vernon)** (7) | Sector 4 industrial | black, bronze, amber haze | monolithic stone/concrete, no windows | none (corporate), monumental lighting | pyramid + satellites, factories, tanks | fabric 15–60 m; pyramid 3.5 km | 30 m | freight spinners, convoys |
 | **K's Megablock** (8) | residential | grey, sodium amber, sparse neon | stained concrete slabs | market at the base | megablock slabs with a street market at their feet | 60–185 m | 12 m | pedestrians, vendors |
 | **Arts District Works** (9) | Sector 4 fringe | rust, sodium, steam | brick, steel, pipework | sparse | warehouses, foundries, stacks | 10–45 m, stacks 70–140 m | 20 m | trucks |
@@ -179,7 +181,7 @@ The market is the reference district. Later districts copy its kit, not its layo
 
 ### 7.2 Holograms (stage X4)
 
-The films are full of giant animated ads. None of those designs are reproduced. The city runs six invented projector programs (`confidence: invented`). Shapes, names and the houses that own them are original; the only borrowed fact is that night advertising is a volumetric coloured light, not a television bolted to a wall.
+The films are full of giant animated ads. None of those designs are reproduced. The city runs seven invented projector programs (`confidence: invented`). Shapes, names and the houses that own them are original; the only borrowed fact is that night advertising is a volumetric coloured light, not a television bolted to a wall.
 
 | Program | House | Where it stands in this stage | Look |
 |---|---|---|---|
@@ -189,10 +191,11 @@ The films are full of giant animated ads. None of those designs are reproduced. 
 | **Glyph Loop** | Generic product board | Beside the Coil Vendor, and on megatower faces | Four rows of scrolling blocks. The blocks are noise, not letters and not a logo. |
 | **Lease Loop** | Spinner-share desks | Megatower faces | A flying wedge with two pods crossing a barcode. The wedge is not a spinner model. Amber. |
 | **Lantern Loop** | Red Lantern (same invented name as the market signs) | Bibi's lane, and some megatower faces | A pulsing lamp and three orbiting motes. Pink. |
+| **Veil Dancer** | Veil House, a canyon ad house | The Spring-side footbridge (`joi-bridge-dancer`) | Diamond head with no face, three chevron skirts, one arm up, a long veil. Pink. Not a person from either film. |
 
 * **Placement now.** Each financial megatower registers two panels on the depth faces the blockout already reserved (about 50–90 m tall). A 40 m Ash Crane stands in a gap about 150 m from megatower 1, facing away from the tower so the shaft reads behind it. Two more figures sit on the downtown billboards that face the northwest flyover. Loaded chunks also promote kind-2 signs of at least 140 m²: the flat panel stays, and a figure floats one to three metres in front of it. Market stall headers are smaller than that and stay signs.
 * **Light.** A projector spills its colour onto nearby concrete and kit surfaces (the nearest few, wrapped falloff, no shadow map) and, under about 80 m, onto a soft disc on the wet street. Low tier keeps the silhouette and turns the spill off. The wash is invented in extent: roughly half a panel-width, enough to tint a podium or a lane and not a whole block.
-* **The pink footbridge** (`joi-bridge`, stage 6) is still not built. It must not reuse a traced film dancer. Register a placement, or add a design, through the API in `src/world/holograms/README.md`.
+* **The pink footbridge** is built (Stage 6). The placement is `joi-bridge-dancer`: design `veil-dancer`, 14 × 46 m, rank 0, tower band, spill 28 m. It uses the same shader. Kind-2 billboards the canyon promotes still pick the older figures (crane, coil, ribbon), not the dancer.
 
 ### 7.3 Financial District megatowers (stage 3)
 
@@ -225,16 +228,31 @@ The films are full of giant animated ads. None of those designs are reproduced. 
 * **Sound.** Rain and the city bed only. No new emitters.
 * **Cameras.** `__nla.civicView('approach'|'steps'|'hall'|'lobby'|'plaza')`.
 
+### 7.6 Broadway Neon Canyon (stage 6)
+
+* **The look.** Present-day Broadway from the Bradbury south through the theatre row: beaux-arts, baroque, deco and gothic fronts at the real addresses, partly wrapped in newer panel cladding, with vertical blade signs stacked up the canyon. Rain and magenta / violet / amber neon. Heights stay in the district row, **40–110 m**. `confidence: invented` for cladding, sign copy and most heights; published places and the few published sizes are called out below.
+* **Where.** Grid bearing 38°, blocks **110 × 70 m**, streets **18 m**. The polygon runs from just south of the Civic Center down past the 9th Street theatres, wide enough to include the west-side gothic tower and not the Financial District (priority tie: financial is listed first). Megatower 6's reserve still eats a few blocks inside the polygon. That slab through the south theatre row is intentional.
+* **Fronts.** The shared heritage kit (`src/districts/_shared/heritage/`) builds one street face: masonry or deco base, a set-back panel cap, side jackets when `wrap` is high, a cornice, pilasters, an optional marquee, a crown, blade signs. Styles 18 and 19 are the punched-stone and vertical-bay rows. Named bays, snapped onto the grid façades:
+  * East (even addresses): Roxie ~518, Arcade ~534, Palace ~630, Globe ~744, Tower Theatre 800 (published frontage **15 m**; depth capped at 16 m because the block is 52 m), Orpheum 842 (published pin; height **54 m** invented), Eastern Columbia 849 (real roof **80.5 m**; nudged ~27 m so the bay sits in a block rather than the cross street).
+  * West (odd): Million Dollar 307 (height **48 m** invented), LA Theatre 615 (published pin; height **32 m** invented), State ~703, the gothic tower at 929 (published pin, real roof **73.8 m**).
+  * No venue name is on a sign. Copy is the shared atlas.
+* **Bradbury.** Landmark `bradbury-building`, POI `bradbury` on the west sidewalk. See §5.3. The court is a soffit you can walk into, the same kind of recess as the noodle bar: open beam grid, eight columns, galleries with no stair. `__nla.broadwayView('atrium')` stands in the court.
+* **Footbridge.** Landmark `canyon-bridge` on the next street east of Broadway, not on Broadway itself. Deck **11.2 m**, stairs on both sidewalks (rise 0.35 m). The figure is Veil Dancer (§7.2). Structure is concrete with warm beacons. Pink is the hologram plus one atlas sign.
+* **Street.** The downtown lane graph gained a second lattice (`lane` 3.15 m on canyon edges, 7.2 m on the avenues). The lattices do not share nodes. About one in four canyon vehicles is a rickshaw: the car mesh at scale 0.5 × 1.22 × 0.7, plus parked copies in the kit. Spinners do not fly the 18 m streets; over this district they are free at **148–260 m**. Shared sodium lamps are off. Both curbs of each owned street get bollards, neon pools, steam and people.
+* **People and light.** The market crowd mesh at about **72%** of market density. Neon wetness **0.88** below 120 m. Street fog **0.42** below 90 m. Rain and the city bed only.
+* **Budgets.** A 500 m chunk on the canyon was about **8–9 k** fabric triangles (one mesh plus one sign batch) and on the order of **30–67** boxes a block. LOD0 also adds kit, steam and pools, the same exception the market and DTLA already have. Caps: props 420 / 1,100 / 2,200 / 3,400 and steam 16 / 40 / 80 / 120 on low / medium / high / ultra.
+* **Cameras.** `__nla.broadwayView('street'|'bridge'|'bradbury'|'spinner'|'atrium')`.
+
 ## 8. Vehicles and traffic
 
 | Vehicle | Size | Notes |
 |---|---|---|
 | Spinner (2049 police/civilian) | **5.0 m long, 2.3 m wide, 1.45 m tall** | The 1982 spinner is usually quoted at ~4.7 m; the 2049 car is a little longer and lower. Original model (`spinnerModel.ts`), not a replica. No brand badges. |
 | Player spinner cruise / boost | 75 / 260 m/s | arcade-fast for a 50 km city; real spinners are slower on screen |
-| AI spinner layers | Outside downtown: 55–90 m (low), 175–260 m (main), 320–520 m (high). Over DTLA / financial / civic the low share follows the street graph at **74 m and 112 m** (between the walkway decks, ±11 m so a 5.6 m bridge is missed) and the free remainder is **340–520 m**. The 175–260 m band over those districts belongs to the avenue lanes. | `SpinnerTraffic.ts`, `streetGraph.ts` |
+| AI spinner layers | Outside downtown: 55–90 m (low), 175–260 m (main), 320–520 m (high). Over DTLA / financial / civic the low share follows the street graph at **74 m and 112 m** (between the walkway decks, ±11 m so a 5.6 m bridge is missed) and the free remainder is **340–520 m**. The 175–260 m band over those districts belongs to the avenue lanes. Over the Broadway canyon, spinners stay **off** the 18 m graph and fly free at **148–260 m** (above the 110 m roofs). | `SpinnerTraffic.ts`, `streetGraph.ts` |
 | Transport hauler | **14 m long, 5.2 m wide, 3.6 m tall** | Invented heavy cargo spinner for the sky lanes (`transportModel.ts`): boxy body, amber running lights. Sized like a large rigid truck. |
 | Sky lanes (Stage 3–5) | High avenues 430–860 m. **Downtown avenues at 188, 222 and 250 m** on the street centre lines (up to three runs each way, split where a hero collider crosses). Holding patterns 140 m over MT-1, around the MT-2/MT-4 pair, over LAPD (`hold-lapd`, police-heavy, unchanged) and at the Wallace apex (~3.2 km) and mid-height, corridors 360–3,240 m. **LAPD pad runs** (`lapd-pad-a`…`d`, plus a slow `lapd-pad-circuit`) leave the ~190 m avenue band, cross one roof pad at **222.5 m**, and leave again. One open polyline is both the arrival and the departure. | `skyLanes.ts`, `LaneTraffic.ts`, `civic-center/lanes.ts`. Right-hand traffic. High avenues separate directions by 16–30 m; downtown avenues by **11 m** (the street is 34 m). Opposite directions also sit **7 m** apart in height (`altBias`, default 7). Pad lanes set `altBias` to **0** and fade the ends over **70 m** instead of 220 m, so the deck crossing stays full size and on the polyline. Platoons of 1–4, bank, blink. Counts 60 / 140 / 240 / 380 by tier, dealt by length × weight so the lower avenues are not starved. |
-| Ground vehicles | cars ~4.2 × 1.9 × 1.4 m, vans a little longer and taller | `groundTraffic.ts` on the same street graph, curb lane ±7.2 m, 8–16 m/s, about one in five a van. Counts 10 / 22 / 40 / 64 by tier. Two draws (wet body shared with the spinner, headlights). Freeway trenches are still empty. |
+| Ground vehicles | cars ~4.2 × 1.9 × 1.4 m, vans a little longer and taller; canyon rickshaws are the same mesh at **0.5 × 1.22 × 0.7** | `groundTraffic.ts` on the same street graph. Avenue curb lane ±7.2 m; historic-core lanes ±3.15 m. 8–16 m/s (rickshaws 6–11), about one in five a van, about one in four canyon vehicles a rickshaw. Counts 10 / 22 / 40 / 64 by tier. Two draws (wet body shared with the spinner, headlights). Freeway trenches are still empty. |
 
 ## 9. Weather and time-of-day looks
 

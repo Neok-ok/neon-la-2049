@@ -150,16 +150,8 @@ registerArchetype('street-market', (ctx) => {
   stallsAlongEdges(ctx, 0.75, PAL_MARKET);
 });
 
-registerArchetype('neon-canyon', (ctx) => {
-  const r = ctx.rng;
-  lotLoop(ctx, ctx.lots(14, 40, 0), (l) => {
-    const back = r.chance(0.18);
-    const H = back ? r.range(90, 140) : r.range(28, 58);
-    ctx.box(l.s, l.t, l.lb, l.la, H, { style: back ? Style.Megablock : Style.Neon, lit: r.range(0.3, 0.6), tint: r.range(0.85, 1.3) });
-    signsOn(ctx, l.s, l.t, l.lb, l.la, H, 2.4, PAL_ENT, 0.35);
-  });
-  stallsAlongEdges(ctx, 0.25, PAL_MARKET);
-});
+// historic-core (Broadway) is registered by src/districts/historic-core/archetype.ts.
+// The Stage 1 neon-canyon blockout lived here. Do not put it back.
 
 registerArchetype('entertainment', (ctx) => {
   const r = ctx.rng;

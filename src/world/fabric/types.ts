@@ -30,6 +30,10 @@ export const Style = {
   Coffer: 16,
   /** Wide cladding panels with a single horizontal window strip. */
   Panel: 17,
+  /** Tall punched stone windows. Beaux-arts, baroque, roman and gothic fronts. */
+  Masonry: 18,
+  /** Narrow vertical bays. Art-deco shafts and clock-tower fluting. */
+  Deco: 19,
 } as const;
 export type StyleId = (typeof Style)[keyof typeof Style];
 

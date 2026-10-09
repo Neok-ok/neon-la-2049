@@ -120,6 +120,27 @@ function lanternLoop(p: any, t: any, seed: any, mot: any): any {
   return max(body, max(cap, max(rib, max(dots, chrome.border.mul(0.5))))).mul(chrome.edge);
 }
 
+/**
+ * Veil House canyon figure. A geometric dancer: diamond head with no face, a swinging
+ * chevron skirt, one arm up, a long veil. Not a portrait and not a character from either film.
+ */
+function veilDancer(p: any, t: any, seed: any, mot: any): any {
+  const sway = sin(t.mul(1.2).add(seed.mul(4.2))).mul(0.07).mul(mot);
+  const head = diamond(p, float(0.5).add(sway.mul(0.25)), float(0.84), float(0.05), float(0.065));
+  const neck = ellipse(p, float(0.5).add(sway.mul(0.15)), float(0.755), float(0.016), float(0.028));
+  const torso = ellipse(p, float(0.5).add(sway.mul(0.1)), float(0.64), float(0.055), float(0.09));
+  const hip = sin(t.mul(1.55).add(seed.mul(2.0))).mul(0.035).mul(mot);
+  const skirt1 = diamond(p, float(0.5).add(sway), float(0.48).add(hip), float(0.15), float(0.04));
+  const skirt2 = diamond(p, float(0.5).add(sway.mul(1.25)), float(0.4), float(0.19), float(0.035));
+  const skirt3 = diamond(p, float(0.5).add(sway.mul(1.45)), float(0.32), float(0.12), float(0.03));
+  const armUp = ellipse(p, float(0.64).add(sway.mul(0.4)), float(0.76), float(0.1), float(0.022));
+  const armOut = ellipse(p, float(0.32).sub(sway), float(0.6), float(0.11), float(0.02));
+  const veil = ellipse(p, float(0.56).add(sway.mul(1.7)), float(0.52), float(0.035), float(0.26));
+  const shape = max(head, max(neck, max(torso, max(skirt1, max(skirt2, max(skirt3, max(armUp, max(armOut, veil))))))));
+  const glow = ellipse(p, float(0.5).add(sway.mul(0.4)), float(0.55), float(0.26), float(0.36)).mul(0.16);
+  return max(shape, glow);
+}
+
 let shared: MeshBasicNodeMaterial | null = null;
 
 /** Instanced attributes: iHolo = (design, seed, slice, detail01), iTint = rgb. */
@@ -160,7 +181,9 @@ export function getHoloMaterial(): MeshBasicNodeMaterial {
     const lease = leaseLoop(p, t, seed);
     const lantern = lanternLoop(p, t, seed, mot);
     const ads = mix(glyph, mix(lease, lantern, step(4.5, design)), step(3.5, design));
-    const mask = mix(figures, ads, step(2.5, design));
+    const dancer = veilDancer(p, t, seed, mot);
+    const base = mix(figures, ads, step(2.5, design));
+    const mask = mix(base, dancer, step(5.5, design));
 
     const lines = mix(float(8), float(32), detail);
     const sweep = fract(p.y.mul(lines).sub(t.mul(mix(float(0.35), float(1.7), detail))));

@@ -95,10 +95,18 @@ export class SpinnerTraffic {
     };
   }
 
-  /** Park a spinner on the street graph, offset so it clears the 5.6 m centre bridges. */
+  /** Park a spinner on the street graph, offset so it clears the 5.6 m centre bridges.
+   *  Canyon lanes are 18 m with 40–110 m roofs; a 74 m spinner at ±11 m would clip them. */
   private onGraph(car: Car, x: number, z: number, low: boolean): boolean {
     const g = downtownGraph(this.query.layout);
-    const hit = edgeAround(g, x, z, this.radius * 0.9, this.rng);
+    let hit: { edge: number; t: number } | null = null;
+    for (let k = 0; k < 8; k++) {
+      const tryHit = edgeAround(g, x, z, this.radius * 0.9, this.rng);
+      if (!tryHit) return false;
+      if ((g.edges[tryHit.edge]?.lane ?? 7.2) < 5) continue;
+      hit = tryHit;
+      break;
+    }
     if (!hit) return false;
     car.graph = true;
     car.edge = hit.edge;
@@ -120,13 +128,15 @@ export class SpinnerTraffic {
     car.graph = false;
     const here = this.query.district(cam.x, cam.z).id;
     const downtown = here === 'dtla' || here === 'financial-megatowers' || here === 'civic-center';
+    const canyon = here === 'historic-core';
     const layer = r.next();
     car.police = r.chance(0.18);
     car.phase = r.next();
     // Over downtown the 175–260 m band belongs to the avenue sky lanes, so free fliers stay above the fabric ceiling.
-    if (downtown && layer < 0.78) {
+    // The historic canyon is not that graph: roofs are 40–110 m and the streets are 18 m, so spinners stay free at 148–260 m.
+    if (!canyon && downtown && layer < 0.78) {
       if (this.onGraph(car, cam.x, cam.z, layer < 0.4)) return car;
-    } else if (!downtown && layer < 0.22 && this.onGraph(car, cam.x, cam.z, layer < 0.1)) {
+    } else if (!canyon && !downtown && layer < 0.22 && this.onGraph(car, cam.x, cam.z, layer < 0.1)) {
       return car;
     }
     const district = this.query.district(cam.x, cam.z);
@@ -140,6 +150,7 @@ export class SpinnerTraffic {
     else car.p.set(cam.x - car.dir.x * dist + perp.x * side, 0, cam.z - car.dir.z * dist + perp.z * side);
     const ground = this.query.groundHeight(car.p.x, car.p.z);
     if (downtown) car.p.y = ground + r.range(340, 520);
+    else if (canyon) car.p.y = ground + r.range(148, 260);
     else car.p.y = ground + (layer < 0.12 ? r.range(55, 90) : layer < 0.82 ? r.range(175, 260) : r.range(320, 520));
     car.speed = r.range(35, 85);
     return car;

@@ -5,3 +5,4 @@ import './little-tokyo-market/archetype';
 import './financial-megatowers/archetype';
 import './dtla/archetype';
 import './civic-center/archetype';
+import './historic-core/archetype';

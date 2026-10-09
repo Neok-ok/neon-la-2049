@@ -80,9 +80,17 @@ What the next stages should know: the financial polygon still wins on top of MT-
 
 What the next stage should know: the lobby is a soffit, the same kind of recess as the noodle bar, not an X3 interior. Pad hover is about 6 m over the deck so the 3.5 m lane clearance stays clear of the crown collider. The street graph and the 74 / 112 m spinner layer already include this polygon. Do not add a second graph.
 
-## Stage 6 — Broadway Neon Canyon
-`historic-core` + POIs `bradbury`, `joi-bridge`: heritage façades under new cladding, stacked vertical blade signs, the hologram
-footbridge (an original giant pink hologram dancer, not a copy), the Bradbury exterior.
+## Stage 6 — Broadway Neon Canyon ✅
+**District:** `historic-core` · **POIs:** `bradbury`, `joi-bridge`
+
+* **Heritage kit** (`src/districts/_shared/heritage/`): one street face. Masonry (style 18) and deco (style 19) in the shared city material. `skin: true` is ornament only, for a landmark that owns the volume. Stage 16 should call `buildHeritage`.
+* **Canyon.** Named Broadway fronts at the real addresses, on the 38° grid, plus generic bays so the street reads as signs over signs. Cladding wrap is partial. Atlas copy only. The Bradbury lot is a rectangular hole in the fabric, not a circular reserve, so the lane and the side bays stay.
+* **Bradbury** (`bradbury-building`): 38 × 48 × 22.4 m masonry, a 14 m court you can walk into, galleries, columns, an open beam grid, a 27 m jacket on the back and the south side. No wordmark.
+* **Footbridge** (`canyon-bridge`): the Stage 1 pin, snapped onto the street one block east of Broadway. Deck at 11.2 m, stairs on both sidewalks. `joi-bridge-dancer` is `veil-dancer` in the existing hologram shader (rank 0, tower band). Veil House is an invented ad house. The figure is not a film character.
+* **Traffic.** A second lattice in `downtownGraph`, edge field `lane` (3.15 m here, 7.2 m on the avenues). Nodes are not shared, so a car cannot turn from an avenue onto a canyon street with the wrong offset. Rickshaws are scaled cars. Spinners over the canyon fly at 148–260 m and skip edges with `lane < 5`.
+* Crowds reuse the market mesh at about 72% density, both curbs. Sodium lamps are off. Neon wetness 0.88 below 120 m. `__nla.broadwayView('street'|'bridge'|'bradbury'|'spinner'|'atrium')`.
+
+What the next stage should know: the court and the bridge are soffits and colliders, not an X3 interior. Kind-2 promotions still use crane / coil / ribbon, not `veil-dancer`. The two street lattices do not connect. MT-6's reserve still suppresses a few canyon blocks; do not move MT-6 to "fix" that. Do not add a third traffic graph.
 
 ## Stage 7 — Wallace Precinct
 `wallace-vernon` + satellites: the pyramid's hero model and its warm apex lantern already exist (Stage 3, `wallace-vernon/pyramid.ts`).

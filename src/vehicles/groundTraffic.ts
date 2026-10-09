@@ -22,6 +22,8 @@ interface Van {
   speed: number;
   salt: number;
   van: boolean;
+  /** Scaled car on a canyon lane. Same mesh, not a second vehicle class. */
+  rick: boolean;
   p: Vector3;
   fwd: Vector3;
 }
@@ -98,10 +100,12 @@ export class GroundTraffic {
     c.edge = hit.edge;
     c.t = hit.t;
     c.dir = this.rng.chance(0.5) ? 1 : -1;
-    c.side = this.rng.chance(0.5) ? 7.2 : -7.2;
-    c.speed = this.rng.range(8, 16);
+    const lane = g.edges[hit.edge]!.lane;
+    c.side = (this.rng.chance(0.5) ? 1 : -1) * lane;
+    c.rick = lane < 5 && this.rng.chance(0.28);
+    c.speed = c.rick ? this.rng.range(6, 11) : this.rng.range(8, 16);
     c.salt = this.rng.int(1, 9000);
-    c.van = this.rng.chance(0.2);
+    c.van = !c.rick && this.rng.chance(0.2);
     const pose = poseOn(g, c.edge, c.t, c.dir, c.side);
     const y = this.query.layout.heightAt(pose.x, pose.z) + 0.55;
     c.p.set(pose.x, y, pose.z);
@@ -111,7 +115,7 @@ export class GroundTraffic {
 
   private spawn(cam: Vector3): Van | null {
     const c: Van = {
-      edge: 0, t: 0, dir: 1, side: 7.2, speed: 10, salt: 1, van: false,
+      edge: 0, t: 0, dir: 1, side: 7.2, speed: 10, salt: 1, van: false, rick: false,
       p: new Vector3(), fwd: new Vector3(0, 0, -1),
     };
     const jitter = this.rng.range(0, this.radius * 0.8);
@@ -124,7 +128,7 @@ export class GroundTraffic {
   update(dt: number, camera: Camera, active: number): void {
     const cam = camera.position;
     const here = this.query.district(cam.x, cam.z).id;
-    const downtown = here === 'dtla' || here === 'financial-megatowers' || here === 'civic-center';
+    const downtown = here === 'dtla' || here === 'financial-megatowers' || here === 'civic-center' || here === 'historic-core';
     const n = downtown ? Math.min(this.max, active) : 0;
     const g = n > 0 ? downtownGraph(this.query.layout) : null;
     while (g && this.cars.length < n) {
@@ -145,15 +149,19 @@ export class GroundTraffic {
       c.edge = step.edge;
       c.t = step.t;
       c.dir = step.dir;
+      const laneW = g.edges[c.edge]!.lane;
+      c.side = (c.side < 0 ? -1 : 1) * laneW;
+      if (laneW >= 5) c.rick = false;
       const pose = poseOn(g, c.edge, c.t, c.dir, c.side);
-      c.p.set(pose.x, this.query.layout.heightAt(pose.x, pose.z) + 0.55, pose.z);
+      c.p.set(pose.x, this.query.layout.heightAt(pose.x, pose.z) + (c.rick ? 0.35 : 0.55), pose.z);
       c.fwd.set(pose.fx, 0, pose.fz);
       const dx = c.p.x - cam.x, dz = c.p.z - cam.z;
       if (dx * dx + dz * dz > this.radius * this.radius) {
         if (!this.place(c, cam.x, cam.z)) c.p.y = -500;
       }
       _q.setFromUnitVectors(_f, c.fwd);
-      if (c.van) _s.set(1.12, 1.42, 1.28);
+      if (c.rick) _s.set(0.5, 1.22, 0.7);
+      else if (c.van) _s.set(1.12, 1.42, 1.28);
       else _s.set(0.96 + (c.salt % 5) * 0.015, 1, 1);
       _m.compose(c.p, _q, _s);
       this.body.setMatrixAt(i, _m);

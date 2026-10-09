@@ -70,11 +70,11 @@
       "id": "historic-core",
       "name": "Broadway Neon Canyon",
       "loreSector": "Sector 9 - Retirement Row / Bradbury",
-      "archetype": "neon-canyon",
+      "archetype": "historic-core",
       "priority": 3,
       "grid": { "bearingDeg": 38, "block": [110, 70], "street": 18 },
       "stage": 6,
-      "polygon": [[34.0530, -118.2510], [34.0510, -118.2440], [34.0400, -118.2510], [34.0420, -118.2580]]
+      "polygon": [[34.0530, -118.2510], [34.0510, -118.2440], [34.0378, -118.2535], [34.0398, -118.2612]]
     },
     {
       "id": "arts-district",
@@ -287,6 +287,24 @@
       "confidence": "real building (1928, 138 m) at 200 N Spring St; survival into 2049 is an assumption. Stage 5 restores the massing (jacketed base, pale shaft, pyramid, lamp) without a seal"
     },
     {
+      "id": "bradbury-building",
+      "name": "Bradbury Building (exterior)",
+      "type": "bradbury-building",
+      "lat": 34.050468, "lon": -118.247755,
+      "bearingDeg": 38, "height": 27, "baseWidth": 38, "baseDepth": 48,
+      "reserveRadius": 0,
+      "confidence": "real building at 304 S Broadway (3rd & Broadway). Centre is the 48 m depth behind the east façade, not the Wikipedia pin (that pin sits inside the façade). Width 38 m and the court are reasoned from the lot. Height of the masonry is five storeys (22.4 m); the side and back jacket rises to 27 m. Reserve is 0 so the Broadway lane and the side bays in the same block survive; the archetype skips the footprint rectangle."
+    },
+    {
+      "id": "canyon-bridge",
+      "name": "Veil House footbridge",
+      "type": "canyon-bridge",
+      "lat": 34.047860, "lon": -118.249688,
+      "bearingDeg": 38, "height": 11.2, "baseWidth": 16.4, "baseDepth": 3.6,
+      "reserveRadius": 0,
+      "confidence": "invented. The Stage 1 pin (34.0478, -118.2496) sat 11 m off the next street east of Broadway. Snapped onto that centreline. The giant figure is an original Veil House dancer, not a film character. Reserve 0 so ground traffic drives under the deck."
+    },
+    {
       "id": "megatower-1", "name": "Megatower 1 (Bunker Hill slab)", "type": "megatower",
       "lat": 34.0520, "lon": -118.2560, "bearingDeg": 38, "height": 1020, "baseWidth": 150, "baseDepth": 96, "reserveRadius": 140,
       "confidence": "invented; Stage 3 megastructure scale (BIBLE 7.3): 0.5-1 km slabs rising out of the smog, bracketed by LAPD (216 m) and the Wallace satellites (1.1-1.4 km)"
@@ -387,8 +405,8 @@
   "pois": [
     { "id": "bibis-bar", "name": "Bibi's Bar & vending market", "lat": 34.0492, "lon": -118.2402, "kind": "interior-candidate", "stage": 2 },
     { "id": "noodle-bar", "name": "Noodle bar counter (enterable)", "lat": 34.0487, "lon": -118.2392, "kind": "interior", "stage": 2 },
-    { "id": "joi-bridge", "name": "Hologram footbridge (giant pink ad)", "lat": 34.0478, "lon": -118.2496, "kind": "set-piece", "stage": 6 },
-    { "id": "bradbury", "name": "Bradbury Building (heritage, 1982 film)", "lat": 34.0505, "lon": -118.2479, "kind": "heritage", "stage": 6 },
+    { "id": "joi-bridge", "name": "Hologram footbridge (Veil House dancer)", "lat": 34.047860, "lon": -118.249688, "kind": "set-piece", "stage": 6 },
+    { "id": "bradbury", "name": "Bradbury Building (heritage exterior)", "lat": 34.050688, "lon": -118.248086, "kind": "heritage", "stage": 6 },
     { "id": "k-apartment", "name": "K's apartment (enterable)", "lat": 33.8585, "lon": -118.1240, "kind": "interior", "stage": 8 },
     { "id": "sea-wall-fight", "name": "Sea wall finale site", "lat": 33.9560, "lon": -118.4470, "kind": "set-piece", "stage": 10 },
     { "id": "dtla-canyon", "name": "Downtown canyon (between megablocks)", "lat": 34.05989, "lon": -118.25370, "kind": "street", "stage": 4 },

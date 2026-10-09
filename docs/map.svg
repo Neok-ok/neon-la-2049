@@ -68,7 +68,7 @@
 <path d="M613.4,896.1 L890.1,896.1 L890.1,1006.7 L724.1,1050.9 L613.4,1073.1 Z" fill="#3a5a6a" fill-opacity="0.55" stroke="#3a5a6a" stroke-width="1.5"/>
 <path d="M687.2,323.4 L707.5,330.0 L694.6,354.3 L678.0,358.7 L668.7,343.3 Z" fill="#555" fill-opacity="0.55" stroke="#888" stroke-width="1.5"/>
 <path d="M711.2,323.4 L727.8,327.8 L724.1,343.3 L711.2,341.1 Z" fill="#8c8c9c" fill-opacity="0.55" stroke="#8c8c9c" stroke-width="1.5"/>
-<path d="M703.8,336.6 L716.7,341.1 L703.8,365.4 L690.9,361.0 Z" fill="#b04ad0" fill-opacity="0.55" stroke="#b04ad0" stroke-width="1.5"/>
+<path d="M703.8,336.6 L716.7,341.1 L699.2,370.2 L685.0,365.8 Z" fill="#555" fill-opacity="0.55" stroke="#888" stroke-width="1.5"/>
 <path d="M727.8,338.8 L744.4,343.3 L742.5,387.5 L724.1,380.9 Z" fill="#7a5a3a" fill-opacity="0.55" stroke="#7a5a3a" stroke-width="1.5"/>
 <path d="M373.6,557.8 L465.8,557.8 L465.8,608.6 L373.6,608.6 Z" fill="#3a6a8a" fill-opacity="0.55" stroke="#3a6a8a" stroke-width="1.5"/>
 <path d="M716.7,338.8 L733.3,339.9 L731.4,352.1 L716.7,351.0 Z" fill="#555" fill-opacity="0.55" stroke="#888" stroke-width="1.5"/>
@@ -97,7 +97,7 @@
 <text x="687.2" y="341.9" fill="#fff" fill-opacity="0.85" font-size="10" text-anchor="middle">Financial District Megatowers · S3</text>
 <text x="718.5" y="333.9" fill="#fff" fill-opacity="0.85" font-size="10" text-anchor="middle">Civic Center (LAPD HQ) · S5</text>
 <text x="724.5" y="345.5" fill="#fff" fill-opacity="0.85" font-size="10" text-anchor="middle">Little Tokyo Night Market · S2</text>
-<text x="703.8" y="351.0" fill="#fff" fill-opacity="0.85" font-size="10" text-anchor="middle">Broadway Neon Canyon · S6</text>
+<text x="701.1" y="353.4" fill="#fff" fill-opacity="0.85" font-size="10" text-anchor="middle">Broadway Neon Canyon · S6</text>
 <text x="734.7" y="362.6" fill="#fff" fill-opacity="0.85" font-size="10" text-anchor="middle">Arts District Works · S9</text>
 <text x="774.8" y="446.6" fill="#fff" fill-opacity="0.85" font-size="10" text-anchor="middle">Wallace Corporation Precinct (Vernon) · S7</text>
 <text x="885.5" y="481.5" fill="#fff" fill-opacity="0.85" font-size="10" text-anchor="middle">Southeast Refinery Belt · S15</text>
@@ -136,6 +136,12 @@
 <rect x="718.65" y="334.65000000000003" width="0.9" height="0.9" transform="rotate(38 719.1 335.1)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
 <circle cx="719.1" cy="335.1" r="2.5" fill="#ff9a2e"/>
 <text x="719.1" y="335.1" dx="6" dy="-4" fill="#ffcf8a" font-size="11">Old City Hall (heritage) (138 m)</text>
+<rect x="709.42" y="341.71999999999997" width="0.76" height="0.96" transform="rotate(38 709.8 342.2)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<circle cx="709.8" cy="342.2" r="2.5" fill="#ff9a2e"/>
+<text x="709.8" y="342.2" dx="6" dy="-4" fill="#ffcf8a" font-size="11">Bradbury Building (exterior) (27 m)</text>
+<rect x="706.0360000000001" y="347.964" width="0.32799999999999996" height="0.07200000000000001" transform="rotate(38 706.2 348.0)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<circle cx="706.2" cy="348.0" r="2.5" fill="#ff9a2e"/>
+<text x="706.2" y="348.0" dx="6" dy="-4" fill="#ffcf8a" font-size="11">Veil House footbridge (11.2 m)</text>
 <rect x="693.1" y="337.84000000000003" width="3" height="1.92" transform="rotate(38 694.6 338.8)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
 <circle cx="694.6" cy="338.8" r="2.5" fill="#ff9a2e"/>
 <text x="694.6" y="338.8" dx="6" dy="-4" fill="#ffcf8a" font-size="11">Financial District megatowers (520–1,020 m)</text>
@@ -183,8 +189,8 @@
 <text x="421.5" y="648.4" dx="6" dy="-4" fill="#ffcf8a" font-size="11">El Segundo Refinery Flare Stacks (140 m)</text>
 <circle cx="723.7" cy="345.0" r="2" fill="#29d8ff"/>
 <circle cx="725.5" cy="346.1" r="2" fill="#29d8ff"/>
-<circle cx="706.4" cy="348.1" r="2" fill="#29d8ff"/>
-<circle cx="709.5" cy="342.2" r="2" fill="#29d8ff"/>
+<circle cx="706.2" cy="348.0" r="2" fill="#29d8ff"/>
+<circle cx="709.2" cy="341.7" r="2" fill="#29d8ff"/>
 <circle cx="938.0" cy="766.8" r="2" fill="#29d8ff"/>
 <circle cx="342.2" cy="551.1" r="2" fill="#29d8ff"/>
 <circle cx="698.8" cy="321.4" r="2" fill="#29d8ff"/>
