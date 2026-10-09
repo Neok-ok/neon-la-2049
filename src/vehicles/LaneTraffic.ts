@@ -41,6 +41,7 @@ export class LaneTraffic {
   private trBody: InstancedMesh;
   private trLights: InstancedMesh;
   private glow: InstancedMesh;
+  readonly nodes: InstancedMesh[];
   private gcol: InstancedBufferAttribute;
   private active = -1;
 
@@ -86,6 +87,7 @@ export class LaneTraffic {
     this.spinBody.name = 'lane-spinners';
     this.trBody.name = 'lane-transports';
     this.glow.name = 'lane-glow';
+    this.nodes = [this.spinBody, this.spinLights, this.trBody, this.trLights, this.glow];
   }
 
   get count(): number {

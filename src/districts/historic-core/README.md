@@ -5,10 +5,10 @@ Stage 6. Real Broadway heritage fronts, partly wrapped in newer cladding, on the
 ## What is here
 
 * **Fabric** (`archetype.ts`). Two heritage bays on an empty Broadway face, named theatres where the real houses stand (`sites.ts`), one lighter bay on the other long face, a single masonry end on the cross streets. The Bradbury footprint is a hole, not a reserve, so the side bays and the lane stay.
-* **Bradbury** (`bradbury.ts`, landmark `bradbury-building`). 38 × 48 × 22.4 m. The pin is the centre of the depth; the street wall sits on the east Broadway façade. Walk-in court, galleries, columns, an open beam grid, a 27 m jacket on the back and the south side. POI `bradbury` is the west sidewalk. LOD distances 220 / 700 m.
+* **Bradbury** (`bradbury.ts`, landmark `bradbury-building`). 38 × 48 × 22.4 m. The pin is the centre of the depth; the street wall sits on the east Broadway façade. The court is an X3 interior (`interior.ts`, `courtPlan.ts`): warm light, a stair to the galleries, the city hidden past the tunnel. A corridor and room in the back wing are the shared template. POI `bradbury` is the west sidewalk. LOD distances 220 / 700 m.
 * **Footbridge** (`bridge.ts`, landmark `canyon-bridge`). Deck at 11.2 m on the street one block east of Broadway. Stairs rise 0.35 m. `joi-bridge-dancer` is `veil-dancer`, rank 0, tower band. LOD 160 / 520 m.
 * **Street** (`dress.ts`, `details.ts`, `crowd.ts`). Both curbs of owned edges. Bollards, neon pools, steam, parked rickshaws. No sodium lamps. Crowd share 0.72 on the market mesh.
-* **Cameras.** `__nla.broadwayView('street'|'bridge'|'bradbury'|'spinner'|'atrium')`.
+* **Cameras.** `__nla.broadwayView('street'|'bridge'|'bradbury'|'spinner'|'atrium')`. `__nla.interiorView('court'|'stair'|'door'|'service')`.
 
 ## Budgets
 
@@ -23,4 +23,4 @@ Boxes per block were about 31 / 43 / 67 (min / median / max) in the Bradbury chu
 
 ## Known gaps
 
-The court is a soffit, not an interior stream. Galleries have no stair. Rickshaws are scaled cars. Low spinners do not use the 18 m streets. Kind-2 promotions do not use `veil-dancer`. Eastern Columbia is nudged ~27 m so it lands in a block. Several theatre heights are storey reads, not published roofs; the published ones are Eastern Columbia (80.5 m) and the gothic tower (73.8 m).
+The doorway card is procedural, not a live view of Broadway, and the open court shows the sky rather than the skyline. The service corridor is the X3 template inside the back wing, not K's apartment. Rickshaws are scaled cars. Low spinners do not use the 18 m streets. Kind-2 promotions do not use `veil-dancer`. Eastern Columbia is nudged ~27 m so it lands in a block. Several theatre heights are storey reads, not published roofs; the published ones are Eastern Columbia (80.5 m) and the gothic tower (73.8 m).

@@ -7,6 +7,9 @@ export class Ambience {
   private cityGain!: GainNode;
   private windGain!: GainNode;
   private master!: GainNode;
+  private muffleFilter: BiquadFilterNode | null = null;
+  /** 0 on the street, 1 fully inside. Low-passes the whole bed, including market layers on `output`. */
+  private interior = 0;
   muted = false;
 
   start(): void {
@@ -19,7 +22,13 @@ export class Ambience {
     const ctx = (this.ctx = new AC());
     this.master = ctx.createGain();
     this.master.gain.value = this.muted ? 0 : 0.8;
-    this.master.connect(ctx.destination);
+    const muffle = ctx.createBiquadFilter();
+    muffle.type = 'lowpass';
+    muffle.frequency.value = 14000;
+    muffle.Q.value = 0.35;
+    this.muffleFilter = muffle;
+    this.master.connect(muffle);
+    muffle.connect(ctx.destination);
 
     const noise = (kind: 'white' | 'brown', seconds = 4) => {
       const len = ctx.sampleRate * seconds;
@@ -102,14 +111,21 @@ export class Ambience {
     if (this.master) this.master.gain.value = m ? 0 : 0.8;
   }
 
+  /** 0..1. Stored even before the audio context exists. */
+  setInterior(amount: number): void {
+    this.interior = Math.max(0, Math.min(1, amount));
+  }
+
   /** altitude in meters above ground: street-level sounds fade when flying high. */
   update(rain: number, snow: number, wind: number, altitude: number): void {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
+    const m = this.interior;
+    if (this.muffleFilter) this.muffleFilter.frequency.setTargetAtTime(Math.max(280, 15000 - m * 14720), t, 0.35);
     const street = Math.max(0.15, 1 - altitude / 400);
-    this.rainGain.gain.setTargetAtTime(rain * 0.32, t, 0.5);
-    this.patterGain.gain.setTargetAtTime(rain * 0.25 * street, t, 0.5);
-    this.cityGain.gain.setTargetAtTime(0.18 + 0.3 * street, t, 0.8);
-    this.windGain.gain.setTargetAtTime(Math.min(0.5, 0.03 + wind * 0.02 + snow * 0.08 + (1 - street) * 0.12), t, 0.8);
+    this.rainGain.gain.setTargetAtTime(rain * 0.32 * (1 - 0.58 * m), t, 0.5);
+    this.patterGain.gain.setTargetAtTime(rain * 0.25 * street * (1 - 0.72 * m), t, 0.5);
+    this.cityGain.gain.setTargetAtTime((0.18 + 0.3 * street) * (1 - 0.5 * m), t, 0.8);
+    this.windGain.gain.setTargetAtTime(Math.min(0.5, 0.03 + wind * 0.02 + snow * 0.08 + (1 - street) * 0.12) * (1 - 0.35 * m), t, 0.8);
   }
 }

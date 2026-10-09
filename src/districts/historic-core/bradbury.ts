@@ -2,6 +2,7 @@
 // real building is not copied: galleries, a plain column, and an open beam grid over the court.
 // The pin is the centre of the 48 m depth. BRADBURY_FRONT shifts the street wall onto the
 // Broadway façade; a panel jacket climbs the back and the south side so that face stays masonry.
+// The court mesh is the far read. Up close, the interior stream replaces it (see interior.ts).
 // No wordmark. Signs are atlas cells.
 import { Mesh } from 'three/webgpu';
 import { GeoWriter } from '../../world/landmarks/GeoWriter';
@@ -20,6 +21,13 @@ import { BRADBURY_FRONT, FACE_YAW, localToWorld } from './spec';
 export const BRADBURY_LOD = [220, 700];
 export const bradburyTris: number[] = [];
 
+const courtParts: Mesh[] = [];
+
+/** Hide the city-material court while the baked interior is in the frame, so the two don't z-fight. */
+export function setBradburyCourtShown(shown: boolean): void {
+  for (const m of courtParts) m.visible = shown;
+}
+
 const W = 38;
 const D = BRADBURY_FRONT * 2;
 const H = 22.4;
@@ -36,7 +44,9 @@ const panel = { style: Style.Panel, lit: 0.38, tint: 0.7, seed: 0.22 };
 const dark = { style: Style.Solid, lit: 0.03, tint: 0.38, seed: 0.11 };
 const warm = { style: Style.Glow, lit: 0.8, tint: 1.15, seed: 0.66 };
 
-function volume(m: Mass, g: number): void {
+const CEIL = 2.75;
+
+function shellVolume(m: Mass, g: number): void {
   const wingW = (W - COURT) / 2;
   const wingX = COURT / 2 + wingW / 2;
   const cz = F - D / 2;
@@ -45,10 +55,23 @@ function volume(m: Mass, g: number): void {
   m.solid(-wingX, cz, wingW, D, g, g + H);
   m.solid(wingX, cz, wingW, D, g, g + H);
 
-  const backD = D - TUNNEL - COURT;
-  const backZ = F - (TUNNEL + COURT + backD / 2);
-  m.box(0, 0, backZ, g, COURT, backD, H, stone);
-  m.solid(0, backZ, COURT, backD, g, g + H);
+  // The old back block is carved into a corridor and a room so the template can sit inside it.
+  // Rear plug, then a ceiling slab, then the walls left around the void. Floors are thin solids
+  // so a walker doesn't fall through before the interior mesh streams.
+  m.box(0, 0, -18.2, g, COURT, 11.6, H, stone);
+  m.solid(0, -18.2, COURT, 11.6, g, g + H);
+  m.box(0, 0, -5.2, g + CEIL, COURT, 14.4, H - CEIL, stone);
+  m.solid(0, -5.2, COURT, 14.4, g + CEIL, g + H);
+  m.box(0, -4.075, -2, g, 5.85, 8, CEIL + 0.04, stone);
+  m.box(0, 4.075, -2, g, 5.85, 8, CEIL + 0.04, stone);
+  m.solid(-4.075, -2, 5.85, 8, g, g + CEIL);
+  m.solid(4.075, -2, 5.85, 8, g, g + CEIL);
+  m.box(0, -5.125, -9.2, g, 3.75, 6.4, CEIL + 0.04, stone);
+  m.box(0, 5.125, -9.2, g, 3.75, 6.4, CEIL + 0.04, stone);
+  m.solid(-5.125, -9.2, 3.75, 6.4, g, g + CEIL);
+  m.solid(5.125, -9.2, 3.75, 6.4, g, g + CEIL);
+  m.solid(0, -2, 2.2, 7.9, g, g + 0.06);
+  m.solid(0, -9.2, 6.4, 6.3, g, g + 0.06);
 
   // Lintel over the tunnel, and the jambs beside the 4.8 m door.
   m.box(0, 0, F - TUNNEL / 2, g + DOOR_H, COURT, TUNNEL, H - DOOR_H, stone);
@@ -60,14 +83,32 @@ function volume(m: Mass, g: number): void {
   m.solid(-jambX, F - TUNNEL / 2, jambW, TUNNEL, g, g + DOOR_H);
   m.solid(jambX, F - TUNNEL / 2, jambW, TUNNEL, g, g + DOOR_H);
 
-  // Court and tunnel floor. Thin, so a walker steps in rather than falling through a hole.
-  m.box(0, 0, F - (TUNNEL + COURT) / 2, g, COURT - 0.4, TUNNEL + COURT, 0.14, dark);
+  // Court floor solid. The silhouette keeps a dark floor; nearer LODs draw it on the court mesh.
   m.solid(0, F - (TUNNEL + COURT) / 2, COURT - 0.4, TUNNEL + COURT, g, g + 0.14);
-  m.box(1, 0, F - TUNNEL / 2, g, DOOR, TUNNEL, 0.14, dark);
+  if (m.max === 0) m.box(0, 0, F - (TUNNEL + COURT) / 2, g, COURT - 0.4, TUNNEL + COURT, 0.14, dark);
+
+  const cols: Array<[number, number]> = [
+    [-6.3, F - 9.2], [6.3, F - 9.2],
+    [-6.3, F - 15], [6.3, F - 15],
+    [-6.3, F - 21], [6.3, F - 21],
+    [-3.1, F - 21.2], [3.1, F - 21.2],
+  ];
+  for (const [x, z] of cols) m.solid(x, z, 0.62, 0.62, g, g + H - 0.3);
 
   if (m.max < 1) return;
 
-  // Galleries. Visual only — there is no stair up from the court.
+  // Newer cladding on the back and the south side, tall enough to peek past the masonry.
+  m.box(0, 0, F - D - 1.25, g, W + 1.6, 2.1, JACKET_H, panel);
+  m.solid(0, F - D - 1.25, W + 1.6, 2.1, g, g + JACKET_H);
+  m.box(0, W / 2 + 1.25, F - D / 2, g, 2.1, D, JACKET_H, panel);
+  m.solid(W / 2 + 1.25, F - D / 2, 2.1, D, g, g + JACKET_H);
+}
+
+/** Galleries, columns and the beam grid. Hidden while the baked interior is showing. */
+function courtDress(m: Mass, g: number): void {
+  m.box(0, 0, F - (TUNNEL + COURT) / 2, g, COURT - 0.4, TUNNEL + COURT, 0.14, dark);
+  m.box(1, 0, F - TUNNEL / 2, g, DOOR, TUNNEL, 0.14, dark);
+
   const levels = [4.4, 8.8, 13.2, 17.6];
   const inner = COURT / 2 - 0.9;
   for (const y of levels) {
@@ -82,31 +123,20 @@ function volume(m: Mass, g: number): void {
     [-6.3, F - 21], [6.3, F - 21],
     [-3.1, F - 21.2], [3.1, F - 21.2],
   ];
-  for (const [x, z] of cols) {
-    m.box(1, x, z, g, 0.62, 0.62, H - 0.3, stone);
-    m.solid(x, z, 0.62, 0.62, g, g + H - 0.3);
-  }
+  for (const [x, z] of cols) m.box(1, x, z, g, 0.62, 0.62, H - 0.3, stone);
 
-  // Open beam grid. Not a roof, and not the real building's iron pattern.
-  if (m.max >= 2) {
-    for (let i = 0; i < 4; i++) {
-      const z = F - TUNNEL - 2.2 - i * 3.2;
-      m.box(2, 0, z, g + H - 0.35, COURT - 1.2, 0.38, 0.32, dark);
-    }
-    for (const x of [-3.6, 0, 3.6]) {
-      m.box(2, x, F - (TUNNEL + COURT / 2), g + H - 0.15, 0.32, COURT - 1.4, 0.28, dark);
-    }
-    for (const x of [-5.2, 5.2]) {
-      m.box(2, x, F - 15, g + 2.1, 0.18, 0.35, 1.1, warm);
-      m.box(2, x, F - 15, g + 6.6, 0.18, 0.35, 1.1, warm);
-    }
+  if (m.max < 2) return;
+  for (let i = 0; i < 4; i++) {
+    const z = F - TUNNEL - 2.2 - i * 3.2;
+    m.box(2, 0, z, g + H - 0.35, COURT - 1.2, 0.38, 0.32, dark);
   }
-
-  // Newer cladding on the back and the south side, tall enough to peek past the masonry.
-  m.box(0, 0, F - D - 1.25, g, W + 1.6, 2.1, JACKET_H, panel);
-  m.solid(0, F - D - 1.25, W + 1.6, 2.1, g, g + JACKET_H);
-  m.box(0, W / 2 + 1.25, F - D / 2, g, 2.1, D, JACKET_H, panel);
-  m.solid(W / 2 + 1.25, F - D / 2, 2.1, D, g, g + JACKET_H);
+  for (const x of [-3.6, 0, 3.6]) {
+    m.box(2, x, F - (TUNNEL + COURT / 2), g + H - 0.15, 0.32, COURT - 1.4, 0.28, dark);
+  }
+  for (const x of [-5.2, 5.2]) {
+    m.box(2, x, F - 15, g + 2.1, 0.18, 0.35, 1.1, warm);
+    m.box(2, x, F - 15, g + 6.6, 0.18, 0.35, 1.1, warm);
+  }
 }
 
 function ornament(m: Mass, g: number): HeritageSign[] {
@@ -169,15 +199,26 @@ function signsFor(l: Landmark, g: number, blades: HeritageSign[]): Sign[] {
 
 export function buildBradbury(l: Landmark, env: LandmarkEnv) {
   const g = env.layout.heightAt(l.x, l.z);
-  const levels: Array<{ mesh: Mesh; tris: number; cols: Mass['cols']; signs: HeritageSign[] }> = [];
+  const levels: Array<{ mesh: Mesh; court: Mesh | null; tris: number; cols: Mass['cols']; signs: HeritageSign[] }> = [];
   for (const d of [2, 1, 0] as Detail[]) {
     const w = new GeoWriter();
     const m = new Mass(w, l.x, l.z, FACE_YAW, d);
-    volume(m, g);
+    shellVolume(m, g);
     const signs = ornament(m, g);
     const mesh = new Mesh(w.build(), getCityMaterial());
     mesh.name = `${l.id}-d${d}`;
-    levels.push({ mesh, tris: (mesh.geometry.index?.count ?? 0) / 3, cols: m.cols, signs });
+    let court: Mesh | null = null;
+    let courtTris = 0;
+    if (d >= 1) {
+      const cw = new GeoWriter();
+      courtDress(new Mass(cw, l.x, l.z, FACE_YAW, d), g);
+      const geo = cw.build();
+      courtTris = (geo.index?.count ?? 0) / 3;
+      court = new Mesh(geo, getCityMaterial());
+      court.name = `${l.id}-court-d${d}`;
+      courtParts.push(court);
+    }
+    levels.push({ mesh, court, tris: (mesh.geometry.index?.count ?? 0) / 3 + courtTris, cols: m.cols, signs });
   }
   bradburyTris.splice(0, bradburyTris.length, ...levels.map((lv) => lv.tris));
   const full = levels[0]!;
@@ -186,7 +227,7 @@ export function buildBradbury(l: Landmark, env: LandmarkEnv) {
   const r = Math.hypot(W, D) / 2 + 8;
   const object = env.lods.add(
     l.id,
-    [levelGroup(full.mesh, signMesh), levels[1]!.mesh, levels[2]!.mesh],
+    [levelGroup(full.mesh, signMesh, full.court), levelGroup(levels[1]!.mesh, levels[1]!.court), levels[2]!.mesh],
     BRADBURY_LOD, l.x, l.z, g, g + JACKET_H, r,
   );
   env.beacons.add(l.x, g + H + 2.6, l.z, LightKind.Warm, 0.55);
