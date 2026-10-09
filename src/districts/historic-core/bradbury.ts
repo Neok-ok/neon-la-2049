@@ -120,7 +120,7 @@ function ornament(m: Mass, g: number): HeritageSign[] {
     wrap: 0,
     marquee: false,
     door: DOOR,
-    crown: 'pediment',
+    crown: 'none',
     blades: 1,
     billboard: false,
     lit: 0.3,
@@ -129,10 +129,26 @@ function ornament(m: Mass, g: number): HeritageSign[] {
     skin: true,
   });
   for (const p of built.pieces) {
+    const proud = p.z > 0.15;
     m.box(p.detail, p.x, p.z + F + 0.06, g + p.y - p.h / 2, p.w, p.d, p.h, {
-      style: p.style, lit: p.lit, tint: p.tint, seed: p.seed,
+      style: p.style,
+      lit: proud ? Math.max(p.lit, 0.16) : p.lit,
+      tint: proud ? p.tint * 1.45 : p.tint,
+      seed: p.seed,
     });
   }
+  // A stepped parapet and a door frame, lighter than the wall, so the entry reads at night.
+  // Not the real building's brick crown.
+  const pale = { style: Style.Masonry, lit: 0.28, tint: 2.15, seed: 0.73 };
+  m.box(1, 0, F + 0.7, g + H + 0.2, 22, 1.05, 5.4, pale);
+  m.box(1, -10.4, F + 0.58, g + H - 0.7, 8.4, 0.85, 2.6, pale);
+  m.box(1, 10.4, F + 0.58, g + H - 0.7, 8.4, 0.85, 2.6, pale);
+  const jamb = DOOR / 2 + 0.7;
+  m.box(1, -jamb, F + 0.55, g, 1.15, 0.7, DOOR_H + 0.5, pale);
+  m.box(1, jamb, F + 0.55, g, 1.15, 0.7, DOOR_H + 0.5, pale);
+  m.box(1, 0, F + 0.62, g + DOOR_H, DOOR + 2.4, 0.8, 0.9, pale);
+  // Warm lobby light inside the tunnel, so the entry reads as a door rather than another window.
+  m.box(1, 0, F - 1.4, g + 0.35, DOOR * 0.7, 0.22, DOOR_H - 0.8, warm);
   return built.signs;
 }
 
@@ -173,9 +189,9 @@ export function buildBradbury(l: Landmark, env: LandmarkEnv) {
     [levelGroup(full.mesh, signMesh), levels[1]!.mesh, levels[2]!.mesh],
     BRADBURY_LOD, l.x, l.z, g, g + JACKET_H, r,
   );
-  env.beacons.add(l.x, g + H + 1.2, l.z, LightKind.Warm, 1.3);
-  const [sx, sz] = localToWorld(l.x, l.z, FACE_YAW, 0, F + 0.8);
-  env.beacons.add(sx, g + 3.4, sz, LightKind.Warm, 1.1);
+  env.beacons.add(l.x, g + H + 2.6, l.z, LightKind.Warm, 0.55);
+  const [sx, sz] = localToWorld(l.x, l.z, FACE_YAW, 3.1, F + 0.9);
+  env.beacons.add(sx, g + DOOR_H + 0.4, sz, LightKind.Warm, 0.42);
   return { object, colliders: full.cols };
 }
 

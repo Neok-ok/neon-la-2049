@@ -54,10 +54,9 @@ export function broadwayCamera(layout: CityLayout, kind: BroadwayView): Broadway
   }
 
   if (kind === 'bradbury') {
-    // Opposite sidewalk, just south of the building, looking back at the door.
-    // Far enough for the 70° walk lens to hold the pediment and the south jacket.
-    const p = at(layout, BRADBURY_S - 30, -216.5, 0);
-    const face = at(layout, BRADBURY_S - 6, -201, 12);
+    // Street centre, square to the door. Walk mode stays put; fly mode climbs out of the west block.
+    const p = at(layout, BRADBURY_S - 2, -210.8, 0);
+    const face = at(layout, BRADBURY_S, -201, 12);
     const horiz = Math.hypot(face.x - p.x, face.z - p.z) || 1;
     return {
       x: p.x, y: p.g, z: p.z,
