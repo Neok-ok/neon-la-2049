@@ -19,3 +19,5 @@ import './wallace-vernon/oldSurround';
 import './coastal-strip/details';
 import './arts-district/details';
 import './arts-district/crowd';
+import './westside/details';
+import './westside/crowd';

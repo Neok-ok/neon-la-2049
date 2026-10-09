@@ -12,3 +12,4 @@ import './south-la-megablocks/archetype';
 import './wallace-vernon/archetype';
 import './coastal-strip/archetype';
 import './arts-district/archetype';
+import './westside/archetype';

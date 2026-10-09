@@ -201,6 +201,20 @@ const shots = [
   { name: 'arts-high', ctx: desktop, q: `mode=walk&at=arts-foundry&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=high${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.artsView('foundry'), near: true, settle: true },
   { name: 'arts-ultra', ctx: desktop, q: `mode=walk&at=arts-foundry&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.artsView('foundry'), near: true, settle: true },
   { name: 'arts-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=arts-foundry&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.artsView('foundry'), near: true, settle: true },
+  // Stage 13 — Westside sprawl. Cameras come from __nla.westsideView.
+  { name: 'westside-aerial-dusk', ctx: desktop, q: `mode=fly&at=westside-yard&time=18.4&weather=drizzle&${common}`, after: () => window.__nla.westsideView('aerial'), settle: true },
+  { name: 'westside-street', ctx: desktop, q: `mode=walk&at=westside-yard&time=22.5&weather=drizzle&${common}`, after: () => window.__nla.westsideView('street'), near: true, settle: true },
+  { name: 'westside-strip', ctx: desktop, q: `mode=walk&at=westside-yard&time=22.5&weather=drizzle&${common}`, after: () => window.__nla.westsideView('strip'), near: true, settle: true },
+  { name: 'westside-roof', ctx: desktop, q: `mode=fly&at=westside-yard&time=22&weather=drizzle&${common}`, after: () => window.__nla.westsideView('roof'), near: true, settle: true },
+  { name: 'westside-freeway', ctx: desktop, q: `mode=walk&at=westside-yard&time=22&weather=drizzle&${common}`, after: () => window.__nla.westsideView('freeway'), near: true, settle: true },
+  { name: 'westside-hub', ctx: desktop, q: `mode=walk&at=westside-yard&time=22.5&weather=drizzle&${common}`, after: () => window.__nla.westsideView('hub'), near: true, settle: true },
+  { name: 'interior-westside-diner', ctx: desktop, q: `mode=walk&at=westside-yard&time=22.5&weather=drizzle&${common}`, after: () => window.__nla.westsideView('interior'), near: true, settle: true },
+  { name: 'westside-low', ctx: desktop, q: `mode=walk&at=westside-yard&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=low${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.westsideView('street'), near: true, settle: true },
+  { name: 'westside-medium', ctx: desktop, q: `mode=walk&at=westside-yard&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.westsideView('street'), near: true, settle: true },
+  { name: 'westside-hub-medium', ctx: desktop, q: `mode=walk&at=westside-yard&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.westsideView('hub'), near: true, settle: true },
+  { name: 'westside-towers-medium', ctx: desktop, q: `mode=walk&at=westside-yard&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.westsideView('towers'), near: true, settle: true },
+  { name: 'westside-ultra', ctx: desktop, q: `mode=walk&at=westside-yard&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.westsideView('street'), near: true, settle: true },
+  { name: 'westside-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=westside-yard&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.westsideView('street'), near: true, settle: true },
 ];
 
 const args = GPU

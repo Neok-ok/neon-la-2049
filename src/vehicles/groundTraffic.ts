@@ -221,6 +221,8 @@ export class GroundTraffic {
     } else if (e.district === 'arts-district') {
       const r = rng.next();
       mesh = r < 0.62 ? 'box' : r < 0.9 ? 'hauler' : 'van';
+    } else if (e.district === 'westside') {
+      mesh = rng.chance(0.18) ? 'van' : 'car';
     } else {
       const r = rng.next();
       mesh = r < 0.62 ? 'car' : r < 0.82 ? 'van' : r < 0.94 ? 'box' : 'hauler';

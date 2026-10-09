@@ -38,6 +38,8 @@ export function lodRules(lod: number): LodRules {
 const SPRAWL_LIGHTS: Record<string, number> = {
   'basin-sprawl': 1,
   'sprawl-dense': 1,
+  // Same pair as sprawl-dense. Stage 14 retunes basin-sprawl; leave this key alone.
+  'westside-sprawl': 1,
   'megablock-residential': 0.8,
   'lakewood-megablocks': 0.5,
   'south-la-megablocks': 0.62,
@@ -67,6 +69,8 @@ const STREET_NEON: Record<string, number> = {
   'financial-megatowers': 0.55,
   'megatower-core': 0.5,
   'sprawl-dense': 0.35,
+  // Copies sprawl-dense so the amber carpet does not change. Stage 14 owns basin-sprawl.
+  'westside-sprawl': 0.35,
   'basin-sprawl': 0.25,
   'megablock-residential': 0.3,
   'lakewood-megablocks': 0.08,
