@@ -36,4 +36,6 @@ export const U = {
   streetFog: uniform(0),
   /** 1 when the planar wet reflector is drawing, so the fake neon streaks step back. */
   reflMix: uniform(0),
+  /** 0 on the low tier (no hologram spill), 1 otherwise. The field writes this every frame. */
+  holoSpill: uniform(1),
 };

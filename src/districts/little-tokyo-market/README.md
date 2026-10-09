@@ -49,6 +49,8 @@ Low tier keeps `streetDetail` on so a phone still sees awnings, lanterns and the
 
 Frontage rhythm, the corner towers, the catwalk, Bibi's as a walk-up rather than a full room, and every word on a sign. Recorded in BIBLE §7.1. The POI coordinates and the 7 m lanes are the film-and-map placement from Stage 1.
 
+The lane holograms (Coil Vendor, glyph loop, Bibi's lantern) are not built here. They are placements in `src/world/holograms/showcase.ts`, drawn by the shared field. Corner-tower billboards stay kind-2 signs.
+
 ## Left for a polish pass
 
 Sign atlas contrast and the flip of tall blades, pipe and cable silhouettes, the crowd cycle (feet slide), the planar mirror on a real GPU (SwiftShader screenshots do not show it), a cook who moves, how the stair feels under the capsule, and the plastic sheets. Bowls, the soffit and the menu panels are in; they are still flat kit pieces.

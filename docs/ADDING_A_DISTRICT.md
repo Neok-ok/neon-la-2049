@@ -121,7 +121,11 @@ Unique buildings belong in `landmarks[]` (with `reserveRadius` so the fabric lea
 `registerLandmarkType(type, builder)` (see `src/world/landmarks/Landmarks.ts`). Points of interest (future interiors, set pieces) go in `pois[]`.
 `?at=<id>` jumps the camera to any landmark or POI.
 
-## 6. Verify
+## 6. Holograms
+
+Giant figures and ad loops are not kind-2 signs. Register them with `registerHologram` from `src/world/holograms/api.ts` (see that folder's README). The call is main-thread only. `band: 'street'` culls with the LOD0 radius; `band: 'tower'` culls with the near radius. `rank: 0` is kept when the tier cap binds. Spill radius `0` skips the wash. Do not add a second hologram shader.
+
+## 7. Verify
 
 ```bash
 npm run typecheck && npm run build

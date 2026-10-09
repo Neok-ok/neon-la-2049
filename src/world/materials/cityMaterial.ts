@@ -3,6 +3,7 @@
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import { U } from '../../atmosphere/uniforms';
+import { hologramSpill } from '../holograms/spill';
 import { lut } from './lut';
 
 // TSL typings are very loose in @types/three; shader modules use untyped TSL deliberately.
@@ -139,7 +140,8 @@ export function getCityMaterial(): MeshStandardNodeMaterial {
   m.roughnessNode = rough;
   m.metalnessNode = mix(float(0), float(0.35), unlitGlass);
   const snowCover = float(1).sub(clamp(snowAmt, 0, 1));
-  m.emissiveNode = Fn(() => windows.mul(snowCover.mul(0.6).add(0.4)).add(groundLights).add(neonRefl.mul(snowCover)))();
+  const spill = hologramSpill();
+  m.emissiveNode = Fn(() => windows.mul(snowCover.mul(0.6).add(0.4)).add(groundLights).add(neonRefl.mul(snowCover)).add(spill))();
 
   shared = m;
   return m;

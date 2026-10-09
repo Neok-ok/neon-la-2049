@@ -13,6 +13,8 @@ import { getCityMaterial } from '../materials/cityMaterial';
 import { getSignMaterial } from '../materials/signMaterial';
 import { getLayout } from '../layout';
 import { buildDetails, type ChunkBlock } from '../detail/registry';
+import { hologramsFromSignBuffer } from '../holograms/fromSigns';
+import type { HologramSpec } from '../holograms/types';
 
 export const CHUNK = 500;
 export const SUPER = 2000;
@@ -29,6 +31,8 @@ interface Slot {
   shown: Group | null;
   pendingLod: number;
   dist: number;
+  /** Large kind-2 billboards promoted to the hologram field. Cleared on dispose. */
+  panels: HologramSpec[];
 }
 
 interface Super {
@@ -124,7 +128,7 @@ export class ChunkStreamer {
   }
 
   private mkSlot(key: string, x0: number, z0: number, size: number): Slot {
-    return { key, x0, z0, size, want: -1, shownLod: -1, shown: null, pendingLod: -1, dist: 0 };
+    return { key, x0, z0, size, want: -1, shownLod: -1, shown: null, pendingLod: -1, dist: 0, panels: [] };
   }
 
   private disposeSlot(s: Slot): void {
@@ -132,6 +136,30 @@ export class ChunkStreamer {
     s.shown = null;
     s.shownLod = -1;
     s.want = -1;
+    s.panels = [];
+  }
+
+  /**
+   * Billboard-sized signs on chunks that are actually showing. The hologram field
+   * culls this list again by tier, so a far LOD upload does not force a draw.
+   */
+  billboards(): HologramSpec[] {
+    const out: HologramSpec[] = [];
+    for (const s of this.supers.values()) {
+      for (const slot of this.visibleSlots(s)) {
+        if (slot.panels.length) out.push(...slot.panels);
+      }
+    }
+    return out;
+  }
+
+  private visibleSlots(s: Super): Slot[] {
+    if (s.near && s.children) {
+      const allShown = s.children.every((c) => c.shown);
+      if (allShown || !s.far.shown) return s.children.filter((c) => c.shown);
+    }
+    if (!s.near && s.children && !s.far.shown) return s.children.filter((c) => c.shown);
+    return s.far.shown ? [s.far] : [];
   }
 
   /** `foci[0]` is the camera; extra points (e.g. the next cinematic shot) are streamed in too. */
@@ -271,6 +299,7 @@ export class ChunkStreamer {
     }
     const n = r.signs.length / SIGN_STRIDE;
     if (n > 0) g.add(this.buildSigns(r.signs, n));
+    slot.panels = hologramsFromSignBuffer(slot.key, slot.x0, slot.z0, r.signs, n);
     if (lod === 0 && this.quality.streetDetail) {
       const blocks: ChunkBlock[] = [];
       for (let i = 0; i < r.blocks.length; i += BLOCK_STRIDE) {

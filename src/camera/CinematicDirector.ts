@@ -87,6 +87,31 @@ export class CinematicDirector implements Controller {
     this.t = 1e9;
   }
 
+  /**
+   * Replace the current shot with a slow slide in front of a hologram face.
+   * `yaw` is the panel yaw; the camera starts along that normal.
+   */
+  frameFace(anchor: string, focus: Vector3, yaw: number, dist: number, eyeY: number): void {
+    const f = focus.clone();
+    this.shot = {
+      type: 'orbit',
+      anchor,
+      duration: 24,
+      fov: 50,
+      focus: f.clone(),
+      signature: 'zz-holo-face',
+      eval: (t, pos, look) => {
+        const a = yaw + (t - 0.45) * 0.45;
+        pos.set(f.x + Math.sin(a) * dist, eyeY + Math.sin(t * Math.PI) * 8, f.z + Math.cos(a) * dist);
+        look.copy(f);
+      },
+    };
+    this.t = 0.35;
+    this.next = null;
+    this.prefetch = null;
+    this.active = true;
+  }
+
   update(dt: number): void {
     if (!this.active || !this.shot) return;
     if (!this.hold) this.t += dt;

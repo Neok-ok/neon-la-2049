@@ -96,7 +96,7 @@ Positions are in [`city-layout.json`](../src/data/city-layout.json) (`landmarks`
 | Id | What | Size | Location and reasoning | Confidence |
 |---|---|---|---|---|
 | `city-hall` | Old City Hall, kept as a heritage tower among megablocks | 138 m, 45 × 45 m | Real building (1928). Survival to 2049 assumed, as the Bradbury survived in 2019. | medium |
-| `megatower-1…6` | Financial District megatowers | 280–420 m, 56–78 m footprints, podium + shaft + flared crown + mast, 2 hologram panels each | Real Bunker Hill / Financial District sites. Heights bracketed between LAPD (216 m) and the Wallace satellites (1.1 km+): the film's downtown has towers clearly taller than LAPD. | invented |
+| `megatower-1…6` | Financial District megatowers | 280–420 m, 56–78 m footprints, podium + shaft + flared crown + mast, 2 hologram panels each | Real Bunker Hill / Financial District sites. Heights bracketed between LAPD (216 m) and the Wallace satellites (1.1 km+): the film's downtown has towers clearly taller than LAPD. The two faces are live X4 projectors (`${id}-holo-a/b`), not flat billboards. Stage 3 replaces the blockout mass and may register more panels. | invented |
 | `k-megablock-tower` | K's apartment megabuilding | 185 m, 230 × 85 m slab | Centre of the on-screen spinner navigation map when K flies home (fan frame analysis puts it near Woodruff Ave & South St, Lakewood/Bellflower). Size from exterior shots: a long, featureless, many-storey slab with an open market at its feet. | medium-low |
 | `lax-spaceport-towers` | LAX Off-World launch gantries | 3 gantries to 420 m on a 2.6 × 1.3 km apron | Lore: LAX becomes the off-world spaceport. Structures invented. | invented |
 | `el-segundo-refinery` | Refinery flare field | stacks to 140 m over 1.6 × 1.1 km | Real El Segundo refinery. Homage to the 1982 "Hades landscape" opening. | medium |
@@ -163,6 +163,24 @@ The market is the reference district. Later districts copy its kit, not its layo
 * **Light.** Signs are an 8×8 canvas atlas (Latin via `fillText`, kana / hangul / hanzi / devanagari as original strokes). They tint the wet street with instanced additive pools on every tier. A planar mirror (`ReflectorNode`) turns on for high/ultra on a real GPU when you are under 28 m in the market; `?refl=0` forces it off, `?refl=1` forces it on. Software renders (the screenshot VM) stay on the fake pools.
 * **People and air.** Instanced coats and lit umbrellas walk the lanes and slow down when the person ahead is inside **0.9 m**. Counts: about **56 / 160 / 340 / 680** on low / medium / high / ultra. Steam cards rise off grates and pots. High and ultra add three haze sheets near the ground. Rain streaks pick up neon while `neonWet` is high.
 * **Sound.** Rain on awnings, a murmur, stall sizzle and a distant spinner, all procedural, positional with equal-power panners, mixed into the existing ambience. No music.
+* **Holograms.** The lane in front of the noodle bar carries a Coil Vendor and a glyph-loop ad; Bibi's has a lantern loop. They are the shared X4 projectors ([§7.2](#72-holograms-stage-x4)), not painted signs. The corner-tower billboards stay the cheap kind-2 panel.
+
+### 7.2 Holograms (stage X4)
+
+The films are full of giant animated ads. None of those designs are reproduced. The city runs six invented projector programs (`confidence: invented`). Shapes, names and the houses that own them are original; the only borrowed fact is that night advertising is a volumetric coloured light, not a television bolted to a wall.
+
+| Program | House | Where it stands in this stage | Look |
+|---|---|---|---|
+| **Ash Crane** | Ash Line, an off-world courier | One figure in the financial avenue (`financial-canyon-crane`), plus some megatower faces and downtown billboards | A geometric crane. The wings beat. Cyan. |
+| **Coil Vendor** | Sector 5 night markets | Over the noodle-bar lane (`market-coil`) | Six stacked rings, a round head, arms that sway. Amber. Not a dancer and not a character from either film. |
+| **Ribbon Column** | Downtown commercial leases | Megatower faces and the downtown flyover billboards | A bowing stack of ribbons. Violet. |
+| **Glyph Loop** | Generic product board | Beside the Coil Vendor, and on megatower faces | Four rows of scrolling blocks. The blocks are noise, not letters and not a logo. |
+| **Lease Loop** | Spinner-share desks | Megatower faces | A flying wedge with two pods crossing a barcode. The wedge is not a spinner model. Amber. |
+| **Lantern Loop** | Red Lantern (same invented name as the market signs) | Bibi's lane, and some megatower faces | A pulsing lamp and three orbiting motes. Pink. |
+
+* **Placement now.** Each financial megatower registers two panels on the depth faces the blockout already reserved (about 50–90 m tall). A 40 m Ash Crane stands in a gap about 150 m from megatower 1, facing away from the tower so the shaft reads behind it. Two more figures sit on the downtown billboards that face the northwest flyover. Loaded chunks also promote kind-2 signs of at least 140 m²: the flat panel stays, and a figure floats one to three metres in front of it. Market stall headers are smaller than that and stay signs.
+* **Light.** A projector spills its colour onto nearby concrete and kit surfaces (the nearest few, wrapped falloff, no shadow map) and, under about 80 m, onto a soft disc on the wet street. Low tier keeps the silhouette and turns the spill off. The wash is invented in extent: roughly half a panel-width, enough to tint a podium or a lane and not a whole block.
+* **The pink footbridge** (`joi-bridge`, stage 6) is still not built. It must not reuse a traced film dancer. Register a placement, or add a design, through the API in `src/world/holograms/README.md`.
 
 ## 8. Vehicles and traffic
 

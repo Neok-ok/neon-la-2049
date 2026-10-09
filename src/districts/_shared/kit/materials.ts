@@ -2,6 +2,7 @@
 import { AdditiveBlending, DoubleSide, MeshBasicNodeMaterial, MeshStandardNodeMaterial, NormalBlending } from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import { U } from '../../../atmosphere/uniforms';
+import { hologramSpill } from '../../../world/holograms/spill';
 
 const T = TSL as any;
 const { attribute, float, mix, smoothstep, abs, uv, vec3, vec4, positionLocal, sin, fract, cameraPosition, positionWorld, length } = T;
@@ -21,7 +22,7 @@ function kitSurface(m: MeshStandardNodeMaterial, transparent: boolean): void {
   // wet cloth/metal darkens like the city fabric
   const dark = mix(float(1), float(0.62), U.wetness.mul(float(transparent ? 0.3 : 0.85)));
   m.colorNode = col.mul(dark);
-  m.emissiveNode = emi.mul(U.signPower).mul(U.night.mul(0.65).add(0.35));
+  m.emissiveNode = emi.mul(U.signPower).mul(U.night.mul(0.65).add(0.35)).add(hologramSpill());
   m.roughnessNode = mix(float(0.78), float(0.35), metal).mul(mix(float(1), float(0.55), U.wetness));
   m.metalnessNode = metal.mul(0.85);
   m.side = DoubleSide;
