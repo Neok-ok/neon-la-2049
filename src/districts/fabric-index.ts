@@ -4,3 +4,4 @@ import './_shared/archetypes';
 import './little-tokyo-market/archetype';
 import './financial-megatowers/archetype';
 import './dtla/archetype';
+import './civic-center/archetype';

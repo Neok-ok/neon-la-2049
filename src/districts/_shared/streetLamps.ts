@@ -48,6 +48,7 @@ registerDetail('street-lamps', '*', (ctx) => {
         const t = side * (b.lb / 2 + curb);
         const x = b.cx + b.ax * s + bx * t, z = b.cz + b.az * s + bz * t;
         if (x < ctx.x0 || x >= ctx.x0 + ctx.size || z < ctx.z0 || z >= ctx.z0 + ctx.size) continue;
+        if (ctx.layout.isReserved(x, z, 1)) continue;
         pts.push([x, b.ground, z, Math.atan2(bx * side, bz * side)]);
       }
       const m = Math.max(1, Math.floor(b.lb / SPACING));
@@ -56,6 +57,7 @@ registerDetail('street-lamps', '*', (ctx) => {
         const s = side * (b.la / 2 + curb);
         const x = b.cx + b.ax * s + bx * t, z = b.cz + b.az * s + bz * t;
         if (x < ctx.x0 || x >= ctx.x0 + ctx.size || z < ctx.z0 || z >= ctx.z0 + ctx.size) continue;
+        if (ctx.layout.isReserved(x, z, 1)) continue;
         pts.push([x, b.ground, z, Math.atan2(b.ax * side, b.az * side)]);
       }
     }

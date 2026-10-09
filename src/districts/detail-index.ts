@@ -4,3 +4,5 @@ import './_shared/streetLamps';
 import './little-tokyo-market/details';
 import './dtla/details';
 import './dtla/crowd';
+import './civic-center/details';
+import './civic-center/crowd';

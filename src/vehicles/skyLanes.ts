@@ -8,6 +8,7 @@ import { bearingToDir } from '../world/geo';
 import type { CityQuery } from '../world/CityQuery';
 import type { Landmark } from '../world/layout';
 import { DOWNTOWN_BLOCK_A, DOWNTOWN_BLOCK_B, gridAxes } from '../districts/_shared/megablock/grid';
+import { lapdPadRuns } from '../districts/civic-center/lanes';
 
 export type LaneClass = 'civilian' | 'police' | 'transport';
 
@@ -27,6 +28,10 @@ export interface SkyLane {
   speed: [number, number];
   /** Lateral half-separation of the two directions (m). */
   sep: number;
+  /** Added to open-lane altitude. Avenue lanes use 7; pad approaches use 0 so a flare sits on the deck. */
+  altBias: number;
+  /** Metres of fade at each end of an open lane. */
+  fade: number;
 }
 
 function lane(id: string, pts: Vector3[], loop: boolean, o: Partial<SkyLane> = {}): SkyLane {
@@ -37,6 +42,7 @@ function lane(id: string, pts: Vector3[], loop: boolean, o: Partial<SkyLane> = {
     id, loop, pts, cum, length: cum[cum.length - 1]!,
     weight: o.weight ?? 1, police: o.police ?? 0.12, transport: o.transport ?? 0.1,
     speed: o.speed ?? [55, 95], sep: o.sep ?? 16,
+    altBias: o.altBias ?? 7, fade: o.fade ?? 220,
   };
 }
 
@@ -153,6 +159,13 @@ export function buildSkyLanes(q: CityQuery): SkyLane[] {
   if (lapd) {
     const pts = clearLoop(q, (k) => ellipse(lapd.x, lapd.z, lapd.height + 90, 230 * k, 200 * k, 0, 20, 8), 30);
     if (pts) lanes.push(lane('hold-lapd', pts, true, { weight: 0.7, police: 0.85, transport: 0, speed: [30, 50], sep: 0 }));
+    // Roof pads: arrivals and departures on the same polylines. The holding pattern above stays as it was.
+    for (const run of lapdPadRuns(lapd, (x, y, z) => q.insideLandmark(x, y, z, 3.5))) {
+      lanes.push(lane(run.id, run.pts.map((p) => new Vector3(p[0], p[1], p[2])), run.loop, {
+        weight: run.weight, police: run.police, transport: run.transport,
+        speed: run.speed, sep: run.sep, altBias: run.altBias, fade: run.fade,
+      }));
+    }
   }
   const wal = lm('wallace-pyramid');
   if (wal) {

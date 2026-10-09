@@ -50,7 +50,7 @@
       "id": "civic-center",
       "name": "Civic Center (LAPD HQ)",
       "loreSector": "Sector 5 - Central District",
-      "archetype": "civic",
+      "archetype": "civic-center",
       "priority": 3,
       "grid": { "bearingDeg": 38, "block": [205, 125], "street": 40 },
       "stage": 5,
@@ -274,8 +274,8 @@
       "lat": 34.0519, "lon": -118.2445,
       "bearingDeg": 38,
       "height": 216, "baseWidth": 72, "baseDepth": 100, "crownWidth": 132, "crownDepth": 165, "crownHeight": 62,
-      "reserveRadius": 110,
-      "confidence": "height from Weta 4.5 m miniature at 1:48 = 216 m; location = real LAPD HQ, 100 W 1st St"
+      "reserveRadius": 122,
+      "confidence": "height from Weta 4.5 m miniature at 1:48 = 216 m; location = real LAPD HQ, 100 W 1st St. Stage 5 reserve covers the crown (half-diagonal ~106 m) and the forecourt stair"
     },
     {
       "id": "city-hall",
@@ -284,7 +284,7 @@
       "lat": 34.0537, "lon": -118.2427,
       "bearingDeg": 38, "height": 138, "baseWidth": 45, "baseDepth": 45,
       "reserveRadius": 70,
-      "confidence": "real building (1928, 138 m); its survival into 2049 is an assumption"
+      "confidence": "real building (1928, 138 m) at 200 N Spring St; survival into 2049 is an assumption. Stage 5 restores the massing (jacketed base, pale shaft, pyramid, lamp) without a seal"
     },
     {
       "id": "megatower-1", "name": "Megatower 1 (Bunker Hill slab)", "type": "megatower",
@@ -392,6 +392,11 @@
     { "id": "k-apartment", "name": "K's apartment (enterable)", "lat": 33.8585, "lon": -118.1240, "kind": "interior", "stage": 8 },
     { "id": "sea-wall-fight", "name": "Sea wall finale site", "lat": 33.9560, "lon": -118.4470, "kind": "set-piece", "stage": 10 },
     { "id": "dtla-canyon", "name": "Downtown canyon (between megablocks)", "lat": 34.05989, "lon": -118.25370, "kind": "street", "stage": 4 },
+    { "id": "lapd-steps", "name": "LAPD approach steps", "lat": 34.05254, "lon": -118.24379, "kind": "plaza", "stage": 5 },
+    { "id": "lapd-lobby", "name": "LAPD lobby (enterable)", "lat": 34.05229, "lon": -118.24413, "kind": "interior", "stage": 5 },
+    { "id": "lapd-deck", "name": "LAPD landing deck", "lat": 34.05233, "lon": -118.24449, "kind": "pad", "stage": 5 },
+    { "id": "city-hall-steps", "name": "City Hall ceremonial steps", "lat": 34.05330, "lon": -118.24300, "kind": "plaza", "stage": 5 },
+    { "id": "civic-plaza", "name": "Civic Center mall", "lat": 34.05280, "lon": -118.24360, "kind": "plaza", "stage": 5 },
     { "id": "mt1-plaza", "name": "Megatower 1 podium plaza", "lat": 34.05148, "lon": -118.25507, "kind": "plaza", "stage": 4 },
     { "id": "mt5-edge", "name": "Megatower 5 / DTLA shared edge", "lat": 34.05878, "lon": -118.25879, "kind": "street", "stage": 4 },
     { "id": "trash-mesa-gate", "name": "Southern exit toward the San Diego trash mesa (out of bounds)", "lat": 33.7400, "lon": -118.0600, "kind": "edge", "stage": 99 }
