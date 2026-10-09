@@ -123,7 +123,6 @@ export function designBlock(b: WallaceBlock, emit: EmitBox): SteamPoint[] {
     for (let i = 0; i < ridges; i++) {
       const s = hs - hla / 2 + ((i + 0.5) * hla) / ridges;
       emit(s, ht, hlb * 0.92, 2.6, 4.4, hallH - 0.4, Style.Monolith, 0.02, 0.5, 1);
-      if (i % 2 === 0) emit(s + 1.5, ht, hlb * 0.88, 0.35, 0.45, hallH + 0.2, Style.Glow, 0.16, 1.05, 2);
     }
     // loading bay on the +A side: dock, canopy, bumper stripes
     const dockS = hs + hla / 2 + 6;

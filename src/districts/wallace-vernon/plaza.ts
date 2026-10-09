@@ -61,6 +61,7 @@ function puddles(f: PlazaFrame, parent: Group): void {
     attr.set([0.85, 0.48, 0.16, 1.4], i * 4);
   }
   geo.setAttribute('iLight', new InstancedBufferAttribute(attr, 4));
+  mesh.instanceMatrix.needsUpdate = true;
   mesh.name = 'wallace-puddles';
   mesh.frustumCulled = false;
   mesh.renderOrder = 1;
@@ -124,6 +125,9 @@ export function buildPlaza(f: PlazaFrame, lod0: Mesh): { colliders: LandmarkColl
     const zc = south - COURT.stairTread / 2;
     put(w, f, 0, zc, y0, COURT.stairHalfW * 2, COURT.stairTread, COURT.stairRise, STONE);
     cols.push(col(f, 0, zc, COURT.stairHalfW, COURT.stairTread / 2, y0, y0 + COURT.stairRise));
+    // Bronze nosing so the flight reads at night. The north edge faces the court.
+    const nose = zc - COURT.stairTread / 2 + 0.14;
+    put(w, f, 0, nose, y0 + COURT.stairRise - 0.07, COURT.stairHalfW * 1.65, 0.16, 0.07, BRONZE);
   }
   // Flanking pylons at the foot of the stair and where the road opens.
   for (const [x, z, h] of [[62, stairN + 2, 16], [-62, stairN + 2, 16], [22, COURT.roadSouth - 6, 11], [-22, COURT.roadSouth - 6, 11]] as const) {
