@@ -1,5 +1,6 @@
-// Neon sign / hologram panel. Wall and blade signs sample a canvas atlas of invented phrases
-// (Latin text + original stroke glyphs). Billboards stay procedural hologram bands.
+// Neon sign panel. Wall and blade signs sample a canvas atlas of invented phrases
+// (Latin text + original stroke glyphs). Kind-2 billboards stay the cheap scrolling panel.
+// Giant figures and ad loops live in src/world/holograms (they can sit in front of these panels).
 import { DoubleSide, MeshBasicNodeMaterial, Color } from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import { U } from '../../atmosphere/uniforms';

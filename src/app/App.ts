@@ -30,6 +30,7 @@ import { CrowdField } from '../districts/little-tokyo-market/crowd';
 import { marketCamera, type MarketView } from '../districts/little-tokyo-market/view';
 import { marketSpots } from '../districts/little-tokyo-market/spots';
 import { setSeats } from '../world/seats';
+import { HologramField, hologramById, installShowcase } from '../world/holograms/api';
 import '../districts/detail-index';
 
 const T = TSL as any;
@@ -67,6 +68,7 @@ export class App {
   readonly ambience = new Ambience();
   readonly marketAudio: MarketAudio;
   readonly crowd = new CrowdField();
+  holos!: HologramField;
   readonly haze = new GroundHaze();
   readonly wet: WetReflector;
   private readonly software: boolean;
@@ -130,6 +132,9 @@ export class App {
     this.streamer = new ChunkStreamer(this.scene, this.quality);
     const landmarks = new Landmarks(this.query);
     this.scene.add(landmarks.root);
+    installShowcase(this.query.layout);
+    this.holos = new HologramField(this.query.layout);
+    this.scene.add(this.holos.group);
     this.traffic = new SpinnerTraffic(this.scene, this.query, settingsFor('ultra').traffic);
     const ultra = settingsFor('ultra');
     this.rain = new Precipitation('rain', ultra.rainCount);
@@ -305,6 +310,7 @@ export class App {
     const foci = [cam];
     if (this.cams.mode === 'cine' && this.cams.cine.prefetch) foci.push(this.cams.cine.prefetch);
     this.streamer.update(foci);
+    this.holos.update(this.camera, this.quality, this.streamer.billboards());
     this.traffic.update(dt, this.camera, this.quality.traffic);
     this.atmosphere.update(dt, this.elapsed, this.renderer);
     this.crowd.update(dt, cam.x, cam.z, this.query, this.quality, this.atmosphere.weather.params.rain);
@@ -362,7 +368,7 @@ export class App {
     const a = this.atmosphere;
     return [
       ['gpu', `${this.backend} · ${this.quality.tier}${this.qualityChoice === 'auto' ? ' (auto)' : ''} · dpr ${this.renderer.getPixelRatio().toFixed(2)}`],
-      ['draw', `${info.drawCalls} calls · ${(info.triangles / 1e6).toFixed(2)} M tris · crowd ${this.crowd.count}`],
+      ['draw', `${info.drawCalls} calls · ${(info.triangles / 1e6).toFixed(2)} M tris · crowd ${this.crowd.count} · holo ${this.holos.shown}`],
       ['query', `sync ${this.query.syncCount} · pending ${this.query.pending} · cell ${this.query.lastQueryMs.toFixed(0)} ms`],
       ['chunks', `far ${s.supersFar} · near ${s.chunksNear} · lod0 ${s.lod0} · jobs ${s.inFlight} · queue ${s.readyQueue} · gen ${s.lastGenMs.toFixed(0)} ms`],
       ['pos', `${p.x.toFixed(0)}, ${p.y.toFixed(0)}, ${p.z.toFixed(0)} m · ${alt.toFixed(0)} m AGL`],
@@ -408,6 +414,36 @@ export class App {
         return true;
       },
       geoToLocal,
+      holoSpec: (id: string) => hologramById(id) ?? null,
+      /** Frame a showcase hologram: street (market), aerial (megatower face), cine (canyon crane). */
+      holoView: (kind: 'street' | 'aerial' | 'cine') => {
+        const id = kind === 'street' ? 'market-coil' : kind === 'aerial' ? 'megatower-1-holo-a' : 'financial-canyon-crane';
+        const spec = hologramById(id);
+        if (!spec) return false;
+        if (kind === 'cine') {
+          this.cams.setMode('cine');
+          const dist = Math.max(64, Math.min(84, Math.max(spec.w, spec.h) * 1.7));
+          this.cams.cine.frameFace(spec.id, new Vector3(spec.x, spec.y, spec.z), spec.yaw, dist, spec.y + 6);
+          return true;
+        }
+        const dist = kind === 'street' ? 12 : Math.max(spec.w, spec.h) * 1.12;
+        const nx = Math.sin(spec.yaw);
+        const nz = Math.cos(spec.yaw);
+        const x = spec.x + nx * dist;
+        const z = spec.z + nz * dist;
+        const ground = this.query.layout.heightAt(x, z);
+        const eye = kind === 'street' ? ground + 1.7 : spec.y;
+        const dx = spec.x - x;
+        const dz = spec.z - z;
+        const heading = Math.atan2(dx, -dz);
+        const pitch = Math.atan2(spec.y - eye, Math.hypot(dx, dz) || 1);
+        if (kind === 'aerial') this.cams.fly.cockpit = true;
+        this.cams.setMode(kind === 'street' ? 'walk' : 'fly');
+        const y = kind === 'street' ? ground : spec.y - 1.22;
+        this.cams.setPose({ position: new Vector3(x, y, z), heading, pitch });
+        if (kind === 'street') this.cams.walk.pitch = pitch;
+        return true;
+      },
       marketView: (kind: MarketView) => {
         const p = marketCamera(this.query.layout, kind);
         if (!p) return false;
@@ -428,6 +464,9 @@ export class App {
         drawCalls: this.renderer.info.render.drawCalls,
         triangles: this.renderer.info.render.triangles,
         crowd: this.crowd.count,
+        holo: this.holos.shown,
+        holoCandidates: this.holos.candidates,
+        holoCards: this.holos.cards,
         querySyncs: this.query.syncCount,
         queryPending: this.query.pending,
         refl: this.wet.enabled,

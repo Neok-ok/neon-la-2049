@@ -44,6 +44,11 @@ const shots = [
   { name: 'market-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=noodle-bar&time=22.5&weather=rain&freeze=1&ui=0&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.marketView('street') },
   { name: 'market-low', ctx: desktop, q: `mode=walk&at=noodle-bar&time=22.5&weather=rain&freeze=1&ui=0&quality=low${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.marketView('street') },
   { name: 'market-ultra', ctx: desktop, q: `mode=walk&at=noodle-bar&time=22.5&weather=rain&freeze=1&ui=0&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.marketView('street') },
+  // X4 — holograms at night. Cameras come from __nla.holoView.
+  { name: 'holo-street', ctx: desktop, q: `mode=walk&at=noodle-bar&time=22.5&weather=rain&${common}`, after: () => window.__nla.holoView('street'), holo: 'street' },
+  { name: 'holo-aerial', ctx: desktop, q: `mode=fly&at=megatower-1&time=22&weather=rain&${common}`, after: () => window.__nla.holoView('aerial'), holo: 'aerial' },
+  { name: 'holo-cine', ctx: desktop, q: `mode=cine&time=22&weather=rain&freeze=1&ui=0&quality=high${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.holoView('cine'), holo: 'cine' },
+  { name: 'holo-medium', ctx: desktop, q: `mode=walk&at=noodle-bar&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.holoView('street'), holo: 'street' },
 ];
 
 const args = GPU
@@ -61,7 +66,7 @@ for (const s of shots) {
   const url = `${BASE}?${s.q}`;
   const t0 = Date.now();
   await page.goto(url);
-  const market = s.name.startsWith('market-');
+  const market = s.name.startsWith('market-') || s.holo === 'street';
   if (market) {
     // The whole basin rarely goes idle on SwiftShader. The market shot only needs the
     // blocks around the camera dressed.

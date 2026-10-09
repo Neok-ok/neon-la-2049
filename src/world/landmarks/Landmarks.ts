@@ -8,6 +8,8 @@ import { getCityMaterial } from '../materials/cityMaterial';
 import { makeSignMesh } from '../materials/signMesh';
 import { Style, SignColor, type Sign } from '../fabric/types';
 import { Rng, hashString } from '../../core/rng';
+import { registerHologram } from '../holograms/registry';
+import type { HoloDesignId } from '../holograms/types';
 import type { CityQuery } from '../CityQuery';
 import { getOceanMaterial } from '../materials/oceanMaterial';
 import { Beacons } from './Beacons';
@@ -168,17 +170,37 @@ registerLandmarkType('megatower', (l, env) => {
   w.box(l.x, l.z, crownStart + 25, bw * 1.3, bd * 1.3, H - crownStart - 25, yaw, st(Style.Office, 0.5, 0.8, seed));
   w.box(l.x, l.z, H, 2, 2, r.range(20, 60), yaw, st(Style.Industrial, 0, 0.5, seed));
   env.beacons.add(l.x, H + 40, l.z, 0, 5);
-  // hologram ad panels on two faces
-  const signs: Sign[] = [];
+  // Two projectors on the depth faces. Stage 3 can register more (crowns, skybridges) through the same API.
   const c = Math.cos(yaw), s = Math.sin(yaw);
   const palette = [SignColor.Pink, SignColor.Cyan, SignColor.Violet, SignColor.Amber];
+  const n = hashString(l.id + ':holo');
+  const figures: HoloDesignId[] = ['ash-crane', 'ribbon-column', 'coil-vendor'];
+  const ads: HoloDesignId[] = ['glyph-loop', 'lease-loop', 'lantern-loop'];
+  const figure = figures[n % figures.length] ?? 'ash-crane';
+  const ad = ads[(n >>> 8) % ads.length] ?? 'glyph-loop';
   for (const k of [1, -1]) {
     const out = (bd / 2 + 1.5) * k;
     const ph = r.range(50, 90);
-    signs.push({ x: l.x + out * s, y: r.range(podium + ph / 2 + 10, crownStart - ph / 2 - 5), z: l.z + out * c, yaw: yaw + (k < 0 ? Math.PI : 0), w: bw * 0.8, h: ph, color: r.pick(palette), seed: r.next(), kind: 2 });
+    const y = r.range(podium + ph / 2 + 10, crownStart - ph / 2 - 5);
+    const faceYaw = yaw + (k < 0 ? Math.PI : 0);
+    registerHologram({
+      id: `${l.id}-holo-${k < 0 ? 'b' : 'a'}`,
+      x: l.x + out * s,
+      y,
+      z: l.z + out * c,
+      yaw: faceYaw,
+      w: bw * 0.8,
+      h: ph,
+      design: k < 0 ? ad : figure,
+      color: r.pick(palette),
+      seed: r.next(),
+      rank: k < 0 ? 1 : 0,
+      band: 'tower',
+      spill: Math.min(48, ph * 0.55),
+    });
   }
   const g = new Group();
-  g.add(meshOf(w, l.id), makeSignMesh(signs));
+  g.add(meshOf(w, l.id));
   return {
     object: g,
     colliders: [

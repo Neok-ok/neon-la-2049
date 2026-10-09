@@ -44,7 +44,7 @@ What the next district should not copy blindly: the per-chunk draw-call exceptio
 
 ## Stage 3 — Financial District Megatowers
 `financial-megatowers`: real tower silhouettes for the six landmark megatowers (setbacks, crowns, masts, fins), podium plazas, sky
-bridges, giant holograms (original animated figures and ads), the high spinner traffic layer with lanes and holding patterns.
+bridges, more giant holograms on the new crowns (register them with the X4 API — do not add a second shader), the high spinner traffic layer with lanes and holding patterns.
 
 ## Stage 4 — Downtown Megablocks
 `dtla`: top-heavy brutalist megablocks with distinct façade families (ribbed, coffered, panelled), rooftop infrastructure (tanks,
@@ -104,11 +104,11 @@ and the El Segundo flare field in full.
 | **X1 Crowds** | The market shipped the first crowd (instanced coats, umbrellas, lane follow, cheap avoidance, tier counts). Generalise it: density from district data, more than two sidewalk loops, and a walk cycle that is more than a foot slide. | the market is the reference scene |
 | **X2 Ground traffic** | cars and trucks in streets and freeway trenches, traffic lights | |
 | **X3 Interiors framework** | The noodle bar is a recess in the street mesh, not a portal. A real interior stream (separate light, occluded exterior, door volumes) still has to be built before K's apartment and the LAPD lobby. | Stage 2 proved the walk camera can enter a soffit |
-| **X4 Holograms** | shared hologram system (giant animated figures, ad loops, scanline/flicker shader, light spill) | before Stages 3, 6 and 16. Market billboards are still the Stage 1 procedural panel. |
+| **X4 Holograms** | shared hologram system (giant animated figures, ad loops, scanline/flicker shader, light spill) | ✅ API in `src/world/holograms/README.md`. Showcase set is on the market lane, the six megatower faces, the financial avenue and two downtown billboards. Kind-2 panels under 140 m² stay the cheap sign. Stage 3/6/16 only call `registerHologram`. |
 | **X5 Audio** | Market bed is in (awning rain, murmur, sizzle, distant spinner), on the ambience bus, equal-power panners. Still to do: PA in invented languages, sea-wall surf, per-stall variety, and a bus that districts can register without editing `App.ts`. | no music |
 | **X6 Performance** | Frame-loop collision is now a worker with a sync fallback for cinematic queries and street spawn. Still open: GPU culling, interior mapping, shadows on high/ultra, and an iPhone profiling pass on device (the VM only has SwiftShader). | do this if a later district blows the 250-draw / 1.5 M budget |
 | **X7 Photo mode** | free camera, depth of field, film grain, screenshot export | |
 
 ## Suggested order
 
-Stage 2 is done. Next: X4 → 3 → 4 → 5 → 6 → (X1 only if a second district needs a crowd that is not the market's) → 8 → 7 → 10 → X2 → 11 → 12 → 9 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21, with X3/X5/X6/X7 where they unblock the next district.
+Stage 2 and X4 are done. Next: 3 → 4 → 5 → 6 → (X1 only if a second district needs a crowd that is not the market's) → 8 → 7 → 10 → X2 → 11 → 12 → 9 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21, with X3/X5/X6/X7 where they unblock the next district. Stage 3 should add megatower holograms by calling `registerHologram`, not by replacing the field.

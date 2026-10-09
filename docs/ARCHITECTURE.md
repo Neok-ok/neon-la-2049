@@ -23,6 +23,7 @@ src/
     streaming/             ChunkStreamer: quadtree LOD streaming + worker pool + uploads
     detail/registry.ts     main-thread LOD0 street-detail modules (lamps, props...)
     materials/             node materials: city fabric, neon signs, ocean, LUT helper
+    holograms/             shared projectors: registry, scanline shader, spill, tiered field (see that folder's README)
     landmarks/             hand-built landmark generators + sea walls + beacons + flares
     CityQuery.ts           collision / ground / "where am I". Frame loop reads a worker-filled LRU; cold calls still generate on the main thread
     query.worker.ts        packs colliders + block records for CityQuery
@@ -73,7 +74,7 @@ district polygon + grid (bearing, block size, street width)
   (0 = mass, 1 = secondary, 2 = rooftop clutter). The mesher writes per-vertex `facade` (metres along the façade, metres up) and
   `bdata = (seed, style, lit, tint)`. The city material does everything else procedurally (windows, staining, wetness, snow), so chunks need **no textures**.
 * **Signs** are packed separately and drawn as one `InstancedMesh` per chunk with the neon sign material (generic glyph blocks,
-  animated billboards, flicker).
+  animated billboards, flicker). Kind-2 panels of at least 140 m² are also reported to the hologram field, which may draw a figure in front of them.
 
 ### LOD rules (`mesher.lodRules`)
 
@@ -149,8 +150,21 @@ All controllers implement `Controller { enter(pose), exit(), update(dt), pose() 
 
 * **Auto-detect** picks the tier from the UA, the WebGL renderer string and WebGPU availability: software → low; iPhone with WebGPU → medium;
   other mobile → low (medium on 8-core, 8 GB devices); integrated GPU → medium; Apple silicon or discrete GPU → high.
-* **Runtime safety net:** in Auto, more than 6 s below 24 fps drops one tier, with a toast.
+* **Runtime safety net:** in Auto, more than 6 s below 24 fps drops one tier, with a toast. Holograms read that same live tier, so the drop also cuts panel count, shader detail, spill and cull range.
 * **Manual override** in the toolbar is saved in `localStorage['nla.quality']`. `?quality=` beats both.
+
+### Holograms (`world/holograms/`)
+
+One instanced draw for every projector, plus one draw for wet-street spill cards. Placements come from `registerHologram` (landmarks, the X4 showcase) and from kind-2 signs on chunks that are currently showing. The field re-picks the visible set every frame:
+
+| Tier | Panels | Detail | Spill lights into fabric/kit | Ground cards |
+|---|---|---|---|---|
+| low | 6 | coarse scan, no flicker budget, no spill | 0 | 0 |
+| medium | 18 | scan, flicker, motion | 3 | 6 |
+| high | 32 | plus a ghost slice on the nearest 5 | 4 | 12 |
+| ultra | 48 | plus a second ghost slice | 4 | 16 |
+
+Street-band panels cull at `lod0Radius * 0.9`. Tower-band panels cull at `nearRadius * 1.35`. Both radii are the streaming radii above, so a tier change moves holograms with the city. Off-screen panels do not spend the cap. Spill is a wrapped falloff on the shared city and kit materials (four fixed slots, no uniform array — those mis-index on WebGL2), not a shadow-casting light. The API for Stage 3 is [`src/world/holograms/README.md`](../src/world/holograms/README.md).
 
 ### iPhone performance budget (target: iPhone 13+ in Safari, medium tier, 30–60 fps)
 
@@ -175,8 +189,8 @@ the global medium budget, not the two-batch guide.
 &webgl=1 &hud=1 &ui=0 &freeze=1 &touch=1 &refl=0|1`
 
 `window.__nla` (console and automation): `isIdle()`, `setMode(m)`, `setPose(x,y,z,yaw°,pitch°)`, `streetView(idOrX, z?, along?)`,
-`marketView('street'|'interior'|'crowd'|'roof'|'bibi')`, `setTime(h)`, `setWeather(id)`, `cut()`, `holdShot(on)`, `stats()`,
-`geoToLocal(lat,lon)`, `app`. `stats()` includes draw calls, triangles, crowd count and query-worker counters.
+`marketView('street'|'interior'|'crowd'|'roof'|'bibi')`, `holoView('street'|'aerial'|'cine')`, `holoSpec(id)`, `setTime(h)`, `setWeather(id)`, `cut()`, `holdShot(on)`, `stats()`,
+`geoToLocal(lat,lon)`, `app`. `stats()` includes draw calls, triangles, crowd count, hologram panel count and query-worker counters.
 
 Keys: `1/2/3` fly/walk/cinematic, `F` toggle fly↔walk, `V` cockpit, `E` sit / stand at a market stool (walk mode; in fly mode `E` is still up),
 `N` next shot, `H` HUD, `M` mute, `[ ]` time −/+ 1 h, `B` next weather. The iPhone joystick has no sit button.
