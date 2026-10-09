@@ -162,6 +162,7 @@ registerArchetype('entertainment', (ctx) => {
   });
 });
 
+// Stage 9 replaces this body. The id stays so the JSON entry does not move.
 registerArchetype('industrial-dense', (ctx) => {
   const r = ctx.rng;
   lotLoop(ctx, ctx.lots(20, 60, 2), (l) => {
