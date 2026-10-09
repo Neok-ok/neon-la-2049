@@ -45,8 +45,8 @@ export function buildPyramid(p: PyramidPlan, sink: MassSink): TowerParts {
   const skin = wallace ? face(Style.Monolith, 0.5, 0.78) : face(Style.Office, 0.55, 0.72);
   const skinUpper = wallace ? face(Style.Monolith, 0.65, 0.74) : face(Style.Office, 0.62, 0.7);
   const cornice = wallace ? face(Style.Monolith, 0.2, 0.62) : face(Style.Megablock, 0.45, 0.68);
-  const stripCold = face(Style.Glow, wallace ? 0.16 : 0.3, 1.85);
-  const stripWarm = face(Style.Glow, wallace ? 0.3 : 0.45, 1.05);
+  const stripCold = face(Style.Glow, wallace ? 0.22 : 0.3, 1.85);
+  const stripWarm = face(Style.Glow, wallace ? 0.42 : 0.45, 1.05);
   const ribSt = wallace ? face(Style.Monolith, 0.1, 0.55) : face(Style.Megablock, 0.35, 0.62);
 
   if (sink.maxDetail === 0) {
@@ -73,12 +73,12 @@ export function buildPyramid(p: PyramidPlan, sink: MassSink): TowerParts {
         box(0, 0, y1, cw, cw, 16, cornice, 0);
         for (const [nx, nz] of FN) {
           const ox = nx * (cw / 2 + 0.6), oz = nz * (cw / 2 + 0.6);
-          box(ox, oz, y1 + 1, nx ? 1 : cw - 10, nz ? 1 : cw - 10, 1.6, stripWarm, 1);
+          box(ox, oz, y1 + 1, nx ? 1 : cw - 10, nz ? 1 : cw - 10, wallace ? 3.6 : 2.4, stripWarm, 1);
         }
       } else {
         for (const [nx, nz] of FN) {
           const e = (wt + wn) / 4;
-          box(nx * e, nz * e, y1, nx ? 1.2 : (wt + wn) / 2 - 20, nz ? 1.2 : (wt + wn) / 2 - 20, 0.9, stripCold, 1);
+          box(nx * e, nz * e, y1, nx ? 1.2 : (wt + wn) / 2 - 20, nz ? 1.2 : (wt + wn) / 2 - 20, 1.8, stripCold, 1);
         }
       }
       // corner ribs following the batter

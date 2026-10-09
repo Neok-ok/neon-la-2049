@@ -56,6 +56,7 @@ const shots = [
   { name: 'mega-crown', ctx: desktop, q: `mode=fly&at=megatower-1&time=21&weather=rain&${common}`, after: () => window.__nla.megaView('crown') },
   { name: 'mega-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=fly&at=megatower-1&time=22&weather=rain&freeze=1&ui=0&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.megaView('crown') },
   { name: 'mega-low', ctx: desktop, q: `mode=fly&at=megatower-1&time=22&weather=drizzle&freeze=1&ui=0&quality=low${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.megaView('lanes') },
+  { name: 'mega-medium', ctx: desktop, q: `mode=fly&at=megatower-1&time=22&weather=drizzle&freeze=1&ui=0&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.megaView('lanes') },
   { name: 'mega-ultra', ctx: desktop, q: `mode=fly&at=megatower-1&time=22&weather=drizzle&freeze=1&ui=0&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.megaView('lanes') },
   { name: 'holo-medium', ctx: desktop, q: `mode=walk&at=noodle-bar&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.holoView('street'), holo: 'street' },
 ];

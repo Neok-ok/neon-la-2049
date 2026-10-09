@@ -35,8 +35,8 @@ export function megaCamera(layout: CityLayout, kind: MegaView, lanes: readonly S
   if (kind === 'skyline') {
     // from the hills north-west of downtown: the megatowers in front, the pyramid behind them
     const b = (312 * Math.PI) / 180;
-    const x = mt1.x + Math.sin(b) * 4600, z = mt1.z - Math.cos(b) * 4600;
-    return { x, y: 540, z, heading: headingTo(x, z, (mt1.x * 3 + wal.x) / 4, (mt1.z * 3 + wal.z) / 4), pitch: 0.05, mode: 'fly', cockpit: true };
+    const x = mt1.x + Math.sin(b) * 3600, z = mt1.z - Math.cos(b) * 3600;
+    return { x, y: 500, z, heading: headingTo(x, z, (mt1.x * 3 + wal.x) / 4, (mt1.z * 3 + wal.z) / 4), pitch: 0.05, mode: 'fly', cockpit: true };
   }
   if (kind === 'street') {
     // standing in front of MT-1's entrance canopy, looking up the slab

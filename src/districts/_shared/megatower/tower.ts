@@ -43,6 +43,8 @@ export interface TowerPlan {
   compact?: boolean;
   /** Rooftop flame stacks (1982 homage). */
   flames?: boolean;
+  /** Spandrel ledge spacing (m). Default 18–26 m on full towers, none on compact ones; 0 = none. */
+  ledges?: number;
 }
 
 export interface KitCollider { lx: number; lz: number; hw: number; hd: number; y0: number; top: number }
@@ -88,12 +90,14 @@ class Builder {
   readonly r: Rng;
   readonly lit: number;
   readonly tint: number;
+  readonly ledgeEvery: number;
   private k = 0;
 
   constructor(readonly p: TowerPlan, readonly sink: MassSink) {
     this.r = new Rng(Math.floor(p.seed * 4294967295) ^ 0x5bd1e995);
     this.lit = p.lit ?? 0.42;
     this.tint = p.tint ?? 0.9;
+    this.ledgeEvery = p.ledges ?? (p.compact ? 0 : this.r.range(18, 26));
     this.parts = { colliders: [], holos: [], lights: [], signs: [], flames: [], roof: p.height, top: p.height, halfW: p.w / 2, halfD: p.d / 2 };
   }
 
@@ -237,6 +241,18 @@ class Builder {
     const [wa, da] = dimAt(y);
     this.sink.frustum(s.lx, s.lz, y, wa, da, s.w1, s.d1, s.y1 - y, style, 0, true);
 
+    // spandrel ledges: thin slabs proud of the face every few floors, the horizontal banding of the film's slabs.
+    // Every third one survives into LOD1 so the banding does not pop at the switch.
+    if (!this.simple && !this.p.compact && this.ledgeEvery > 0) {
+      const ledge = this.face(Style.Solid, 0, this.tint * 0.78);
+      let n = 0;
+      for (let ly = Math.ceil((s.y0 + 10) / this.ledgeEvery) * this.ledgeEvery; ly < s.y1 - 8; ly += this.ledgeEvery, n++) {
+        if (bands.some((b) => ly > b - 3 && ly < b + mechH + 3)) continue;
+        const [lw, ld] = dimAt(ly);
+        this.box(s.lx, s.lz, ly, lw + 1.6, ld + 1.6, 1.1, ledge, n % 3 === 0 ? 1 : 2);
+      }
+    }
+
     if (!taper && s.pilasters && !this.simple) {
       const pw = clamp(Math.min(s.w, s.d) * 0.06, 2.5, 7);
       const pil = this.face(Style.Slit, this.lit * 0.6, this.tint * 1.1);
@@ -246,7 +262,7 @@ class Builder {
     }
     if (!taper && s.fins > 0 && !this.simple) this.fins(s);
     // cornice where the segment is a terrace
-    if (!this.simple && !taper) this.box(s.lx, s.lz, s.y1 - 2.2, s.w + 1.6, s.d + 1.6, 2.2, this.face(Style.Solid, 0, this.tint * 0.85), 1);
+    if (!this.simple) this.box(s.lx, s.lz, s.y1 - 2.2, s.w1 + 1.6, s.d1 + 1.6, 2.2, this.face(Style.Solid, 0, this.tint * 0.85), 1);
     this.collide(s.lx, s.lz, Math.max(s.w, s.w1), Math.max(s.d, s.d1), s.y0, s.y1);
     this.parts.halfW = Math.max(this.parts.halfW, Math.abs(s.lx) + Math.max(s.w, s.w1) / 2);
     this.parts.halfD = Math.max(this.parts.halfD, Math.abs(s.lz) + Math.max(s.d, s.d1) / 2);
@@ -603,6 +619,8 @@ function mainSegs(b: Builder, crownH: number): { segs: Seg[]; cw: number; cd: nu
           // spines on the narrow ends
           for (const s of [-1, 1]) {
             b.sink.frustum(s * (p.w / 2 + 2), 0, P, 6, 4, 6, 3, (top - P) * 0.9, b.face(Style.Slit, lit * 0.3), 1);
+            // a cold light line up each spine, the blade's signature from across the basin
+            b.box(s * (p.w / 2 + 5.2), 0, P + 20, 0.8, 1.6, (top - P) * 0.86, b.face(Style.Glow, 0.4, 1.8), 2);
           }
         },
       };
