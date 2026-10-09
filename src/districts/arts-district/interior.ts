@@ -23,7 +23,7 @@ function foundryProps(detail: number): InteriorBox[] {
     { x: 0.55, y: 3.5, z: z + 1.1, w: 0.1, h: 2.3, d: 0.1, color: steel, detail: 1 },
     { x: -2.7, y: 3.15, z, w: 1.15, h: 0.08, d: 7.6, color: [0.24, 0.25, 0.27] },
     { x: -2.2, y: 3.65, z, w: 0.06, h: 0.9, d: 7.4, color: steel, detail: 1 },
-    { x: 1.15, y: 1.15, z: z + 1.3, w: 0.55, h: 2.1, d: 0.55, color: [0.62, 0.6, 0.58], emissive: [0.22, 0.18, 0.14], flick: 0.8, detail: 1 },
+    { x: 2.55, y: 1.15, z: z + 2.2, w: 0.55, h: 2.1, d: 0.55, color: [0.62, 0.6, 0.58], emissive: [0.22, 0.18, 0.14], flick: 0.8, detail: 1 },
     { x: -0.9, y: 1.0, z: z - 1.2, w: 0.4, h: 1.7, d: 0.4, color: [0.58, 0.56, 0.54], emissive: [0.16, 0.14, 0.12], flick: 1.4, detail: 2 },
   ];
   return boxes.filter((b) => (b.detail ?? 0) <= detail);

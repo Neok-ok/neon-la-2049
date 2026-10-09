@@ -78,30 +78,34 @@ export function artsCamera(layout: CityLayout, kind: ArtsView): ArtsPose | null 
     const b = pour ?? blocks(layout)[0];
     if (!b) return null;
     return fly(
-      { x: b.cx - 220, y: b.ground + 540, z: b.cz + 360 },
-      { x: b.cx + 80, y: b.ground + 24, z: b.cz - 40 },
+      { x: b.cx - 260, y: b.ground + 168, z: b.cz + 90 },
+      { x: b.cx + 70, y: b.ground + 36, z: b.cz - 70 },
     );
   }
   if (kind === 'interior') {
     if (!pour) return null;
     const door = doorWorld(pour);
     // Off the crucible, inside the bay. Local +Z is south, so −Z walks into the hall.
-    const feet = { x: door.x + 1.2, y: door.y + 0.16, z: door.z - 7 };
-    const look = { x: door.x, y: door.y + 1.35, z: door.z - 8.2 };
-    return walk(feet, look, 0.12);
+    // Clear of the steam column and the crucible. Local +Z is south.
+    const feet = { x: door.x - 1.8, y: door.y + 0.16, z: door.z - 5.4 };
+    const look = { x: door.x + 0.2, y: door.y + 1.45, z: door.z - 8.6 };
+    return walk(feet, look, 0.08);
   }
   if (kind === 'foundry') {
     if (!pour) return null;
-    const feet = at(pour, DOOR_S - 8, 2.4, 0.04);
-    const look = at(pour, DOOR_S - 0.4, 0, 1.7);
+    const feet = at(pour, DOOR_S - 12, 0.4, 0.04);
+    const look = at(pour, DOOR_S + 0.4, 0, 2.8);
     if (!owned(layout, feet.x, feet.z)) return null;
-    return walk(feet, look, 0.06);
+    return walk(feet, look, -0.04);
   }
   if (kind === 'stacks') {
     for (const b of blocks(layout)) {
       const stack = planArts(b, layout).boxes.find((box) => box.h > 70);
       if (!stack) continue;
-      const eye = at(b, -(b.la / 2 + 7), Math.max(-18, Math.min(18, stack.t * 0.25)), 26);
+      const t = Math.max(-18, Math.min(18, stack.t * 0.25));
+      const near = at(b, -(b.la / 2 + 8), t, 22);
+      const far = at(b, -(b.la / 2 + 80), t, 24);
+      const eye = owned(layout, far.x, far.z) ? far : near;
       const look = at(b, stack.s, stack.t, stack.h * 0.55);
       if (!owned(layout, eye.x, eye.z)) continue;
       return fly(eye, look);
@@ -120,34 +124,40 @@ export function artsCamera(layout: CityLayout, kind: ArtsView): ArtsPose | null 
     return null;
   }
   if (kind === 'river') {
-    let best: { b: ArtsBlock; east: number } | null = null;
+    const anchor = pour?.cz ?? 1200;
+    let best: { b: ArtsBlock; east: number; score: number } | null = null;
     for (const b of blocks(layout)) {
       const east = eastClearance(layout, b);
-      if (east > 22) continue;
-      if (!best || east < best.east) best = { b, east };
+      if (east > 16 || east < -28) continue;
+      const score = Math.abs(b.cz - anchor) + Math.max(0, east) * 8;
+      if (!best || score < best.score) best = { b, east, score };
     }
     if (!best) return null;
-    // Easternmost stance that is still on the works, looking toward the channel.
+    // Easternmost stance that is still on the works, looking down at the channel.
     let feet: { x: number; y: number; z: number } | null = null;
-    for (let t = best.b.lb / 2 + 6; t >= -best.b.lb / 2; t -= 3) {
-      const p = at(best.b, -8, t, 0.04);
+    for (let t = best.b.lb / 2 + 8; t >= -best.b.lb / 2; t -= 2) {
+      const p = at(best.b, 4, t, 0.04);
       if (!owned(layout, p.x, p.z)) continue;
       feet = p;
       break;
     }
     if (!feet) return null;
-    return walk(feet, { x: feet.x + 70, y: feet.y + 1.1, z: feet.z + 6 }, 0.08);
+    return walk(feet, { x: feet.x + 16, y: feet.y - 1.4, z: feet.z + 2 }, -0.48);
   }
+  const anchorZ = pour?.cz ?? 1200;
+  let street: { b: ArtsBlock; score: number } | null = null;
   for (const b of blocks(layout)) {
     const plan = planArts(b, layout);
     if (plan.foundry || eastClearance(layout, b) < 24) continue;
     const hall = plan.boxes.find((box) => box.h >= 12 && box.h <= 45 && box.base < 0.2 && box.la > 20);
     if (!hall) continue;
-    const s = -(b.la / 2 + b.street / 2) + 3.2;
-    const feet = at(b, s, -6, 0.04);
-    const look = at(b, hall.s - hall.la / 2, hall.t, 6);
-    if (!owned(layout, feet.x, feet.z)) continue;
-    return walk(feet, look, 0.08);
+    const score = Math.abs(b.cz - anchorZ);
+    if (!street || score < street.score) street = { b, score };
   }
-  return null;
+  if (!street) return null;
+  const s = -(street.b.la / 2 + 8);
+  const feet = at(street.b, s, -16, 0.04);
+  const look = at(street.b, s, 36, 2.4);
+  if (!owned(layout, feet.x, feet.z)) return null;
+  return walk(feet, look, 0.05);
 }

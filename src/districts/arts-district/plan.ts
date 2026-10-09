@@ -52,6 +52,8 @@ export interface ArtsProp {
   emissive: [number, number, number];
   metal: number;
   rank: number;
+  alpha?: number;
+  pass?: 'opaque' | 'fade' | 'add';
 }
 
 export interface ArtsPuff {
@@ -175,11 +177,12 @@ export function planArts(block: ArtsBlock, layout: CityLayout): ArtsPlan {
     s: number, t: number, y: number, template: PropTemplate,
     sx: number, sy: number, sz: number, yaw: number,
     color: RGB, emissive: RGB, metal: number, rank: number, pitch = 0,
+    alpha = 1, pass?: 'opaque' | 'fade' | 'add',
   ) => {
     const p = world(block, s, t, y);
     props.push({
       template, x: p.x, y: p.y, z: p.z, yaw, pitch, sx, sy, sz,
-      color, emissive, metal, rank,
+      color, emissive, metal, rank, alpha, pass,
     });
   };
 
@@ -218,10 +221,11 @@ function warehouse(
   const lb = Math.min(block.lb - 8, r.range(28, 46));
   const s = r.range(-8, 6);
   const t = r.range(-6, 6) + shift;
-  put(s, t, lb, la, H, 0, Style.Industrial, r.range(0.04, 0.12), r.range(0.55, 0.78), 0);
+  put(s, t, lb, la, H, 0, Style.Industrial, r.range(0.1, 0.22), r.range(0.55, 0.78), 0);
   // Brick dado on the south street face. Rank 0 so low tier still reads rust.
+  // A little emissive: night fabric is a dark mass, and the kit is what carries the rust.
   // Yaw 0: local +X is east, so the long axis runs along the wall.
-  prop(s - la / 2 - 0.22, t, 1.6, 'box', lb * 0.9, 3.2, 0.32, 0, BRICK, NONE, 0.12, 0);
+  prop(s - la / 2 - 0.22, t, 1.6, 'box', lb * 0.9, 3.2, 0.32, 0, BRICK, [0.16, 0.05, 0.02], 0.12, 0);
   const teeth = r.chance(0.55);
   const n = teeth ? 4 : 3;
   for (let i = 0; i < n; i++) {
@@ -260,7 +264,7 @@ function shed(put: Emit, prop: PropFn, r: Rng, shift = 0): void {
   const lb = r.range(22, 40);
   const s = r.range(-4, 4);
   const t = r.range(-4, 4) + shift;
-  put(s, t, lb, la, H * 0.72, 0, Style.Panel, r.range(0.03, 0.08), r.range(0.62, 0.85), 0);
+  put(s, t, lb, la, H * 0.72, 0, Style.Panel, r.range(0.08, 0.16), r.range(0.62, 0.85), 0);
   put(s, t, lb * 0.92, la * 0.92, H * 0.28, H * 0.72, Style.Industrial, 0.05, 0.7, 0);
   put(s, t - lb * 0.15, lb * 0.5, 0.4, 1.1, H * 0.78, Style.Glow, 0.22, 1.4, 1);
   prop(s - la / 2 - 0.16, t, 1.5, 'box', lb * 0.82, 3, 0.22, 0, STEEL, NONE, 0.75, 1);
@@ -298,7 +302,7 @@ function solidFoundry(put: Emit, prop: PropFn, puff: PuffFn, r: Rng, id: Foundry
   const H = 18 + r.range(0, 6);
   const s = -6;
   const t = 2;
-  put(s, t, 40, 56, H, 0, Style.Industrial, 0.06, 0.48, 0);
+  put(s, t, 40, 56, H, 0, Style.Industrial, 0.14, 0.48, 0);
   put(s, t - 16, 1.2, 40, HALL.clerestoryH, H - 3.2, Style.Glow, 0.9, 0.8, 0);
   put(s, t + 16, 1.2, 40, HALL.clerestoryH, H - 3.2, Style.Glow, 0.82, 0.8, 0);
   put(s - 28, t, 4.2, 0.3, 4.2, 0.2, Style.Glow, 0.7, 0.75, 1);
@@ -316,24 +320,34 @@ function pourHall(put: Emit, prop: PropFn, puff: PuffFn, r: Rng): void {
   const width = t1 - t0;
   // Shell. The street gap is empty so the interior bay can sit in it.
   const cheek = (width - gap * 2) / 2;
-  put(s0 + wall / 2, t0 + cheek / 2, cheek, wall, roofY, 0, Style.Industrial, 0.05, 0.5, 0);
-  put(s0 + wall / 2, t1 - cheek / 2, cheek, wall, roofY, 0, Style.Industrial, 0.05, 0.5, 0);
-  put(s0 + wall / 2, 0, gap * 2, wall, roofY - 4.4, 4.4, Style.Industrial, 0.05, 0.5, 0);
-  put(s1 - wall / 2, 0, width, wall, roofY, 0, Style.Industrial, 0.05, 0.48, 0);
-  put(sMid, t0 + wall / 2, wall, depth, roofY, 0, Style.Industrial, 0.05, 0.5, 0);
-  put(sMid, t1 - wall / 2, wall, depth, roofY, 0, Style.Industrial, 0.05, 0.5, 0);
+  put(s0 + wall / 2, t0 + cheek / 2, cheek, wall, roofY, 0, Style.Industrial, 0.12, 0.5, 0);
+  put(s0 + wall / 2, t1 - cheek / 2, cheek, wall, roofY, 0, Style.Industrial, 0.12, 0.5, 0);
+  put(s0 + wall / 2, 0, gap * 2, wall, roofY - 4.4, 4.4, Style.Industrial, 0.12, 0.5, 0);
+  put(s1 - wall / 2, 0, width, wall, roofY, 0, Style.Industrial, 0.12, 0.48, 0);
+  put(sMid, t0 + wall / 2, wall, depth, roofY, 0, Style.Industrial, 0.12, 0.5, 0);
+  put(sMid, t1 - wall / 2, wall, depth, roofY, 0, Style.Industrial, 0.12, 0.5, 0);
   put(sMid, 0, width - 1, depth - 1, roofH, roofY, Style.Industrial, 0.03, 0.55, 0);
   put(sMid, t0 + 0.9, 0.5, depth * 0.72, clerestoryH, clerestoryY, Style.Glow, 0.95, 0.78, 0);
   put(sMid, t1 - 0.9, 0.5, depth * 0.72, clerestoryH, clerestoryY, Style.Glow, 0.9, 0.78, 0);
   // Dock lip outside the door, clear of the opening.
   put(s0 - 2.4, 0, 5.2, 3.2, 0.4, 0, Style.Solid, 0.02, 0.4, 1);
+  put(s0 - 0.16, 0, gap * 1.7, 0.18, 0.42, 5.6, Style.Glow, 0.9, 0.82, 1);
+  for (const side of [-1, 1] as const) {
+    put(s0 - 0.14, side * 7.5, 0.4, 0.16, 2.4, 8.4, Style.Glow, 0.7, 0.78, 1);
+    put(s0 - 0.14, side * 14, 0.35, 0.16, 1.8, 9.2, Style.Glow, 0.55, 0.75, 2);
+  }
+  // Brick cheeks and a sodium practical. Night fabric is nearly black; these carry the door.
+  prop(s0 - 0.45, -(gap + cheek / 2), 3.4, 'box', cheek * 0.72, 6.6, 0.34, 0, BRICK, [0.18, 0.055, 0.02], 0.12, 0);
+  prop(s0 - 0.45, gap + cheek / 2, 3.4, 'box', cheek * 0.72, 6.6, 0.34, 0, BRICK, [0.18, 0.055, 0.02], 0.12, 0);
+  prop(s0 - 1.4, gap + 2.4, 3.6, 'box', 0.16, 7.2, 0.16, 0, DARK, [0.22, 0.1, 0.03], 0.5, 0);
+  prop(s0 - 1.7, gap + 2.4, 7.15, 'box', 0.85, 0.16, 0.4, 0, DARK, [1.15, 0.48, 0.12], 0.2, 0);
   prop(s0 - 0.4, gap + 0.8, 2.2, 'box', 0.15, 4.4, 0.15, 0, STEEL, [0.4, 0.16, 0.04], 0.6, 0);
   stackYard(put, prop, puff, r, true, (s0 + s1) / 2, t1 + 8);
   // Pour: a flare and a shower at the door. The shader loops them.
-  puff(s0 - 0.6, 0, 1.6, 4, 0.15, 1.4, 2.2, 1.4, 0);
+  puff(s0 - 1.5, 0, 1.5, 4, 0.15, 2.2, 2.8, 2.2, 0);
   for (let i = 0; i < 14; i++) {
     const a = (i / 14) * Math.PI - Math.PI / 2;
-    puff(s0 - 0.8, Math.sin(a) * 1.1, 0.6 + (i % 5) * 0.42, 3, 0.05 + i * 0.061, 0.28, 0.45, 0.28, 0);
+    puff(s0 - 2.2, Math.sin(a) * 1.5, 0.8 + (i % 5) * 0.7, 3, 0.05 + i * 0.061, 0.7, 1.15, 0.7, 0);
   }
 }
 
@@ -353,11 +367,15 @@ function stackYard(
   // Ladder and a red beacon. The beacon is a kit box; Glow tint cannot go red.
   prop(s - 2.8, t, H * 0.5, 'box', 0.18, H * 0.92, 0.18, 0, STEEL, NONE, 0.7, 1);
   for (let i = 0; i < 5; i++) prop(s - 2.8, t, 4 + i * (H / 6), 'box', 0.7, 0.08, 0.18, 0, STEEL, NONE, 0.6, 2);
-  prop(s, t, H + 1.5, 'box', 0.45, 0.45, 0.45, 0, DARK, RED, 0.2, 0);
+  prop(s, t, H + 2.4, 'box', 1.35, 1.35, 1.35, 0, DARK, RED, 0.2, 0);
   for (let i = 0; i < 3; i++) {
-    puff(s + (i - 1) * 0.8, t, H + 2.2, 2, r.next(), 3.4, 6.5, 3.4, 0);
+    puff(s + (i - 1) * 1.6, t, H + 14, 2, r.next(), 12, 32, 12, 0);
   }
-  puff(s + 8, t - 6, cH + 1.4, 2, r.next(), 4.2, 3.2, 4.2, 1);
+  puff(s + 8, t - 6, cH + 6, 2, r.next(), 8, 14, 8, 1);
+  // Static column. Indexed kit quads, so the plume still reads if the card batch is thin.
+  prop(s, t, H + 18, 'quadZ', 14, 36, 1, 0, DARK, [1.2, 1.08, 0.9], 0, 0, 0, 0.78, 'add');
+  prop(s, t, H + 18, 'quadZ', 14, 36, 1, Math.PI / 2, DARK, [1.2, 1.08, 0.9], 0, 0, 0, 0.78, 'add');
+  prop(s + 8, t - 6, cH + 8, 'quadZ', 8, 16, 1, 0.5, DARK, [1.05, 0.96, 0.82], 0, 1, 0, 0.66, 'add');
 }
 
 function pipeRack(put: Emit, r: Rng, block: ArtsBlock): void {
@@ -443,10 +461,11 @@ function dressRiver(layout: CityLayout, block: ArtsBlock, prop: PropFn, r: Rng):
   const place = (
     x: number, z: number, y: number, template: PropTemplate,
     sx: number, sy: number, sz: number, yaw: number, color: RGB, metal: number, rank: number, pitch = 0,
+    emissive: RGB = NONE,
   ) => {
-    propsPush(prop, block, x, z, y, template, sx, sy, sz, yaw, color, metal, rank, pitch);
+    propsPush(prop, block, x, z, y, template, sx, sy, sz, yaw, color, metal, rank, pitch, emissive);
   };
-  place(hit.qx, hit.qz, 0.08, 'quadY', 9, 1, 148, along, [0.035, 0.05, 0.055], 0.92, 0);
+  place(hit.qx, hit.qz, 0.08, 'quadY', 14, 1, 148, along, [0.05, 0.08, 0.09], 0.92, 0, 0, [0.07, 0.12, 0.13]);
   // Steps climb toward the district. Offsets are metres out from the centre line.
   const steps: Array<{ off: number; h: number; color: RGB }> = [
     { off: hit.half - 22, h: 0.4, color: STAIN },
@@ -454,7 +473,8 @@ function dressRiver(layout: CityLayout, block: ArtsBlock, prop: PropFn, r: Rng):
     { off: hit.half - 8, h: 1.5, color: [0.30, 0.28, 0.26] },
   ];
   for (const step of steps) {
-    place(hit.qx + dx * step.off, hit.qz + dz * step.off, step.h / 2, 'box', 6.4, step.h, 146, along, step.color, 0.18, 0);
+    const glow: RGB = step.h > 1 ? [0.1, 0.09, 0.07] : [0.04, 0.04, 0.035];
+    place(hit.qx + dx * step.off, hit.qz + dz * step.off, step.h / 2, 'box', 6.4, step.h, 146, along, step.color, 0.18, 0, 0, glow);
   }
   const crest = hit.half - 6;
   place(hit.qx + dx * crest, hit.qz + dz * crest, 1.7, 'quadZ', 140, 1.45, 1, along + Math.PI / 2, STEEL, 0.55, 0);
@@ -465,7 +485,7 @@ function dressRiver(layout: CityLayout, block: ArtsBlock, prop: PropFn, r: Rng):
     const px = hit.qx + hit.tx * o + dx * (hit.half - 12);
     const pz = hit.qz + hit.tz * o + dz * (hit.half - 12);
     // Cylinder axis is local Y. Pitch lays it along local −Z; yaw points that axis into the channel.
-    place(px, pz, 1.2, 'cyl', 0.72, 4.4, 0.72, Math.atan2(-dx, -dz), RUST, 0.55, 0, Math.PI / 2);
+    place(px, pz, 1.2, 'cyl', 0.72, 4.4, 0.72, Math.atan2(-dx, -dz), RUST, 0.55, 0, Math.PI / 2, [0.12, 0.04, 0.015]);
   }
   // East-west street on the north side of the block, from the east curb toward the water.
   const end = world(block, block.la / 2 + block.street / 2, block.lb / 2, 0);
@@ -474,19 +494,19 @@ function dressRiver(layout: CityLayout, block: ArtsBlock, prop: PropFn, r: Rng):
     const mx = end.x - dx * span * 0.45;
     const mz = end.z - dz * span * 0.45;
     const yaw = Math.atan2(-dx, -dz);
-    place(mx, mz, 2.55, 'box', 7.6, 0.5, span, yaw, RUST, 0.48, 0);
-    place(mx, mz, 3.05, 'box', 0.14, 0.65, span, yaw, STEEL, 0.6, 1);
+    place(mx, mz, 2.55, 'box', 7.6, 0.5, span, yaw, RUST, 0.48, 0, 0, [0.14, 0.045, 0.015]);
+    place(mx, mz, 3.05, 'box', 0.14, 0.65, span, yaw, STEEL, 0.6, 1, 0, [0.08, 0.07, 0.05]);
   }
 }
 
 function propsPush(
   prop: PropFn, block: ArtsBlock, x: number, z: number, y: number,
   template: PropTemplate, sx: number, sy: number, sz: number, yaw: number,
-  color: RGB, metal: number, rank: number, pitch = 0,
+  color: RGB, metal: number, rank: number, pitch = 0, emissive: RGB = NONE,
 ): void {
   const t = (x - block.cx) * block.bx + (z - block.cz) * block.bz;
   const s = (x - block.cx) * block.ax + (z - block.cz) * block.az;
-  prop(s, t, y, template, sx, sy, sz, yaw, color, NONE, metal, rank, pitch);
+  prop(s, t, y, template, sx, sy, sz, yaw, color, emissive, metal, rank, pitch);
 }
 
 type Emit = (
@@ -498,6 +518,7 @@ type PropFn = (
   s: number, t: number, y: number, template: PropTemplate,
   sx: number, sy: number, sz: number, yaw: number,
   color: RGB, emissive: RGB, metal: number, rank: number, pitch?: number,
+  alpha?: number, pass?: 'opaque' | 'fade' | 'add',
 ) => void;
 
 type PuffFn = (

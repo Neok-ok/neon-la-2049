@@ -43,6 +43,8 @@ function getCross(): BufferGeometry {
   const g = new BufferGeometry();
   g.setAttribute('position', new BufferAttribute(t.position, 3));
   g.setAttribute('normal', new BufferAttribute(t.normal, 3));
+  // Two quads. Without the index a triangle list keeps one triangle per quad.
+  g.setIndex(new BufferAttribute(t.index.slice(), 1));
   crossGeo = g;
   return g;
 }
@@ -70,6 +72,7 @@ function cards(pts: ArtsPuff[], name: string, material: ReturnType<typeof getArt
     attr.set([p.seed, p.kind, 0, 0], i * 4);
   }
   geo.setAttribute('iPart', new InstancedBufferAttribute(attr, 4));
+  mesh.instanceMatrix.needsUpdate = true;
   mesh.instanceMatrix.setUsage(DynamicDrawUsage);
   mesh.frustumCulled = false;
   mesh.name = name;
@@ -104,7 +107,11 @@ registerDetail('arts-street', ['arts-district'], (ctx) => {
   if (!any) return null;
   props.sort((a, b) => a.rank - b.rank);
   const keptProps = thin(props, cap.props);
-  const keptSteam = thin(steam, Math.min(cap.steam, Math.max(8, Math.round(ctx.quality.steam * 0.22))));
+  const steamCap = Math.min(cap.steam, Math.max(8, Math.round(ctx.quality.steam * 0.22)));
+  const plumes = steam.filter((p) => p.kind === 2);
+  const drift = steam.filter((p) => p.kind !== 2);
+  const keptPlumes = thin(plumes, steamCap);
+  const keptSteam = keptPlumes.concat(thin(drift, Math.max(0, steamCap - keptPlumes.length)));
   const keptSparks = thin(sparks, cap.sparks);
   if (!keptProps.length && !keptSteam.length && !keptSparks.length) return null;
   const group = new Group();
@@ -115,6 +122,7 @@ registerDetail('arts-street', ['arts-district'], (ctx) => {
     yaw: p.yaw, pitch: p.pitch,
     sx: p.sx, sy: p.sy, sz: p.sz,
     color: p.color, emissive: p.emissive, metal: p.metal,
+    alpha: p.alpha, pass: p.pass,
   }));
   for (const mesh of buildKitMeshes(kit, 'arts-kit')) group.add(mesh);
   if (keptSteam.length) group.add(cards(keptSteam, 'arts-steam', getArtsSteamMaterial()));

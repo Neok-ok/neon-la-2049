@@ -1,6 +1,6 @@
 // One steam material and one spark material for the district. Shared across chunks.
 // iPart.x is the seed. iPart.y is 2 for a static plume (low tier) and 4 for the pour flare.
-import { AdditiveBlending, DoubleSide, MeshBasicNodeMaterial, NormalBlending } from 'three/webgpu';
+import { AdditiveBlending, DoubleSide, MeshBasicNodeMaterial } from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import { U } from '../../atmosphere/uniforms';
 
@@ -16,14 +16,15 @@ export function getArtsSteamMaterial(): MeshBasicNodeMaterial {
   steam = new MeshBasicNodeMaterial();
   steam.transparent = true;
   steam.depthWrite = false;
-  steam.blending = NormalBlending;
+  steam.blending = AdditiveBlending;
   steam.side = DoubleSide;
-  steam.fog = true;
+  steam.fog = false;
   steam.name = 'arts-steam';
   const part = attribute('iPart', 'vec4');
   const seed = part.x;
   const kind = part.y;
-  const still = smoothstep(1.5, 2.5, kind);
+  // Kind 2 is a stack plume and stays put. Vents and grates rise.
+  const still = smoothstep(1.25, 1.75, kind);
   const life = fract(U.time.mul(0.16).add(seed));
   const drift = sin(U.time.mul(0.65).add(seed.mul(6.0))).mul(0.16);
   const rise = life.mul(1.8);
@@ -32,11 +33,13 @@ export function getArtsSteamMaterial(): MeshBasicNodeMaterial {
     rise.mul(float(1).sub(still)),
     drift.mul(0.55).mul(float(1).sub(still)),
   ));
-  const fade = mix(sin(life.mul(Math.PI)), float(0.85), still);
+  const fade = mix(sin(life.mul(Math.PI)), float(0.92), still);
   const dist = length(positionWorld.sub(cameraPosition));
   const sodium = vec3(1.0, 0.58, 0.24);
-  const body = mix(vec3(0.72, 0.74, 0.76), sodium, U.night.mul(0.42));
-  steam.colorNode = vec4(body, fade.mul(0.34).mul(smoothstep(48.0, 6.0, dist)));
+  const driftBody = mix(vec3(0.78, 0.8, 0.82), sodium, U.night.mul(0.42));
+  const body = mix(driftBody, vec3(0.95, 0.9, 0.78), still);
+  const distFade = float(1).sub(smoothstep(36.0, 520.0, dist));
+  steam.colorNode = vec4(body, fade.mul(mix(float(0.5), float(0.92), still)).mul(distFade));
   return steam;
 }
 
@@ -61,6 +64,7 @@ export function getArtsSparkMaterial(): MeshBasicNodeMaterial {
   const fade = sin(life.mul(Math.PI));
   const dist = length(positionWorld.sub(cameraPosition));
   const col = mix(vec3(1.0, 0.42, 0.08), vec3(1.0, 0.72, 0.28), flare);
-  spark.colorNode = vec4(col.mul(mix(float(1.3), float(1.8), flare)), fade.mul(0.85).mul(smoothstep(40.0, 4.0, dist)));
+  const distFade = float(1).sub(smoothstep(6.0, 48.0, dist));
+  spark.colorNode = vec4(col.mul(mix(float(1.3), float(1.8), flare)), fade.mul(0.85).mul(distFade));
   return spark;
 }
