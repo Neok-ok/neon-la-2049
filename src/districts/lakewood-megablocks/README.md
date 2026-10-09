@@ -39,7 +39,7 @@ Low tier draws a light streak dusting from this route's own cap (about 7,000 das
 
 `lakewood-shop` is one `buildCorridorRoom` (warmth 0.75, no window, no rides, no scene lights) on the north side of the hub yard. Two rank-2 holograms, `glyph-loop` and `lease-loop`, hang over the yard. Wetness is 0.38 below 46 m. Street fog is 0.30 below 40 m. No new audio bus.
 
-Far lights for this archetype are 0.5. Street neon is 0.22.
+Far lights for this archetype are 0.5. Street neon is 0.08, under the Stage 1 residential default, so rain reads as a dark street with a little colour.
 
 ## Budgets
 

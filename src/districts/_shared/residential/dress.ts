@@ -109,14 +109,14 @@ export function dressResidential(b: ResBlock, plan: ResidentialPlan, layout: Cit
     const [x, z] = world(b, 0, b.lb / 2 + curb);
     if (open(layout, x, z)) steam.push({ x, y: b.ground + 0.2, z, seed: rng.next(), rank: 2 });
   }
-  // One cable sag between the long faces, high tier only.
+  // A short sag over the sidewalk. A span across the lot reads as a sky bridge.
   if (rng.chance(0.2)) {
-    const s = rng.range(-b.la * 0.2, b.la * 0.2);
-    const t = 0;
-    put(s, t, 11, Math.atan2(b.bx, b.bz), {
-      template: 'cyl', sx: 0.06, sy: b.lb * 0.7, sz: 0.06,
+    const s = b.la / 2 + curb;
+    const t = rng.range(-b.lb * 0.25, b.lb * 0.25);
+    put(s, t, 6.4, Math.atan2(b.bx, b.bz), {
+      template: 'cyl', sx: 0.035, sy: 7.5, sz: 0.035,
       color: [0.1, 0.1, 0.11], emissive: NONE, metal: 0.5, rank: 2,
-      pitch: Math.PI / 2 + 0.16,
+      pitch: Math.PI / 2 + 0.22,
     });
   }
 

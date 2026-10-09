@@ -170,7 +170,7 @@ export function lakewoodCamera(layout: CityLayout, kind: LakewoodView): LakePose
   }
   const hit = list.find((f) => f.plan.family === 'bar' && !f.plan.hub && !f.plan.edge);
   if (!hit) return null;
-  const feet = worldAt(hit.block, -(hit.block.la / 2 + 4.2), 0, 0.04);
-  const look = worldAt(hit.block, 0, 0, 32);
-  return walk(feet, look, 0.38);
+  const feet = worldAt(hit.block, -(hit.block.la / 2 + 6.5), 12, 0.04);
+  const look = worldAt(hit.block, -hit.block.la * 0.22, -8, 18);
+  return walk(feet, look, 0.22);
 }

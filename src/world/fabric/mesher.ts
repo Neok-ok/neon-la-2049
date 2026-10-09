@@ -68,7 +68,7 @@ const STREET_NEON: Record<string, number> = {
   'sprawl-dense': 0.35,
   'basin-sprawl': 0.25,
   'megablock-residential': 0.3,
-  'lakewood-megablocks': 0.22,
+  'lakewood-megablocks': 0.08,
   civic: 0.2,
   'coastal-grey': 0.04,
   industrial: 0.1,
