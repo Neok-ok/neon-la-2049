@@ -85,7 +85,7 @@ function structure(): { boxes: InteriorBox[]; colliders: InteriorCollider[] } {
   const boxes: InteriorBox[] = [];
   const cols: InteriorCollider[] = [];
 
-  add(boxes, cols, 0, 0, 9.025, 10.5, 0.14, 13.95, DARK);
+  add(boxes, cols, 0, 0, 9.025, 13.8, 0.14, 13.95, DARK);
   add(boxes, cols, 0, 0, 19.9, 4.5, 0.14, 7.7, DARK);
 
   const gx = (GX0 + GX1) / 2;

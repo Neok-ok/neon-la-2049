@@ -508,7 +508,11 @@ export class App {
         this.cams.setMode('walk');
         this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
         this.cams.walk.pitch = p.pitch;
+        this.cams.walk.heading = p.heading;
         this.cams.walk.pos.set(p.feet.x, p.feet.y, p.feet.z);
+        this.camera.position.set(p.feet.x, p.feet.y + 1.7, p.feet.z);
+        this.camera.rotation.set(p.pitch, -p.heading, 0, 'YXZ');
+        this.camera.updateMatrixWorld();
         return true;
       },
       broadwayView: (kind: BroadwayView) => {

@@ -135,6 +135,14 @@ for (const s of shots) {
     // camera presets are idempotent; set it again in case a slow first frame swallowed the first call
     await page.evaluate(s.after);
     await page.waitForTimeout(1500);
+    if (s.name.startsWith('interior-')) {
+      await page.evaluate(s.after);
+      await page.evaluate(() => new Promise((resolve) => {
+        const t0 = performance.now();
+        const step = () => (performance.now() - t0 >= 1400 ? resolve(0) : requestAnimationFrame(step));
+        requestAnimationFrame(step);
+      }));
+    }
   }
   if (s.cine) {
     // cut until the director lands on a wide establishing shot, then let its area stream in

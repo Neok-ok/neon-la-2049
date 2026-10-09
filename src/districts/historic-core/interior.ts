@@ -5,11 +5,11 @@ import { placeCollider, placeInterior, placeVolume, registerInterior, buildCorri
 import type { PlaceFrame } from '../../world/interiors';
 import { setBradburyCourtShown } from './bradbury';
 import { buildCourt, courtColliders } from './courtPlan';
-import { BRADBURY_FRONT, FACE_YAW, headingAlong, localToWorld } from './spec';
+import { FACE_YAW, headingAlong, localToWorld } from './spec';
 
 const H = 22.4;
 
-function frameAt(x: number, z: number, y: number): PlaceFrame {
+function frameAt(x: number, y: number, z: number): PlaceFrame {
   return { x, y, z, yaw: FACE_YAW };
 }
 
@@ -89,8 +89,8 @@ function shot(
 
 /** Walk cameras for the interior stream. Feet sit on the court or the service floor. */
 export function interiorCamera(layout: CityLayout, kind: InteriorView): InteriorPose | null {
-  if (kind === 'court') return shot(layout, -1.2, 8.2, 0.14, 3.6, 12.2, 3.2, 0.48);
-  if (kind === 'stair') return shot(layout, 1.2, 12.2, 0.14, 4.2, 10.4, 5.5, 0.5);
-  if (kind === 'door') return shot(layout, -1.6, 29.5, 0, 0, BRADBURY_FRONT - 4, 3.2, 0.12);
+  if (kind === 'court') return shot(layout, -1.2, 8.2, 0.14, 3.6, 12.2, 3.2, 0.2);
+  if (kind === 'stair') return shot(layout, 1.2, 12.2, 0.14, 4.2, 10.4, 5.5, 0.32);
+  if (kind === 'door') return shot(layout, -5.5, 33.5, 0, 0.4, 18, 3.2, 0.04);
   return shot(layout, 0, -1.2, 0.12, 0.2, -8.5, 1.35, 0.04);
 }
