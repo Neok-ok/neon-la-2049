@@ -115,6 +115,19 @@ const shots = [
   { name: 'interior-k-low', ctx: desktop, q: `mode=walk&at=k-megablock-tower&time=22.5&weather=rain&freeze=1&ui=0&quality=low${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.kView('apartment'), near: true },
   { name: 'interior-k-medium', ctx: desktop, q: `mode=walk&at=k-megablock-tower&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.kView('apartment'), near: true },
   { name: 'interior-k-ultra', ctx: desktop, q: `mode=walk&at=k-megablock-tower&time=22.5&weather=rain&freeze=1&ui=0&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.kView('apartment'), near: true },
+  // Stage 7 — Wallace Precinct. Cameras come from __nla.wallaceView.
+  { name: 'wallace-approach-dusk', ctx: desktop, q: `mode=fly&at=wallace-pyramid&time=17.8&weather=drizzle&${common}`, after: () => window.__nla.wallaceView('approach'), near: true },
+  { name: 'wallace-plaza-rain', ctx: desktop, q: `mode=walk&at=wallace-plaza&time=22.5&weather=rain&${common}`, after: () => window.__nla.wallaceView('plaza'), near: true },
+  { name: 'wallace-face', ctx: desktop, q: `mode=walk&at=wallace-pyramid&time=22&weather=rain&${common}`, after: () => window.__nla.wallaceView('face'), near: true, face: true },
+  { name: 'wallace-satellite', ctx: desktop, q: `mode=fly&at=wallace-satellite-a&time=21.5&weather=drizzle&${common}`, after: () => window.__nla.wallaceView('satellite'), near: true },
+  { name: 'wallace-factories', ctx: desktop, q: `mode=fly&at=wallace-pyramid&time=22&weather=rain&${common}`, after: () => window.__nla.wallaceView('convoy'), near: true, settle: true },
+  { name: 'wallace-old-pyramids', ctx: desktop, q: `mode=fly&at=old-pyramid-north&time=18.2&weather=smog&${common}`, after: () => window.__nla.wallaceView('oldpyramids'), near: true, settle: true },
+  { name: 'interior-wallace-atrium', ctx: desktop, q: `mode=walk&at=wallace-atrium&time=22.5&weather=rain&${common}`, after: () => window.__nla.wallaceView('atrium'), near: true },
+  { name: 'wallace-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=wallace-plaza&time=22.5&weather=rain&freeze=1&ui=0&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.wallaceView('plaza'), near: true },
+  { name: 'wallace-low', ctx: desktop, q: `mode=walk&at=wallace-plaza&time=22.5&weather=rain&freeze=1&ui=0&quality=low${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.wallaceView('plaza'), near: true },
+  { name: 'wallace-medium', ctx: desktop, q: `mode=walk&at=wallace-plaza&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.wallaceView('plaza'), near: true },
+  { name: 'wallace-ultra', ctx: desktop, q: `mode=walk&at=wallace-plaza&time=22.5&weather=rain&freeze=1&ui=0&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.wallaceView('plaza'), near: true },
+  { name: 'wallace-factories-medium', ctx: desktop, q: `mode=fly&at=wallace-pyramid&time=22&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.wallaceView('factories'), near: true, settle: true },
 ];
 
 const args = GPU
@@ -157,6 +170,18 @@ for (const s of shots) {
         const step = () => (performance.now() - t0 >= 1400 ? resolve(0) : requestAnimationFrame(step));
         requestAnimationFrame(step);
       }));
+    }
+    if (s.settle) {
+      // The preset can land kilometres from `at=`. Wait until that neighbourhood is dressed.
+      await page.waitForFunction(() => {
+        const st = window.__nla?.stats?.();
+        return st && st.lod0 >= 6 && st.inFlight === 0 && st.readyQueue === 0 && st.fps > 0;
+      }, null, { timeout: 120_000, polling: 500 }).catch(() => console.warn(`${s.name}: area still streaming`));
+      await page.evaluate(s.after);
+      await page.waitForTimeout(1800);
+    }
+    if (s.face) {
+      await page.waitForFunction(() => (window.__nla?.stats?.().faceSectors ?? 0) >= 4, null, { timeout: 20_000, polling: 200 }).catch(() => {});
     }
   }
   if (s.cine) {

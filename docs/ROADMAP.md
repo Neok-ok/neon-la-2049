@@ -105,11 +105,20 @@ A reusable interior stream, built before K's apartment so Stage 8 does not inven
 
 What Stage 8 should know: call `registerInterior` and start from `buildCorridorRoom`. Do not add scene lights. Do not render the city into a portal target. Do not copy the Bradbury stair. The noodle bar and the LAPD lobby are still soffits. Stage 8 did this: K's lobby, corridor, apartment, roof head-house and three lift cars call `registerInterior`. `sideDoors`, `backDoor`, `window`, `rides` and `hum` are the extensions, in the interiors README.
 
-## Stage 7 — Wallace Precinct
-`wallace-vernon` + satellites: the pyramid's hero model and its warm apex lantern already exist (Stage 3, `wallace-vernon/pyramid.ts`).
-This stage adds close-range surface detail (panel lines, formwork, drainage, lit slit windows at human scale), a walkable sealed entrance
-plaza, the satellites rebuilt with the kit, Wallace factories, tanks and the approach road, freight spinner convoys into the precinct
-(extend `skyLanes.ts`), and the dormant old pyramids' surroundings. Optional interior: the water-lit atrium (scaled-down).
+## Stage 7 — Wallace Precinct ✅
+
+`wallace-vernon` + satellites + the old pyramids' apron. The Stage 3 pyramid mesh and its 6 / 18 km LODs stay.
+
+* **Close range.** A second skin inside ~1.5 km of the hull: board-formed bands, joints, a drain and scupper, a maintenance ledge, dim bronze slits. One face sector per frame. The central slot and the portal mouth stay bare. Warm light stays on the apex and the top two tiers.
+* **Plaza.** North face, walkable. A 30 m walled causeway, stone court, eight 0.375 m risers onto the Stage 3 plinth, pylons, a security line, amber puddles, a human door in front of the sealed portal. Colliders for the steps, plinths and pylons. Four ground haulers loop the causeway. The polygon edge cuts the Stage 3 plinth, so the causeway lives in the reserve.
+* **Satellites.** `wallace-tower` A/B/C rebuilt with the megatower kit: battered tiers, slots, a warm crown, a mast inside the published height, aviation lights. Three LODs (2.4 / 8 km). Colliders from the detail build. Heights and placements unchanged.
+* **Fabric.** Archetype `wallace-vernon` replaces `industrial` on this polygon only. Halls 18–42 m, sawtooth roofs, tanks, pipe racks, conveyors, docks, stacks to 58 m, perimeter walls. No new shader. No word signs. Approach road is the causeway above, not a street-graph edge.
+* **Freight.** `wallace-freight-in`, `wallace-dock-ns`, `wallace-dock-ew` appended in `skyLanes.ts`. Transports, platoons of 2–5, `altBias` 0. Amber haze (street fog 0.78 below 110 m) in the polygon and the pyramid reserve. Industrial bed on the ambience bus.
+* **Atrium.** `wallace-atrium` via `registerInterior`: a small water-lit room behind the human door. Not a second interior path. The film cathedral is not copied.
+* **Old pyramids.** A ring of tanks, pipes and a low wall just outside each reserve, on `southeast-industrial` only. No rename, no Tyrell mark.
+* **Cameras.** `__nla.wallaceView('approach'|'plaza'|'face'|'satellite'|'factories'|'convoy'|'oldpyramids'|'atrium')`.
+
+What the next stage should know: Stage 10 (Grey Coast and the Sepulveda Sea Wall) is next. The pyramid is still the tallest thing. Fabric here stays under 60 m. Do not add a street graph on this polygon. Do not put a logo on the stone. The old pyramids' archetype is still the shared `industrial` one; Stage 15 dresses the belt. The atrium is a room, not a ride — do not reuse `rides` here.
 
 ## Stage 8 — K's Megablock ✅
 
@@ -122,7 +131,7 @@ plaza, the satellites rebuilt with the kit, Wallace factories, tanks and the app
 * **Cameras.** `__nla.kView('street'|'market'|'lobby'|'corridor'|'apartment'|'roof'|'aerial')`.
 * **Atmosphere.** Rain and the city bed. Neon wet 0.5 below 48 m, street fog 0.36 below 40 m. One 74 Hz hum while an interior that sets `hum` is occluded.
 
-What the next stage should know: Stage 7 (Wallace Precinct) is next. The doorway card is still procedural, not a live street. Fly mode still cannot enter a volume. The lift does not move a mesh. The LAPD lobby and the noodle bar stay soffits. Do not add a street graph on this polygon. Do not reuse `rides` unless a floor change is actually needed.
+What the next stage should know: Stage 7 shipped after this one. The doorway card is still procedural, not a live street. Fly mode still cannot enter a volume. The lift does not move a mesh. The LAPD lobby and the noodle bar stay soffits. Do not add a street graph on this polygon. Do not reuse `rides` unless a floor change is actually needed.
 
 ## Stage 9 — Arts District Works
 `arts-district`: warehouses, foundries, pipe racks, steam and sparks, the LA River edge.
@@ -169,4 +178,4 @@ and the El Segundo flare field in full.
 
 ## Suggested order
 
-Stages 2, 3, 4, 5, 6, 8, X3 and X4 are done. Next: 7 → 10 → X2 → 11 → 12 → 9 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21, with X1/X5/X6/X7 where they unblock the next district. Later stages add holograms by calling `registerHologram`, not by replacing the field, and interiors by calling `registerInterior`. Build anything taller than 320 m with the megatower kit as a landmark. Civic Center already calls `registerCrowdSource` on the market mesh. Stage 8 consumed X3; it did not add a second interior system.
+Stages 2, 3, 4, 5, 6, 7, 8, X3 and X4 are done. Next: 10 → X2 → 11 → 12 → 9 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21, with X1/X5/X6/X7 where they unblock the next district. Later stages add holograms by calling `registerHologram`, not by replacing the field, and interiors by calling `registerInterior`. Build anything taller than 320 m with the megatower kit as a landmark. Civic Center already calls `registerCrowdSource` on the market mesh. Stage 8 consumed X3; it did not add a second interior system. Stage 7 calls `registerInterior` for one room and does not add a street graph.

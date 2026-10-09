@@ -9,10 +9,14 @@ export class Ambience {
   private master!: GainNode;
   private muffleFilter: BiquadFilterNode | null = null;
   private humGain: GainNode | null = null;
+  private machGain: GainNode | null = null;
+  private machTone: GainNode | null = null;
   /** 0 on the street, 1 fully inside. Low-passes the whole bed, including market layers on `output`. */
   private interior = 0;
   /** 0..1 quiet sine, one oscillator, used by interiors that ask for it. */
   private hum = 0;
+  /** 0..1 low industrial bed. Wallace precinct sets this near the ground. */
+  private machinery = 0;
   muted = false;
 
   start(): void {
@@ -101,6 +105,22 @@ export class Ambience {
     hum.connect(humLp).connect(this.humGain).connect(this.master);
     hum.start();
 
+    // Low industrial bed: filtered noise plus a slow 41 Hz tone. Not music.
+    const mach = noise('brown', 8);
+    const machLp = ctx.createBiquadFilter();
+    machLp.type = 'lowpass';
+    machLp.frequency.value = 95;
+    this.machGain = ctx.createGain();
+    this.machGain.gain.value = 0;
+    mach.connect(machLp).connect(this.machGain).connect(this.master);
+    const tone = ctx.createOscillator();
+    tone.type = 'sine';
+    tone.frequency.value = 41;
+    this.machTone = ctx.createGain();
+    this.machTone.gain.value = 0;
+    tone.connect(this.machTone).connect(this.master);
+    tone.start();
+
     // wind
     const wind = noise('brown', 5);
     const wbp = ctx.createBiquadFilter();
@@ -136,6 +156,11 @@ export class Ambience {
     this.hum = Math.max(0, Math.min(1, amount));
   }
 
+  /** 0..1. Precinct machinery. Stored before the audio context exists. */
+  setMachinery(amount: number): void {
+    this.machinery = Math.max(0, Math.min(1, amount));
+  }
+
   /** altitude in meters above ground: street-level sounds fade when flying high. */
   update(rain: number, snow: number, wind: number, altitude: number): void {
     if (!this.ctx) return;
@@ -143,6 +168,10 @@ export class Ambience {
     const m = this.interior;
     if (this.muffleFilter) this.muffleFilter.frequency.setTargetAtTime(Math.max(280, 15000 - m * 14720), t, 0.35);
     if (this.humGain) this.humGain.gain.setTargetAtTime(this.hum * 0.016, t, 0.45);
+    const mach = this.machinery * (1 - 0.55 * m);
+    const wobble = 0.78 + 0.22 * Math.sin(t * 0.7);
+    if (this.machGain) this.machGain.gain.setTargetAtTime(mach * 0.04 * wobble, t, 0.5);
+    if (this.machTone) this.machTone.gain.setTargetAtTime(mach * 0.01, t, 0.5);
     const street = Math.max(0.15, 1 - altitude / 400);
     this.rainGain.gain.setTargetAtTime(rain * 0.32 * (1 - 0.58 * m), t, 0.5);
     this.patterGain.gain.setTargetAtTime(rain * 0.25 * street * (1 - 0.72 * m), t, 0.5);

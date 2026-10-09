@@ -10,6 +10,7 @@ import type { Landmark } from '../world/layout';
 import { DOWNTOWN_BLOCK_A, DOWNTOWN_BLOCK_B, gridAxes } from '../districts/_shared/megablock/grid';
 import { lapdPadRuns } from '../districts/civic-center/lanes';
 import { kPadRuns } from '../districts/k-megablock/lanes';
+import { wallaceFreightRuns } from '../districts/wallace-vernon/lanes';
 
 export type LaneClass = 'civilian' | 'police' | 'transport';
 
@@ -33,6 +34,11 @@ export interface SkyLane {
   altBias: number;
   /** Metres of fade at each end of an open lane. */
   fade: number;
+  /**
+   * Inclusive platoon size. Omitted lanes keep the original 1–5 roll
+   * (`1 + floor(r² × 4.2)`). Freight sets this to 2–5.
+   */
+  platoon?: [number, number];
 }
 
 function lane(id: string, pts: Vector3[], loop: boolean, o: Partial<SkyLane> = {}): SkyLane {
@@ -44,6 +50,7 @@ function lane(id: string, pts: Vector3[], loop: boolean, o: Partial<SkyLane> = {
     weight: o.weight ?? 1, police: o.police ?? 0.12, transport: o.transport ?? 0.1,
     speed: o.speed ?? [55, 95], sep: o.sep ?? 16,
     altBias: o.altBias ?? 7, fade: o.fade ?? 220,
+    platoon: o.platoon,
   };
 }
 
@@ -211,6 +218,17 @@ export function buildSkyLanes(q: CityQuery): SkyLane[] {
   // DTLA / financial / civic avenues in the 175–260 m band, on the street centre lines.
   // A run is split where a hero collider crosses it, instead of dropping the whole avenue.
   for (const av of downtownAvenues(q)) lanes.push(av);
+  // Wallace freight: a low corridor into the precinct and two dock drops. Not a street graph.
+  const walFreight = lm('wallace-pyramid');
+  if (walFreight) {
+    for (const run of wallaceFreightRuns(walFreight.x, walFreight.z, (x, y, z) => q.insideLandmark(x, y, z, 3.5))) {
+      lanes.push(lane(run.id, run.pts.map((p) => new Vector3(p[0], p[1], p[2])), run.loop, {
+        weight: run.weight, police: run.police, transport: run.transport,
+        speed: run.speed, sep: run.sep, altBias: run.altBias, fade: run.fade,
+        platoon: run.platoon,
+      }));
+    }
+  }
   return lanes;
 }
 

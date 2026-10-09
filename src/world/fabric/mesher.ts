@@ -45,6 +45,7 @@ const SPRAWL_LIGHTS: Record<string, number> = {
   entertainment: 1,
   'coastal-grey': 0.25,
   industrial: 0.35,
+  'wallace-vernon': 0,
   'industrial-dense': 0.5,
   port: 0.4,
   spaceport: 0.3,
@@ -68,6 +69,8 @@ const STREET_NEON: Record<string, number> = {
   civic: 0.2,
   'coastal-grey': 0.1,
   industrial: 0.1,
+  // No market-neon carpet. Rain in the precinct stays a dark amber haze.
+  'wallace-vernon': 0,
   'industrial-dense': 0.15,
   port: 0.1,
   spaceport: 0.15,

@@ -2,6 +2,7 @@
 // src/world/landmarks/registry.ts; a district builder replaces the blockout builder of the same type.
 import './financial-megatowers/landmarks';
 import './wallace-vernon/pyramid';
+import './wallace-vernon/satellite';
 import './civic-center/hq';
 import './civic-center/hall';
 import './historic-core/bradbury';

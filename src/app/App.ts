@@ -20,6 +20,9 @@ import { civicCamera, type CivicView } from '../districts/civic-center/view';
 import { broadwayCamera, type BroadwayView } from '../districts/historic-core/view';
 import { interiorCamera, type InteriorView } from '../districts/historic-core/interior';
 import { kCamera, type KView } from '../districts/k-megablock/view';
+import { wallaceCamera, type WallaceView } from '../districts/wallace-vernon/view';
+import { updateWallace } from '../districts/wallace-vernon/live';
+import { wallaceFaceSectorCount } from '../districts/wallace-vernon/faceDetail';
 import { installInteriors } from '../districts/interior-index';
 import { InteriorSystem } from '../world/interiors';
 import { installCivicHolos } from '../districts/civic-center/holos';
@@ -334,6 +337,9 @@ export class App {
     const inDtla = districtNow.id === 'dtla';
     const inHistoric = districtNow.id === 'historic-core';
     const inK = districtNow.id === 'k-megablock';
+    const walLm = this.query.layout.landmarkById('wallace-pyramid');
+    const inWallace = districtNow.id === 'wallace-vernon'
+      || (!!walLm && Math.hypot(cam.x - walLm.x, cam.z - walLm.z) < walLm.reserveRadius + 40);
     const inCanyon = inDtla || (districtNow.id === 'financial-megatowers' && alt < 40);
     U.neonWet.value = inMarket && alt < 140 ? 0.92
       : inHistoric && alt < 120 ? 0.88
@@ -344,7 +350,8 @@ export class App {
       : inHistoric && alt < 90 ? 0.42 * (1 - alt / 90)
         : inDtla && alt < 80 ? 0.28 * (1 - alt / 80)
           : inK && alt < 40 ? 0.36 * (1 - alt / 40)
-            : 0;
+            : inWallace && alt < 110 ? 0.78 * (1 - alt / 110)
+              : 0;
     const dtSafe = Math.max(dt, 1e-4);
     this.query.warm(cam.x, cam.z, cam.x + ((cam.x - this.lastCam.x) / dtSafe) * 0.45, cam.z + ((cam.z - this.lastCam.z) / dtSafe) * 0.45);
     this.lastCam.copy(cam);
@@ -353,6 +360,7 @@ export class App {
     if (this.cams.mode === 'cine' && this.cams.cine.prefetch) foci.push(this.cams.cine.prefetch);
     this.streamer.update(foci);
     this.landmarks.update(cam, this.quality.landmarkLod);
+    updateWallace(cam, this.quality.tier, dt);
     this.holos.update(this.camera, this.quality, this.streamer.billboards());
     this.traffic.update(dt, this.camera, this.quality.traffic);
     this.lanes.update(dt, this.camera, this.quality.laneTraffic);
@@ -387,6 +395,7 @@ export class App {
     }
     this.ambience.setInterior(this.interiors.blend);
     this.ambience.setHum(this.interiors.humAmount);
+    this.ambience.setMachinery(inWallace ? Math.max(0, 1 - alt / 140) * 0.82 : 0);
     this.ambience.update(w.params.rain, w.params.snow, w.params.wind, alt);
     this.camera.updateMatrixWorld();
     const e = this.camera.matrixWorld.elements;
@@ -516,6 +525,26 @@ export class App {
       /** Stage 6 cameras: Broadway at street level, the footbridge, the Bradbury face, spinner height, the court. */
       /** X3 cameras: inside the Bradbury court, on the stair, the street door, the service template. */
       /** Stage 8 cameras: the slab, the market, the lobby, the corridor, the apartment, the roof pad. */
+      /** Stage 7 cameras: the causeway, the plaza, the pyramid face, a satellite, the factories, a convoy, the old pyramids, the atrium. */
+      wallaceView: (kind: WallaceView) => {
+        const p = wallaceCamera(this.query.layout, kind);
+        if (!p) return false;
+        this.query.fabricAt(p.x, p.z);
+        this.cams.setMode(p.mode);
+        if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
+        this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
+        if (p.mode === 'walk') {
+          this.cams.walk.pitch = p.pitch;
+          this.cams.walk.heading = p.heading;
+          if (p.feet) {
+            this.cams.walk.pos.set(p.feet.x, p.feet.y, p.feet.z);
+            this.camera.position.set(p.feet.x, p.feet.y + 1.7, p.feet.z);
+            this.camera.rotation.set(p.pitch, -p.heading, 0, 'YXZ');
+            this.camera.updateMatrixWorld();
+          }
+        }
+        return true;
+      },
       kView: (kind: KView) => {
         const p = kCamera(this.query.layout, kind);
         if (!p) return false;
@@ -629,6 +658,7 @@ export class App {
         queryPending: this.query.pending,
         refl: this.wet.enabled,
         ...this.interiors.stats,
+        faceSectors: wallaceFaceSectorCount(),
       }),
     };
   }

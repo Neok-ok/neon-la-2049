@@ -1,6 +1,7 @@
-// Stage 3: the Wallace Corporation pyramid (hero landmark, three LODs) and the two dormant 1982-style
-// corporate pyramids in the refinery belt. Both come from the shared terraced-pyramid generator.
-import { registerLandmarkType, type LandmarkEnv } from '../../world/landmarks/registry';
+// Stage 3 hero model, extended in Stage 7. The terraces, far LODs and the old-pyramid builder stay.
+// Stage 7 adds the north plaza (on LOD0) and a streamed face skin. Old-pyramid surroundings are
+// `oldSurround.ts` on the refinery belt, not a change to this builder.
+import { registerLandmarkType, type LandmarkCollider, type LandmarkEnv } from '../../world/landmarks/registry';
 import { bearingToYaw } from '../../world/geo';
 import type { Landmark } from '../../world/layout';
 import { Rng, hashString } from '../../core/rng';
@@ -10,6 +11,8 @@ import { kitBox } from '../_shared/megatower/sink';
 import type { KitFrame } from '../_shared/megatower/geoSink';
 import { buildLevels, placeKit } from '../_shared/megatower/place';
 import { kitStats } from '../financial-megatowers/landmarks';
+import { attachFaceDetail } from './faceDetail';
+import { buildPlaza } from './plaza';
 
 /** The pyramid is 3.5 km tall: full detail inside ~6 km, mid to ~18 km, then the tier proxy. */
 export const WALLACE_LOD_DIST = [6000, 18000];
@@ -37,9 +40,14 @@ function build(l: Landmark, env: LandmarkEnv, plan: PyramidPlan, dists: number[]
     return p;
   });
   kitStats.push({ id: l.id, tris });
+  const extra: LandmarkCollider[] = [];
+  if (plan.look === 'wallace') {
+    extra.push(...buildPlaza(frame, meshes[0]!).colliders);
+    attachFaceDetail(frame.x, frame.z, frame.yaw, frame.y, meshes[0]!);
+  }
   const placed = placeKit(parts, frame, env, { id: l.id, seed: plan.seed });
   const object = env.lods.add(l.id, meshes, dists, l.x, l.z, frame.y, frame.y + parts.top, plan.base * 0.5);
-  return { object, colliders: placed.colliders };
+  return { object, colliders: extra.length ? [...placed.colliders, ...extra] : placed.colliders };
 }
 
 registerLandmarkType('wallace-pyramid', (l, env) => {
@@ -57,6 +65,7 @@ registerLandmarkType('wallace-pyramid', (l, env) => {
   return build(l, env, plan, WALLACE_LOD_DIST);
 });
 
+// Dormant 1982-style holdings. The ring of tanks outside each reserve is `oldSurround.ts`.
 registerLandmarkType('old-pyramid', (l, env) => {
   const plan: PyramidPlan = {
     seed: (hashString(l.id) % 1000) / 1000,
