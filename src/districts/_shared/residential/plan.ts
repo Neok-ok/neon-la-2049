@@ -274,23 +274,34 @@ function clutter(
   });
   const n = Math.min(4, Math.max(2, Math.floor((height - 8) / 3.4)));
   for (let i = 0; i < n; i++) {
-    const y = 7.2 + i * 3.4;
+    const y = 4.2 + i * 3.4;
     if (y > height - 3) break;
-    push(boxes, s + (i - (n - 1) / 2) * 4.2, t - lb / 2 - 0.15, 0.85, 1.35, 0.8, {
-      style: Style.Industrial, detail: 2, lit: 0.04, tint: 0.58, base: y,
+    const as = s + (i - (n - 1) / 2) * 3.2;
+    const at = t - lb / 2 - 0.4;
+    push(boxes, as, at, 1.05, 0.85, 0.75, {
+      style: Style.Industrial, detail: 2, lit: 0.1, tint: 0.52, base: y,
+    });
+    // A small warm vent. Night albedo is black, so the stack needs a practical.
+    push(boxes, as, at - 0.45, 0.55, 0.55, 0.28, {
+      style: Style.Glow, detail: 2, lit: 0.14, tint: 1.02, base: y + 0.22,
     });
   }
+  const ls = s + 6.2;
+  const lt = t - lb / 2 - 0.7;
   for (let i = 0; i < 3; i++) {
-    const y = 8.4 + i * 3.4;
+    const y = 4.6 + i * 3.4;
     if (y > height - 2) break;
-    push(boxes, s + 5.5, t - lb / 2 - 0.05, 0.65, 3.4, 0.28, {
-      style: Style.Solid, detail: 2, lit: 0.12, tint: 0.86, base: y,
+    push(boxes, ls - 1.7, lt, 0.55, 0.55, 1.25, { style: Style.Solid, detail: 2, lit: 0, tint: 0.62, base: y });
+    push(boxes, ls + 1.7, lt, 0.55, 0.55, 1.25, { style: Style.Solid, detail: 2, lit: 0, tint: 0.62, base: y });
+    push(boxes, ls, lt, 0.55, 3.8, 0.28, { style: Style.Solid, detail: 2, lit: 0, tint: 0.55, base: y + 1.05 });
+    push(boxes, ls, lt - 0.4, 0.55, 3.2, 0.4, {
+      style: Style.Glow, detail: 2, lit: 0.18, tint: 1.05, base: y + 0.38,
     });
   }
   push(boxes, s - la * 0.22, t + lb / 2 + 0.05, 0.7, 0.65, Math.max(6, height * 0.72), {
     style: Style.Solid, detail: 2, lit: 0, tint: 0.42,
   });
-  return { s, t: t - lb / 2, ns: 0, nt: -1, y: 12 };
+  return { s: ls, t: lt, ns: 0, nt: -1, y: 5.6 };
 }
 
 function addCourtProps(boxes: PlannedBox[], c: { s: number; t: number; la: number; lb: number }): void {

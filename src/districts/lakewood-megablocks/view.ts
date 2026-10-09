@@ -161,14 +161,14 @@ export function lakewoodCamera(layout: CityLayout, kind: LakewoodView): LakePose
     return walk(feet, look, 0.16);
   }
   if (kind === 'laundry') {
-    const hit = list.find((f) => f.plan.laundry && !f.plan.hub && f.plan.height > 40);
+    const hit = list.find((f) => f.plan.laundry && !f.plan.hub && !f.plan.edge && f.plan.height > 40);
     const L = hit?.plan.laundry;
     if (!hit || !L) return null;
-    // Stand off the −B face and look along it, so the lines and AC sit in the frame.
-    const dist = 12;
-    const feet = worldAt(hit.block, L.s + L.ns * dist + 8, L.t + L.nt * dist, 0.04);
-    const look = worldAt(hit.block, L.s - 6, L.t + L.nt * 0.2, 11);
-    return walk(feet, look, 0.52);
+    // Off the −B face, aimed at the cage. Pitch follows that point so the lines sit mid-frame.
+    const feet = worldAt(hit.block, L.s + L.ns * 8 - 2.4, L.t + L.nt * 8, 0.04);
+    const look = worldAt(hit.block, L.s + L.ns * 0.2, L.t + L.nt * 0.15, L.y);
+    const dist = Math.hypot(look.x - feet.x, look.z - feet.z) || 1;
+    return walk(feet, look, Math.atan2(L.y - 1.7, dist));
   }
   // Sidewalk, looking along the street. A look into the mass fills the frame with one slab.
   const hit = list.find((f) => f.plan.family === 'bar' && !f.plan.hub && !f.plan.edge);

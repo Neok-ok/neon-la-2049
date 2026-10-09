@@ -41,7 +41,7 @@ One family per block, on that block's own grid:
 
 The kit courtyard is a closed ring, so this library does not use that form. Heights snap to `module` inside `height`. A block whose sidewalk probe hits a reserved corridor becomes an edge bar: a lower slab, a segmented wall, fence posts and a lamp. Boxes whose centres fall in another district, the ocean, or a reserve are dropped.
 
-Façade clutter (stair core, AC stack, laundry lines, drain) is fabric, so it collides. Roof tanks and the mast come from the kit when `residential` is high. Balcony rows come from the kit when `residential` is above about 0.4.
+Façade clutter (stair core, AC stack, laundry lines, drain) is fabric, so it collides. The cloth and the AC vents are a dim warm `Style.Glow` practical, because night albedo is black. Roof tanks and the mast come from the kit when `residential` is high. Balcony rows come from the kit when `residential` is above about 0.4.
 
 Signs are atlas phrases, kind 0, kept between 2.8 m and 6.6 m. The kit's own signs are not forwarded.
 
