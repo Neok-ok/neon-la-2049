@@ -103,7 +103,7 @@ A reusable interior stream, built before K's apartment so Stage 8 does not inven
 * **Cameras.** `__nla.interiorView('court'|'stair'|'door'|'service')`. `__nla.broadwayView('atrium')` still stands in the court and is now inside the stream.
 * **Budget.** Every tier stays under 250 draws and 1.5 M triangles both inside the court and on the street outside the door.
 
-What Stage 8 should know: call `registerInterior` and start from `buildCorridorRoom`. Do not add scene lights. Do not render the city into a portal target. Do not copy the Bradbury stair. The noodle bar and the LAPD lobby are still soffits.
+What Stage 8 should know: call `registerInterior` and start from `buildCorridorRoom`. Do not add scene lights. Do not render the city into a portal target. Do not copy the Bradbury stair. The noodle bar and the LAPD lobby are still soffits. Stage 8 did this: K's lobby, corridor, apartment, roof head-house and three lift cars call `registerInterior`. `sideDoors`, `backDoor`, `window`, `rides` and `hum` are the extensions, in the interiors README.
 
 ## Stage 7 — Wallace Precinct
 `wallace-vernon` + satellites: the pyramid's hero model and its warm apex lantern already exist (Stage 3, `wallace-vernon/pyramid.ts`).
@@ -111,10 +111,18 @@ This stage adds close-range surface detail (panel lines, formwork, drainage, lit
 plaza, the satellites rebuilt with the kit, Wallace factories, tanks and the approach road, freight spinner convoys into the precinct
 (extend `skyLanes.ts`), and the dormant old pyramids' surroundings. Optional interior: the water-lit atrium (scaled-down).
 
-## Stage 8 — K's Megablock
-`k-megablock` + POI `k-apartment`: the slab, its harsh corridors, the street market at its feet, and **K's apartment interior**
-(enterable, with the spinner pad on the roof). The apartment uses Stage X3: `registerInterior` and `buildCorridorRoom`.
-Do not build a second streaming path, a second light rig, or a second door check.
+## Stage 8 — K's Megablock ✅
+
+`k-megablock` + POI `k-apartment`: the slab, the market at its feet, and an enterable apartment on the X3 stream.
+
+* **Slab.** `registerLandmarkType('megablock-slab')` replaces the Stage-1 blockout. 185 × 230 × 85 m, residential concrete, bands every 13.6 m, slit cores, laundry low on the south face. LOD triangles 1,180 / 740 / 70. Red roof lights. Colliders leave the lobby, the shaft and floor 40 open; the roof cap stays solid.
+* **Pad.** Amber 16 m pad, no insignia, a head-house, plant kept off the lanes. `k-pad-ew` and `k-pad-ns`, `altBias` 0, fade 60 m, hover 191 m. No street graph.
+* **Market.** Archetype `k-megablock` replaces `megablock-market`. One compact residential block per lot, signs only at the street. The hero market is kit props inside the 140 m reserve: stalls, a walk-up noodle counter (not an interior), vending, tarps, a pipe, a cable pair, sodium pools. Crowd share 0.32.
+* **Interiors.** `k-lobby`, `k-lift-lobby`, `k-lift-floor`, `k-lift-roof`, `k-corridor`, `k-apartment`, `k-head`, all `registerInterior`. Halls extend `buildCorridorRoom` (`sideDoors`, `backDoor`, `window: false`). The lift is three static cars and a fade (`rides`). Fly mode hands walk to the head-house door. No projector, no figure.
+* **Cameras.** `__nla.kView('street'|'market'|'lobby'|'corridor'|'apartment'|'roof'|'aerial')`.
+* **Atmosphere.** Rain and the city bed. Neon wet 0.5 below 48 m, street fog 0.36 below 40 m. One 74 Hz hum while an interior that sets `hum` is occluded.
+
+What the next stage should know: Stage 7 (Wallace Precinct) is next. The doorway card is still procedural, not a live street. Fly mode still cannot enter a volume. The lift does not move a mesh. The LAPD lobby and the noodle bar stay soffits. Do not add a street graph on this polygon. Do not reuse `rides` unless a floor change is actually needed.
 
 ## Stage 9 — Arts District Works
 `arts-district`: warehouses, foundries, pipe racks, steam and sparks, the LA River edge.
@@ -153,7 +161,7 @@ and the El Segundo flare field in full.
 |---|---|---|
 | **X1 Crowds** | The market shipped the first crowd (instanced coats, umbrellas, lane follow, cheap avoidance, tier counts). Generalise it: density from district data, more than two sidewalk loops, and a walk cycle that is more than a foot slide. | the market is the reference scene |
 | **X2 Ground traffic** | cars and trucks in streets and freeway trenches, traffic lights | |
-| **X3 Interiors framework** | ✅ Door volumes, baked light, occluded exterior, muffled rain. API in `src/world/interiors/README.md`. The Bradbury court is the proof; `buildCorridorRoom` is the template. The noodle bar and the LAPD lobby stay soffits. | Stage 8 calls `registerInterior`. It does not grow a second interior path |
+| **X3 Interiors framework** | ✅ Door volumes, baked light, occluded exterior, muffled rain. API in `src/world/interiors/README.md`. The Bradbury court is the proof; `buildCorridorRoom` is the template. K's apartment, the lobby, the corridor, the roof head-house and three lift cars now call `registerInterior`. The noodle bar and the LAPD lobby stay soffits. | Later rooms call `registerInterior`. A floor change uses `rides` (a fade, not a moving car) |
 | **X4 Holograms** | shared hologram system (giant animated figures, ad loops, scanline/flicker shader, light spill) | ✅ API in `src/world/holograms/README.md`. Showcase set is on the market lane, the megatower crowns, shafts and podiums (Stage 3), the financial avenue and two downtown billboards. Kind-2 panels under 140 m² stay the cheap sign. Stages 6/16 only call `registerHologram`. |
 | **X5 Audio** | Market bed is in (awning rain, murmur, sizzle, distant spinner), on the ambience bus, equal-power panners. Still to do: PA in invented languages, sea-wall surf, per-stall variety, and a bus that districts can register without editing `App.ts`. | no music |
 | **X6 Performance** | Frame-loop collision is now a worker with a sync fallback for cinematic queries and street spawn. Still open: GPU culling, interior mapping, shadows on high/ultra, and an iPhone profiling pass on device (the VM only has SwiftShader). | do this if a later district blows the 250-draw / 1.5 M budget |
@@ -161,4 +169,4 @@ and the El Segundo flare field in full.
 
 ## Suggested order
 
-Stages 2, 3, 4, 5, 6, X3 and X4 are done. Next: 8 → 7 → 10 → X2 → 11 → 12 → 9 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21, with X1/X5/X6/X7 where they unblock the next district. Later stages add holograms by calling `registerHologram`, not by replacing the field, and interiors by calling `registerInterior`. Build anything taller than 320 m with the megatower kit as a landmark. Civic Center already calls `registerCrowdSource` on the market mesh. Stage 8 consumes X3; it is not a second interior system.
+Stages 2, 3, 4, 5, 6, 8, X3 and X4 are done. Next: 7 → 10 → X2 → 11 → 12 → 9 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21, with X1/X5/X6/X7 where they unblock the next district. Later stages add holograms by calling `registerHologram`, not by replacing the field, and interiors by calling `registerInterior`. Build anything taller than 320 m with the megatower kit as a landmark. Civic Center already calls `registerCrowdSource` on the market mesh. Stage 8 consumed X3; it did not add a second interior system.

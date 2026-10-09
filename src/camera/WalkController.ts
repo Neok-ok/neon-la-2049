@@ -19,14 +19,25 @@ export class WalkController implements Controller {
   private sitLock = 0;
   /** debug: lets testers cover ground faster (not shown in UI) */
   speedScale = 1;
+  /**
+   * When set, a flyer near a roof door starts there instead of on the street.
+   * Wired from the interior system. Street doors do not use it.
+   */
+  spawnHook: ((x: number, y: number, z: number) => { x: number; y: number; z: number; heading: number } | null) | null = null;
 
   constructor(private camera: PerspectiveCamera, private input: Input, private query: CityQuery) {}
 
   enter(from: Pose): void {
     this.active = true;
-    const [x, z] = this.query.findStreetSpot(from.position.x, from.position.z);
-    this.pos.set(x, this.query.groundHeight(x, z), z);
-    this.heading = from.heading;
+    const roof = this.spawnHook?.(from.position.x, from.position.y, from.position.z);
+    if (roof) {
+      this.pos.set(roof.x, roof.y, roof.z);
+      this.heading = roof.heading;
+    } else {
+      const [x, z] = this.query.findStreetSpot(from.position.x, from.position.z);
+      this.pos.set(x, this.query.groundHeight(x, z), z);
+      this.heading = from.heading;
+    }
     this.pitch = 0.08;
     this.vy = 0;
     this.input.pointerLockWanted = true;

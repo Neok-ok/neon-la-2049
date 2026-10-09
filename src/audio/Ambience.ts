@@ -8,8 +8,11 @@ export class Ambience {
   private windGain!: GainNode;
   private master!: GainNode;
   private muffleFilter: BiquadFilterNode | null = null;
+  private humGain: GainNode | null = null;
   /** 0 on the street, 1 fully inside. Low-passes the whole bed, including market layers on `output`. */
   private interior = 0;
+  /** 0..1 quiet sine, one oscillator, used by interiors that ask for it. */
+  private hum = 0;
   muted = false;
 
   start(): void {
@@ -86,6 +89,18 @@ export class Ambience {
     this.cityGain.gain.value = 0.35;
     city.connect(clp).connect(this.cityGain).connect(this.master);
 
+    // one quiet hum for interiors that request it. Not music: a single sine under the bed.
+    const hum = ctx.createOscillator();
+    hum.type = 'sine';
+    hum.frequency.value = 74;
+    const humLp = ctx.createBiquadFilter();
+    humLp.type = 'lowpass';
+    humLp.frequency.value = 160;
+    this.humGain = ctx.createGain();
+    this.humGain.gain.value = 0;
+    hum.connect(humLp).connect(this.humGain).connect(this.master);
+    hum.start();
+
     // wind
     const wind = noise('brown', 5);
     const wbp = ctx.createBiquadFilter();
@@ -116,12 +131,18 @@ export class Ambience {
     this.interior = Math.max(0, Math.min(1, amount));
   }
 
+  /** 0..1. Same oscillator for every interior. Gain stays near zero. */
+  setHum(amount: number): void {
+    this.hum = Math.max(0, Math.min(1, amount));
+  }
+
   /** altitude in meters above ground: street-level sounds fade when flying high. */
   update(rain: number, snow: number, wind: number, altitude: number): void {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
     const m = this.interior;
     if (this.muffleFilter) this.muffleFilter.frequency.setTargetAtTime(Math.max(280, 15000 - m * 14720), t, 0.35);
+    if (this.humGain) this.humGain.gain.setTargetAtTime(this.hum * 0.016, t, 0.45);
     const street = Math.max(0.15, 1 - altitude / 400);
     this.rainGain.gain.setTargetAtTime(rain * 0.32 * (1 - 0.58 * m), t, 0.5);
     this.patterGain.gain.setTargetAtTime(rain * 0.25 * street * (1 - 0.72 * m), t, 0.5);

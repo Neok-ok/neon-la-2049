@@ -38,6 +38,16 @@ registerInterior({
 
 `buildCorridorRoom` is the test plan (a corridor and a room). `warmth` 0 is a pale tube, 1 is tungsten. Pass `extras` to add boxes in the same local frame (door at the origin, corridor toward −Z). Colliders come back on the plan; place them with `placeCollider` and put them on the spec. They are registered once and do not change with the tier.
 
+The shell can be opened without rebuilding it:
+
+| Option | Effect |
+|---|---|
+| `sideDoors` | Gaps in the corridor side walls. `side: -1` is local −X. `at` is metres from the front door toward −Z. |
+| `backDoor` | A gap in the room's far wall. `at` omitted means the middle. |
+| `window: false` | Drops the +X window and its portal card. Default is on, so the Bradbury service room is unchanged. |
+
+An empty gap list is the old solid wall.
+
 ## What the system already does
 
 `InteriorSystem` (owned by `App`) mounts a spec when the camera is inside `streamRadius` (default 72 m) and drops it past 1.35× that, unless it is linked to the interior the walker is in.
@@ -61,6 +71,14 @@ The doorway shows a procedural card (one draw) while the city is hidden. It is n
 
 `interiorDetail` is 0 / 1 / 2 / 3 for low / medium / high / ultra. `build` may omit trim. Colliders stay at the full plan, so a low-tier room is the same shape. A tier change rebuilds the mounted meshes.
 
+## Rides and the roof door
+
+`rides` on a spec is a fade, not a moving mesh and not a portal chain. Stand in the named door (feet inside the box, so the box has to include y = 0) for `dwell` seconds (default 0.8). The bed muffles for 0.4 s, then `consumeRide()` returns a pose just inside `to`, facing that car's `out` door. The app moves the walker. Each stop is its own interior.
+
+`hum` (0..1) is one shared 74 Hz sine under the muffled bed while that interior is occluded. Specs that omit it stay silent. The oscillator lives on the ambience bus.
+
+Fly mode still cannot enter a volume. `walkHandoff` is the exception for an exterior door whose sill is above 12 m: if the flyer is within 28 m horizontally and 16 m vertically, walk mode starts on that threshold instead of the street. Street doors do not use it.
+
 ## Stage 8
 
-Start from `buildCorridorRoom` and a new `registerInterior`. Do not copy the Bradbury stair, and do not add scene lights. The Bradbury back wing (`bradbury-service`) is the template instance, not K's apartment.
+K's lobby, corridor, apartment, roof head-house and three lift cars call `registerInterior` and start from `buildCorridorRoom`. The apartment keeps the window. The halls pass `window: false` and use `backDoor` or `sideDoors`. The lift cars are `buildLift` plus `rides`. Do not copy the Bradbury stair, and do not add scene lights. The Bradbury back wing (`bradbury-service`) is still the template instance, not the apartment.

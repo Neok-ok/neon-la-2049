@@ -8,3 +8,5 @@ import './civic-center/details';
 import './civic-center/crowd';
 import './historic-core/details';
 import './historic-core/crowd';
+import './k-megablock/details';
+import './k-megablock/crowd';
