@@ -18,8 +18,10 @@ export type HoloRank = 0 | 1 | 2 | 3;
 /**
  * `street` — culled with the LOD0 radius (market figures, stall ads).
  * `tower` — culled with the near-streaming radius (megatower faces, canyon giants).
+ * `skyline` — megatower crowns and the biggest panels, read from across the basin:
+ *   culled at max(near radius × 1.35, far radius × 0.55).
  */
-export type HoloBand = 'street' | 'tower';
+export type HoloBand = 'street' | 'tower' | 'skyline';
 
 export interface HologramSpec {
   /** Stable id. Registering the same id again replaces the placement. */

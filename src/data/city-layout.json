@@ -256,6 +256,18 @@
       "confidence": "invented placement"
     },
     {
+      "id": "old-pyramid-north", "name": "Old Corporate Pyramid (north)", "type": "old-pyramid",
+      "lat": 33.9913, "lon": -118.1605, "bearingDeg": 45, "height": 1000, "baseWidth": 1180, "topWidth": 140,
+      "reserveRadius": 860,
+      "confidence": "invented placement; 1982-style stepped twin pyramids of the replicant maker whose remains Wallace bought (2049 opening crawl). Dormant, Wallace holdings, in the refinery belt the first film opened over"
+    },
+    {
+      "id": "old-pyramid-south", "name": "Old Corporate Pyramid (south)", "type": "old-pyramid",
+      "lat": 33.9820, "lon": -118.1482, "bearingDeg": 45, "height": 860, "baseWidth": 1080, "topWidth": 130,
+      "reserveRadius": 790,
+      "confidence": "invented placement (see old-pyramid-north)"
+    },
+    {
       "id": "lapd-hq",
       "name": "LAPD Headquarters (2049)",
       "type": "lapd-hq",
@@ -275,34 +287,74 @@
       "confidence": "real building (1928, 138 m); its survival into 2049 is an assumption"
     },
     {
-      "id": "megatower-1", "name": "Megatower 1", "type": "megatower",
-      "lat": 34.0520, "lon": -118.2560, "bearingDeg": 38, "height": 420, "baseWidth": 78, "baseDepth": 64, "reserveRadius": 95,
-      "confidence": "invented; heights bracketed by LAPD (216 m) and Wallace pyramid"
+      "id": "megatower-1", "name": "Megatower 1 (Bunker Hill slab)", "type": "megatower",
+      "lat": 34.0520, "lon": -118.2560, "bearingDeg": 38, "height": 1020, "baseWidth": 150, "baseDepth": 96, "reserveRadius": 140,
+      "confidence": "invented; Stage 3 megastructure scale (BIBLE 7.3): 0.5-1 km slabs rising out of the smog, bracketed by LAPD (216 m) and the Wallace satellites (1.1-1.4 km)"
     },
     {
-      "id": "megatower-2", "name": "Megatower 2", "type": "megatower",
-      "lat": 34.0492, "lon": -118.2590, "bearingDeg": 38, "height": 360, "baseWidth": 70, "baseDepth": 70, "reserveRadius": 90,
+      "id": "megatower-2", "name": "Megatower 2 (flared stack)", "type": "megatower",
+      "lat": 34.0492, "lon": -118.2590, "bearingDeg": 38, "height": 760, "baseWidth": 110, "baseDepth": 110, "reserveRadius": 130,
       "confidence": "invented"
     },
     {
-      "id": "megatower-3", "name": "Megatower 3", "type": "megatower",
-      "lat": 34.0548, "lon": -118.2522, "bearingDeg": 38, "height": 330, "baseWidth": 66, "baseDepth": 58, "reserveRadius": 85,
+      "id": "megatower-3", "name": "Megatower 3 (terraced)", "type": "megatower",
+      "lat": 34.0548, "lon": -118.2522, "bearingDeg": 38, "height": 660, "baseWidth": 130, "baseDepth": 130, "reserveRadius": 130,
       "confidence": "invented"
     },
     {
-      "id": "megatower-4", "name": "Megatower 4", "type": "megatower",
-      "lat": 34.0466, "lon": -118.2618, "bearingDeg": 38, "height": 300, "baseWidth": 62, "baseDepth": 62, "reserveRadius": 80,
+      "id": "megatower-4", "name": "Megatower 4 (cruciform lantern)", "type": "megatower",
+      "lat": 34.0466, "lon": -118.2618, "bearingDeg": 38, "height": 600, "baseWidth": 120, "baseDepth": 120, "reserveRadius": 125,
       "confidence": "invented"
     },
     {
-      "id": "megatower-5", "name": "Megatower 5", "type": "megatower",
-      "lat": 34.0567, "lon": -118.2588, "bearingDeg": 38, "height": 385, "baseWidth": 74, "baseDepth": 60, "reserveRadius": 90,
+      "id": "megatower-5", "name": "Megatower 5 (twin gate)", "type": "megatower",
+      "lat": 34.0567, "lon": -118.2588, "bearingDeg": 38, "height": 880, "baseWidth": 170, "baseDepth": 80, "reserveRadius": 140,
       "confidence": "invented"
     },
     {
-      "id": "megatower-6", "name": "Megatower 6", "type": "megatower",
-      "lat": 34.0440, "lon": -118.2560, "bearingDeg": 38, "height": 280, "baseWidth": 60, "baseDepth": 56, "reserveRadius": 75,
+      "id": "megatower-6", "name": "Megatower 6 (blade)", "type": "megatower",
+      "lat": 34.0440, "lon": -118.2560, "bearingDeg": 38, "height": 520, "baseWidth": 100, "baseDepth": 70, "reserveRadius": 100,
       "confidence": "invented"
+    },
+    {
+      "id": "megatower-7", "name": "Megatower 7 (cage crown)", "type": "megatower",
+      "lat": 34.0478, "lon": -118.2655, "bearingDeg": 38, "height": 560, "baseWidth": 120, "baseDepth": 70, "reserveRadius": 105,
+      "confidence": "invented; west edge above the I-110 trench"
+    },
+    {
+      "id": "legacy-tower-1", "name": "2019-era Ziggurat Tower A", "type": "legacy-tower",
+      "lat": 34.0512, "lon": -118.2532, "bearingDeg": 38, "height": 420, "baseWidth": 66, "baseDepth": 62, "reserveRadius": 62,
+      "confidence": "invented; 2019-era stepped tower kept from the 1982 skyline (ziggurat crown, flame stacks), lore: the city of the first film survives under the 2049 megastructures"
+    },
+    {
+      "id": "legacy-tower-2", "name": "2019-era Ziggurat Tower B", "type": "legacy-tower",
+      "lat": 34.0536, "lon": -118.2611, "bearingDeg": 38, "height": 360, "baseWidth": 62, "baseDepth": 58, "reserveRadius": 62,
+      "confidence": "invented; 2019-era stepped tower kept from the 1982 skyline (ziggurat crown, flame stacks), lore: the city of the first film survives under the 2049 megastructures"
+    },
+    {
+      "id": "legacy-tower-3", "name": "2019-era Ziggurat Tower C", "type": "legacy-tower",
+      "lat": 34.0458, "lon": -118.2580, "bearingDeg": 38, "height": 310, "baseWidth": 58, "baseDepth": 58, "reserveRadius": 62,
+      "confidence": "invented; 2019-era stepped tower kept from the 1982 skyline (ziggurat crown, flame stacks), lore: the city of the first film survives under the 2049 megastructures"
+    },
+    {
+      "id": "skybridge-1", "name": "Skybridge MT-1 / Ziggurat A", "type": "skybridge", "from": "megatower-1", "to": "legacy-tower-1",
+      "lat": 34.0516, "lon": -118.2546, "bearingDeg": 38, "height": 342, "baseWidth": 22, "baseDepth": 12, "reserveRadius": 0,
+      "confidence": "invented; enclosed skybridge above the fabric ceiling (deck height in height)"
+    },
+    {
+      "id": "skybridge-2", "name": "Skybridge MT-2 / MT-4", "type": "skybridge", "from": "megatower-2", "to": "megatower-4",
+      "lat": 34.0479, "lon": -118.2604, "bearingDeg": 38, "height": 436, "baseWidth": 26, "baseDepth": 14, "reserveRadius": 0,
+      "confidence": "invented; enclosed skybridge above the fabric ceiling (deck height in height)"
+    },
+    {
+      "id": "skybridge-3", "name": "Skybridge MT-5 / Ziggurat B", "type": "skybridge", "from": "megatower-5", "to": "legacy-tower-2",
+      "lat": 34.0552, "lon": -118.2600, "bearingDeg": 38, "height": 336, "baseWidth": 22, "baseDepth": 12, "reserveRadius": 0,
+      "confidence": "invented; enclosed skybridge above the fabric ceiling (deck height in height)"
+    },
+    {
+      "id": "skybridge-4", "name": "Skybridge MT-1 / MT-3", "type": "skybridge", "from": "megatower-1", "to": "megatower-3",
+      "lat": 34.0534, "lon": -118.2541, "bearingDeg": 38, "height": 560, "baseWidth": 28, "baseDepth": 16, "reserveRadius": 0,
+      "confidence": "invented; enclosed skybridge above the fabric ceiling (deck height in height)"
     },
     {
       "id": "k-megablock-tower",

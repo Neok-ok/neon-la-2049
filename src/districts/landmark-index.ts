@@ -1,0 +1,4 @@
+// Main-thread landmark builders from district stages. Each module calls registerLandmarkType from
+// src/world/landmarks/registry.ts; a district builder replaces the blockout builder of the same type.
+import './financial-megatowers/landmarks';
+import './wallace-vernon/pyramid';

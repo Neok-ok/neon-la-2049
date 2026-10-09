@@ -88,7 +88,7 @@ export class HologramField {
       const dy = spec.y - cam.y;
       const dz = spec.z - cam.z;
       const dist = Math.hypot(dx, dy, dz) || 0.001;
-      const range = spec.band === 'street' ? q.lod0Radius * 0.9 : q.nearRadius * 1.35;
+      const range = spec.band === 'street' ? q.lod0Radius * 0.9 : spec.band === 'tower' ? q.nearRadius * 1.35 : Math.max(q.nearRadius * 1.35, q.farRadius * 0.55);
       if (dist > range) return;
       const dot = (dx * _fwd.x + dy * _fwd.y + dz * _fwd.z) / dist;
       // Wide cone so a panel you are about to walk under stays up, but off-screen towers

@@ -69,6 +69,7 @@ export class App {
   readonly marketAudio: MarketAudio;
   readonly crowd = new CrowdField();
   holos!: HologramField;
+  landmarks!: Landmarks;
   readonly haze = new GroundHaze();
   readonly wet: WetReflector;
   private readonly software: boolean;
@@ -130,8 +131,8 @@ export class App {
     }
 
     this.streamer = new ChunkStreamer(this.scene, this.quality);
-    const landmarks = new Landmarks(this.query);
-    this.scene.add(landmarks.root);
+    this.landmarks = new Landmarks(this.query);
+    this.scene.add(this.landmarks.root);
     installShowcase(this.query.layout);
     this.holos = new HologramField(this.query.layout);
     this.scene.add(this.holos.group);
@@ -310,6 +311,7 @@ export class App {
     const foci = [cam];
     if (this.cams.mode === 'cine' && this.cams.cine.prefetch) foci.push(this.cams.cine.prefetch);
     this.streamer.update(foci);
+    this.landmarks.update(cam, this.quality.landmarkLod);
     this.holos.update(this.camera, this.quality, this.streamer.billboards());
     this.traffic.update(dt, this.camera, this.quality.traffic);
     this.atmosphere.update(dt, this.elapsed, this.renderer);

@@ -1,40 +1,24 @@
 // Hero structures placed from city-layout.json `landmarks`. Each landmark `type` maps to a builder.
-// Later stages replace a builder with a detailed version (keep the same footprint/height from the bible).
-import { Group, Mesh, ShapeGeometry, Shape, Vector2, type Object3D } from 'three/webgpu';
-import { getLayout, type Landmark, type CityLayout } from '../layout';
+// Blockout builders live here; district stages register detailed ones from src/districts/landmark-index.ts
+// (Stage 3: `megatower`, `legacy-tower`, `skybridge`, `wallace-pyramid`, `old-pyramid`).
+import { Group, Mesh, ShapeGeometry, Shape, Vector2, type Object3D, type Vector3 } from 'three/webgpu';
+import { getLayout, type CityLayout } from '../layout';
 import { bearingToYaw } from '../geo';
 import { GeoWriter, type FaceStyle } from './GeoWriter';
 import { getCityMaterial } from '../materials/cityMaterial';
 import { makeSignMesh } from '../materials/signMesh';
 import { Style, SignColor, type Sign } from '../fabric/types';
 import { Rng, hashString } from '../../core/rng';
-import { registerHologram } from '../holograms/registry';
-import type { HoloDesignId } from '../holograms/types';
 import type { CityQuery } from '../CityQuery';
+import '../../districts/landmark-index';
 import { getOceanMaterial } from '../materials/oceanMaterial';
 import { Beacons } from './Beacons';
 import { Flares } from './Flares';
+import { LandmarkLods } from './LandmarkLods';
+import { landmarkBuilder, registerLandmarkDefault, registerLandmarkType, type LandmarkCollider, type LandmarkEnv } from './registry';
 
-export interface LandmarkCollider {
-  x: number; z: number; hw: number; hd: number; yaw: number; y0: number; top: number;
-}
-
-export interface LandmarkBuild {
-  object: Object3D;
-  colliders: LandmarkCollider[];
-}
-
-export interface LandmarkEnv {
-  layout: CityLayout;
-  beacons: Beacons;
-  flares: Flares;
-}
-
-export type LandmarkBuilder = (l: Landmark, env: LandmarkEnv) => LandmarkBuild;
-const builders = new Map<string, LandmarkBuilder>();
-export function registerLandmarkType(type: string, b: LandmarkBuilder): void {
-  builders.set(type, b);
-}
+export { registerLandmarkType };
+export type { LandmarkCollider, LandmarkBuild, LandmarkEnv, LandmarkBuilder } from './registry';
 
 const st = (style: number, lit: number, tint: number, seed: number): FaceStyle => ({ style, lit, tint, seed });
 
@@ -44,54 +28,8 @@ function meshOf(w: GeoWriter, name: string): Mesh {
   return m;
 }
 
-// ---------------------------------------------------------------- Wallace pyramid
-registerLandmarkType('wallace-pyramid', (l, env) => {
-  const w = new GeoWriter();
-  const yaw = bearingToYaw(l.bearingDeg);
-  const H = l.height, B = l.baseWidth, Tt = l.topWidth ?? 400;
-  const tiers = 7;
-  const cols: LandmarkCollider[] = [];
-  const face = st(Style.Civic, 0.035, 0.62, 0.11);
-  for (let i = 0; i < tiers; i++) {
-    const y0 = (H * i) / tiers, y1 = (H * (i + 1)) / tiers;
-    const wb = B + (Tt - B) * (i / tiers);
-    const wt = B + (Tt - B) * ((i + 1) / tiers);
-    // recessed ledge between tiers gives the monolith readable scale
-    const ledge = Math.min(40, wt * 0.03);
-    w.frustum(l.x, l.z, y0, wb, wb, wt + ledge, wt + ledge, y1 - y0 - 18, yaw, face, false);
-    w.box(l.x, l.z, y1 - 18, wt - ledge, wt - ledge, 18, yaw, st(Style.Civic, 0.6, 0.45, 0.31), i === tiers - 1);
-    cols.push({ x: l.x, z: l.z, hw: wb / 2 - 10, hd: wb / 2 - 10, yaw, y0, top: y1 });
-  }
-  // edge ribs (vertical fins) and the crown slab
-  const half = B / 2;
-  for (const [sx, sz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
-    for (let i = 0; i < tiers; i++) {
-      const f = (i + 0.5) / tiers;
-      const r = half + (Tt / 2 - half) * f;
-      const c = Math.cos(yaw), s = Math.sin(yaw);
-      const lx = sx * r, lz = sz * r;
-      w.box(l.x + lx * c + lz * s, l.z - lx * s + lz * c, (H * i) / tiers, 60, 60, H / tiers, yaw, st(Style.Civic, 0, 0.5, 0.5));
-    }
-  }
-  w.box(l.x, l.z, H, Tt * 0.7, Tt * 0.7, 60, yaw, st(Style.Civic, 0.4, 0.5, 0.7));
-  // entrance canyon at ground level (giant doors)
-  for (let k = -1; k <= 1; k += 2) {
-    const c = Math.cos(yaw), s = Math.sin(yaw);
-    const lz = k * (B / 2 + 40);
-    w.box(l.x + lz * s, l.z + lz * c, 0, 300, 80, 120, yaw, st(Style.Civic, 0.3, 0.7, 0.9));
-  }
-  env.beacons.add(l.x, H + 62, l.z, 1, 18);
-  for (let i = 1; i <= tiers; i++) {
-    const r = (B + (Tt - B) * (i / tiers)) / 2;
-    for (const [sx, sz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) env.beacons.add(l.x + sx * r, (H * i) / tiers, l.z + sz * r, 0, 10);
-  }
-  const g = new Group();
-  g.add(meshOf(w, l.id));
-  return { object: g, colliders: cols };
-});
-
 // ---------------------------------------------------------------- slender Wallace towers
-registerLandmarkType('wallace-tower', (l, env) => {
+registerLandmarkDefault('wallace-tower', (l, env) => {
   const w = new GeoWriter();
   const yaw = bearingToYaw(l.bearingDeg);
   const H = l.height, B = l.baseWidth, Tt = l.topWidth ?? 50;
@@ -108,7 +46,7 @@ registerLandmarkType('wallace-tower', (l, env) => {
 });
 
 // ---------------------------------------------------------------- LAPD HQ (top-heavy monolith with inverted-pyramid crown)
-registerLandmarkType('lapd-hq', (l, env) => {
+registerLandmarkDefault('lapd-hq', (l, env) => {
   const w = new GeoWriter();
   const yaw = bearingToYaw(l.bearingDeg);
   const H = l.height, bw = l.baseWidth, bd = l.baseDepth ?? bw;
@@ -142,7 +80,7 @@ registerLandmarkType('lapd-hq', (l, env) => {
 });
 
 // ---------------------------------------------------------------- heritage tower (old City Hall silhouette)
-registerLandmarkType('heritage-tower', (l, env) => {
+registerLandmarkDefault('heritage-tower', (l, env) => {
   const w = new GeoWriter();
   const yaw = bearingToYaw(l.bearingDeg);
   const B = l.baseWidth, H = l.height;
@@ -155,63 +93,8 @@ registerLandmarkType('heritage-tower', (l, env) => {
   return { object: meshOf(w, l.id), colliders: [{ x: l.x, z: l.z, hw: B / 2, hd: B / 2, yaw, y0: 0, top: H }] };
 });
 
-// ---------------------------------------------------------------- downtown megatowers (top-heavy with hologram panels)
-registerLandmarkType('megatower', (l, env) => {
-  const w = new GeoWriter();
-  const r = new Rng(hashString(l.id));
-  const yaw = bearingToYaw(l.bearingDeg);
-  const H = l.height, bw = l.baseWidth, bd = l.baseDepth ?? bw;
-  const seed = r.next();
-  const podium = 45;
-  const crownStart = H * r.range(0.68, 0.78);
-  w.box(l.x, l.z, 0, bw * 1.45, bd * 1.45, podium, yaw, st(Style.Megablock, 0.5, 0.9, seed));
-  w.box(l.x, l.z, podium, bw, bd, crownStart - podium, yaw, st(Style.Office, 0.45, 0.85, seed), false);
-  w.frustum(l.x, l.z, crownStart, bw, bd, bw * 1.3, bd * 1.3, 25, yaw, st(Style.Office, 0.1, 0.8, seed));
-  w.box(l.x, l.z, crownStart + 25, bw * 1.3, bd * 1.3, H - crownStart - 25, yaw, st(Style.Office, 0.5, 0.8, seed));
-  w.box(l.x, l.z, H, 2, 2, r.range(20, 60), yaw, st(Style.Industrial, 0, 0.5, seed));
-  env.beacons.add(l.x, H + 40, l.z, 0, 5);
-  // Two projectors on the depth faces. Stage 3 can register more (crowns, skybridges) through the same API.
-  const c = Math.cos(yaw), s = Math.sin(yaw);
-  const palette = [SignColor.Pink, SignColor.Cyan, SignColor.Violet, SignColor.Amber];
-  const n = hashString(l.id + ':holo');
-  const figures: HoloDesignId[] = ['ash-crane', 'ribbon-column', 'coil-vendor'];
-  const ads: HoloDesignId[] = ['glyph-loop', 'lease-loop', 'lantern-loop'];
-  const figure = figures[n % figures.length] ?? 'ash-crane';
-  const ad = ads[(n >>> 8) % ads.length] ?? 'glyph-loop';
-  for (const k of [1, -1]) {
-    const out = (bd / 2 + 1.5) * k;
-    const ph = r.range(50, 90);
-    const y = r.range(podium + ph / 2 + 10, crownStart - ph / 2 - 5);
-    const faceYaw = yaw + (k < 0 ? Math.PI : 0);
-    registerHologram({
-      id: `${l.id}-holo-${k < 0 ? 'b' : 'a'}`,
-      x: l.x + out * s,
-      y,
-      z: l.z + out * c,
-      yaw: faceYaw,
-      w: bw * 0.8,
-      h: ph,
-      design: k < 0 ? ad : figure,
-      color: r.pick(palette),
-      seed: r.next(),
-      rank: k < 0 ? 1 : 0,
-      band: 'tower',
-      spill: Math.min(48, ph * 0.55),
-    });
-  }
-  const g = new Group();
-  g.add(meshOf(w, l.id));
-  return {
-    object: g,
-    colliders: [
-      { x: l.x, z: l.z, hw: bw * 0.725, hd: bd * 0.725, yaw, y0: 0, top: podium },
-      { x: l.x, z: l.z, hw: bw * 0.65, hd: bd * 0.65, yaw, y0: podium, top: H },
-    ],
-  };
-});
-
 // ---------------------------------------------------------------- K's megablock slab
-registerLandmarkType('megablock-slab', (l, env) => {
+registerLandmarkDefault('megablock-slab', (l, env) => {
   const w = new GeoWriter();
   const yaw = bearingToYaw(l.bearingDeg);
   const H = l.height, bw = l.baseWidth, bd = l.baseDepth ?? 80;
@@ -242,7 +125,7 @@ registerLandmarkType('megablock-slab', (l, env) => {
 });
 
 // ---------------------------------------------------------------- LAX off-world spaceport gantries
-registerLandmarkType('spaceport', (l, env) => {
+registerLandmarkDefault('spaceport', (l, env) => {
   const w = new GeoWriter();
   const r = new Rng(hashString(l.id));
   const cols: LandmarkCollider[] = [];
@@ -265,7 +148,7 @@ registerLandmarkType('spaceport', (l, env) => {
 });
 
 // ---------------------------------------------------------------- refinery flare stacks ("Hades" homage)
-registerLandmarkType('flare-field', (l, env) => {
+registerLandmarkDefault('flare-field', (l, env) => {
   const w = new GeoWriter();
   const r = new Rng(hashString(l.id));
   const cols: LandmarkCollider[] = [];
@@ -346,13 +229,14 @@ export class Landmarks {
   readonly root = new Group();
   readonly beacons = new Beacons();
   readonly flares = new Flares();
+  readonly lods = new LandmarkLods();
 
   constructor(query: CityQuery) {
     const layout = getLayout();
     this.root.name = 'landmarks';
-    const env: LandmarkEnv = { layout, beacons: this.beacons, flares: this.flares };
+    const env: LandmarkEnv = { layout, beacons: this.beacons, flares: this.flares, lods: this.lods };
     for (const l of layout.landmarks) {
-      const b = builders.get(l.type);
+      const b = landmarkBuilder(l.type);
       if (!b) {
         console.warn(`No landmark builder for type ${l.type} (${l.id})`);
         continue;
@@ -365,6 +249,11 @@ export class Landmarks {
     const walls = buildSeaWalls(layout);
     this.root.add(walls.object);
     query.addColliders(walls.colliders);
-    this.root.add(this.beacons.build(), this.flares.build());
+    this.root.add(this.lods.root, this.beacons.build(), this.flares.build());
+  }
+
+  /** `scale` stretches the LOD switch distances per quality tier. */
+  update(cam: Vector3, scale: number): void {
+    this.lods.update(cam, scale);
   }
 }
