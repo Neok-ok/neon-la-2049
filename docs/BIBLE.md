@@ -90,13 +90,16 @@ Positions are in [`city-layout.json`](../src/data/city-layout.json) (`landmarks`
 * **Evidence:** the building is a Weta miniature too. Scaling the ~4.5 m model at 1:48 gives ~216 m. On screen it stands well above the
   surrounding megablocks but nowhere near Wallace.
 * **Location:** the **real LAPD headquarters site, 100 W 1st St** (34.0519 N, 118.2445 W), rotated to the downtown grid (38°).
-  The film's LAPD sits in the Civic Center, which is where the real one is.
-* Lettering: a generic white band sign. **No real LAPD insignia or film logo.**
+  The film's LAPD sits in the Civic Center, which is where the real one is. Local −Z of that bearing points at City Hall, so the
+  stair and the lobby are on that face and the two buildings look at each other.
+* **Stage 5 model** (`src/districts/civic-center/hq.ts`). Podium **86 × 118 × 18 m**. A **30 m** stair, 32 risers of about 0.16 m, climbs from the forecourt to a floor at **5.2 m**. The lobby is a **17 m** recess under the shaft (ceiling 12.4 m): wings, a rear wall, a desk, six columns, two barriers and a directory. You can walk in. It is a soffit in the street mesh, the same idea as the noodle bar, not a separate interior. Four **22 m** pads sit on the crown; spinners hover at **222.5 m** (about 6 m over the pad, clear of the 3.5 m lane pad). A 6 m mast stands at the centre. `confidence: invented` for the stair, the lobby plan, the pad positions and the cold light bands.
+* Lettering: a generic white glow band, plus the atlas phrase **SECTOR 5** over the door and inside. **No real LAPD insignia, no department wordmark, no film logo.**
+* LODs switch at 520 m and 1.9 km before the tier's `landmarkLod` scale. Colliders always come from the detail-2 build, so the stair and the lobby stay walkable when the mesh simplifies.
 
 ### 5.3 Other landmarks
 | Id | What | Size | Location and reasoning | Confidence |
 |---|---|---|---|---|
-| `city-hall` | Old City Hall, kept as a heritage tower among megablocks | 138 m, 45 × 45 m | Real building (1928). Survival to 2049 assumed, as the Bradbury survived in 2019. | medium |
+| `city-hall` | Old City Hall, kept and re-clad (Stage 5) | **138 m** to the lamp. Dark jacketed base **92 × 62 × 28 m**, pale shaft **34 m** square to 100 m, neck **26 m** to 114 m, pyramid to 132 m, warm lamp to 138 m. Ceremonial stair on the face toward LAPD. | Real building (1928, 138 m) at **200 N Spring St** (34.0537 N, 118.2427 W). Survival to 2049 is assumed, as the Bradbury survived in 2019. The massing is a homage, not a traced 1928 ornament, and there is no seal. The year band is the atlas cell "2049". `confidence: invented` for the jacket, the stair and the lamp; the place and the height are the real building. | medium (place, height); invented (cladding) |
 | `megatower-1…7` | Financial District megastructures (Stage 3) | **520–1,020 m**; shafts 100–170 m × 70–130 m on podiums up to 220 × 150 m. MT-1 1,020 m slab with raking buttresses, hammer crown, landing pads and an 85 m mast; MT-5 880 m twin slab; MT-2 760 m stack; MT-3 660 m stepped; MT-4 600 m cross plan with a lantern crown; MT-7 560 m slab with a cage crown; MT-6 520 m blade | Real Bunker Hill / Financial District sites, rotated to the 38° grid. Heights: the film's downtown aerials show slab-and-buttress masses many times taller than LAPD that rise out of the smog and still sit well below Wallace; see [§7.3](#73-financial-district-megatowers-stage-3) and rule 7. Hologram slots on crowns, shafts and podiums are X4 projectors (`${id}-holo-a`, `-b`, `-crown`, `-gap`). | invented |
 | `legacy-tower-1…3` | 2019-era stepped towers | 310–420 m, 58–66 m shafts, ziggurat crowns with flame stacks | Lore: the city of the 1982 film survives under the 2049 megastructures. Their ziggurat tops and rooftop flames are an homage to its skyline, built new. | invented |
 | `skybridge-1…4` | Enclosed skybridges between heroes | decks at 336–560 m, 22–28 m wide, 12–16 m deep, spans 150–330 m | Downtown in the film is layered and connected above the street. Decks stay above the 320 m fabric ceiling so background towers never cut through them. | invented |
@@ -115,6 +118,11 @@ Positions are in [`city-layout.json`](../src/data/city-layout.json) (`landmarks`
 | `k-apartment` | K's apartment, enterable | 8 |
 | `sea-wall-fight` | Sea-wall finale site | 10 |
 | `trash-mesa-gate` | Southern edge toward the San Diego trash mesa (out of bounds, vista only) | — |
+| `lapd-steps` | Foot of the LAPD stair, where the walk up to the door starts | 5 |
+| `lapd-lobby` | Inside the LAPD recess, on the lobby floor | 5 |
+| `lapd-deck` | On the LAPD landing deck, between the plaza-side pads | 5 |
+| `city-hall-steps` | City Hall ceremonial stair | 5 |
+| `civic-plaza` | The paved mall between LAPD and City Hall | 5 |
 
 ## 6. The Sepulveda Sea Wall
 
@@ -133,15 +141,15 @@ Positions are in [`city-layout.json`](../src/data/city-layout.json) (`landmarks`
 ## 7. Districts — visual language
 
 All districts are in `city-layout.json` with their polygon, grid, archetype and **stage number** (the roadmap stage that builds them out
-in full detail). Heights below are the Stage 1 blockout, except Little Tokyo, which Stage 2 dresses in full
-(see [§7.1](#71-little-tokyo-night-market-stage-2)).
+in full detail). Heights below are the Stage 1 blockout unless a later subsection replaces them
+([§7.1](#71-little-tokyo-night-market-stage-2) through [§7.5](#75-civic-center-stage-5)).
 
 | District (stage) | Lore sector | Palette | Materials | Signage | Typologies | Heights | Streets | Traffic |
 |---|---|---|---|---|---|---|---|---|
 | **Little Tokyo Night Market** (2) | Sector 5 shopping/bar district | wet black, sodium amber, red/pink/cyan neon, steam white | stained concrete, corrugated metal, plastic sheeting, tarp | **very dense** (blade signs, stall headers, LED strips) | stalls, kiosks, 2–8 storey shophouses, occasional megablock | 7–38 m, a few 55–95 m | 7 m lanes, covered walkways | pedestrians, umbrellas, bikes; spinners overhead |
 | **Financial District Megatowers** (3) | Sector 9 | blue-grey, white LED, cyan holograms, red aviation lights | ribbed and board-formed concrete, dark glass, lit window bands | billboards low, giant holograms on crowns and shafts | podium + tower, stepped towers, kit towers, hero megastructures | 90–155 m megablocks, 165–305 m kit towers; heroes 520–1,020 m, legacy 310–420 m | 38 m avenues | spinner layer 175–260 m, sky avenues 430–860 m, holding patterns over the crowns |
 | **Downtown Megablocks** (4) | Sector 5/9 fringe | grey-brown, warm windows, pink/cyan ads, amber walkway lips | ribbed, coffered and panelled concrete; cantilevered upper masses | dense at street level, billboards on the shaft | cantilever, slab-on-podium, bar, courtyard; rooftop tanks, masts, pads | 90–250 m, a few kit towers 200–300 m | 34 m, lit decks at 46 / 68 / 92 / 118 m | ground cars on the street graph, low spinners at 74 and 112 m, avenue lanes at 188 / 222 / 250 m |
-| **Civic Center** (5) | Sector 5 central | cold grey, white light, police red/blue | monumental concrete | sparse, institutional | plazas, civic slabs | 55–125 m, LAPD 216 m | 40 m | police spinners on pads |
+| **Civic Center** (5) | Sector 5 central | cold grey, white light, police red/blue | monumental concrete; a kept stone tower in a dark jacket | sparse: SECTOR 5 and a year mark, one glyph hologram | colonnade wings, compact slabs, two monuments, a paved mall | fabric 36–122 m, City Hall 138 m, LAPD 216 m | 40 m | police pads on the LAPD roof; the downtown street graph and avenue lanes already cover the polygon |
 | **Broadway Neon Canyon** (6) | Sector 9 Retirement Row | magenta, violet, amber neon on black | old masonry under new cladding | **extreme**, vertical blade signs stacked up façades | narrow deep canyon, heritage façades at the base | 40–110 m | 18 m | pedestrians, rickshaws |
 | **Wallace Precinct (Vernon)** (7) | Sector 4 industrial | black, bronze, amber haze | monolithic stone/concrete, no windows | none (corporate), monumental lighting | pyramid + satellites, factories, tanks | fabric 15–60 m; pyramid 3.5 km | 30 m | freight spinners, convoys |
 | **K's Megablock** (8) | residential | grey, sodium amber, sparse neon | stained concrete slabs | market at the base | megablock slabs with a street market at their feet | 60–185 m | 12 m | pedestrians, vendors |
@@ -207,6 +215,16 @@ The films are full of giant animated ads. None of those designs are reproduced. 
 * **Holograms.** `dtla-canyon-ribbon`, `dtla-canyon-lantern`, `dtla-mt1-lease` (spill 22 m on the podium apron) and `dtla-mt5-glyph`. Kind-2 shaft billboards are at least 16 × 10 m so the existing field can promote them. No new designs.
 * **Light and sound.** Canyon neon wetness is 0.62 below 90 m (the market stays 0.92). A light street fog (0.28) sits in DTLA under 80 m. Rain and the city bed only — no new emitters.
 
+### 7.5 Civic Center (stage 5)
+
+* **The look.** Sector 5's civic core is colder and emptier than the canyons around it: long concrete, white light, a little police colour, almost no advertising. Present-day Civic Center (the real LAPD block, the real City Hall, the park between them) is the plan. The park is paved stone. Nothing green. `confidence: invented` for every surface that the film does not show; the two sites are the real ones (§5.2, §5.3).
+* **The two monuments.** LAPD is the hero (§5.2). City Hall is the smaller stone tower across the mall (§5.3). Both use the downtown bearing, so their stairs face each other. The fabric between the reserves is cleared (`inCivicMall`) and a landmark slab paves the gap, about 34 m wide. Forecourts stay inside the reserves (LAPD **122 m**, so the crown and the stair fit; City Hall **70 m**).
+* **The field.** Background lots reuse the megablock kit, compact, with walkways off and no kit shop signs. Heights **58–122 m**, so they sit under both monuments. Lots along the mall are often a **36–52 m** colonnade wing instead, so the sky stays with the two towers. Shared sodium lamps are off in this district; the street kit is cold pylons, bollards, a bench, rare steam and cold pools. Caps: props 320 / 800 / 1,800 / 3,000 and steam 8 / 24 / 48 / 80 on low / medium / high / ultra.
+* **People.** The market crowd mesh, at about 22% of market density, on sidewalk loops that skip a block whose centre is inside a monument reserve, plus a loop at each forecourt. They walk the ground, not the steps.
+* **Holograms.** One placement, `lapd-shaft-notice`: a glyph-loop, 14 × 26 m, on the shaft face toward the steps. No new design and no new shader.
+* **Sound.** Rain and the city bed only. No new emitters.
+* **Cameras.** `__nla.civicView('approach'|'steps'|'hall'|'lobby'|'plaza')`.
+
 ## 8. Vehicles and traffic
 
 | Vehicle | Size | Notes |
@@ -215,7 +233,7 @@ The films are full of giant animated ads. None of those designs are reproduced. 
 | Player spinner cruise / boost | 75 / 260 m/s | arcade-fast for a 50 km city; real spinners are slower on screen |
 | AI spinner layers | Outside downtown: 55–90 m (low), 175–260 m (main), 320–520 m (high). Over DTLA / financial / civic the low share follows the street graph at **74 m and 112 m** (between the walkway decks, ±11 m so a 5.6 m bridge is missed) and the free remainder is **340–520 m**. The 175–260 m band over those districts belongs to the avenue lanes. | `SpinnerTraffic.ts`, `streetGraph.ts` |
 | Transport hauler | **14 m long, 5.2 m wide, 3.6 m tall** | Invented heavy cargo spinner for the sky lanes (`transportModel.ts`): boxy body, amber running lights. Sized like a large rigid truck. |
-| Sky lanes (Stage 3–4) | High avenues 430–860 m. **Downtown avenues at 188, 222 and 250 m** on the street centre lines (up to three runs each way, split where a hero collider crosses). Holding patterns 140 m over MT-1, around the MT-2/MT-4 pair, over LAPD and at the Wallace apex (~3.2 km) and mid-height, corridors 360–3,240 m | `skyLanes.ts`, `LaneTraffic.ts`. Right-hand traffic. High avenues separate directions by 16–30 m; downtown avenues by **11 m** (the street is 34 m). Opposite directions also sit 7 m apart in height. Platoons of 1–4, bank, blink. Counts 60 / 140 / 240 / 380 by tier, dealt by length × weight so the lower avenues are not starved. |
+| Sky lanes (Stage 3–5) | High avenues 430–860 m. **Downtown avenues at 188, 222 and 250 m** on the street centre lines (up to three runs each way, split where a hero collider crosses). Holding patterns 140 m over MT-1, around the MT-2/MT-4 pair, over LAPD (`hold-lapd`, police-heavy, unchanged) and at the Wallace apex (~3.2 km) and mid-height, corridors 360–3,240 m. **LAPD pad runs** (`lapd-pad-a`…`d`, plus a slow `lapd-pad-circuit`) leave the ~190 m avenue band, cross one roof pad at **222.5 m**, and leave again. One open polyline is both the arrival and the departure. | `skyLanes.ts`, `LaneTraffic.ts`, `civic-center/lanes.ts`. Right-hand traffic. High avenues separate directions by 16–30 m; downtown avenues by **11 m** (the street is 34 m). Opposite directions also sit **7 m** apart in height (`altBias`, default 7). Pad lanes set `altBias` to **0** and fade the ends over **70 m** instead of 220 m, so the deck crossing stays full size and on the polyline. Platoons of 1–4, bank, blink. Counts 60 / 140 / 240 / 380 by tier, dealt by length × weight so the lower avenues are not starved. |
 | Ground vehicles | cars ~4.2 × 1.9 × 1.4 m, vans a little longer and taller | `groundTraffic.ts` on the same street graph, curb lane ±7.2 m, 8–16 m/s, about one in five a van. Counts 10 / 22 / 40 / 64 by tier. Two draws (wet body shared with the spinner, headlights). Freeway trenches are still empty. |
 
 ## 9. Weather and time-of-day looks

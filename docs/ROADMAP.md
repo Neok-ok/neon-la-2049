@@ -68,11 +68,17 @@ What the next stages should know: heroes are landmarks, not fabric, so the 320 m
 
 What the next stages should know: the financial polygon still wins on top of MT-1 and MT-5, so plaza dressing is detail, not fabric. Walkway decks are flat slabs — there is no stair, and walk mode only stands on one if something places the feet on the deck. Fabric towers are boxes. Ground cars do not enter a landmark reserve, so the aprons stay pedestrian.
 
-## Stage 5 — Civic Center and LAPD Headquarters
-`civic-center`: LAPD HQ in full detail (landing deck, lobby entrance, police spinner pads with traffic), City Hall restoration,
-monumental plazas, the steps where K walks. Optional interior: LAPD lobby.
+## Stage 5 — Civic Center and LAPD Headquarters ✅
+**District:** `civic-center` · **POIs:** `lapd-steps`, `lapd-lobby`, `lapd-deck`, `city-hall-steps`, `civic-plaza`
 
-The downtown street graph and the 74 / 112 m spinner layer already include this polygon (40 m streets, same 38° grid). Police pads should be lanes or graph side-spurs, not a new traffic mesh. The holding pattern `hold-lapd` is still the high orbit.
+* **LAPD HQ** (`civic-center/hq.ts`): inverted-pyramid crown, four 22 m pads, a 32-tread stair on the City Hall face, a recessed lobby you can walk into (desk, columns, barriers, a directory). Three LODs; colliders come from the detail-2 build. No insignia. The light band is a glow strip. The words are the atlas phrase SECTOR 5.
+* **City Hall** (`hall.ts`, type `heritage-tower`): dark jacket, pale shaft, pyramid, lamp. The ceremonial stair faces LAPD. The year mark is the atlas cell "2049". No seal. This registration replaces the Stage-1 silhouette for every `heritage-tower`; only `city-hall` uses that type.
+* **Mall.** `inCivicMall` keeps fabric out of the gap between the reserves. A landmark slab paves it. Crowds use the market mesh on sidewalks and on both forecourts.
+* **Pads.** `lapd-pad-a`…`d` and `lapd-pad-circuit` are sky lanes (`lanes.ts`, appended from `skyLanes.ts` after `hold-lapd`). They are the side-spurs off the ~190 m avenue band. Open lanes gained `altBias` (0 on the pads, 7 on the avenues) and `fade` (70 m on the pads, 220 m elsewhere). `hold-lapd` is still the high orbit. Not street-graph edges.
+* Fabric reuses the megablock kit, compact, 58–122 m, walkways off, kit shop signs dropped. Mall-adjacent lots are often a 36–52 m colonnade. The shared sodium lamps skip this district; the street kit is cold pylons.
+* One hologram, `lapd-shaft-notice` (glyph-loop, existing shader). `__nla.civicView('approach'|'steps'|'hall'|'lobby'|'plaza')`.
+
+What the next stage should know: the lobby is a soffit, the same kind of recess as the noodle bar, not an X3 interior. Pad hover is about 6 m over the deck so the 3.5 m lane clearance stays clear of the crown collider. The street graph and the 74 / 112 m spinner layer already include this polygon. Do not add a second graph.
 
 ## Stage 6 — Broadway Neon Canyon
 `historic-core` + POIs `bradbury`, `joi-bridge`: heritage façades under new cladding, stacked vertical blade signs, the hologram
@@ -125,7 +131,7 @@ and the El Segundo flare field in full.
 |---|---|---|
 | **X1 Crowds** | The market shipped the first crowd (instanced coats, umbrellas, lane follow, cheap avoidance, tier counts). Generalise it: density from district data, more than two sidewalk loops, and a walk cycle that is more than a foot slide. | the market is the reference scene |
 | **X2 Ground traffic** | cars and trucks in streets and freeway trenches, traffic lights | |
-| **X3 Interiors framework** | The noodle bar is a recess in the street mesh, not a portal. A real interior stream (separate light, occluded exterior, door volumes) still has to be built before K's apartment and the LAPD lobby. | Stage 2 proved the walk camera can enter a soffit |
+| **X3 Interiors framework** | The noodle bar and the Stage 5 LAPD lobby are recesses in the street mesh, not portals. A real interior stream (separate light, occluded exterior, door volumes) still has to be built before K's apartment. | Stage 2 proved the walk camera can enter a soffit; Stage 5 reused it for a larger room |
 | **X4 Holograms** | shared hologram system (giant animated figures, ad loops, scanline/flicker shader, light spill) | ✅ API in `src/world/holograms/README.md`. Showcase set is on the market lane, the megatower crowns, shafts and podiums (Stage 3), the financial avenue and two downtown billboards. Kind-2 panels under 140 m² stay the cheap sign. Stages 6/16 only call `registerHologram`. |
 | **X5 Audio** | Market bed is in (awning rain, murmur, sizzle, distant spinner), on the ambience bus, equal-power panners. Still to do: PA in invented languages, sea-wall surf, per-stall variety, and a bus that districts can register without editing `App.ts`. | no music |
 | **X6 Performance** | Frame-loop collision is now a worker with a sync fallback for cinematic queries and street spawn. Still open: GPU culling, interior mapping, shadows on high/ultra, and an iPhone profiling pass on device (the VM only has SwiftShader). | do this if a later district blows the 250-draw / 1.5 M budget |
@@ -133,4 +139,4 @@ and the El Segundo flare field in full.
 
 ## Suggested order
 
-Stages 2 and 3 and X4 are done. Next: 4 → 5 → 6 → (X1 only if a second district needs a crowd that is not the market's) → 8 → 7 → 10 → X2 → 11 → 12 → 9 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21, with X3/X5/X6/X7 where they unblock the next district. Later stages add holograms by calling `registerHologram`, not by replacing the field, and build anything taller than 320 m with the megatower kit as a landmark.
+Stages 2, 3, 4, 5 and X4 are done. Next: 6 → (X1 only if a district needs a crowd that is not the market's) → 8 → 7 → 10 → X2 → 11 → 12 → 9 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21, with X3/X5/X6/X7 where they unblock the next district. Later stages add holograms by calling `registerHologram`, not by replacing the field, and build anything taller than 320 m with the megatower kit as a landmark. Civic Center already calls `registerCrowdSource` on the market mesh.

@@ -240,7 +240,8 @@ export class CrowdField {
     const want = district.id === 'little-tokyo-market' ? quality.crowd
       : district.id === 'dtla' ? Math.round(quality.crowd * 0.4)
         : district.id === 'financial-megatowers' ? Math.round(quality.crowd * 0.4)
-          : 0;
+          : district.id === 'civic-center' ? Math.round(quality.crowd * 0.22)
+            : 0;
     const radius = quality.crowdRadius;
     if (want <= 0) {
       this.count = 0;

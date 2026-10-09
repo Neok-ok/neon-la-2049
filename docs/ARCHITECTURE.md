@@ -113,7 +113,9 @@ Sea walls are extruded along their polylines with a terraced profile, and the oc
   1.5 / 5 km, the Wallace pyramid at 6 / 18 km and the old pyramids at 3.5 / 11 km. The last level is a mass-only proxy of about
   100–200 triangles: at that range it is a silhouette in the fog and serves as the distant impostor. All levels share the city
   material, so a switch never changes material or draw-call count. `stats().landmarkLods` reports `lod0/lod1/lod2` counts.
+  LAPD switches at 520 / 1,900 m and City Hall at 420 / 1,500 m, before that scale.
 * **Megatower kit**: heroes and the Wallace pyramid are built by `src/districts/_shared/megatower/` (see ADDING_A_DISTRICT §5).
+* **Civic Center** (Stage 5) draws two landmark city-meshes (plus a sign mesh on LOD0 only) and one street-kit batch. It opts out of the shared sodium lamps. Background blocks are compact megablocks. See `src/districts/civic-center/README.md`.
 * **Beacons** (`Beacons.ts`): every aviation, pad, police and floodlight point in the city is one merged mesh of camera-facing additive
   quads (one draw). The quad never shrinks below ~3 px (`MIN_ANGLE`); bigger far quads dim to keep the energy roughly constant.
   Kinds: synchronised red flash (0.5 Hz, the whole skyline together), steady red, police red/blue, white double strobe, amber pad
@@ -139,7 +141,7 @@ Sea walls are extruded along their polylines with a terraced profile, and the oc
 
 `buildSkyLanes(query)` derives the high traffic from the landmark JSON: grid-aligned avenues between the heroes, holding loops
 over crowns, LAPD and the Wallace apex, and long corridors. Each lane is sampled against the landmark collider grid and moved or
-dropped if it would hit a tower. `LaneTraffic` deals `quality.laneTraffic` cars over the lanes (platoons, weighted by length),
+dropped if it would hit a tower. Open lanes carry `altBias` (default 7 m, the height split between directions) and `fade` (default 220 m at each end). LAPD pad approaches set those to 0 and 70 m so a flare sits on the deck. `LaneTraffic` deals `quality.laneTraffic` cars over the lanes (platoons, weighted by length),
 moves them on the CPU and writes five instanced meshes: spinner body + lights, transport body + lights, and one glow billboard per
 car with a minimum pixel size. That is five draws in total whatever the count. `nearestTo()` feeds the positional flyby voice in
 `MarketAudio` (closing speed sets a Doppler pitch, transports are lower and heavier).

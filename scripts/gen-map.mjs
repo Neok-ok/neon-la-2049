@@ -20,7 +20,7 @@ const px = ([x, z]) => [((x - minX) / M_PER_PX + PAD).toFixed(1), ((z - minZ) / 
 const pt = (ll) => px(toLocal(ll));
 const path = (pts, close = false) => 'M' + pts.map((p) => pt(p).join(',')).join(' L') + (close ? ' Z' : '');
 const COLORS = {
-  'megablock-downtown': '#4a5a78', 'megatower-core': '#6a7fb0', civic: '#8c8c9c', 'street-market': '#d0457a',
+  'megablock-downtown': '#4a5a78', 'megatower-core': '#6a7fb0', civic: '#8c8c9c', 'civic-center': '#8c8c9c', 'street-market': '#d0457a',
   'neon-canyon': '#b04ad0', 'industrial-dense': '#7a5a3a', industrial: '#6a4a2a', 'megablock-residential': '#4f6a5a',
   'megablock-market': '#c06a3a', 'sprawl-dense': '#4a4a4a', entertainment: '#a03a8a', 'coastal-grey': '#6e7a80',
   spaceport: '#3a6a8a', port: '#3a5a6a', 'basin-sprawl': '#2c2c2c',

@@ -168,7 +168,7 @@ export class LaneTraffic {
       if (c.dir < 0) _t.negate();
       // open lanes: right-hand traffic, opposite directions separated sideways and in height
       _side.set(-_t.z, 0, _t.x).normalize();
-      if (!c.lane.loop) _p.addScaledVector(_side, c.lane.sep).y += 7;
+      if (!c.lane.loop) _p.addScaledVector(_side, c.lane.sep).y += c.lane.altBias;
       _p.y += Math.sin(U.time.value * 0.4 + c.phase * 30) * 0.6;
       _prev.copy(c.p);
       c.p.copy(_p);
@@ -183,7 +183,8 @@ export class LaneTraffic {
       _qr.setFromAxisAngle(_fwd, -roll);
       _q.premultiply(_qr);
       // fade in/out at the ends of open lanes
-      const edge = c.lane.loop ? 1 : Math.max(0, Math.min(1, Math.min(c.s, L - c.s) / 220));
+      const fade = Math.max(8, c.lane.fade);
+      const edge = c.lane.loop ? 1 : Math.max(0, Math.min(1, Math.min(c.s, L - c.s) / fade));
       _m.compose(c.p, _q, _s.setScalar(edge));
       if (c.cls === 'transport') {
         this.trBody.setMatrixAt(nt, _m);

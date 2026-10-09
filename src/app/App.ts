@@ -16,6 +16,8 @@ import { GroundTraffic } from '../vehicles/groundTraffic';
 import { megaCamera, type MegaView } from '../districts/financial-megatowers/view';
 import { dtlaCamera, type DtlaView } from '../districts/dtla/view';
 import { installDtlaHolos } from '../districts/dtla/holos';
+import { civicCamera, type CivicView } from '../districts/civic-center/view';
+import { installCivicHolos } from '../districts/civic-center/holos';
 import { SpinnerTraffic } from '../vehicles/SpinnerTraffic';
 import { Input } from '../input/Input';
 import { TouchControls } from '../input/TouchControls';
@@ -142,6 +144,7 @@ export class App {
     this.scene.add(this.landmarks.root);
     installShowcase(this.query.layout);
     installDtlaHolos(this.query.layout);
+    installCivicHolos(this.query.layout);
     this.holos = new HologramField(this.query.layout);
     this.scene.add(this.holos.group);
     this.traffic = new SpinnerTraffic(this.scene, this.query, settingsFor('ultra').traffic);
@@ -472,6 +475,20 @@ export class App {
       },
       /** Stage 3 cameras: approach (Wallace), skyline, street (looking up MT-1), lanes, crown. */
       /** Stage 4 cameras: canyon street, a lit walkway, a spinner over a roof, an avenue lane, the MT-1 plaza. */
+      /** Stage 5 cameras: spinner on a pad approach, the steps, City Hall, the lobby, the mall. */
+      civicView: (kind: CivicView) => {
+        const p = civicCamera(this.query.layout, kind, this.lanes.lanes);
+        if (!p) return false;
+        this.query.fabricAt(p.x, p.z);
+        this.cams.setMode(p.mode);
+        if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
+        this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
+        if (p.mode === 'walk') {
+          this.cams.walk.pitch = p.pitch;
+          if (p.feet) this.cams.walk.pos.set(p.feet.x, p.feet.y, p.feet.z);
+        }
+        return true;
+      },
       dtlaView: (kind: DtlaView) => {
         const p = dtlaCamera(this.query.layout, kind, this.lanes.lanes);
         if (!p) return false;
