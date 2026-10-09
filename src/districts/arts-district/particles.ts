@@ -63,8 +63,8 @@ export function getArtsSparkMaterial(): MeshBasicNodeMaterial {
   spark.positionNode = positionLocal.add(vec3(drift, rise, drift.mul(0.45)));
   const fade = sin(life.mul(Math.PI));
   const dist = length(positionWorld.sub(cameraPosition));
-  const col = mix(vec3(1.0, 0.42, 0.08), vec3(1.0, 0.72, 0.28), flare);
+  const col = mix(vec3(1.0, 0.46, 0.1), vec3(1.0, 0.7, 0.26), flare);
   const distFade = float(1).sub(smoothstep(6.0, 48.0, dist));
-  spark.colorNode = vec4(col.mul(mix(float(1.3), float(1.8), flare)), fade.mul(0.85).mul(distFade));
+  spark.colorNode = vec4(col.mul(mix(float(0.9), float(1.15), flare)), fade.mul(0.62).mul(distFade));
   return spark;
 }

@@ -308,7 +308,7 @@ function solidFoundry(put: Emit, prop: PropFn, puff: PuffFn, r: Rng, id: Foundry
   put(s - 28, t, 4.2, 0.3, 4.2, 0.2, Style.Glow, 0.7, 0.75, 1);
   const seed = id === 'north' ? 0.31 : 0.62;
   for (let i = 0; i < 8; i++) {
-    puff(s - 28, t + (i - 3.5) * 0.35, 1.2 + (i % 3) * 0.45, 3, seed + i * 0.07, 0.35, 0.55, 0.35, 1);
+    puff(s - 28, t + (i - 3.5) * 0.55, 1.1 + (i % 3) * 0.5, 3, seed + i * 0.07, 0.16, 0.28, 0.16, 1);
   }
   stackYard(put, prop, puff, r, true, s + 18, t + 16);
 }
@@ -337,17 +337,17 @@ function pourHall(put: Emit, prop: PropFn, puff: PuffFn, r: Rng): void {
     put(s0 - 0.14, side * 14, 0.35, 0.16, 1.8, 9.2, Style.Glow, 0.55, 0.75, 2);
   }
   // Brick cheeks and a sodium practical. Night fabric is nearly black; these carry the door.
-  prop(s0 - 0.45, -(gap + cheek / 2), 3.4, 'box', cheek * 0.72, 6.6, 0.34, 0, BRICK, [0.18, 0.055, 0.02], 0.12, 0);
-  prop(s0 - 0.45, gap + cheek / 2, 3.4, 'box', cheek * 0.72, 6.6, 0.34, 0, BRICK, [0.18, 0.055, 0.02], 0.12, 0);
+  prop(s0 - 0.45, -(gap + cheek / 2), 3.4, 'box', cheek * 0.72, 6.6, 0.34, 0, BRICK, [0.09, 0.03, 0.012], 0.12, 0);
+  prop(s0 - 0.45, gap + cheek / 2, 3.4, 'box', cheek * 0.72, 6.6, 0.34, 0, BRICK, [0.09, 0.03, 0.012], 0.12, 0);
   prop(s0 - 1.4, gap + 2.4, 3.6, 'box', 0.16, 7.2, 0.16, 0, DARK, [0.22, 0.1, 0.03], 0.5, 0);
   prop(s0 - 1.7, gap + 2.4, 7.15, 'box', 0.85, 0.16, 0.4, 0, DARK, [1.15, 0.48, 0.12], 0.2, 0);
   prop(s0 - 0.4, gap + 0.8, 2.2, 'box', 0.15, 4.4, 0.15, 0, STEEL, [0.4, 0.16, 0.04], 0.6, 0);
   stackYard(put, prop, puff, r, true, (s0 + s1) / 2, t1 + 8);
   // Pour: a flare and a shower at the door. The shader loops them.
-  puff(s0 - 1.5, 0, 1.5, 4, 0.15, 2.2, 2.8, 2.2, 0);
-  for (let i = 0; i < 14; i++) {
-    const a = (i / 14) * Math.PI - Math.PI / 2;
-    puff(s0 - 2.2, Math.sin(a) * 1.5, 0.8 + (i % 5) * 0.7, 3, 0.05 + i * 0.061, 0.7, 1.15, 0.7, 0);
+  puff(s0 - 1.8, 0, 1.15, 4, 0.15, 0.7, 1.05, 0.7, 0);
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI - Math.PI / 2;
+    puff(s0 - 2.6, Math.sin(a) * 2.1, 0.55 + (i % 4) * 0.55, 3, 0.05 + i * 0.061, 0.16, 0.28, 0.16, 0);
   }
 }
 
