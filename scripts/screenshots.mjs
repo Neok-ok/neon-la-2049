@@ -131,15 +131,15 @@ const shots = [
   // Stage 10 — Grey Coast and the Sepulveda Sea Wall. Cameras come from __nla.coastView.
   { name: 'coast-crest-rain', ctx: desktop, q: `mode=walk&at=sea-wall-fight&time=22.2&weather=rain&${common}`, after: () => window.__nla.coastView('crest'), near: true, coast: true },
   { name: 'coast-terraces', ctx: desktop, q: `mode=walk&at=sea-wall-fight&time=21.5&weather=rain&${common}`, after: () => window.__nla.coastView('terraces'), near: true, coast: true },
-  { name: 'coast-apron-storm', ctx: desktop, q: `mode=fly&at=sea-wall-fight&time=22&weather=downpour&${common}`, after: () => window.__nla.coastView('apron'), near: true, coast: true },
-  { name: 'coast-spray', ctx: desktop, q: `mode=walk&at=sea-wall-fight&time=22&weather=downpour&${common}`, after: () => window.__nla.coastView('spray'), near: true, coast: true },
+  { name: 'coast-apron-storm', ctx: desktop, q: `mode=fly&at=sea-wall-fight&time=22&weather=downpour&surf=1&${common}`, after: () => window.__nla.coastView('apron'), near: true, coast: true },
+  { name: 'coast-spray', ctx: desktop, q: `mode=walk&at=sea-wall-fight&time=22&weather=downpour&surf=1&${common}`, after: () => window.__nla.coastView('spray'), near: true, coast: true },
   { name: 'coast-piers-dusk', ctx: desktop, q: `mode=fly&at=sea-wall-fight&time=18.2&weather=drizzle&${common}`, after: () => window.__nla.coastView('piers'), near: true, coast: true, settle: true },
   { name: 'coast-blocks', ctx: desktop, q: `mode=walk&at=sea-wall-fight&time=22&weather=rain&${common}`, after: () => window.__nla.coastView('blocks'), near: true, coast: true },
   { name: 'coast-aerial', ctx: desktop, q: `mode=fly&at=sea-wall-fight&time=21&weather=rain&${common}`, after: () => window.__nla.coastView('aerial'), near: true, coast: true },
   { name: 'coast-low', ctx: desktop, q: `mode=walk&at=sea-wall-fight&time=22&weather=downpour&freeze=1&ui=0&hud=1&quality=low${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.coastView('apron'), near: true, coast: true },
-  { name: 'coast-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=sea-wall-fight&time=22&weather=downpour&freeze=1&ui=0&hud=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.coastView('spray'), near: true, coast: true },
-  { name: 'coast-medium', ctx: desktop, q: `mode=fly&at=sea-wall-fight&time=22&weather=downpour&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.coastView('apron'), near: true, coast: true },
-  { name: 'coast-ultra', ctx: desktop, q: `mode=fly&at=sea-wall-fight&time=22&weather=downpour&freeze=1&ui=0&hud=1&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.coastView('apron'), near: true, coast: true },
+  { name: 'coast-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=sea-wall-fight&time=22&weather=downpour&surf=1&freeze=1&ui=0&hud=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.coastView('spray'), near: true, coast: true },
+  { name: 'coast-medium', ctx: desktop, q: `mode=fly&at=sea-wall-fight&time=22&weather=downpour&surf=1&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.coastView('apron'), near: true, coast: true },
+  { name: 'coast-ultra', ctx: desktop, q: `mode=fly&at=sea-wall-fight&time=22&weather=downpour&surf=1&freeze=1&ui=0&hud=1&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.coastView('apron'), near: true, coast: true },
 ];
 
 const args = GPU
@@ -211,6 +211,9 @@ for (const s of shots) {
     await page.waitForFunction(() => window.__nla.isIdle(), null, { timeout: 120_000, polling: 1000 }).catch(() => {});
   }
   await page.waitForTimeout(2500);
+  if (s.coast && s.q.includes('weather=downpour') && !s.q.includes('quality=low')) {
+    await page.waitForFunction(() => (window.__nla?.stats?.().coastImpact ?? 0) > 0.55, null, { timeout: 12_000, polling: 40 }).catch(() => {});
+  }
   const stats = await page.evaluate(() => {
     const s = window.__nla?.stats?.() ?? null;
     const c = window.__nla?.app?.camera;

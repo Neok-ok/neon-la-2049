@@ -23,6 +23,11 @@ export interface CoastClimate {
 
 let installed = false;
 let apronFrame = { x: 0, z: 0 };
+let lastImpact = 0;
+
+export function coastImpact(): number {
+  return lastImpact;
+}
 
 export function coastSegmentCount(): number {
   return wallSegmentCount();
@@ -52,9 +57,16 @@ export function updateCoast(
   rain: number,
   wind: number,
   layout: CityQuery['layout'],
+  holdSurf = false,
 ): CoastClimate {
   const hit = nearestWall(layout, cam.x, cam.z);
-  const state: WaveState = waveClock(time, rain, wind);
+  let clock = time;
+  if (holdSurf) {
+    const preview = waveClock(0, rain, wind);
+    clock = preview.period * 0.78;
+  }
+  const state: WaveState = waveClock(clock, rain, wind);
+  lastImpact = state.impact;
   updateWall(layout, cam.x, cam.z, tier);
   updateWaves(layout, cam.x, cam.y, cam.z, tier, state, rain);
   updatePiers(cam.x, cam.z);

@@ -34,7 +34,9 @@ The kit is ribbed, coffered and panelled masses for 90–250 m residential block
 - Apron deck at **7.05 m**, from the first dry terrace to **1 m inside** the ocean polygon. Walk mode refuses ocean cells, so the pad has to be dry. The pin stays at 33.956 N / 118.447 W, about 275 m inland; the pad is the toe nearest that point.
 - Stair risers ≤ **0.40 m**, each step offset inland. A stack of floors in one footprint would auto-climb, because `floorBelow` looks 0.45 m up.
 - The ladder beside the lowest flight has solid rails and visual rungs. A vertical ladder is not a walkable stair.
-- Breakers: calm period ~9.2 s, storm ~4.8 s, impact at phase 0.78. The shader and the surf bus read the same clock. Low tier: no ribbon, surf gain × 0.4, impact × 0.25.
+- Service ladders follow the steep face, offset about 0.7 m into the air. A vertical run at the upper lip sits inside the slope. Near segments wear a solid concrete skin so the Stage 1 window grid stays a far read.
+- Breakers: calm period ~9.2 s, storm ~4.8 s, impact at phase 0.78. Foam and spray emit, because night ambient turns a lit white into black. The shader and the surf bus read the same clock. Low tier: no ribbon, surf gain × 0.4, impact × 0.25. `surf=1` holds that impact for screenshots.
+- Service-ladder rails use a cold `Style.Glow` at low intensity so they read at night. The concrete around them stays unlit.
 - Pier clusters sit in the water just seaward of the wall stations nearest the real Santa Monica and Venice pins. The wheel is a partial arc of struts. The Venice piece is a sine spine. No name, no gondolas.
 - One hauler and one patrol. Weight 0.2 so it does not steal lane traffic from downtown.
 

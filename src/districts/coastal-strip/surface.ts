@@ -24,8 +24,10 @@ import {
 } from './profile';
 import { stairLocalOn } from './collision';
 
-const BOARD: FaceStyle = { style: Style.Coastal, lit: 0.03, tint: 0.5, seed: 0.16 };
-const STAIN: FaceStyle = { style: Style.Coastal, lit: 0.02, tint: 0.3, seed: 0.44 };
+const BOARD: FaceStyle = { style: Style.Solid, lit: 0.02, tint: 0.78, seed: 0.16 };
+const CONCRETE: FaceStyle = { style: Style.Solid, lit: 0.015, tint: 0.62, seed: 0.51 };
+const STAIN: FaceStyle = { style: Style.Solid, lit: 0.01, tint: 0.34, seed: 0.44 };
+const LADDER: FaceStyle = { style: Style.Glow, lit: 0.32, tint: 1.9, seed: 0.19 };
 const JOINT: FaceStyle = { style: Style.Solid, lit: 0, tint: 0.2, seed: 0.71 };
 const METAL: FaceStyle = { style: Style.Solid, lit: 0.04, tint: 0.46, seed: 0.33 };
 const RUST: FaceStyle = { style: Style.Solid, lit: 0.03, tint: 0.62, seed: 0.88 };
@@ -89,18 +91,17 @@ function buildPiece(w: GeoWriter, piece: WallPiece, layout: CityLayout): void {
     const N = edgeNormal(a0, y0, a1, y1);
     const out = [f.nx * N.ax, N.ay, f.nz * N.ax];
     const low = Math.min(y0, y1) < 22;
-    if (low) {
-      const lift = 0.05;
-      quadOut(
-        w,
-        at(0, a0, y0, N.ax * lift, N.ay * lift),
-        at(1, a0, y0, N.ax * lift, N.ay * lift),
-        at(1, a1, y1, N.ax * lift, N.ay * lift),
-        at(0, a1, y1, N.ax * lift, N.ay * lift),
-        out,
-        STAIN,
-      );
-    }
+    // Solid skin so the Stage 1 window grid does not show on the near wall.
+    const skin = 0.05;
+    quadOut(
+      w,
+      at(0, a0, y0, N.ax * skin, N.ay * skin),
+      at(1, a0, y0, N.ax * skin, N.ay * skin),
+      at(1, a1, y1, N.ax * skin, N.ay * skin),
+      at(0, a1, y1, N.ax * skin, N.ay * skin),
+      out,
+      low ? STAIN : CONCRETE,
+    );
     for (let s = 0; s < n; s++) {
       const f0 = s / n;
       const f1 = (s + 0.16) / n;
@@ -174,21 +175,38 @@ function buildPiece(w: GeoWriter, piece: WallPiece, layout: CityLayout): void {
   if (ladderHere) {
     const dry = prof.treads.filter((t) => t.y >= 8);
     for (let i = 0; i < dry.length - 1; i++) {
-      const lo = dry[i + 1]!;
       const hi = dry[i]!;
+      const lo = dry[i + 1]!;
       if (lo.y >= hi.y) continue;
+      // Steep face from the upper lip down to the next nose. A vertical
+      // ladder at hi.outer sits inside the concrete.
+      const span = lo.outer - lo.inner;
+      const a0 = hi.outer;
+      const yA = hi.y;
+      const a1 = lo.inner + span * 0.35;
+      const yB = lo.y + 2;
+      const N = edgeNormal(a0, yA, a1, yB);
+      const gap = 0.7;
       const u = 0.58;
       const fr = frameAt(piece, u);
-      const across = hi.outer + 0.45;
-      const rise = hi.y - lo.y;
-      for (const side of [-0.22, 0.22]) {
-        const p = framePoint(fr, across, side);
-        w.box(p.x, p.z, lo.y + 0.4, 0.08, 0.08, rise - 0.3, fr.yaw, METAL);
+      const steps = Math.max(8, Math.round(Math.hypot(a1 - a0, yB - yA) / 1.05));
+      const segH = Math.abs(yA - yB) / steps + 0.2;
+      for (let s = 0; s <= steps; s++) {
+        const t = s / steps;
+        const across = a0 + (a1 - a0) * t + N.ax * gap;
+        const y = yA + (yB - yA) * t + N.ay * gap;
+        for (const side of [-0.5, 0.5]) {
+          const p = framePoint(fr, across, side);
+          w.box(p.x, p.z, y - segH * 0.5, 0.28, 0.22, segH, fr.yaw, LADDER);
+        }
+        if (s > 0 && s < steps) {
+          const p = framePoint(fr, across, 0);
+          w.box(p.x, p.z, y - 0.08, 1.12, 0.2, 0.18, fr.yaw, LADDER);
+        }
       }
-      const rungs = Math.min(8, Math.floor(rise / 1.6));
-      for (let r = 1; r <= rungs; r++) {
-        const p = framePoint(fr, across, 0);
-        w.box(p.x, p.z, lo.y + (rise * r) / (rungs + 1), 0.5, 0.06, 0.05, fr.yaw, METAL);
+      if (i === 0) {
+        const p = framePoint(fr, a0 + N.ax * gap, 0);
+        w.box(p.x, p.z, yA + 0.15, 0.42, 0.28, 0.16, fr.yaw, GLOW);
       }
     }
   }
@@ -208,7 +226,7 @@ function buildPiece(w: GeoWriter, piece: WallPiece, layout: CityLayout): void {
   for (let c = Math.ceil((piece.chain0 + 6) / lampStep) * lampStep; c < piece.chain0 + piece.len - 4; c += lampStep) {
     const u = (c - piece.chain0) / piece.len;
     const fr = frameAt(piece, u);
-    const p = framePoint(fr, -prof.crest / 2 + 3.2, 0);
+    const p = framePoint(fr, prof.crest / 2 - 6, 0);
     w.box(p.x, p.z, prof.H, 0.16, 0.16, 4.4, fr.yaw, METAL);
     w.box(p.x, p.z, prof.H + 4.25, 0.7, 0.32, 0.14, fr.yaw, GLOW);
   }

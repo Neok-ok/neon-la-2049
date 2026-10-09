@@ -8,8 +8,8 @@ import type { LandmarkCollider } from '../../world/landmarks/registry';
 import { framePoint } from './profile';
 import { planApron, type ApronPlan, type ApronSolid } from './apronPlan';
 
-const DECK: FaceStyle = { style: Style.Coastal, lit: 0.05, tint: 0.58, seed: 0.21 };
-const STEP: FaceStyle = { style: Style.Coastal, lit: 0.04, tint: 0.48, seed: 0.37 };
+const DECK: FaceStyle = { style: Style.Solid, lit: 0.04, tint: 1.15, seed: 0.21 };
+const STEP: FaceStyle = { style: Style.Solid, lit: 0.03, tint: 1.02, seed: 0.37 };
 const METAL: FaceStyle = { style: Style.Solid, lit: 0.02, tint: 0.4, seed: 0.63 };
 const GRATE: FaceStyle = { style: Style.Solid, lit: 0, tint: 0.22, seed: 0.91 };
 const GLOW: FaceStyle = { style: Style.Glow, lit: 0.85, tint: 1.9, seed: 0.18 };

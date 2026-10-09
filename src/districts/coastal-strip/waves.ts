@@ -1,7 +1,7 @@
 // A short swell ribbon that follows the camera along the toe.
 // Low tier draws nothing. The ocean mesh itself is not displaced.
 import {
-  BufferAttribute, BufferGeometry, DynamicDrawUsage, Group, InstancedMesh, Matrix4, Mesh, MeshStandardNodeMaterial,
+  BufferAttribute, BufferGeometry, DoubleSide, DynamicDrawUsage, Group, InstancedMesh, Matrix4, Mesh, MeshStandardNodeMaterial,
   PlaneGeometry, Quaternion, Vector3,
 } from 'three/webgpu';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -24,6 +24,7 @@ const { Fn, mix, positionLocal, sin, smoothstep, uniform, vec3 } = T;
 const uPhase = uniform(0);
 const uAmp = uniform(0.4);
 const uImpact = uniform(0);
+const uStorm = uniform(0);
 const uWet = uniform(0.2);
 
 let host: Group | null = null;
@@ -83,18 +84,27 @@ function waveMat(): MeshStandardNodeMaterial {
   m.roughness = 0.22;
   m.metalness = 0.35;
   m.fog = true;
+  m.side = DoubleSide;
   m.positionNode = Fn(() => {
     const p = positionLocal;
-    const lip = smoothstep(0.0, 3.0, p.z).mul(smoothstep(14.0, 4.0, p.z));
+    const lip = smoothstep(1.2, 4.2, p.z).mul(smoothstep(10.0, 5.5, p.z));
     const swell = sin(uPhase.mul(6.28318).add(p.z.mul(0.11)).add(p.x.mul(0.02))).mul(uAmp).mul(0.35);
-    const crest = uImpact.mul(uAmp).mul(1.25).mul(lip);
+    const crest = uImpact.mul(uAmp).mul(1.55).mul(lip);
     return vec3(p.x, swell.add(crest), p.z);
   })();
   m.colorNode = Fn(() => {
     const p = positionLocal;
-    const lip = smoothstep(0.0, 2.4, p.z).mul(smoothstep(12.0, 3.2, p.z));
-    const foam = lip.mul(smoothstep(0.15, 0.85, uImpact));
-    return mix(vec3(0.04, 0.06, 0.08), vec3(0.84, 0.88, 0.9), foam);
+    const lip = smoothstep(1.5, 4.0, p.z).mul(smoothstep(9.0, 5.2, p.z));
+    const foam = lip.mul(T.float(0.55).add(uImpact.mul(0.45)));
+    return mix(vec3(0.03, 0.045, 0.055), vec3(0.78, 0.84, 0.86), foam);
+  })();
+  // Night ambient leaves a standard white almost black. Spray has to emit.
+  m.emissiveNode = Fn(() => {
+    const p = positionLocal;
+    const lip = smoothstep(1.5, 4.0, p.z).mul(smoothstep(9.0, 5.2, p.z));
+    const foam = lip.mul(T.float(0.45).add(uImpact.mul(0.55)));
+    const glow = T.float(0.12).add(uStorm.mul(0.15)).add(uImpact.mul(0.4));
+    return vec3(0.72, 0.8, 0.84).mul(foam).mul(glow);
   })();
   return m;
 }
@@ -147,9 +157,11 @@ function sprayMaterial(): MeshStandardNodeMaterial {
   m.transparent = true;
   m.depthWrite = false;
   m.fog = true;
+  m.side = DoubleSide;
   m.roughness = 0.4;
-  m.colorNode = vec3(0.82, 0.86, 0.88);
-  m.opacityNode = uImpact.mul(0.55);
+  m.colorNode = vec3(0.9, 0.93, 0.95);
+  m.emissiveNode = vec3(0.75, 0.82, 0.86).mul(uImpact.mul(0.55).add(uStorm.mul(0.18)));
+  m.opacityNode = uImpact.mul(0.45).add(uStorm.mul(0.08));
   sprayMat = m;
   return m;
 }
@@ -265,6 +277,7 @@ export function updateWaves(
   uPhase.value = state.phase;
   uAmp.value = state.amp;
   uImpact.value = state.impact;
+  uStorm.value = state.storm;
   const wetAmt = (0.1 + rain * 0.4) * (0.3 + state.impact * 0.7);
   uWet.value = wetAmt;
   if (!budget.waves || far) {
@@ -297,13 +310,13 @@ export function updateWaves(
   if (moved > 6 || Math.abs(anchorYaw - frame.yaw) > 0.05) place(frame, across);
 
   if (spray) {
-    const show = state.impact > 0.08;
+    const show = rain > 0.25 && (state.storm > 0.35 || state.impact > 0.05);
     spray.visible = show;
     spray.count = show ? sprayLocal.length : 0;
     for (let i = 0; i < sprayLocal.length; i++) {
       const s = sprayLocal[i]!;
-      const rise = 0.5 + state.impact * (1.4 + state.amp) * (0.35 + s.seed);
-      const sc = 1.6 + s.seed * 2.2;
+      const rise = 2.6 + state.impact * (0.9 + state.amp * 0.2) * (0.35 + s.seed * 0.55);
+      const sc = (0.55 + state.storm * 0.35 + state.impact * 0.45) * (0.9 + s.seed * 0.8);
       _p.set(s.x, rise, s.z);
       _s.set(sc, sc * (1.1 + state.impact), sc);
       spray.setMatrixAt(i, _m.compose(_p, _q.identity(), _s));

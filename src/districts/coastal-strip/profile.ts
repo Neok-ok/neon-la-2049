@@ -195,7 +195,7 @@ export function waveClock(time: number, rain: number, wind: number): WaveState {
   const storm = Math.max(0, Math.min(1, rain * 0.72 + Math.min(wind, 12) / 18));
   const period = 9.2 - storm * 4.4;
   const phase = period > 0 ? (time % period) / period : 0;
-  const impact = Math.max(0, 1 - Math.abs(phase - 0.78) / 0.065);
+  const impact = Math.max(0, 1 - Math.abs(phase - 0.78) / 0.16);
   const amp = 0.42 + storm * 1.85;
   return { storm, period, phase, impact, amp };
 }

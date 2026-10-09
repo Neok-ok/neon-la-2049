@@ -24,7 +24,7 @@ import { wallaceCamera, type WallaceView } from '../districts/wallace-vernon/vie
 import { updateWallace } from '../districts/wallace-vernon/live';
 import { wallaceFaceSectorCount } from '../districts/wallace-vernon/faceDetail';
 import { coastCamera, type CoastView } from '../districts/coastal-strip/view';
-import { coastSegmentCount, installCoast, updateCoast } from '../districts/coastal-strip/live';
+import { coastImpact, coastSegmentCount, installCoast, updateCoast } from '../districts/coastal-strip/live';
 import { installInteriors } from '../districts/interior-index';
 import { InteriorSystem } from '../world/interiors';
 import { installCivicHolos } from '../districts/civic-center/holos';
@@ -343,7 +343,7 @@ export class App {
     const walLm = this.query.layout.landmarkById('wallace-pyramid');
     const inWallace = districtNow.id === 'wallace-vernon'
       || (!!walLm && Math.hypot(cam.x - walLm.x, cam.z - walLm.z) < walLm.reserveRadius + 40);
-    const coast = updateCoast(cam, this.quality.tier, dt, this.elapsed, this.atmosphere.weather.params.rain, this.atmosphere.weather.params.wind, this.query.layout);
+    const coast = updateCoast(cam, this.quality.tier, dt, this.elapsed, this.atmosphere.weather.params.rain, this.atmosphere.weather.params.wind, this.query.layout, params.surf);
     const inCoast = districtNow.id === 'coastal-strip' || coast.near > 0.45;
     const inCanyon = inDtla || (districtNow.id === 'financial-megatowers' && alt < 40);
     U.neonWet.value = inMarket && alt < 140 ? 0.92
@@ -539,9 +539,30 @@ export class App {
         const pre = coastCamera(this.query.layout, kind);
         if (!pre) return false;
         this.query.fabricAt(pre.x, pre.z);
-        const p = kind === 'blocks'
-          ? coastCamera(this.query.layout, kind, (x, z) => this.query.findStreetSpot(x, z, 120)) ?? pre
-          : pre;
+        let p = pre;
+        if (kind === 'blocks') {
+          const fab = this.query.fabricAt(pre.x, pre.z);
+          let best: (typeof fab.blocks)[number] | null = null;
+          let bd = Infinity;
+          for (const b of fab.blocks) {
+            const d = Math.hypot(b.cx - pre.x, b.cz - pre.z);
+            if (d < bd) { bd = d; best = b; }
+          }
+          if (best) {
+            const off = best.la / 2 + best.street / 2;
+            const px = best.cx + best.ax * off;
+            const pz = best.cz + best.az * off;
+            p = {
+              x: px,
+              y: best.ground + 1.7,
+              z: pz,
+              heading: Math.atan2(best.bx, -best.bz),
+              pitch: 0.06,
+              mode: 'walk',
+              feet: { x: px, y: best.ground, z: pz },
+            };
+          }
+        }
         this.cams.setMode(p.mode);
         if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
         this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
@@ -691,6 +712,7 @@ export class App {
         ...this.interiors.stats,
         faceSectors: wallaceFaceSectorCount(),
         coastSegments: coastSegmentCount(),
+        coastImpact: coastImpact(),
       }),
     };
   }

@@ -1,7 +1,7 @@
 // Screenshot cameras for Stage 10 (`__nla.coastView`).
 import type { CityLayout } from '../../world/layout';
 import { planApron } from './apronPlan';
-import { fightHit, framePoint } from './profile';
+import { framePoint } from './profile';
 import { pierFocusPoint } from './piers';
 
 export type CoastView = 'crest' | 'terraces' | 'apron' | 'spray' | 'piers' | 'blocks' | 'aerial';
@@ -61,7 +61,6 @@ export function coastCamera(
   kind: CoastView,
   snap?: (x: number, z: number) => [number, number],
 ): CoastPose | null {
-  const hit = fightHit(layout);
   const plan = planApron(layout);
   const f = plan.frame;
   const H = f.H;
@@ -71,27 +70,27 @@ export function coastCamera(
   };
 
   if (kind === 'crest') {
-    const feet = at(-2, 28, H + 0.02);
-    const look = at(4, 90, H + 1.4);
-    return walk(feet, look, -0.06);
+    // Seaward side of the crest road, looking along the lamps and down the face.
+    const feet = at(3, 6, H + 0.02);
+    const look = at(22, 42, H - 18);
+    return walk(feet, look, -0.32);
   }
   if (kind === 'terraces') {
-    const tread = hit.piece.profile.treads.find((t) => Math.abs(t.y - 45) < 1) ?? hit.piece.profile.treads[2];
-    if (!tread) return null;
-    const mid = (tread.inner + tread.outer) / 2;
-    const feet = at(mid, 26, tread.y + 0.02);
-    const look = at(tread.outer + 18, plan.stairAlong, 16);
-    return walk(feet, look, -0.22);
+    // Off the steep face, not on the flat collider (that box sits inside the slope).
+    // Ladder chainage is about +88 m from the fight frame.
+    const eye = at(58, 74, 48);
+    const look = at(48, 88, 54);
+    return fly(eye, look);
   }
   if (kind === 'apron') {
-    const eye = at(plan.across1 + 26, 0, 12);
-    const look = at((plan.across0 + plan.across1) / 2, plan.stairAlong, 28);
+    const eye = at(plan.across1 + 18, -4, 12.5);
+    const look = at(plan.across1 - 14, 10, 9);
     return fly(eye, look);
   }
   if (kind === 'spray') {
-    const feet = at(plan.across1 - 3.2, 4, plan.deckY + 0.02);
-    const look = at(plan.across1 + 6, 28, plan.deckY + 3.2);
-    return walk(feet, look, 0.12);
+    const feet = at(plan.across1 - 14, -2, plan.deckY + 0.02);
+    const look = at(plan.across1 + 6, 12, plan.deckY + 2.2);
+    return walk(feet, look, -0.1);
   }
   if (kind === 'piers') {
     const pier = pierFocusPoint();
@@ -104,11 +103,12 @@ export function coastCamera(
     return fly(eye, { x: pier.x, y: pier.y, z: pier.z });
   }
   if (kind === 'blocks') {
+    // Seed only. App re-aims this onto the nearest block's street axis.
     const raw = at(-190, 36, 0);
     const [sx, sz] = snap ? snap(raw.x, raw.z) : [raw.x, raw.z];
     const feet = { x: sx, y: layout.heightAt(sx, sz) + 0.02, z: sz };
-    const look = at(-20, 10, 28);
-    return walk(feet, look, 0.08);
+    const look = at(-40, 70, 16);
+    return walk(feet, look, 0.06);
   }
   const eye = at(-90, -520, 260);
   const look = at(20, 80, 70);
