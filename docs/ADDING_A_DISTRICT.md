@@ -177,6 +177,8 @@ Hologram slots from `placeKit` register as `${id}-holo-a` (first shaft slot), `-
 
 The downtown grid (bearing 38°, 205 × 125 m) is shared with the Financial District and Civic Center. `downtownGraph` in `src/vehicles/streetGraph.ts` is the lane graph for low spinners and ground cars. Do not build a second one for Civic Center; add edges by extending the district allow-list if a new grid matches.
 
+Stage 5 (`src/districts/civic-center/`) is the landmark-heavy district. The fabric is a quiet compact-megablock field; LAPD and City Hall are `registerLandmarkType` builders with their own LODs, and a registration replaces the Stage-1 blockout of that type (`lapd-hq`, `heritage-tower`). Police pad traffic is not a new mesh and not a street-graph edge: the graph is flat, and `isReserved` drops anything through the footprint. `civic-center/lanes.ts` builds open polylines in landmark-local metres; `buildSkyLanes` appends them after `hold-lapd`. Open lanes take `altBias` and `fade` (see ARCHITECTURE, *Sky lanes*) so a short roof approach is not lifted 7 m and does not fade out before the pad.
+
 A dressed district that wants pedestrians calls `registerCrowdSource(districtId, fn)` from `little-tokyo-market/crowd.ts`. The mesh and the shader stay there. Return loops of `[x, z]` points. Hide nothing at the origin: the field already parks vendor slots that have no cook.
 
 ## 6. Holograms

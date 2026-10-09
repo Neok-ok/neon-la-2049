@@ -55,37 +55,39 @@ export function lapdPadRuns(
   const runs: PadRun[] = [];
   // Plaza-side pads (local −Z, toward City Hall): a long departure to the southwest so the
   // pad itself sits past the open-lane fade. Far-side pads mirror that.
+  // Over the crown (|lz| < ~90, the roof box plus the lane pad) every point stays at HOVER_Y.
+  // Descending while still on that box makes settle() lift the whole run, and the pad stops reading as a landing.
   const paths: Array<{ id: string; pts: Array<[number, number, number]> }> = [
     {
       id: 'lapd-pad-a',
       pts: [
-        w(-200, 196, -250), w(-90, 206, -170), w(-40, 216, -110),
-        w(-28, HOVER_Y, -72), w(-28, HOVER_Y, -38), w(-28, HOVER_Y + 1, 10),
-        w(20, 214, 140), w(70, 200, 320), w(110, 188, 520),
+        w(-180, 196, -300), w(-70, 208, -180),
+        w(-28, HOVER_Y, -115), w(-28, HOVER_Y, -38), w(-28, HOVER_Y, 115),
+        w(40, 206, 250), w(100, 192, 480),
       ],
     },
     {
       id: 'lapd-pad-b',
       pts: [
-        w(210, 198, -260), w(100, 208, -175), w(48, 216, -112),
-        w(28, HOVER_Y, -72), w(28, HOVER_Y, -38), w(28, HOVER_Y + 1, 16),
-        w(-10, 216, 150), w(-60, 202, 330), w(-100, 190, 530),
+        w(190, 198, -310), w(80, 210, -185),
+        w(28, HOVER_Y, -115), w(28, HOVER_Y, -38), w(28, HOVER_Y, 115),
+        w(-30, 208, 260), w(-90, 194, 490),
       ],
     },
     {
       id: 'lapd-pad-c',
       pts: [
-        w(-160, 190, 520), w(-80, 200, 300), w(-40, 214, 140),
-        w(-28, HOVER_Y, 70), w(-28, HOVER_Y, 38), w(-28, HOVER_Y + 1, -8),
-        w(10, 214, -120), w(50, 202, -280), w(90, 190, -480),
+        w(-170, 194, 500), w(-70, 208, 240),
+        w(-28, HOVER_Y, 115), w(-28, HOVER_Y, 38), w(-28, HOVER_Y, -115),
+        w(36, 206, -250), w(96, 190, -480),
       ],
     },
     {
       id: 'lapd-pad-d',
       pts: [
-        w(170, 192, 530), w(90, 204, 310), w(46, 216, 145),
-        w(28, HOVER_Y, 72), w(28, HOVER_Y, 38), w(28, HOVER_Y + 1, -6),
-        w(-16, 214, -130), w(-55, 200, -290), w(-95, 188, -490),
+        w(180, 196, 510), w(76, 210, 245),
+        w(28, HOVER_Y, 115), w(28, HOVER_Y, 38), w(28, HOVER_Y, -115),
+        w(-24, 206, -255), w(-88, 190, -490),
       ],
     },
   ];

@@ -69,6 +69,16 @@ const shots = [
   { name: 'dtla-low', ctx: desktop, q: `mode=walk&at=dtla-canyon&time=22.5&weather=rain&freeze=1&ui=0&quality=low${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.dtlaView('street'), near: true },
   { name: 'dtla-medium', ctx: desktop, q: `mode=walk&at=dtla-canyon&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.dtlaView('street'), near: true },
   { name: 'dtla-ultra', ctx: desktop, q: `mode=walk&at=dtla-canyon&time=22.5&weather=rain&freeze=1&ui=0&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.dtlaView('street'), near: true },
+  // Stage 5 — Civic Center and LAPD. Cameras come from __nla.civicView.
+  { name: 'civic-approach-night', ctx: desktop, q: `mode=fly&at=lapd-deck&time=22&weather=rain&${common}`, after: () => window.__nla.civicView('approach') },
+  { name: 'civic-steps-rain', ctx: desktop, q: `mode=walk&at=lapd-steps&time=22.5&weather=rain&${common}`, after: () => window.__nla.civicView('steps'), near: true },
+  { name: 'civic-city-hall', ctx: desktop, q: `mode=walk&at=city-hall-steps&time=22&weather=rain&${common}`, after: () => window.__nla.civicView('hall'), near: true },
+  { name: 'civic-lobby', ctx: desktop, q: `mode=walk&at=lapd-lobby&time=22.5&weather=rain&${common}`, after: () => window.__nla.civicView('lobby'), near: true },
+  { name: 'civic-plaza', ctx: desktop, q: `mode=walk&at=civic-plaza&time=22.5&weather=rain&${common}`, after: () => window.__nla.civicView('plaza'), near: true },
+  { name: 'civic-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=lapd-steps&time=22.5&weather=rain&freeze=1&ui=0&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.civicView('steps'), near: true },
+  { name: 'civic-low', ctx: desktop, q: `mode=walk&at=lapd-steps&time=22.5&weather=rain&freeze=1&ui=0&quality=low${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.civicView('steps'), near: true },
+  { name: 'civic-medium', ctx: desktop, q: `mode=walk&at=lapd-steps&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.civicView('steps'), near: true },
+  { name: 'civic-ultra', ctx: desktop, q: `mode=walk&at=lapd-steps&time=22.5&weather=rain&freeze=1&ui=0&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.civicView('steps'), near: true },
 ];
 
 const args = GPU

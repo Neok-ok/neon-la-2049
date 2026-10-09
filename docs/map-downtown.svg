@@ -191,6 +191,16 @@
 <text x="-3168.1" y="2576.9" dx="5" dy="12" fill="#8fe8ff" font-size="10">Sea wall finale site</text>
 <circle cx="397.6" cy="279.4" r="2" fill="#29d8ff"/>
 <text x="397.6" y="279.4" dx="5" dy="12" fill="#8fe8ff" font-size="10">Downtown canyon (between megablocks)</text>
+<circle cx="580.4" cy="441.9" r="2" fill="#29d8ff"/>
+<text x="580.4" y="441.9" dx="5" dy="12" fill="#8fe8ff" font-size="10">LAPD approach steps</text>
+<circle cx="574.1" cy="447.4" r="2" fill="#29d8ff"/>
+<text x="574.1" y="447.4" dx="5" dy="12" fill="#8fe8ff" font-size="10">LAPD lobby (enterable)</text>
+<circle cx="567.5" cy="446.5" r="2" fill="#29d8ff"/>
+<text x="567.5" y="446.5" dx="5" dy="12" fill="#8fe8ff" font-size="10">LAPD landing deck</text>
+<circle cx="594.9" cy="425.1" r="2" fill="#29d8ff"/>
+<text x="594.9" y="425.1" dx="5" dy="12" fill="#8fe8ff" font-size="10">City Hall ceremonial steps</text>
+<circle cx="583.9" cy="436.1" r="2" fill="#29d8ff"/>
+<text x="583.9" y="436.1" dx="5" dy="12" fill="#8fe8ff" font-size="10">Civic Center mall</text>
 <circle cx="372.3" cy="465.3" r="2" fill="#29d8ff"/>
 <text x="372.3" y="465.3" dx="5" dy="12" fill="#8fe8ff" font-size="10">Megatower 1 podium plaza</text>
 <circle cx="303.7" cy="303.9" r="2" fill="#29d8ff"/>

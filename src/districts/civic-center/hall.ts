@@ -139,7 +139,7 @@ function signsFor(l: Landmark, yaw: number): Sign[] {
   const [x, z] = localToWorld(l.x, l.z, yaw, 0, HALL.baseD / 2 + 0.6);
   return [{
     x, y: 7.2, z, yaw, w: 7.4, h: 1.35,
-    color: SignColor.White, seed: phraseSeed(60), kind: 0,
+    color: SignColor.White, seed: phraseSeed(62), kind: 0,
   }];
 }
 

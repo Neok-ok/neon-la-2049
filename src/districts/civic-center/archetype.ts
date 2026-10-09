@@ -38,7 +38,7 @@ registerArchetype('civic-center', (ctx) => {
       }
       ctx.box(lot.s, lot.t, 2.2, 2.2, r.range(4, 9), { style: Style.Industrial, lit: 0, tint: 0.6, base: H, detail: 2 });
       if (r.chance(0.35)) {
-        ctx.sign(lot.s, lot.t, lot.lb * 0.5, lot.la * 0.5, 'a+', 0, plinth + 2.2, r.range(3.5, 6), 1.2, SignColor.White, 0, phraseSeed(43));
+        ctx.sign(lot.s, lot.t, lot.lb * 0.5, lot.la * 0.5, 'a+', 0, plinth + 2.2, r.range(3.5, 6), 1.2, SignColor.White, 0, phraseSeed(39));
       }
       continue;
     }
@@ -63,7 +63,7 @@ registerArchetype('civic-center', (ctx) => {
     if (r.chance(0.2)) {
       ctx.sign(
         lot.s, lot.t, lot.lb * 0.47, lot.la * 0.47, r.chance(0.5) ? 'a+' : 'b+',
-        0, r.range(6, 16), r.range(3.2, 6.5), 1.3, SignColor.White, 0, phraseSeed(r.chance(0.7) ? 43 : 60),
+        0, r.range(6, 16), r.range(3.2, 6.5), 1.3, SignColor.White, 0, phraseSeed(r.chance(0.7) ? 39 : 62),
       );
     }
   }

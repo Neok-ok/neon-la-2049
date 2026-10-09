@@ -2,7 +2,7 @@
 import { Vector3 } from 'three/webgpu';
 import type { CityLayout } from '../../world/layout';
 import { sampleLane, type SkyLane } from '../../vehicles/skyLanes';
-import { HQ, HALL_STAIR, localToWorld, yawOf } from './spec';
+import { HQ, HALL_STAIR, HOVER_Y, STAIR, localToWorld, treadTop, yawOf } from './spec';
 
 export type CivicView = 'approach' | 'steps' | 'hall' | 'lobby' | 'plaza';
 
@@ -27,29 +27,48 @@ export function civicCamera(layout: CityLayout, kind: CivicView, lanes: readonly
   const g = layout.heightAt(lapd.x, lapd.z);
 
   if (kind === 'approach') {
-    const lane = lanes.find((l) => l.id === 'lapd-pad-a') ?? lanes.find((l) => l.id.startsWith('lapd-pad-'));
+    const lane = lanes.find((l) => l.id === 'lapd-pad-a') ?? lanes.find((l) => l.id.startsWith('lapd-pad-') && !l.loop);
     const p = new Vector3();
     const tan = new Vector3();
-    if (lane) sampleLane(lane, lane.length * 0.34, p, tan);
-    else {
-      const [x, z] = localToWorld(lapd.x, lapd.z, yaw, -70, -140);
-      p.set(x, 210, z);
+    if (lane) {
+      // On the way in, just outside the crown, so the deck fills the frame.
+      let bestS = lane.length * 0.25;
+      let best = Infinity;
+      const probe = new Vector3();
+      const c = Math.cos(yaw), s = Math.sin(yaw);
+      for (let i = 1; i < 48; i++) {
+        const u = (lane.length * i) / 48;
+        sampleLane(lane, u, probe, tan);
+        const dx = probe.x - lapd.x, dz = probe.z - lapd.z;
+        const lz = dx * s + dz * c;
+        const dist = Math.hypot(dx, dz);
+        // Plaza side only (local −Z). The departure is a mirror of this leg.
+        const score = Math.abs(dist - 160) + Math.abs(probe.y - 212) * 0.35 + (lz < -70 ? 0 : 400);
+        if (score < best) { best = score; bestS = u; }
+      }
+      sampleLane(lane, bestS, p, tan);
+    } else {
+      const [x, z] = localToWorld(lapd.x, lapd.z, yaw, -55, -150);
+      p.set(x, 214, z);
       tan.set(0, 0, 1);
     }
-    const [tx, tz] = localToWorld(lapd.x, lapd.z, yaw, -10, -20);
-    // Sit just off the lane so the camera is not inside a traffic spinner.
+    // A point on the plaza-side deck, so the pads and the crown lip fill the frame.
+    const [tx, tz] = localToWorld(lapd.x, lapd.z, yaw, -28, -55);
     const sx = -tan.z, sz = tan.x;
-    const x = p.x + sx * 16;
-    const z = p.z + sz * 16;
-    const y = p.y + 2;
-    return { x, y, z, heading: headingTo(x, z, tx, tz), pitch: -0.06, mode: 'fly', cockpit: true };
+    const x = p.x + sx * 18;
+    const z = p.z + sz * 18;
+    const y = p.y + 1.4;
+    const dist = Math.hypot(tx - x, tz - z) || 1;
+    const pitch = Math.atan2(HOVER_Y - y, dist);
+    return { x, y, z, heading: headingTo(x, z, tx, tz), pitch, mode: 'fly', cockpit: true };
   }
 
   if (kind === 'steps') {
     // Low on the stair, off the centre line, looking up the run toward the door.
-    const [x, z] = localToWorld(lapd.x, lapd.z, yaw, 7.5, -74);
+    const lz = -74;
+    const [x, z] = localToWorld(lapd.x, lapd.z, yaw, 7.5, lz);
     const [dx, dz] = localToWorld(lapd.x, lapd.z, yaw, 0, -50);
-    const y = g + 0.7;
+    const y = g + treadTop(STAIR, lz);
     return {
       x, y, z, heading: headingTo(x, z, dx, dz), pitch: 0.42, mode: 'walk',
       feet: { x, y, z },
@@ -78,10 +97,11 @@ export function civicCamera(layout: CityLayout, kind: CivicView, lanes: readonly
   if (!hall) return null;
   const hy = yawOf(hall.bearingDeg);
   const gh = layout.heightAt(hall.x, hall.z);
-  // A few treads up, so the pyramid sits over the stair.
-  const [x, z] = localToWorld(hall.x, hall.z, hy, 4.5, (HALL_STAIR.z0 + HALL_STAIR.z1) / 2);
+  // On a tread (the run's midpoint falls in the gap between two treads).
+  const lz = HALL_STAIR.z0 + (HALL_STAIR.z1 - HALL_STAIR.z0) * (10.5 / HALL_STAIR.n);
+  const [x, z] = localToWorld(hall.x, hall.z, hy, 4.5, lz);
   const [tx, tz] = localToWorld(hall.x, hall.z, hy, 0, 10);
-  const y = gh + 1.4;
+  const y = gh + treadTop(HALL_STAIR, lz);
   return {
     x, y, z, heading: headingTo(x, z, tx, tz), pitch: 0.5, mode: 'walk',
     feet: { x, y, z },

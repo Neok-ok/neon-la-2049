@@ -75,6 +75,13 @@ export function yawOf(bearingDeg: number): number {
   return bearingToYaw(bearingDeg);
 }
 
+/** Tread top at a local Z on a straight run. Clamped to the two ends. */
+export function treadTop(stair: { z0: number; z1: number; y0: number; y1: number }, lz: number): number {
+  const t = (lz - stair.z0) / (stair.z1 - stair.z0);
+  const u = t < 0 ? 0 : t > 1 ? 1 : t;
+  return stair.y0 + (stair.y1 - stair.y0) * u;
+}
+
 /** Landmark-local metres to world XZ. Matches GeoWriter: offset (lx cos + lz sin, −lx sin + lz cos). */
 export function localToWorld(x: number, z: number, yaw: number, lx: number, lz: number): [number, number] {
   const c = Math.cos(yaw), s = Math.sin(yaw);

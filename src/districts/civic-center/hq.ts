@@ -107,6 +107,14 @@ function lobby(m: Mass): void {
   }
   m.box(2, -door + 0.4, mouthCz, floor, 0.45, mouthD - 0.6, ceil - floor, DARK);
   m.box(2, door - 0.4, mouthCz, floor, 0.45, mouthD - 0.6, ceil - floor, DARK);
+  // low barriers in the aisle and a directory on the right. The centre line stays open.
+  for (const lx of [-3.6, 3.6]) {
+    m.box(2, lx, -48.6, floor, 0.32, 2.2, 1.05, SOLID);
+    m.solid(lx, -48.6, 0.32, 2.2, floor, floor + 1.05);
+  }
+  m.box(2, 6.6, -49.5, floor, 0.28, 1.6, 2.4, DARK);
+  m.solid(6.6, -49.5, 0.28, 1.6, floor, floor + 2.4);
+  m.box(2, 6.6, -49.2, floor + 1.45, 0.12, 1.15, 0.7, COLD);
 }
 
 function shaftAndCrown(m: Mass): void {
@@ -131,6 +139,10 @@ function shaftAndCrown(m: Mass): void {
     m.box(1, 0, 0, SHAFT_Y + HQ.crownH * f, w, d, 1.35, f > 0.5 ? COLD : DARK);
   }
   m.box(1, 0, 0, SHAFT_Y + HQ.crownH - 1.5, HQ.crownW + 1.2, HQ.crownD + 1.2, 1.5, COLD);
+  // tall slits on the approach face, in the gaps between the fins
+  for (const y of [40, 78, 96, 128]) {
+    for (const x of [-16, -8, 8, 16]) m.box(1, x, -HQ.shaftD / 2 - 0.4, y, 4.2, 0.5, 6.5, SLIT);
+  }
 
   if (m.max < 2) return;
   // fins, broken by the belts so they don't pass through them
@@ -223,8 +235,8 @@ function signsFor(l: Landmark, yaw: number): Sign[] {
   const out = yaw + Math.PI;
   return [
     // over the door, readable from the steps. Atlas cell is the invented "SECTOR 5", not a badge.
-    at(0, 9.4, -HQ.podiumD / 2 - 0.5, 9.2, 1.55, out, phraseSeed(43), 0),
-    at(0, 8.4, -42.7, 6.4, 1.2, out, phraseSeed(43), 0),
+    at(0, 9.4, -HQ.podiumD / 2 - 0.5, 9.2, 1.55, out, phraseSeed(39), 0),
+    at(0, 8.4, -42.7, 6.4, 1.2, out, phraseSeed(39), 0),
   ];
 }
 
