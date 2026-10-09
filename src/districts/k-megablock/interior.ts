@@ -62,6 +62,12 @@ export function installKInteriors(layout: CityLayout = getLayout()): void {
       detail,
       extras: apartmentExtras(detail),
     });
+    // The template room tube is a cold wash. Pull it back so the amber practical can read.
+    const roomTube = plan.lights[1];
+    if (roomTube) {
+      roomTube.intensity = 0.65;
+      roomTube.range = 2.6;
+    }
     plan.lights.push(apartmentLamp());
     plan.colliders.push(...apartmentColliders());
     return plan;

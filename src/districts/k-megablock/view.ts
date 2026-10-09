@@ -2,7 +2,7 @@
 import type { CityLayout } from '../../world/layout';
 import { bearingToYaw } from '../../world/geo';
 import {
-  APARTMENT, CORRIDOR, HD, HOVER, K_Y, LOBBY, PAD, localToWorld,
+  APARTMENT, CORRIDOR, HD, HEAD, HOVER, K_Y, LOBBY, PAD, localToWorld,
 } from './spec';
 
 export type KView = 'street' | 'market' | 'lobby' | 'corridor' | 'apartment' | 'roof' | 'aerial';
@@ -46,14 +46,16 @@ export function kCamera(layout: CityLayout, kind: KView): KPose | null {
   });
 
   if (kind === 'street') {
-    const feet = world(-8, 0.02, HD + 26);
-    const look = world(-4, 48, 10);
-    return walk(feet, look, 0.38);
+    // Southeast of the slab, so the long south face and the market base share the frame.
+    const feet = world(36, 0.02, HD + 32);
+    const look = world(-24, 52, 6);
+    return walk(feet, look, 0.4);
   }
   if (kind === 'market') {
-    const feet = world(-68, 0.02, HD + 3.8);
-    const look = world(-70, 1.4, HD + 1.2);
-    return walk(feet, look, 0.02);
+    // Back in the aisle. The stall signs stay readable and the slab stays in frame.
+    const feet = world(-42, 0.02, HD + 22);
+    const look = world(-78, 10, HD + 0.6);
+    return walk(feet, look, 0.32);
   }
   if (kind === 'lobby') {
     const feet = inRoom(LOBBY.doorX, LOBBY.doorZ, 0, -1.1, 0.16, -6.4);
@@ -66,21 +68,24 @@ export function kCamera(layout: CityLayout, kind: KView): KPose | null {
     return walk(feet, look, 0.02);
   }
   if (kind === 'apartment') {
-    const feet = inRoom(APARTMENT.x, APARTMENT.z, APARTMENT.yaw, 0.55, K_Y + 0.16, -3.15);
-    const look = inRoom(APARTMENT.x, APARTMENT.z, APARTMENT.yaw, 1.7, K_Y + 1.5, -3.71);
-    return walk(feet, look, 0.06);
+    // Just inside the door, looking across the table toward the window and the bench.
+    const feet = inRoom(APARTMENT.x, APARTMENT.z, APARTMENT.yaw, -0.2, K_Y + 0.16, -2.15);
+    const look = inRoom(APARTMENT.x, APARTMENT.z, APARTMENT.yaw, 1.25, K_Y + 1.2, -4.4);
+    return walk(feet, look, -0.1);
   }
   if (kind === 'roof') {
-    const p = world(PAD.x, HOVER, PAD.z + 4.2);
-    const look = world(PAD.x + 12, HOVER - 1, PAD.z + 4.2);
+    // Spinner on the pad, nose toward the head-house. Chase camera sits behind it.
+    const p = world(PAD.x + 5.5, HOVER - 5.5, PAD.z + 3.4);
+    const look = world(HEAD.x, HOVER - 5.2, PAD.z);
     return {
       x: p.x, y: p.y, z: p.z,
       heading: headingTo(p.x, p.z, look.x, look.z),
-      pitch: -0.16, mode: 'fly', cockpit: false,
+      pitch: -0.2, mode: 'fly', cockpit: false,
     };
   }
-  const eye = world(18, 520, HD + 380);
-  const look = world(0, 70, 0);
+  // Three-quarter from the southeast, low enough that the 230 m face reads through the rain.
+  const eye = world(155, 155, HD + 105);
+  const look = world(-8, 42, -4);
   const dist = Math.hypot(look.x - eye.x, look.z - eye.z) || 1;
   return {
     x: eye.x, y: eye.y, z: eye.z,

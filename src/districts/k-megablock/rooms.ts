@@ -160,7 +160,7 @@ export function apartmentColliders(): InteriorCollider[] {
 export function apartmentLamp(): InteriorLight {
   const C = { length: 1.55 }, R = { length: 4.7 };
   const tableZ = -C.length - R.length * 0.58;
-  return { x: -0.35, y: 1.7, z: tableZ, color: AMBER, intensity: 2.8, range: 3.4 };
+  return { x: -0.35, y: 1.7, z: tableZ, color: AMBER, intensity: 5.4, range: 5.2 };
 }
 
 export interface LiftPlan {
