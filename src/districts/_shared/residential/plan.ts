@@ -32,6 +32,17 @@ export interface ResidentialParams {
   /** One corner market when hash % marketEvery === 0. 8 is one block in eight. */
   marketEvery: number;
   /**
+   * Skew exponent for the main slab. Above 1 leans short, below 1 leans tall.
+   * Omitted keeps 1.25, which is Lakewood.
+   */
+  heightBias?: number;
+  /** Courtyard roof as a fraction of `height[1]` before the cap. Omitted keeps 0.72. */
+  courtReach?: number;
+  /** Courtyard roof cap as a fraction of `height[1]`. Omitted keeps 0.78. */
+  courtCap?: number;
+  /** Courtyard skew exponent. Omitted keeps 1.15. */
+  courtBias?: number;
+  /**
    * The block whose cell contains this point becomes the covered market hub.
    * Pass the same point Stage 12 wants, or omit it.
    */
@@ -42,6 +53,30 @@ export interface ResidentialParams {
    */
   seam?: { x: number; z: number; radius: number };
   seamLit?: readonly [number, number];
+  /**
+   * Street lines (the integer grid index of the street, not the block). A block
+   * on either side of a listed line gets a corner market even when `marketEvery`
+   * misses. `a` runs across axis A, `b` across axis B. Omit and only `marketEvery` applies.
+   */
+  spines?: { a?: readonly number[]; b?: readonly number[] };
+  /**
+   * Blocks on the district side of this segment, within `band` metres, step down
+   * toward it. Within `wall` metres they become a blank bar with a fenced back.
+   * Omit and no block is treated as a face.
+   */
+  face?: FaceBand;
+}
+
+export interface FaceBand {
+  x0: number;
+  z0: number;
+  x1: number;
+  z1: number;
+  /** +1 when the district lies on the positive cross of (x0,z0) → (x1,z1). */
+  side: 1 | -1;
+  band: number;
+  /** Metres inside which the back becomes a wall. Omitted keeps 190. */
+  wall?: number;
 }
 
 export interface ResBlock {
@@ -109,6 +144,12 @@ export interface ResidentialPlan {
   hub: boolean;
   edge: boolean;
   seam: boolean;
+  /** Corner market was forced because the block touches a spine line. */
+  spine: boolean;
+  /** Inside the optional face band, and not a hub or a corridor edge. */
+  face: boolean;
+  /** Blank fenced back. A subset of `face`. */
+  wall: boolean;
   court: { s: number; t: number } | null;
   entry: { s: number; t: number } | null;
   laundry: LookPoint | null;
@@ -267,11 +308,15 @@ function pickFamily(rng: Rng, w: ResidentialWeights, seam: boolean): Residential
 
 function clutter(
   boxes: PlannedBox[], s: number, t: number, la: number, lb: number, height: number, lit: number,
+  blank?: 'b+',
 ): LookPoint {
   // Stair core on the +B face, AC stack and laundry lines on the −B face, one drain.
-  push(boxes, s + la * 0.18, t + lb / 2 - 0.4, 4.2, 5.4, Math.min(height, height * 0.92) + 1.6, {
-    style: Style.Slit, detail: 1, lit: lit * 0.45, tint: 0.62,
-  });
+  // `blank` drops the +B pieces. Omitted, this is the Lakewood clutter.
+  if (blank !== 'b+') {
+    push(boxes, s + la * 0.18, t + lb / 2 - 0.4, 4.2, 5.4, Math.min(height, height * 0.92) + 1.6, {
+      style: Style.Slit, detail: 1, lit: lit * 0.45, tint: 0.62,
+    });
+  }
   const n = Math.min(4, Math.max(2, Math.floor((height - 8) / 3.4)));
   for (let i = 0; i < n; i++) {
     const y = 4.2 + i * 3.4;
@@ -298,10 +343,50 @@ function clutter(
       style: Style.Glow, detail: 2, lit: 0.18, tint: 1.05, base: y + 0.38,
     });
   }
-  push(boxes, s - la * 0.22, t + lb / 2 + 0.05, 0.7, 0.65, Math.max(6, height * 0.72), {
-    style: Style.Solid, detail: 2, lit: 0, tint: 0.42,
-  });
+  if (blank !== 'b+') {
+    push(boxes, s - la * 0.22, t + lb / 2 + 0.05, 0.7, 0.65, Math.max(6, height * 0.72), {
+      style: Style.Solid, detail: 2, lit: 0, tint: 0.42,
+    });
+  }
   return { s: ls, t: lt, ns: 0, nt: -1, y: 5.6 };
+}
+
+/** Signed distance on the district side of a face segment. The other side is Infinity. */
+export function faceDistance(x: number, z: number, face: FaceBand): number {
+  const dx = face.x1 - face.x0;
+  const dz = face.z1 - face.z0;
+  const len = Math.hypot(dx, dz) || 1;
+  const cross = dx * (z - face.z0) - dz * (x - face.x0);
+  const signed = (cross / len) * face.side;
+  return signed < 0 ? Infinity : signed;
+}
+
+function touchesSpine(i: number, j: number, spines: ResidentialParams['spines']): boolean {
+  if (!spines) return false;
+  const a = spines.a;
+  const b = spines.b;
+  if (a) for (const line of a) if (i === line || i + 1 === line) return true;
+  if (b) for (const line of b) if (j === line || j + 1 === line) return true;
+  return false;
+}
+
+/** North-south fence on the +B (east) side, with an amber security lamp on every other post. */
+function addFaceWall(boxes: PlannedBox[], b: ResBlock): void {
+  const h = 8.2;
+  const along = b.la * 0.9;
+  const n = Math.max(2, Math.floor(along / 12));
+  const len = along / n;
+  const fixedT = b.lb / 2 - 4;
+  for (let i = 0; i < n; i++) {
+    const u = -along / 2 + (i + 0.5) * len;
+    push(boxes, u, fixedT, len * 0.88, 1.15, h, { style: Style.Solid, detail: 0, lit: 0.02, tint: 0.4 });
+    if (i % 2 === 0) {
+      push(boxes, u, fixedT, 0.55, 0.55, 1.2, { style: Style.Solid, detail: 2, lit: 0, tint: 0.36, base: h });
+      push(boxes, u, fixedT, 0.7, 0.4, 0.22, {
+        style: Style.Glow, detail: 1, lit: 0.9, tint: 1.12, base: h + 1.1,
+      });
+    }
+  }
 }
 
 function addCourtProps(boxes: PlannedBox[], c: { s: number; t: number; la: number; lb: number }): void {
@@ -446,7 +531,7 @@ function addHub(
 
 function buildCourt(
   boxes: PlannedBox[], b: ResBlock, height: number, face: FacadeFamily,
-  lit: number, tint: number, residential: number, rng: Rng,
+  lit: number, tint: number, residential: number, rng: Rng, blank?: 'b+',
 ): { court: { s: number; t: number }; entry: { s: number; t: number }; laundry: LookPoint } {
   const inset = 5;
   const ha = b.la / 2 - inset;
@@ -475,7 +560,7 @@ function buildCourt(
   for (const [s, t, la, lb] of wings) {
     emitMass(boxes, s, t, lb, la, height, 'bar', face, lit, tint, residential, rng.next());
   }
-  const laundry = clutter(boxes, sN, 0, tw, hb * 2, height, lit);
+  const laundry = clutter(boxes, sN, 0, tw, hb * 2, height, lit, blank);
   const courtLa = Math.max(8, innerHi - innerLo - 1);
   const courtLb = Math.max(8, (tE - tw / 2) - (tW + tw / 2));
   addCourtProps(boxes, { s: sMid, t: 0, la: courtLa, lb: courtLb });
@@ -512,12 +597,27 @@ export function planResidential(block: ResBlock, params: ResidentialParams, layo
     : rng.range(params.lit[0], params.lit[1]);
   const tint = rng.range(params.tint[0], params.tint[1]);
   const residential = rng.range(params.residential[0], params.residential[1]);
+  const faceDist = params.face ? faceDistance(block.cx, block.cz, params.face) : Infinity;
+  const wallReach = params.face?.wall ?? 190;
+  const inBand = !!params.face && faceDist < params.face.band && !hub && !edge;
+  const wall = inBand && faceDist < wallReach;
+  if (wall) family = 'bar';
   const m = params.module;
-  let height = snap(rng.skew(params.height[0] + 4, params.height[1] - 6, 1.25), m, params.height[0], params.height[1]);
-  if (family === 'courtyard') height = snap(rng.skew(params.height[0], params.height[1] * 0.72, 1.15), m, params.height[0], params.height[1] * 0.78);
+  const bias = params.heightBias ?? 1.25;
+  const courtReach = params.courtReach ?? 0.72;
+  const courtCap = params.courtCap ?? 0.78;
+  const courtSkew = params.courtBias ?? 1.15;
+  let height = snap(rng.skew(params.height[0] + 4, params.height[1] - 6, bias), m, params.height[0], params.height[1]);
+  if (family === 'courtyard') height = snap(rng.skew(params.height[0], params.height[1] * courtReach, courtSkew), m, params.height[0], params.height[1] * courtCap);
   if (family === 'stepped') height = snap(rng.range(params.height[0] + 28, params.height[1]), m, params.height[0] + 24, params.height[1]);
   if (family === 'walkup') height = rng.int(4, 8) * m;
   if (edge) height = snap(rng.range(params.height[0], params.height[0] + 18), m, params.height[0], params.height[0] + 20);
+  if (inBand && height >= params.height[0]) {
+    const u = Math.min(1, faceDist / params.face!.band);
+    const lo = params.height[0];
+    height = snap(lo + (height - lo) * u, m, lo, params.height[1]);
+  }
+  const blank = inBand ? 'b+' as const : undefined;
 
   let court: { s: number; t: number } | null = null;
   let entry: { s: number; t: number } | null = null;
@@ -542,8 +642,15 @@ export function planResidential(block: ResBlock, params: ResidentialParams, layo
     emitMass(boxes, s, t, lb, la, height, 'bar', face, lit, tint, residential, rng.next());
     laundry = clutter(boxes, s, t, la, lb, height, lit);
     if (rng.chance(0.7)) signAt(signs, rng, s, t, lb / 2, la / 2, 'b+', rng.range(3.2, 6.2), rng.range(2.4, 4.2), 1.05, SignColor.White);
+  } else if (wall) {
+    const la = Math.min(block.la * 0.7, 120);
+    const lb = Math.min(block.lb * 0.55, 72);
+    emitMass(boxes, 0, -10, lb, la, height, 'bar', face, lit * 0.82, tint, residential, rng.next());
+    laundry = clutter(boxes, 0, -10, la, lb, height, lit, 'b+');
+    addFaceWall(boxes, block);
+    if (rng.chance(0.28)) signAt(signs, rng, 0, -10, lb / 2, la / 2, 'b-', rng.range(3.2, 5.4), rng.range(2.2, 3.6), 1.0, SignColor.White);
   } else if (family === 'courtyard') {
-    const built = buildCourt(boxes, block, height, face, lit, tint, residential, rng);
+    const built = buildCourt(boxes, block, height, face, lit, tint, residential, rng, blank);
     court = built.court;
     entry = built.entry;
     laundry = built.laundry;
@@ -555,7 +662,7 @@ export function planResidential(block: ResBlock, params: ResidentialParams, layo
     const lb = block.lb * 0.32;
     emitMass(boxes, -8, -block.lb * 0.18, lb, la, h1, 'bar', face, lit, tint, residential, rng.next());
     emitMass(boxes, 10, block.lb * 0.18, lb, la, h2, 'bar', face, Math.min(0.35, lit + 0.04), tint, residential, rng.next());
-    laundry = clutter(boxes, 10, block.lb * 0.18, la, lb, h2, lit);
+    laundry = clutter(boxes, 10, block.lb * 0.18, la, lb, h2, lit, blank);
     height = h2;
     signAt(signs, rng, 10, block.lb * 0.18, lb / 2, la / 2, 'b-', 4.4, 2.6, 1.0, SignColor.Amber);
   } else if (family === 'stepped') {
@@ -570,13 +677,13 @@ export function planResidential(block: ResBlock, params: ResidentialParams, layo
     push(boxes, -block.la * 0.4, 0, lb * 0.5, block.la * 0.1, step2, {
       style: Style.Residential, detail: 0, lit: lit, tint: tint * 0.95,
     });
-    laundry = clutter(boxes, 6, 0, la, lb, height, lit);
+    laundry = clutter(boxes, 6, 0, la, lb, height, lit, blank);
     if (rng.chance(0.45)) signAt(signs, rng, 6, 0, lb / 2, la / 2, 'a+', 5.2, 3.4, 1.05, SignColor.White);
   } else if (family === 'podium') {
     const la = block.la * 0.74;
     const lb = block.lb * 0.8;
     emitMass(boxes, 0, 0, lb, la, height, 'slab-podium', face, lit, tint, residential, rng.next());
-    laundry = clutter(boxes, 0, 0, la, lb, height, lit);
+    laundry = clutter(boxes, 0, 0, la, lb, height, lit, blank);
     if (rng.chance(0.4)) signAt(signs, rng, 0, 0, lb / 2, la / 2, 'b+', 4.8, 3.6, 1.1, SignColor.Amber);
   } else {
     const alongA = rng.chance(0.72);
@@ -584,12 +691,14 @@ export function planResidential(block: ResBlock, params: ResidentialParams, layo
     const lb = alongA ? block.lb * 0.42 : block.lb * 0.84;
     const t = alongA ? rng.range(-block.lb * 0.12, block.lb * 0.12) : 0;
     emitMass(boxes, 0, t, lb, la, height, 'bar', face, lit, tint, residential, rng.next());
-    laundry = clutter(boxes, 0, t, la, lb, height, lit);
+    laundry = clutter(boxes, 0, t, la, lb, height, lit, blank);
     if (rng.chance(0.42)) signAt(signs, rng, 0, t, lb / 2, la / 2, 'b-', rng.range(3.4, 6.2), rng.range(2.6, 4.4), 1.05, rng.chance(0.75) ? SignColor.Amber : SignColor.White);
   }
 
-  if (!hub && !edge) {
-    const corner = hash2i(i, j, 19) % params.marketEvery === 0 ? hash2i(i, j, 23) % 4 : -1;
+  const onSpine = touchesSpine(i, j, params.spines);
+  if (!hub && !edge && !inBand) {
+    const hit = hash2i(i, j, 19) % params.marketEvery === 0;
+    const corner = hit || onSpine ? hash2i(i, j, 23) % 4 : -1;
     if (corner >= 0) addCornerMarket(boxes, signs, stalls, rng, block, corner);
   }
 
@@ -602,6 +711,7 @@ export function planResidential(block: ResBlock, params: ResidentialParams, layo
     for (const box of again) kept.push(box);
   }
   const keptSigns = signs.filter((sg) => {
+    if (inBand && sg.face === 'b+') return false;
     const x = block.cx + block.ax * sg.s + block.bx * sg.t;
     const z = block.cz + block.az * sg.s + block.bz * sg.t;
     return layout.districtAt(x, z).id === block.id && !layout.isReserved(x, z, 1) && !layout.isOcean(x, z);
@@ -618,7 +728,11 @@ export function planResidential(block: ResBlock, params: ResidentialParams, layo
   if (entry && !inLot(entry.s, entry.t, 1)) entry = null;
 
   return {
-    family, height, hub, edge, seam, court, entry, laundry, shop,
+    family, height, hub, edge, seam,
+    spine: onSpine && !hub,
+    face: inBand,
+    wall,
+    court, entry, laundry, shop,
     boxes: kept,
     signs: keptSigns,
     stalls: keptStalls,

@@ -1,6 +1,7 @@
 // Street kit for a residential block. Pure: the same marks the archetype already placed.
-// Sodium, not cold: K's streets are sodium, and the seam should use the same lamp.
-// The shared street-lamp module already plants those poles. This file adds the quieter kit.
+// The default is the quiet Lakewood kit. Sodium poles come from the shared street-lamp
+// module, not from here. Pass `lamps: 'cold'` to plant civic pylons instead, and opt
+// that district out of the shared module.
 import { Rng } from '../../../core/rng';
 import type { CityLayout } from '../../../world/layout';
 import type { ResidentialPlan, ResBlock, StallMark } from './plan';
@@ -47,6 +48,15 @@ const CON: [number, number, number] = [0.22, 0.21, 0.2];
 const TARP: [number, number, number] = [0.28, 0.22, 0.16];
 const NONE: [number, number, number] = [0, 0, 0];
 const SODIUM: [number, number, number] = [1.05, 0.55, 0.18];
+const COLD: [number, number, number] = [0.62, 0.74, 0.92];
+const GREY: [number, number, number] = [0.22, 0.23, 0.26];
+
+export interface DressOpts {
+  /** Civic-style cold pylons on the owned edges. Omitted leaves lamps to the shared module. */
+  lamps?: 'cold';
+  /** Denser bins, steam and a second sidewalk loop. Omitted keeps the Lakewood chances. */
+  busy?: boolean;
+}
 
 function world(b: ResBlock, s: number, t: number): [number, number] {
   return [b.cx + b.ax * s + b.bx * t, b.cz + b.az * s + b.bz * t];
@@ -64,7 +74,7 @@ function open(layout: CityLayout, x: number, z: number): boolean {
   return !layout.isReserved(x, z, 1.2) && !layout.isOcean(x, z);
 }
 
-export function dressResidential(b: ResBlock, plan: ResidentialPlan, layout: CityLayout): {
+export function dressResidential(b: ResBlock, plan: ResidentialPlan, layout: CityLayout, opts?: DressOpts): {
   props: ResProp[];
   pools: ResPool[];
   steam: ResSteam[];
@@ -92,7 +102,7 @@ export function dressResidential(b: ResBlock, plan: ResidentialPlan, layout: Cit
       if ((i + (side > 0 ? 1 : 0)) % 2 === 0) {
         put(s, t, 0.45, 0, { template: 'box', sx: 0.28, sy: 0.9, sz: 0.28, color: CON, emissive: NONE, metal: 0.25, rank: 1 });
       }
-      if (rng.chance(0.22)) {
+      if (rng.chance(opts?.busy ? 0.48 : 0.22)) {
         put(s, t - side * 0.8, 0.55, 0, { template: 'box', sx: 0.7, sy: 1.05, sz: 0.55, color: [0.16, 0.15, 0.14], emissive: NONE, metal: 0.1, rank: 1 });
       }
     }
@@ -105,12 +115,12 @@ export function dressResidential(b: ResBlock, plan: ResidentialPlan, layout: Cit
       });
     }
   }
-  if (rng.chance(0.16)) {
+  if (rng.chance(opts?.busy ? 0.42 : 0.16)) {
     const [x, z] = world(b, 0, b.lb / 2 + curb);
     if (open(layout, x, z)) steam.push({ x, y: b.ground + 0.2, z, seed: rng.next(), rank: 2 });
   }
   // A short sag over the sidewalk. A span across the lot reads as a sky bridge.
-  if (rng.chance(0.2)) {
+  if (rng.chance(opts?.busy ? 0.4 : 0.2)) {
     const s = b.la / 2 + curb;
     const t = rng.range(-b.lb * 0.25, b.lb * 0.25);
     put(s, t, 6.4, Math.atan2(b.bx, b.bz), {
@@ -173,6 +183,55 @@ export function dressResidential(b: ResBlock, plan: ResidentialPlan, layout: Cit
       world(b, plan.court.s - c, plan.court.t - c),
       world(b, plan.court.s - c, plan.court.t + c),
     ]);
+  }
+  if (opts?.busy) {
+    const s2 = b.la / 2 + 2.4;
+    const t2 = b.lb / 2 + 2.4;
+    const tight = [[s2, t2], [s2, -t2], [-s2, -t2], [-s2, t2]]
+      .map(([ds, dt]) => world(b, ds!, dt!))
+      .filter(([x, z]) => open(layout, x, z));
+    if (tight.length >= 4) loops.push(tight);
+  }
+  // Cold pylons after every Lakewood rng call, so an omitted opts leaves that kit alone.
+  if (opts?.lamps === 'cold') {
+    const yawA = Math.atan2(b.ax, b.az);
+    const yawB = Math.atan2(b.bx, b.bz);
+    const edges: Array<{ s: number; t: number; yaw: number }> = [];
+    const nA = Math.max(2, Math.floor(b.lb / 40));
+    for (let i = 0; i < nA; i++) {
+      const t = -b.lb / 2 + ((i + 0.5) * b.lb) / nA;
+      edges.push({ s: b.la / 2 + 1.6, t, yaw: yawA });
+    }
+    const nB = Math.max(2, Math.floor(b.la / 44));
+    for (let i = 0; i < nB; i++) {
+      const s = -b.la / 2 + ((i + 0.5) * b.la) / nB;
+      edges.push({ s, t: b.lb / 2 + 1.6, yaw: yawB });
+    }
+    edges.forEach((e, i) => {
+      put(e.s - (e.yaw === yawA ? 1.1 : 0), e.t - (e.yaw === yawB ? 1.1 : 0), 0.12, e.yaw, {
+        template: 'box', sx: 6.2, sy: 0.2, sz: 0.38,
+        color: [0.16, 0.16, 0.17], emissive: NONE, metal: 0.15, rank: 1,
+      });
+      if (i % 2 === 1) {
+        put(e.s, e.t, 0.45, e.yaw, {
+          template: 'box', sx: 0.28, sy: 0.9, sz: 0.28, color: GREY, emissive: NONE, metal: 0.4, rank: 1,
+        });
+        return;
+      }
+      put(e.s, e.t, 4.4, e.yaw, {
+        template: 'box', sx: 0.42, sy: 8.8, sz: 0.42, color: GREY, emissive: NONE, metal: 0.35, rank: 0,
+      });
+      put(e.s, e.t, 8.7, e.yaw, {
+        template: 'box', sx: 1.5, sy: 0.28, sz: 0.42, color: [0.75, 0.82, 0.9], emissive: COLD, metal: 0.1, rank: 0,
+      });
+      const [x, z] = world(b, e.s, e.t);
+      if (open(layout, x, z)) {
+        pools.push({
+          x, y: b.ground + 0.05, z, yaw: e.yaw, wid: 6.5, len: 2.6,
+          rgb: [0.42, 0.55, 0.78], intensity: 0.26, rank: 1,
+        });
+      }
+    });
   }
   return { props, pools, steam, loops };
 }

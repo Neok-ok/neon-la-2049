@@ -16,12 +16,25 @@ registerArchetype('south-la-megablocks', (ctx) => {
 
 `ResidentialParams` is the whole dial: `module` (3.1–3.6 m), `height`, `residential` (about 0.7–1), `lit`, `tint`, `weights`, `marketEvery`. `hub` and `seam` are optional. Omit them and no block becomes a covered yard or a seam mix.
 
+These are also optional. Omit them and the planner uses the Lakewood numbers:
+
+| Param | When omitted | What it does |
+|---|---|---|
+| `heightBias` | 1.25 | Skew of the main slab. Above 1 leans short. Below 1 leans tall. |
+| `courtReach` | 0.72 | Courtyard roof as a fraction of `height[1]`, before the cap. |
+| `courtCap` | 0.78 | Courtyard roof cap as a fraction of `height[1]`. |
+| `courtBias` | 1.15 | Courtyard skew. Above 1 leans short. |
+| `spines` | no extra markets | Street-line indices (`a` across axis A, `b` across axis B). A block on either side of a listed line gets a corner market even when `marketEvery` misses. With `spines` omitted, the `hash2i` short-circuit is the Stage 11 one. |
+| `face` | no band | A segment. Blocks on `side`, within `band` metres, and already at least `height[0]`, step down toward `height[0]`. Within `wall` metres (default 190) they become a blank bar, the east clutter is dropped, and a fence closes the back. Hubs and corridor edges are left alone. |
+
 LOD0 kit, from the detail module (main thread, not the worker):
 
 ```ts
 const plan = planResidential(block, SOUTH_LA_PARAMS, layout);
-const dress = dressResidential(block, plan, layout);
+const dress = dressResidential(block, plan, layout, opts);
 ```
+
+`opts` is optional. Omit it and the bin, steam and cable chances, and the single sidewalk loop, stay the Lakewood kit. `opts.busy` raises those chances and adds a second sidewalk loop. `opts.lamps: 'cold'` plants civic pylons on the north and east edges after those rng calls, so an omitted `opts` does not move Lakewood's draws. A district that wants only the cold pylons also has to turn the shared sodium module off for its archetype, or the two rows double.
 
 `dress` returns `props`, `pools`, `steam` and `loops`. Feed `props` to `buildKitMeshes`, and pass `loops` to `registerCrowdSource`. Copy Lakewood's `details.ts` only as far as the caps and the rank test. Do not copy `plan.ts`.
 
@@ -47,6 +60,6 @@ Signs are atlas phrases, kind 0, kept between 2.8 m and 6.6 m. The kit's own sig
 
 ## Traffic caveat
 
-This folder does not register a lattice. The district does, with `registerStreetLattice`, its own node prefix, and a `lane` that fits its street. `lane` below 5 m turns the ground mix into rickshaws. `lane` of 5 m or more is a normal car street, and the low spinner layer will try to park on it at 74 m or 112 m. Lakewood's slabs occupy that band, so `SpinnerTraffic` skips `lakewood-megablocks` and keeps free fliers above the roofs. A South LA lattice with `lane` ≥ 5 needs the same skip if its roofs are taller than those parks. Do not share nodes with the avenues, the Broadway canyon, or a freeway, and do not add a ramp.
+This folder does not register a lattice. The district does, with `registerStreetLattice`, its own node prefix, and a `lane` that fits its street. `lane` below 5 m turns the ground mix into rickshaws. `lane` of 5 m or more is a normal car street, and the low spinner layer will try to park on it at 74 m or 112 m. Those parks sit inside a 45–130 m slab, so `SpinnerTraffic` skips `lakewood-megablocks` and `south-la-megablocks`: a spawn there is 158–210 m or 240–420 m, and a free flier under ground + 155 m is lifted. Another lattice with `lane` ≥ 5 and roofs in that band needs the same skip. Do not share nodes with the avenues, the Broadway canyon, Lakewood, South LA, or a freeway, and do not add a ramp.
 
 Street streaks: a route id other than `downtown-avenues` and `broadway-canyon` gets its own cap. Reusing either of those ids would spend the downtown pool.

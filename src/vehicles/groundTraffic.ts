@@ -14,6 +14,7 @@ import { getPoolMaterial } from '../districts/_shared/kit/materials';
 import { advanceGraph, edgeNear, poseOn, streetGraph, type GraphEdge, type StreetGraph } from './streetGraph';
 import { MESH_LEN, vehicleGeometry, vehicleMaterial, type MeshId } from './vehicleModels';
 import { createTrafficDress, streakNear, type TrafficDress } from './freewayDress';
+import { SPINE_B } from '../districts/south-la-megablocks/spec';
 import { LAMP_RGB, STOP_LINE, axisLamp, lampHeld, type Lamp } from './trafficSignals';
 
 const T = TSL as any;
@@ -194,7 +195,7 @@ export class GroundTraffic {
     };
   }
 
-  private style(e: GraphEdge, freeway: boolean): Pick<Agent, 'mesh' | 'sx' | 'sy' | 'sz' | 'len' | 'speed'> {
+  private style(e: GraphEdge, freeway: boolean, g?: StreetGraph): Pick<Agent, 'mesh' | 'sx' | 'sy' | 'sz' | 'len' | 'speed'> {
     const rng = this.rng;
     if (!freeway && (e.kind === 'canyon' || e.lane < 5)) {
       if (rng.chance(0.28)) {
@@ -213,6 +214,10 @@ export class GroundTraffic {
       mesh = rng.chance(0.2) ? 'van' : 'car';
     } else if (e.district === 'lakewood-megablocks') {
       mesh = rng.chance(0.16) ? 'van' : 'car';
+    } else if (e.district === 'south-la-megablocks') {
+      const j = g?.nodes[e.a]?.j;
+      const spine = e.axis === 0 && j !== undefined && (SPINE_B as readonly number[]).includes(j) && e.length >= 160;
+      mesh = spine && rng.chance(0.08) ? 'box' : rng.chance(0.2) ? 'van' : 'car';
     } else {
       const r = rng.next();
       mesh = r < 0.62 ? 'car' : r < 0.82 ? 'van' : r < 0.94 ? 'box' : 'hauler';
@@ -254,7 +259,7 @@ export class GroundTraffic {
     } else {
       c.side = (this.rng.chance(0.5) ? 1 : -1) * e.lane;
     }
-    Object.assign(c, this.style(e, freeway));
+    Object.assign(c, this.style(e, freeway, g));
     this.commit(c, g);
     c.live = true;
     return true;
@@ -285,7 +290,7 @@ export class GroundTraffic {
     far.side = e.lane;
     far.freeway = false;
     far.salt = this.rng.int(1, 9000);
-    Object.assign(far, this.style(e, false));
+    Object.assign(far, this.style(e, false, g));
     this.commit(far, g);
     far.live = true;
   }
