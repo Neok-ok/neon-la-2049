@@ -23,6 +23,9 @@ import { interiorCamera, type InteriorView } from '../districts/historic-core/in
 import { kCamera, type KView } from '../districts/k-megablock/view';
 import { lakewoodCamera, type LakewoodView } from '../districts/lakewood-megablocks/view';
 import { installLakewoodHolos } from '../districts/lakewood-megablocks/holos';
+import { southLaCamera, type SouthLaView } from '../districts/south-la-megablocks/view';
+import { installSouthLaHolos } from '../districts/south-la-megablocks/holos';
+import { eastDistance } from '../districts/south-la-megablocks/spec';
 import { wallaceCamera, type WallaceView } from '../districts/wallace-vernon/view';
 import { updateWallace } from '../districts/wallace-vernon/live';
 import { wallaceFaceSectorCount } from '../districts/wallace-vernon/faceDetail';
@@ -161,6 +164,7 @@ export class App {
     installDtlaHolos(this.query.layout);
     installCivicHolos(this.query.layout);
     installLakewoodHolos(this.query.layout);
+    installSouthLaHolos(this.query.layout);
     this.holos = new HologramField(this.query.layout);
     this.scene.add(this.holos.group);
     this.traffic = new SpinnerTraffic(this.scene, this.query, settingsFor('ultra').traffic);
@@ -345,6 +349,8 @@ export class App {
     const inHistoric = districtNow.id === 'historic-core';
     const inK = districtNow.id === 'k-megablock';
     const inLake = districtNow.id === 'lakewood-megablocks';
+    const inSouth = districtNow.id === 'south-la-megablocks';
+    const southAmber = inSouth ? Math.max(0, 1 - eastDistance(cam.x, cam.z) / 1500) : 0;
     const walLm = this.query.layout.landmarkById('wallace-pyramid');
     const inWallace = districtNow.id === 'wallace-vernon'
       || (!!walLm && Math.hypot(cam.x - walLm.x, cam.z - walLm.z) < walLm.reserveRadius + 40);
@@ -355,16 +361,18 @@ export class App {
       : inHistoric && alt < 120 ? 0.88
         : inCanyon && alt < 90 ? 0.62
           : inK && alt < 48 ? 0.5
-            : inLake && alt < 46 ? 0.38
-              : inCoast ? 0.06
-                : 0.22;
+            : inSouth && alt < 46 ? 0.42 + southAmber * 0.14
+              : inLake && alt < 46 ? 0.38
+                : inCoast ? 0.06
+                  : 0.22;
     const districtFog = inMarket ? Math.max(0, Math.min(1, 1 - alt / 70)) * 0.8
       : inHistoric && alt < 90 ? 0.42 * (1 - alt / 90)
         : inDtla && alt < 80 ? 0.28 * (1 - alt / 80)
           : inK && alt < 40 ? 0.36 * (1 - alt / 40)
-            : inLake && alt < 40 ? 0.30 * (1 - alt / 40)
-              : inWallace && alt < 110 ? 0.78 * (1 - alt / 110)
-                : 0;
+            : inSouth && alt < 40 ? 0.34 * (1 - alt / 40)
+              : inLake && alt < 40 ? 0.30 * (1 - alt / 40)
+                : inWallace && alt < 110 ? 0.78 * (1 - alt / 110)
+                  : 0;
     U.streetFog.value = Math.max(districtFog, coast.fog);
     const dtSafe = Math.max(dt, 1e-4);
     this.query.warm(cam.x, cam.z, cam.x + ((cam.x - this.lastCam.x) / dtSafe) * 0.45, cam.z + ((cam.z - this.lastCam.z) / dtSafe) * 0.45);
@@ -608,6 +616,26 @@ export class App {
       },
       wallaceView: (kind: WallaceView) => {
         const p = wallaceCamera(this.query.layout, kind);
+        if (!p) return false;
+        this.query.fabricAt(p.x, p.z);
+        this.cams.setMode(p.mode);
+        if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
+        this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
+        if (p.mode === 'walk') {
+          this.cams.walk.pitch = p.pitch;
+          this.cams.walk.heading = p.heading;
+          if (p.feet) {
+            this.cams.walk.pos.set(p.feet.x, p.feet.y, p.feet.z);
+            this.camera.position.set(p.feet.x, p.feet.y + 1.7, p.feet.z);
+            this.camera.rotation.set(p.pitch, -p.heading, 0, 'YXZ');
+            this.camera.updateMatrixWorld();
+          }
+        }
+        return true;
+      },
+      /** Stage 12 cameras: street, court, market, spine, hub, signal, the 110, Wallace, the sector, the Lakewood seam, the laundry hall. */
+      southLaView: (kind: SouthLaView) => {
+        const p = southLaCamera(this.query.layout, kind);
         if (!p) return false;
         this.query.fabricAt(p.x, p.z);
         this.cams.setMode(p.mode);

@@ -169,6 +169,26 @@ const shots = [
   { name: 'lakewood-traffic-medium', ctx: desktop, q: `mode=walk&at=lakewood-market&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.lakewoodView('traffic'), near: true, signal: true },
   { name: 'lakewood-ultra', ctx: desktop, q: `mode=walk&at=lakewood-market&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.lakewoodView('street'), near: true, settle: true },
   { name: 'lakewood-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=lakewood-market&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.lakewoodView('courtyard'), near: true, settle: true },
+  // Stage 12 — South LA residential megablocks. Cameras come from __nla.southLaView.
+  { name: 'southla-street-rain', ctx: desktop, q: `mode=walk&at=south-la-hub&time=22.5&weather=rain&${common}`, after: () => window.__nla.southLaView('street'), near: true, settle: true },
+  { name: 'southla-courtyard', ctx: desktop, q: `mode=walk&at=south-la-hub&time=22.5&weather=rain&${common}`, after: () => window.__nla.southLaView('courtyard'), near: true, settle: true },
+  { name: 'southla-market', ctx: desktop, q: `mode=walk&at=south-la-hub&time=22.5&weather=rain&${common}`, after: () => window.__nla.southLaView('market'), near: true, settle: true },
+  { name: 'southla-spine', ctx: desktop, q: `mode=walk&at=south-la-hub&time=22.5&weather=rain&${common}`, after: () => window.__nla.southLaView('spine'), near: true, settle: true },
+  { name: 'southla-hub', ctx: desktop, q: `mode=walk&at=south-la-hub&time=22.5&weather=rain&${common}`, after: () => window.__nla.southLaView('hub'), near: true, settle: true },
+  { name: 'southla-traffic', ctx: desktop, q: `mode=walk&at=south-la-hub&time=22.5&weather=rain&${common}`, after: () => window.__nla.southLaView('traffic'), near: true, signal: true },
+  { name: 'southla-trench', ctx: desktop, q: `mode=walk&at=south-la-hub&time=22&weather=rain&${common}`, after: () => window.__nla.southLaView('trench'), near: true, settle: true },
+  { name: 'southla-wallace', ctx: desktop, q: `mode=walk&at=south-la-hub&time=22&weather=rain&${common}`, after: () => window.__nla.southLaView('wallace'), near: true, settle: true },
+  { name: 'southla-aerial-dusk', ctx: desktop, q: `mode=fly&at=south-la-hub&time=18.4&weather=drizzle&${common}`, after: () => window.__nla.southLaView('aerial'), settle: true },
+  { name: 'southla-seam-dusk', ctx: desktop, q: `mode=fly&at=south-la-hub&time=18.4&weather=drizzle&${common}`, after: () => window.__nla.southLaView('seam'), settle: true },
+  { name: 'southla-room', ctx: desktop, q: `mode=walk&at=south-la-hub&time=22.5&weather=rain&${common}`, after: () => window.__nla.southLaView('room'), near: true },
+  { name: 'southla-low', ctx: desktop, q: `mode=walk&at=south-la-hub&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=low${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.southLaView('street'), near: true, settle: true },
+  { name: 'southla-medium', ctx: desktop, q: `mode=walk&at=south-la-hub&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.southLaView('street'), near: true, settle: true },
+  { name: 'southla-spine-medium', ctx: desktop, q: `mode=walk&at=south-la-hub&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.southLaView('spine'), near: true, settle: true },
+  { name: 'southla-hub-medium', ctx: desktop, q: `mode=walk&at=south-la-hub&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.southLaView('hub'), near: true, settle: true },
+  { name: 'southla-courtyard-medium', ctx: desktop, q: `mode=walk&at=south-la-hub&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.southLaView('courtyard'), near: true, settle: true },
+  { name: 'southla-traffic-medium', ctx: desktop, q: `mode=walk&at=south-la-hub&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.southLaView('traffic'), near: true, signal: true },
+  { name: 'southla-ultra', ctx: desktop, q: `mode=walk&at=south-la-hub&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.southLaView('street'), near: true, settle: true },
+  { name: 'southla-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=south-la-hub&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.southLaView('spine'), near: true, settle: true },
 ];
 
 const args = GPU

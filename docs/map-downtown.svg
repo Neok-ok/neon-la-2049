@@ -45,7 +45,7 @@
 <ellipse cx="2033.8" cy="5916.2" rx="180" ry="160" transform="rotate(0 2033.8 5916.2)" fill="#2a2a1e" stroke="#3a3a28"/>
 <ellipse cx="3140.5" cy="1050.9" rx="480" ry="300" transform="rotate(0 3140.5 1050.9)" fill="#2a2a1e" stroke="#3a3a28"/>
 <path d="M1664.8,940.4 L2863.8,1161.5 L2863.8,2709.5 L1664.8,2709.5 Z" fill="#6a4a2a" fill-opacity="0.55" stroke="#6a4a2a" stroke-width="1.5"/>
-<path d="M-1194.4,984.6 L650.3,1050.9 L1019.2,3373.0 L-1194.4,3373.0 Z" fill="#4f6a5a" fill-opacity="0.55" stroke="#4f6a5a" stroke-width="1.5"/>
+<path d="M-1194.4,984.6 L650.3,1050.9 L1019.2,3373.0 L-1194.4,3373.0 Z" fill="#4a463f" fill-opacity="0.55" stroke="#4a463f" stroke-width="1.5"/>
 <path d="M1019.2,3373.0 L3786.2,3373.0 L3786.2,6026.8 L1019.2,6026.8 Z" fill="#6a6860" fill-opacity="0.55" stroke="#6a6860" stroke-width="1.5"/>
 <path d="M-3592.4,-386.5 L96.9,-165.4 L-13.8,719.2 L-1194.4,984.6 L-2854.5,1825.0 L-3776.8,940.4 Z" fill="#4a4a4a" fill-opacity="0.55" stroke="#4a4a4a" stroke-width="1.5"/>
 <path d="M-2485.6,3151.8 L1019.2,3373.0 L1019.2,6026.8 L-1747.7,5805.6 L-2116.7,4257.6 Z" fill="#6a4a2a" fill-opacity="0.55" stroke="#6a4a2a" stroke-width="1.5"/>
@@ -195,6 +195,8 @@
 <text x="2790.1" y="4733.1" dx="5" dy="12" fill="#8fe8ff" font-size="10">K&#39;s apartment (enterable)</text>
 <circle cx="2476.5" cy="4854.7" r="2" fill="#29d8ff"/>
 <text x="2476.5" y="4854.7" dx="5" dy="12" fill="#8fe8ff" font-size="10">Lakewood Center market yard</text>
+<circle cx="-235.1" cy="1294.2" r="2" fill="#29d8ff"/>
+<text x="-235.1" y="1294.2" dx="5" dy="12" fill="#8fe8ff" font-size="10">Exposition market yard</text>
 <circle cx="1388.1" cy="1028.4" r="2" fill="#29d8ff"/>
 <text x="1388.1" y="1028.4" dx="5" dy="12" fill="#8fe8ff" font-size="10">Wallace causeway (north apron)</text>
 <circle cx="1388.1" cy="1155.5" r="2" fill="#29d8ff"/>
