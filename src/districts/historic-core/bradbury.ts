@@ -170,9 +170,9 @@ export function buildBradbury(l: Landmark, env: LandmarkEnv) {
     [levelGroup(full.mesh, signMesh), levels[1]!.mesh, levels[2]!.mesh],
     BRADBURY_LOD, l.x, l.z, g, g + JACKET_H, r,
   );
-  env.beacons.add(l.x, g + H + 1.2, l.z, LightKind.Warm, 3.2);
+  env.beacons.add(l.x, g + H + 1.2, l.z, LightKind.Warm, 1.3);
   const [sx, sz] = localToWorld(l.x, l.z, FACE_YAW, 0, 0.8);
-  env.beacons.add(sx, g + 3.4, sz, LightKind.Warm, 1.6);
+  env.beacons.add(sx, g + 3.4, sz, LightKind.Warm, 1.1);
   return { object, colliders: full.cols };
 }
 

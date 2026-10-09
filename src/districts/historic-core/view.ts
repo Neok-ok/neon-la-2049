@@ -27,11 +27,12 @@ function at(layout: CityLayout, s: number, t: number, eye: number): { x: number;
 export function broadwayCamera(layout: CityLayout, kind: BroadwayView): BroadwayPose | null {
   if (kind === 'street') {
     // West sidewalk, just north of the Bradbury, looking south down the canyon.
-    const p = at(layout, BRADBURY_S + 50, -215.4, 0);
+    // Just off the centreline, so both façades frame the street instead of one wall filling the frame.
+    const p = at(layout, BRADBURY_S + 42, -210.6, 0);
     return {
       x: p.x, y: p.g, z: p.z,
       heading: headingAlong(-AX, -AZ),
-      pitch: 0.2,
+      pitch: 0.16,
       mode: 'walk',
       feet: { x: p.x, y: p.g, z: p.z },
     };
@@ -39,8 +40,8 @@ export function broadwayCamera(layout: CityLayout, kind: BroadwayView): Broadway
 
   if (kind === 'bridge') {
     // Fifty metres north of the deck, a few metres off the centreline, looking up at the figure.
-    const p = at(layout, BRIDGE_S + 50, BRIDGE_T + 5, 0);
-    const target = at(layout, BRIDGE_S, BRIDGE_T, 34);
+    const p = at(layout, BRIDGE_S + 26, BRIDGE_T + 3.2, 0);
+    const target = at(layout, BRIDGE_S, BRIDGE_T, 20);
     const horiz = Math.hypot(target.x - p.x, target.z - p.z) || 1;
     const pitch = Math.atan2(target.y - (p.g + 1.7), horiz);
     return {
@@ -54,8 +55,8 @@ export function broadwayCamera(layout: CityLayout, kind: BroadwayView): Broadway
 
   if (kind === 'bradbury') {
     // West sidewalk, looking east at the masonry face. Slightly north of the door.
-    const p = at(layout, BRADBURY_S + 6, -209.5, 0);
-    const face = at(layout, BRADBURY_S, -201, 9);
+    const p = at(layout, BRADBURY_S + 24, -211.2, 0);
+    const face = at(layout, BRADBURY_S - 2, -201, 7);
     const horiz = Math.hypot(face.x - p.x, face.z - p.z) || 1;
     return {
       x: p.x, y: p.g, z: p.z,
