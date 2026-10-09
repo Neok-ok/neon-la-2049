@@ -25,6 +25,8 @@ export const BRIDGE_T = BRIDGE_J * BLOCK_B;
 /** Published Bradbury pin, snapped so the 48 m depth is centred behind the east façade. */
 export const BRADBURY_S = -381.26;
 export const BRADBURY_T = -177;
+/** Metres from the pin toward Broadway. The street wall sits here; the back wall is the same distance east. */
+export const BRADBURY_FRONT = 24;
 /** Stage-1 footbridge pin, snapped 11 m onto the Spring-side centreline. */
 export const BRIDGE_S = -718.41;
 

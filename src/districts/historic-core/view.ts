@@ -1,7 +1,7 @@
 // Screenshot and debug cameras for Stage 6 (`__nla.broadwayView`).
 import type { CityLayout } from '../../world/layout';
 import {
-  AX, AZ, BRADBURY_S, BRADBURY_T, BRIDGE_S, BRIDGE_T, BX, BZ,
+  AX, AZ, BRADBURY_FRONT, BRADBURY_S, BRADBURY_T, BRIDGE_S, BRIDGE_T, BX, BZ,
   FACE_YAW, headingAlong, localToWorld,
 } from './spec';
 
@@ -39,7 +39,7 @@ export function broadwayCamera(layout: CityLayout, kind: BroadwayView): Broadway
   }
 
   if (kind === 'bridge') {
-    // Fifty metres north of the deck, a few metres off the centreline, looking up at the figure.
+    // Just north of the deck, a few metres off the centreline, looking up at the figure.
     const p = at(layout, BRIDGE_S + 26, BRIDGE_T + 3.2, 0);
     const target = at(layout, BRIDGE_S, BRIDGE_T, 20);
     const horiz = Math.hypot(target.x - p.x, target.z - p.z) || 1;
@@ -54,9 +54,10 @@ export function broadwayCamera(layout: CityLayout, kind: BroadwayView): Broadway
   }
 
   if (kind === 'bradbury') {
-    // West sidewalk, looking east at the masonry face. Slightly north of the door.
-    const p = at(layout, BRADBURY_S + 24, -211.2, 0);
-    const face = at(layout, BRADBURY_S - 2, -201, 7);
+    // Opposite sidewalk, just south of the building, looking back at the door.
+    // Far enough for the 70° walk lens to hold the pediment and the south jacket.
+    const p = at(layout, BRADBURY_S - 30, -216.5, 0);
+    const face = at(layout, BRADBURY_S - 6, -201, 12);
     const horiz = Math.hypot(face.x - p.x, face.z - p.z) || 1;
     return {
       x: p.x, y: p.g, z: p.z,
@@ -70,9 +71,9 @@ export function broadwayCamera(layout: CityLayout, kind: BroadwayView): Broadway
   if (kind === 'atrium') {
     const l = layout.landmarkById('bradbury-building');
     if (!l) return null;
-    const [x, z] = localToWorld(l.x, l.z, FACE_YAW, 0, -15);
+    const [x, z] = localToWorld(l.x, l.z, FACE_YAW, 0, BRADBURY_FRONT - 15);
     const g = layout.heightAt(x, z);
-    const [dx, dz] = localToWorld(l.x, l.z, FACE_YAW, 0, -2);
+    const [dx, dz] = localToWorld(l.x, l.z, FACE_YAW, 0, BRADBURY_FRONT - 2);
     return {
       x, y: g, z,
       heading: headingAlong(dx - x, dz - z),

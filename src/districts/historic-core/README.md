@@ -5,7 +5,7 @@ Stage 6. Real Broadway heritage fronts, partly wrapped in newer cladding, on the
 ## What is here
 
 * **Fabric** (`archetype.ts`). Two heritage bays on an empty Broadway face, named theatres where the real houses stand (`sites.ts`), one lighter bay on the other long face, a single masonry end on the cross streets. The Bradbury footprint is a hole, not a reserve, so the side bays and the lane stay.
-* **Bradbury** (`bradbury.ts`, landmark `bradbury-building`). 38 × 48 × 22.4 m, walk-in court, galleries, columns, an open beam grid, a 27 m jacket on the back and the south side. POI `bradbury` is the west sidewalk. LOD distances 220 / 700 m.
+* **Bradbury** (`bradbury.ts`, landmark `bradbury-building`). 38 × 48 × 22.4 m. The pin is the centre of the depth; the street wall sits on the east Broadway façade. Walk-in court, galleries, columns, an open beam grid, a 27 m jacket on the back and the south side. POI `bradbury` is the west sidewalk. LOD distances 220 / 700 m.
 * **Footbridge** (`bridge.ts`, landmark `canyon-bridge`). Deck at 11.2 m on the street one block east of Broadway. Stairs rise 0.35 m. `joi-bridge-dancer` is `veil-dancer`, rank 0, tower band. LOD 160 / 520 m.
 * **Street** (`dress.ts`, `details.ts`, `crowd.ts`). Both curbs of owned edges. Bollards, neon pools, steam, parked rickshaws. No sodium lamps. Crowd share 0.72 on the market mesh.
 * **Cameras.** `__nla.broadwayView('street'|'bridge'|'bradbury'|'spinner'|'atrium')`.

@@ -1,6 +1,7 @@
 // Bradbury Building, 304 S Broadway, exterior and a walk-in court. The iron atrium of the
 // real building is not copied: galleries, a plain column, and an open beam grid over the court.
-// A panel jacket climbs the back and the south side so the Broadway face stays masonry.
+// The pin is the centre of the 48 m depth. BRADBURY_FRONT shifts the street wall onto the
+// Broadway façade; a panel jacket climbs the back and the south side so that face stays masonry.
 // No wordmark. Signs are atlas cells.
 import { Mesh } from 'three/webgpu';
 import { GeoWriter } from '../../world/landmarks/GeoWriter';
@@ -14,14 +15,16 @@ import type { Landmark } from '../../world/layout';
 import { levelGroup } from '../_shared/megatower/place';
 import { buildHeritage, type HeritageSign } from '../_shared/heritage/build';
 import { Mass, type Detail } from './mass';
-import { FACE_YAW, localToWorld } from './spec';
+import { BRADBURY_FRONT, FACE_YAW, localToWorld } from './spec';
 
 export const BRADBURY_LOD = [220, 700];
 export const bradburyTris: number[] = [];
 
 const W = 38;
-const D = 48;
+const D = BRADBURY_FRONT * 2;
 const H = 22.4;
+/** Added to every depth authored with the wall at z = 0, so the pin stays the centre of the volume. */
+const F = BRADBURY_FRONT;
 const DOOR = 4.8;
 const DOOR_H = 7.2;
 const TUNNEL = 8;
@@ -36,31 +39,31 @@ const warm = { style: Style.Glow, lit: 0.8, tint: 1.15, seed: 0.66 };
 function volume(m: Mass, g: number): void {
   const wingW = (W - COURT) / 2;
   const wingX = COURT / 2 + wingW / 2;
-  const cz = -D / 2;
+  const cz = F - D / 2;
   m.box(0, -wingX, cz, g, wingW, D, H, stone);
   m.box(0, wingX, cz, g, wingW, D, H, stone);
   m.solid(-wingX, cz, wingW, D, g, g + H);
   m.solid(wingX, cz, wingW, D, g, g + H);
 
   const backD = D - TUNNEL - COURT;
-  const backZ = -(TUNNEL + COURT + backD / 2);
+  const backZ = F - (TUNNEL + COURT + backD / 2);
   m.box(0, 0, backZ, g, COURT, backD, H, stone);
   m.solid(0, backZ, COURT, backD, g, g + H);
 
   // Lintel over the tunnel, and the jambs beside the 4.8 m door.
-  m.box(0, 0, -TUNNEL / 2, g + DOOR_H, COURT, TUNNEL, H - DOOR_H, stone);
-  m.solid(0, -TUNNEL / 2, COURT, TUNNEL, g + DOOR_H, g + H);
+  m.box(0, 0, F - TUNNEL / 2, g + DOOR_H, COURT, TUNNEL, H - DOOR_H, stone);
+  m.solid(0, F - TUNNEL / 2, COURT, TUNNEL, g + DOOR_H, g + H);
   const jambW = (COURT - DOOR) / 2;
   const jambX = DOOR / 2 + jambW / 2;
-  m.box(1, -jambX, -TUNNEL / 2, g, jambW, TUNNEL, DOOR_H, stone);
-  m.box(1, jambX, -TUNNEL / 2, g, jambW, TUNNEL, DOOR_H, stone);
-  m.solid(-jambX, -TUNNEL / 2, jambW, TUNNEL, g, g + DOOR_H);
-  m.solid(jambX, -TUNNEL / 2, jambW, TUNNEL, g, g + DOOR_H);
+  m.box(1, -jambX, F - TUNNEL / 2, g, jambW, TUNNEL, DOOR_H, stone);
+  m.box(1, jambX, F - TUNNEL / 2, g, jambW, TUNNEL, DOOR_H, stone);
+  m.solid(-jambX, F - TUNNEL / 2, jambW, TUNNEL, g, g + DOOR_H);
+  m.solid(jambX, F - TUNNEL / 2, jambW, TUNNEL, g, g + DOOR_H);
 
   // Court and tunnel floor. Thin, so a walker steps in rather than falling through a hole.
-  m.box(0, 0, -(TUNNEL + COURT) / 2, g, COURT - 0.4, TUNNEL + COURT, 0.14, dark);
-  m.solid(0, -(TUNNEL + COURT) / 2, COURT - 0.4, TUNNEL + COURT, g, g + 0.14);
-  m.box(1, 0, -TUNNEL / 2, g, DOOR, TUNNEL, 0.14, dark);
+  m.box(0, 0, F - (TUNNEL + COURT) / 2, g, COURT - 0.4, TUNNEL + COURT, 0.14, dark);
+  m.solid(0, F - (TUNNEL + COURT) / 2, COURT - 0.4, TUNNEL + COURT, g, g + 0.14);
+  m.box(1, 0, F - TUNNEL / 2, g, DOOR, TUNNEL, 0.14, dark);
 
   if (m.max < 1) return;
 
@@ -68,16 +71,16 @@ function volume(m: Mass, g: number): void {
   const levels = [4.4, 8.8, 13.2, 17.6];
   const inner = COURT / 2 - 0.9;
   for (const y of levels) {
-    m.box(1, -inner, -(TUNNEL + COURT / 2), g + y, 1.7, COURT, 0.22, stone);
-    m.box(1, inner, -(TUNNEL + COURT / 2), g + y, 1.7, COURT, 0.22, stone);
-    m.box(1, 0, -(TUNNEL + COURT) + 0.85, g + y, COURT, 1.7, 0.22, stone);
+    m.box(1, -inner, F - (TUNNEL + COURT / 2), g + y, 1.7, COURT, 0.22, stone);
+    m.box(1, inner, F - (TUNNEL + COURT / 2), g + y, 1.7, COURT, 0.22, stone);
+    m.box(1, 0, F - (TUNNEL + COURT) + 0.85, g + y, COURT, 1.7, 0.22, stone);
   }
 
   const cols: Array<[number, number]> = [
-    [-6.3, -9.2], [6.3, -9.2],
-    [-6.3, -15], [6.3, -15],
-    [-6.3, -21], [6.3, -21],
-    [-3.1, -21.2], [3.1, -21.2],
+    [-6.3, F - 9.2], [6.3, F - 9.2],
+    [-6.3, F - 15], [6.3, F - 15],
+    [-6.3, F - 21], [6.3, F - 21],
+    [-3.1, F - 21.2], [3.1, F - 21.2],
   ];
   for (const [x, z] of cols) {
     m.box(1, x, z, g, 0.62, 0.62, H - 0.3, stone);
@@ -87,23 +90,23 @@ function volume(m: Mass, g: number): void {
   // Open beam grid. Not a roof, and not the real building's iron pattern.
   if (m.max >= 2) {
     for (let i = 0; i < 4; i++) {
-      const z = -TUNNEL - 2.2 - i * 3.2;
+      const z = F - TUNNEL - 2.2 - i * 3.2;
       m.box(2, 0, z, g + H - 0.35, COURT - 1.2, 0.38, 0.32, dark);
     }
     for (const x of [-3.6, 0, 3.6]) {
-      m.box(2, x, -(TUNNEL + COURT / 2), g + H - 0.15, 0.32, COURT - 1.4, 0.28, dark);
+      m.box(2, x, F - (TUNNEL + COURT / 2), g + H - 0.15, 0.32, COURT - 1.4, 0.28, dark);
     }
     for (const x of [-5.2, 5.2]) {
-      m.box(2, x, -15, g + 2.1, 0.18, 0.35, 1.1, warm);
-      m.box(2, x, -15, g + 6.6, 0.18, 0.35, 1.1, warm);
+      m.box(2, x, F - 15, g + 2.1, 0.18, 0.35, 1.1, warm);
+      m.box(2, x, F - 15, g + 6.6, 0.18, 0.35, 1.1, warm);
     }
   }
 
   // Newer cladding on the back and the south side, tall enough to peek past the masonry.
-  m.box(0, 0, -D - 1.25, g, W + 1.6, 2.1, JACKET_H, panel);
-  m.solid(0, -D - 1.25, W + 1.6, 2.1, g, g + JACKET_H);
-  m.box(0, W / 2 + 1.25, -D / 2, g, 2.1, D, JACKET_H, panel);
-  m.solid(W / 2 + 1.25, -D / 2, 2.1, D, g, g + JACKET_H);
+  m.box(0, 0, F - D - 1.25, g, W + 1.6, 2.1, JACKET_H, panel);
+  m.solid(0, F - D - 1.25, W + 1.6, 2.1, g, g + JACKET_H);
+  m.box(0, W / 2 + 1.25, F - D / 2, g, 2.1, D, JACKET_H, panel);
+  m.solid(W / 2 + 1.25, F - D / 2, 2.1, D, g, g + JACKET_H);
 }
 
 function ornament(m: Mass, g: number): HeritageSign[] {
@@ -126,7 +129,7 @@ function ornament(m: Mass, g: number): HeritageSign[] {
     skin: true,
   });
   for (const p of built.pieces) {
-    m.box(p.detail, p.x, p.z + 0.06, g + p.y - p.h / 2, p.w, p.d, p.h, {
+    m.box(p.detail, p.x, p.z + F + 0.06, g + p.y - p.h / 2, p.w, p.d, p.h, {
       style: p.style, lit: p.lit, tint: p.tint, seed: p.seed,
     });
   }
@@ -136,7 +139,7 @@ function ornament(m: Mass, g: number): HeritageSign[] {
 function signsFor(l: Landmark, g: number, blades: HeritageSign[]): Sign[] {
   const out: Sign[] = [];
   const push = (lx: number, y: number, w: number, h: number, color: number, phrase: number, kind: 0 | 1) => {
-    const [x, z] = localToWorld(l.x, l.z, FACE_YAW, lx, 0.55);
+    const [x, z] = localToWorld(l.x, l.z, FACE_YAW, lx, F + 0.55);
     out.push({
       x, y: g + y, z, yaw: FACE_YAW + (kind === 1 ? Math.PI / 2 : 0),
       w, h, color, seed: phraseSeed(phrase), kind,
@@ -171,7 +174,7 @@ export function buildBradbury(l: Landmark, env: LandmarkEnv) {
     BRADBURY_LOD, l.x, l.z, g, g + JACKET_H, r,
   );
   env.beacons.add(l.x, g + H + 1.2, l.z, LightKind.Warm, 1.3);
-  const [sx, sz] = localToWorld(l.x, l.z, FACE_YAW, 0, 0.8);
+  const [sx, sz] = localToWorld(l.x, l.z, FACE_YAW, 0, F + 0.8);
   env.beacons.add(sx, g + 3.4, sz, LightKind.Warm, 1.1);
   return { object, colliders: full.cols };
 }
