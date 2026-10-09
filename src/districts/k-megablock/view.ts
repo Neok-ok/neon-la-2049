@@ -2,7 +2,7 @@
 import type { CityLayout } from '../../world/layout';
 import { bearingToYaw } from '../../world/geo';
 import {
-  APARTMENT, CORRIDOR, HD, HEAD, HOVER, K_Y, LOBBY, PAD, localToWorld,
+  APARTMENT, CORRIDOR, HD, HOVER, K_Y, LOBBY, PAD, localToWorld,
 } from './spec';
 
 export type KView = 'street' | 'market' | 'lobby' | 'corridor' | 'apartment' | 'roof' | 'aerial';
@@ -74,18 +74,19 @@ export function kCamera(layout: CityLayout, kind: KView): KPose | null {
     return walk(feet, look, -0.1);
   }
   if (kind === 'roof') {
-    // Spinner on the pad, nose toward the head-house. Chase camera sits behind it.
-    const p = world(PAD.x + 5.5, HOVER - 5.5, PAD.z + 3.4);
-    const look = world(HEAD.x, HOVER - 5.2, PAD.z);
+    // Hover just south of the pad centre, looking east along the markings.
+    // Chase camera sits behind the spinner, so the amber pad stays in frame.
+    const p = world(PAD.x, HOVER, PAD.z + 4.2);
+    const look = world(PAD.x + 12, HOVER - 1, PAD.z + 4.2);
     return {
       x: p.x, y: p.y, z: p.z,
       heading: headingTo(p.x, p.z, look.x, look.z),
-      pitch: -0.2, mode: 'fly', cockpit: false,
+      pitch: -0.16, mode: 'fly', cockpit: false,
     };
   }
-  // Three-quarter from the southeast, low enough that the 230 m face reads through the rain.
-  const eye = world(155, 155, HD + 105);
-  const look = world(-8, 42, -4);
+  // South of the slab and just above the roof, so the long face fills the frame.
+  const eye = world(55, 200, HD + 210);
+  const look = world(-15, 55, 5);
   const dist = Math.hypot(look.x - eye.x, look.z - eye.z) || 1;
   return {
     x: eye.x, y: eye.y, z: eye.z,
