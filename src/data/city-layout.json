@@ -40,7 +40,7 @@
       "id": "financial-megatowers",
       "name": "Financial District Megatowers",
       "loreSector": "Sector 9 - Financial District",
-      "archetype": "megatower-core",
+      "archetype": "financial-megatowers",
       "priority": 3,
       "grid": { "bearingDeg": 38, "block": [205, 125], "street": 38 },
       "stage": 3,

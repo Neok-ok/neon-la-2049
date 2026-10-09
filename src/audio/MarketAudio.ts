@@ -58,7 +58,7 @@ export class MarketAudio {
     inMarket: boolean,
     alt: number,
     sizzleAt: { x: number; y: number; z: number } | null,
-    spinnerAt: { x: number; y: number; z: number; dist: number } | null,
+    spinnerAt: { x: number; y: number; z: number; dist: number; closing?: number; heavy?: boolean } | null,
   ): void {
     const ctx = this.ambience.context;
     const out = this.ambience.output;
@@ -76,11 +76,14 @@ export class MarketAudio {
       this.sizzle.gain.value = close * Math.max(0, 1 - d / 28) * 0.35;
     } else this.sizzle.gain.value = 0;
 
-    if (spinnerAt && spinnerAt.dist < 700) {
+    const reach = spinnerAt?.heavy ? 950 : 700;
+    if (spinnerAt && spinnerAt.dist < reach) {
       setPos(this.spinPan, spinnerAt.x, spinnerAt.y, spinnerAt.z);
-      const t = 1 - spinnerAt.dist / 700;
-      this.spinner.gain.value = t * t * 0.16;
-      this.spinnerFilter.frequency.value = 180 + t * 900;
+      const t = 1 - spinnerAt.dist / reach;
+      this.spinner.gain.value = t * t * (spinnerAt.heavy ? 0.2 : 0.16);
+      // Doppler-ish: pitch rises on approach and drops as the spinner passes
+      const doppler = Math.max(0.75, Math.min(1.3, 1 + (spinnerAt.closing ?? 0) / 340));
+      this.spinnerFilter.frequency.value = ((spinnerAt.heavy ? 90 : 180) + t * (spinnerAt.heavy ? 420 : 900)) * doppler;
     } else this.spinner.gain.value = 0;
 
     const listener = ctx.listener;

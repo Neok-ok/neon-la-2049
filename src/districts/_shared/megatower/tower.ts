@@ -150,7 +150,7 @@ class Builder {
       const half = f % 2 === 0 ? pd.d / 2 : pd.w / 2;
       const [nx, nz] = FN[f];
       const tx = f % 2 === 0 ? 1 : 0, tz = 1 - tx;
-      const n = Math.max(2, Math.floor(len / 9.5));
+      const n = Math.max(2, Math.floor(len / (this.p.compact ? 19 : 9.5)));
       const step = (len - 3) / n;
       for (let i = 0; i <= n; i++) {
         const a = -len / 2 + 1.5 + i * step;

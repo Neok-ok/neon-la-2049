@@ -2,3 +2,4 @@
 // no DOM, no three.js) so both the chunk worker and the main-thread CityQuery see the same archetypes.
 import './_shared/archetypes';
 import './little-tokyo-market/archetype';
+import './financial-megatowers/archetype';
