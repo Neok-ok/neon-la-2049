@@ -13,6 +13,7 @@ import { Landmarks } from '../world/landmarks/Landmarks';
 import { localToGeo, geoToLocal } from '../world/geo';
 import { LaneTraffic } from '../vehicles/LaneTraffic';
 import { GroundTraffic } from '../vehicles/groundTraffic';
+import { trafficCamera, type TrafficView } from '../vehicles/trafficView';
 import { megaCamera, type MegaView } from '../districts/financial-megatowers/view';
 import { dtlaCamera, type DtlaView } from '../districts/dtla/view';
 import { installDtlaHolos } from '../districts/dtla/holos';
@@ -161,7 +162,7 @@ export class App {
     this.scene.add(this.holos.group);
     this.traffic = new SpinnerTraffic(this.scene, this.query, settingsFor('ultra').traffic);
     this.lanes = new LaneTraffic(this.scene, this.query, settingsFor('ultra').laneTraffic);
-    this.ground = new GroundTraffic(this.scene, this.query, settingsFor('ultra').groundTraffic);
+    this.ground = new GroundTraffic(this.scene, this.query, settingsFor('ultra').groundTraffic, settingsFor('ultra').freewayTraffic);
     const ultra = settingsFor('ultra');
     this.rain = new Precipitation('rain', ultra.rainCount);
     this.snow = new Precipitation('snow', ultra.snowCount);
@@ -371,7 +372,7 @@ export class App {
     this.holos.update(this.camera, this.quality, this.streamer.billboards());
     this.traffic.update(dt, this.camera, this.quality.traffic);
     this.lanes.update(dt, this.camera, this.quality.laneTraffic);
-    this.ground.update(dt, this.camera, this.quality.groundTraffic);
+    this.ground.update(dt, this.camera, this.quality.groundTraffic, this.quality.freewayTraffic, this.quality.tier, this.elapsed);
     this.atmosphere.update(dt, this.elapsed, this.renderer);
     this.crowd.update(dt, cam.x, cam.z, this.query, this.quality, this.atmosphere.weather.params.rain);
     this.haze.update(cam.x, cam.z, ground, alt, this.quality.tier);
@@ -403,6 +404,7 @@ export class App {
     this.ambience.setInterior(this.interiors.blend);
     this.ambience.setHum(this.interiors.humAmount);
     this.ambience.setMachinery(inWallace ? Math.max(0, 1 - alt / 140) * 0.82 : 0);
+    this.ambience.setTraffic(this.ground.bed);
     this.ambience.setSurf(coast.surf, coast.impact, coast.crest);
     this.ambience.update(w.params.rain, w.params.snow, w.params.wind, alt);
     this.camera.updateMatrixWorld();
@@ -441,7 +443,7 @@ export class App {
     const a = this.atmosphere;
     return [
       ['gpu', `${this.backend} · ${this.quality.tier}${this.qualityChoice === 'auto' ? ' (auto)' : ''} · dpr ${this.renderer.getPixelRatio().toFixed(2)}`],
-      ['draw', `${info.drawCalls} calls · ${(info.triangles / 1e6).toFixed(2)} M tris · crowd ${this.crowd.count} · holo ${this.holos.shown} · ground ${this.ground.count}`],
+      ['draw', `${info.drawCalls} calls · ${(info.triangles / 1e6).toFixed(2)} M tris · crowd ${this.crowd.count} · holo ${this.holos.shown} · ground ${this.ground.streetCount}+${this.ground.freewayCount}`],
       ['query', `sync ${this.query.syncCount} · pending ${this.query.pending} · cell ${this.query.lastQueryMs.toFixed(0)} ms`],
       ['chunks', `far ${s.supersFar} · near ${s.chunksNear} · lod0 ${s.lod0} · jobs ${s.inFlight} · queue ${s.readyQueue} · gen ${s.lastGenMs.toFixed(0)} ms`],
       ['pos', `${p.x.toFixed(0)}, ${p.y.toFixed(0)}, ${p.z.toFixed(0)} m · ${alt.toFixed(0)} m AGL`],
@@ -535,6 +537,26 @@ export class App {
       /** Stage 8 cameras: the slab, the market, the lobby, the corridor, the apartment, the roof pad. */
       /** Stage 7 cameras: the causeway, the plaza, the pyramid face, a satellite, the factories, a convoy, the old pyramids, the atrium. */
       /** Stage 10 cameras: crest, terraces, apron from the water, spray, drowned piers, coastal blocks, aerial. */
+      /** X2 cameras: a signalled crossing, the 110 trench, Broadway, a night aerial, the same crossing in rain. */
+      trafficView: (kind: TrafficView) => {
+        const p = trafficCamera(this.query.layout, kind);
+        if (!p) return false;
+        this.query.fabricAt(p.x, p.z);
+        this.cams.setMode(p.mode);
+        if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
+        this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
+        if (p.mode === 'walk') {
+          this.cams.walk.pitch = p.pitch;
+          this.cams.walk.heading = p.heading;
+          if (p.feet) {
+            this.cams.walk.pos.set(p.feet.x, p.feet.y, p.feet.z);
+            this.camera.position.set(p.feet.x, p.feet.y + 1.7, p.feet.z);
+            this.camera.rotation.set(p.pitch, -p.heading, 0, 'YXZ');
+            this.camera.updateMatrixWorld();
+          }
+        }
+        return true;
+      },
       coastView: (kind: CoastView) => {
         const pre = coastCamera(this.query.layout, kind);
         if (!pre) return false;
@@ -704,6 +726,11 @@ export class App {
         laneCars: this.lanes.count,
         lanes: this.lanes.lanes.length,
         groundCars: this.ground.count,
+        freewayCars: this.ground.freewayCount,
+        streaks: this.ground.streakCount,
+        viewSignal: this.ground.viewSignal,
+        trafficQueued: this.ground.queued,
+        trafficBed: this.ground.bed,
         landmarkLods: this.landmarks.lods.active.join('/'),
         beacons: this.landmarks.beacons.count,
         querySyncs: this.query.syncCount,

@@ -19,6 +19,8 @@ export interface District {
   priority: number;
   grid: GridSpec;
   stage: number;
+  /** 0..1 street-traffic weight. Ground cars scale the tier budget by this. 0 spawns none. */
+  traffic: number;
   polygon: Vec2[];
   bbox: [number, number, number, number]; // minX, minZ, maxX, maxZ
 }
@@ -153,6 +155,7 @@ export class CityLayout {
         priority: d.priority,
         grid: d.grid as GridSpec,
         stage: d.stage,
+        traffic: d.traffic,
         polygon,
         bbox: bboxOf(polygon),
       };
@@ -167,6 +170,7 @@ export class CityLayout {
       priority: 0,
       grid: dd.grid as GridSpec,
       stage: dd.stage,
+      traffic: dd.traffic,
       polygon: [],
       bbox: [minX, minZ, maxX, maxZ],
     };
@@ -263,6 +267,17 @@ export class CityLayout {
       h = Math.max(0, h - 6);
     }
     return h;
+  }
+
+  /** True inside a landmark reserve. Freeway corridors are not landmarks, so trench edges use this instead of `isReserved`. */
+  inLandmark(x: number, z: number, margin = 0): boolean {
+    for (const l of this.landmarks) {
+      if (l.reserveRadius <= 0) continue;
+      const dx = x - l.x, dz = z - l.z;
+      const r = l.reserveRadius + margin;
+      if (dx * dx + dz * dz < r * r) return true;
+    }
+    return false;
   }
 
   /** True if a footprint of radius `margin` at (x,z) intersects a freeway/river/sea-wall corridor or landmark reserve. */

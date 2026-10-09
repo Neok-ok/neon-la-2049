@@ -1,15 +1,15 @@
-// Pure module. Lane graph for the shared downtown grid (DTLA, the Financial District, Civic Center)
-// plus the historic-core lattice (110 × 70 m, 18 m streets). The two lattices share one graph and
-// do not share nodes, so a vehicle cannot turn from a 7.2 m avenue onto a 3.15 m canyon lane.
-// Nodes sit on intersections. An edge is kept when its midpoint is in that lattice's district set,
-// on land, and clear of a landmark reserve or a freeway / river corridor.
-// Low spinners and ground cars both drive this. Sky lanes at 175–260 m are a separate polyline set.
+// One ground graph for the whole basin. Street lattices and freeway trenches are both edges.
+// Nodes are not shared across lattices or routes, so a car cannot turn from a 7.2 m avenue
+// onto a canyon lane or into a trench. Low spinners drive the street edges only.
+// Registrations live in traffic-index.ts. Call registerStreetLattice instead of adding a graph.
 import type { CityLayout } from '../world/layout';
-import { DOWNTOWN_BLOCK_A, DOWNTOWN_BLOCK_B, gridAxes } from '../districts/_shared/megablock/grid';
-import { BLOCK_A, BLOCK_B, LANE } from '../districts/historic-core/spec';
+import { bearingToDir } from '../world/geo';
+import {
+  NO_STREET_GRAPH, freewayRoutes, streetLattices, trafficRevision, type StreetLatticeSpec,
+} from './trafficRegistry';
+import './traffic-index';
 
-const DISTRICTS = new Set(['dtla', 'financial-megatowers', 'civic-center']);
-const CANYON = new Set(['historic-core']);
+export type TrafficKind = 'street' | 'canyon' | 'freeway';
 
 export interface GraphNode {
   i: number;
@@ -22,14 +22,26 @@ export interface GraphEdge {
   index: number;
   a: number;
   b: number;
-  /** 0 = along A (constant j). 1 = along B (constant i). */
+  /** 0 = along A (constant j). 1 = along B (constant i). Freeway edges use 0. */
   axis: 0 | 1;
   length: number;
   /** Unit vector from node a to node b. */
   fx: number;
   fz: number;
-  /** Metres from the centreline to the driving line. Avenues 7.2; the historic canyon 3.15. */
+  /** Street: metres from the centreline to the driving line. Freeway: inner lane offset. */
   lane: number;
+  kind: TrafficKind;
+  /** District at the midpoint. Empty if the sample fell outside every polygon. */
+  district: string;
+  /** Added to terrain height. Negative on a sunken deck. */
+  deck: number;
+  /** Spawn weight. */
+  density: number;
+  route: string;
+  /** Freeway lanes each way. Streets are 1. */
+  laneCount: number;
+  /** Extra metres between freeway lanes. */
+  laneGap: number;
 }
 
 export interface GraphLink {
@@ -43,6 +55,8 @@ export interface StreetGraph {
   edges: GraphEdge[];
   /** Links out of each node index. */
   links: GraphLink[][];
+  /** 1 when the node has both street axes and should show a signal. */
+  signal: Uint8Array;
 }
 
 export interface GraphPose {
@@ -52,27 +66,25 @@ export interface GraphPose {
   fz: number;
 }
 
-let cache: { layout: CityLayout; graph: StreetGraph } | null = null;
+let cache: { layout: CityLayout; rev: number; graph: StreetGraph } | null = null;
 
 function addLattice(
   layout: CityLayout,
+  spec: StreetLatticeSpec,
   nodes: GraphNode[],
   idOf: Map<string, number>,
   edges: GraphEdge[],
-  ax: number, az: number, bx: number, bz: number,
-  blockA: number, blockB: number,
-  prefix: string,
-  i0: number, i1: number, j0: number, j1: number,
-  lane: number,
-  districts: Set<string>,
 ): void {
+  const [ax, az] = bearingToDir(spec.bearingDeg);
+  const [bx, bz] = bearingToDir(spec.bearingDeg + 90);
+  const districts = new Set(spec.districts);
   const at = (i: number, j: number) => {
-    const s = i * blockA;
-    const t = j * blockB;
+    const s = i * spec.blockA;
+    const t = j * spec.blockB;
     return { x: ax * s + bx * t, z: az * s + bz * t };
   };
   const nodeAt = (i: number, j: number): number => {
-    const key = `${prefix}${i},${j}`;
+    const key = `${spec.prefix}${i},${j}`;
     const hit = idOf.get(key);
     if (hit !== undefined) return hit;
     const p = at(i, j);
@@ -81,59 +93,138 @@ function addLattice(
     idOf.set(key, id);
     return id;
   };
-  const keep = (x: number, z: number) => {
-    if (layout.isOcean(x, z) || layout.isReserved(x, z, 4)) return false;
-    return districts.has(layout.districtAt(x, z).id);
+  const keep = (x: number, z: number): string | null => {
+    if (layout.isOcean(x, z) || layout.isReserved(x, z, 4)) return null;
+    const d = layout.districtAt(x, z);
+    if (!districts.has(d.id) || NO_STREET_GRAPH.has(d.id) || d.traffic <= 0) return null;
+    return d.id;
   };
-  const push = (ia: number, ib: number, a: { x: number; z: number }, b: { x: number; z: number }, axis: 0 | 1) => {
+  const push = (
+    ia: number, ib: number, a: { x: number; z: number }, b: { x: number; z: number },
+    axis: 0 | 1, district: string,
+  ) => {
     const len = Math.hypot(b.x - a.x, b.z - a.z) || 1;
     edges.push({
       index: edges.length, a: ia, b: ib, axis, length: len,
-      fx: (b.x - a.x) / len, fz: (b.z - a.z) / len, lane,
+      fx: (b.x - a.x) / len, fz: (b.z - a.z) / len, lane: spec.lane,
+      kind: spec.kind, district, deck: 0, density: layout.districtAt((a.x + b.x) / 2, (a.z + b.z) / 2).traffic,
+      route: spec.id, laneCount: 1, laneGap: 0,
     });
   };
-  for (let j = j0; j <= j1; j++) {
-    for (let i = i0; i < i1; i++) {
+  for (let j = spec.j0; j <= spec.j1; j++) {
+    for (let i = spec.i0; i < spec.i1; i++) {
       const a = at(i, j);
       const b = at(i + 1, j);
-      if (!keep((a.x + b.x) / 2, (a.z + b.z) / 2)) continue;
-      push(nodeAt(i, j), nodeAt(i + 1, j), a, b, 0);
+      const district = keep((a.x + b.x) / 2, (a.z + b.z) / 2);
+      if (!district) continue;
+      push(nodeAt(i, j), nodeAt(i + 1, j), a, b, 0, district);
     }
   }
-  for (let i = i0; i <= i1; i++) {
-    for (let j = j0; j < j1; j++) {
+  for (let i = spec.i0; i <= spec.i1; i++) {
+    for (let j = spec.j0; j < spec.j1; j++) {
       const a = at(i, j);
       const b = at(i, j + 1);
-      if (!keep((a.x + b.x) / 2, (a.z + b.z) / 2)) continue;
-      push(nodeAt(i, j), nodeAt(i, j + 1), a, b, 1);
+      const district = keep((a.x + b.x) / 2, (a.z + b.z) / 2);
+      if (!district) continue;
+      push(nodeAt(i, j), nodeAt(i, j + 1), a, b, 1, district);
     }
   }
 }
 
-/** The downtown street graph, plus the historic canyon lattice. Cached on the layout instance. */
-export function downtownGraph(layout: CityLayout): StreetGraph {
-  if (cache?.layout === layout) return cache.graph;
-  const { ax, az, bx, bz } = gridAxes();
+function freewayOk(layout: CityLayout, x: number, z: number): boolean {
+  if (!layout.inBounds(x, z) || layout.isOcean(x, z)) return false;
+  if (NO_STREET_GRAPH.has(layout.districtAt(x, z).id)) return false;
+  if (layout.inLandmark(x, z, 2)) return false;
+  return true;
+}
+
+function addFreeways(layout: CityLayout, nodes: GraphNode[], edges: GraphEdge[]): void {
+  for (const spec of freewayRoutes()) {
+    if (!spec.vehicles) continue;
+    const line = layout.freeways.find((f) => f.id === spec.id);
+    if (!line || line.pts.length < 2) continue;
+    const step = 72;
+    let prev = -1;
+    const consider = (x: number, z: number) => {
+      if (!freewayOk(layout, x, z)) { prev = -1; return; }
+      const id = nodes.length;
+      nodes.push({ i: id, j: 0, x, z });
+      if (prev >= 0) {
+        const a = nodes[prev]!;
+        const mx = (a.x + x) / 2;
+        const mz = (a.z + z) / 2;
+        const len = Math.hypot(x - a.x, z - a.z);
+        if (len > 8 && freewayOk(layout, mx, mz)) {
+          const d = layout.districtAt(mx, mz);
+          edges.push({
+            index: edges.length, a: prev, b: id, axis: 0, length: len,
+            fx: (x - a.x) / len, fz: (z - a.z) / len,
+            lane: spec.inset, kind: 'freeway', district: d.id, deck: -spec.depth,
+            density: spec.density, route: spec.id, laneCount: spec.lanes, laneGap: spec.spacing,
+          });
+        }
+      }
+      prev = id;
+    };
+    for (let i = 0; i < line.pts.length - 1; i++) {
+      const ax = line.pts[i]![0], az = line.pts[i]![1];
+      const bx = line.pts[i + 1]![0], bz = line.pts[i + 1]![1];
+      const len = Math.hypot(bx - ax, bz - az);
+      if (len < 1) continue;
+      const n = Math.max(1, Math.ceil(len / step));
+      for (let s = 0; s < n; s++) {
+        const t = s / n;
+        consider(ax + (bx - ax) * t, az + (bz - az) * t);
+      }
+    }
+    const end = line.pts[line.pts.length - 1]!;
+    consider(end[0], end[1]);
+  }
+}
+
+/** Shared street and freeway graph. Cached on the layout and the registration revision. */
+export function streetGraph(layout: CityLayout): StreetGraph {
+  const rev = trafficRevision();
+  if (cache?.layout === layout && cache.rev === rev) return cache.graph;
   const nodes: GraphNode[] = [];
   const idOf = new Map<string, number>();
   const edges: GraphEdge[] = [];
-  addLattice(layout, nodes, idOf, edges, ax, az, bx, bz, DOWNTOWN_BLOCK_A, DOWNTOWN_BLOCK_B, 'd', -42, 42, -42, 42, 7.2, DISTRICTS);
-  addLattice(layout, nodes, idOf, edges, ax, az, bx, bz, BLOCK_A, BLOCK_B, 'h', -28, 8, -12, 6, LANE, CANYON);
+  for (const spec of streetLattices()) addLattice(layout, spec, nodes, idOf, edges);
+  addFreeways(layout, nodes, edges);
   const links: GraphLink[][] = nodes.map(() => []);
   for (const e of edges) {
     links[e.a]!.push({ edge: e.index, dir: 1 });
     links[e.b]!.push({ edge: e.index, dir: -1 });
   }
-  const graph = { nodes, edges, links };
-  cache = { layout, graph };
+  const signal = new Uint8Array(nodes.length);
+  for (let i = 0; i < nodes.length; i++) {
+    let a0 = false;
+    let a1 = false;
+    for (const link of links[i]!) {
+      const e = edges[link.edge]!;
+      if (e.kind === 'freeway') continue;
+      if (e.axis === 0) a0 = true;
+      else a1 = true;
+    }
+    if (a0 && a1) signal[i] = 1;
+  }
+  const graph = { nodes, edges, links, signal };
+  cache = { layout, rev, graph };
   return graph;
 }
 
-/** Closest point on an edge, if it falls inside `maxDist`. */
-export function edgeNear(g: StreetGraph, x: number, z: number, maxDist: number): { edge: number; t: number; dist: number } | null {
+/** Previous name. Spinners and older calls use this. It is the same graph. */
+export const downtownGraph = streetGraph;
+
+/** Closest point on an edge, if it falls inside `maxDist`. `kind` skips the other family. */
+export function edgeNear(
+  g: StreetGraph, x: number, z: number, maxDist: number, kind?: 'street' | 'freeway',
+): { edge: number; t: number; dist: number } | null {
   let best: { edge: number; t: number; dist: number } | null = null;
   const max2 = maxDist * maxDist;
   for (const e of g.edges) {
+    if (kind === 'freeway' && e.kind !== 'freeway') continue;
+    if (kind === 'street' && e.kind === 'freeway') continue;
     const a = g.nodes[e.a]!, b = g.nodes[e.b]!;
     const dx = b.x - a.x, dz = b.z - a.z;
     const L2 = dx * dx + dz * dz || 1;

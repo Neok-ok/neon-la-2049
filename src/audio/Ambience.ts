@@ -25,6 +25,10 @@ export class Ambience {
   private surfImpact = 0;
   /** 0..1 extra wind while the listener is on the crest. */
   private crestWind = 0;
+  /** 0..1 tyre hiss and low traffic rumble. Stored before the audio context exists. */
+  private traffic = 0;
+  private tireGain: GainNode | null = null;
+  private rumbleGain: GainNode | null = null;
   muted = false;
 
   start(): void {
@@ -157,6 +161,23 @@ export class Ambience {
     this.impactGain = ctx.createGain();
     this.impactGain.gain.value = 0;
     hit.connect(surfBp).connect(this.impactGain).connect(this.master);
+
+    // Tyre hiss and a low rumble. Noise only, no tones.
+    const tire = noise('white', 3);
+    const tireBp = ctx.createBiquadFilter();
+    tireBp.type = 'bandpass';
+    tireBp.frequency.value = 700;
+    tireBp.Q.value = 0.7;
+    this.tireGain = ctx.createGain();
+    this.tireGain.gain.value = 0;
+    tire.connect(tireBp).connect(this.tireGain).connect(this.master);
+    const rumble = noise('brown', 5);
+    const rumbleLp = ctx.createBiquadFilter();
+    rumbleLp.type = 'lowpass';
+    rumbleLp.frequency.value = 140;
+    this.rumbleGain = ctx.createGain();
+    this.rumbleGain.gain.value = 0;
+    rumble.connect(rumbleLp).connect(this.rumbleGain).connect(this.master);
   }
 
   get context(): AudioContext | null {
@@ -188,6 +209,11 @@ export class Ambience {
     this.machinery = Math.max(0, Math.min(1, amount));
   }
 
+  /** 0..1 nearby traffic. Stored before the audio context exists. */
+  setTraffic(amount: number): void {
+    this.traffic = Math.max(0, Math.min(1, amount));
+  }
+
   /** 0..1 wash, 0..1 impact, 0..1 crest wind. Stored before the audio context exists. */
   setSurf(amount: number, impact: number, crest: number): void {
     this.surfAmount = Math.max(0, Math.min(1, amount));
@@ -209,6 +235,9 @@ export class Ambience {
     const surf = this.surfAmount * (1 - 0.45 * m);
     if (this.surfGain) this.surfGain.gain.setTargetAtTime(surf * 0.075, t, 0.35);
     if (this.impactGain) this.impactGain.gain.setTargetAtTime(surf * this.surfImpact * 0.17, t, 0.03);
+    const traffic = this.traffic * (1 - 0.62 * m);
+    if (this.tireGain) this.tireGain.gain.setTargetAtTime(traffic * 0.028, t, 0.35);
+    if (this.rumbleGain) this.rumbleGain.gain.setTargetAtTime(traffic * 0.018, t, 0.4);
     const street = Math.max(0.15, 1 - altitude / 400);
     this.rainGain.gain.setTargetAtTime(rain * 0.32 * (1 - 0.58 * m), t, 0.5);
     this.patterGain.gain.setTargetAtTime(rain * 0.25 * street * (1 - 0.72 * m), t, 0.5);

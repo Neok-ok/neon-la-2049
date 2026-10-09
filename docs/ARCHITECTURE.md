@@ -35,7 +35,7 @@ src/
     landmark-index.ts      main-thread registry entry: imports every landmark builder module
     _shared/               Stage-1 blockout archetypes, shared street lamps, the street kit and the megatower kit
   atmosphere/              uniforms, sky + height fog, day/night, weather state machine, rain/snow
-  vehicles/                spinner + transport models, AI spinner traffic, high sky lanes and holding patterns
+  vehicles/                spinner + transport models, sky lanes, and one ground graph (streets, trenches, signals)
   camera/                  fly / walk / cinematic controllers + CameraSystem (mode switching)
   input/                   keyboard/mouse/pointer-lock + touch joysticks
   audio/                   procedural rain/city/wind ambience (WebAudio, no samples, no music)
@@ -182,6 +182,8 @@ All controllers implement `Controller { enter(pose), exit(), update(dt), pose() 
 | high | 2.0 | 600 / 1,800 / 10,000 m | 14 k | on | 110 | 240 | 1.0 | 3 |
 | ultra | 3.0 | 800 / 2,400 / 14,000 m | 24 k | on | 180 | 380 | 1.35 | 4 |
 
+Ground traffic budgets (street / freeway near vehicles), before the district `traffic` weight: low **0 / 0** (light streaks only), medium **22 / 24**, high **40 / 40**, ultra **64 / 56**. The street count is `round(budget × district.traffic)`.
+
 * **Auto-detect** picks the tier from the UA, the WebGL renderer string and WebGPU availability: software → low; iPhone with WebGPU → medium;
   other mobile → low (medium on 8-core, 8 GB devices); integrated GPU → medium; Apple silicon or discrete GPU → high.
 * **Runtime safety net:** in Auto, more than 6 s below 24 fps drops one tier, with a toast. Holograms read that same live tier, so the drop also cuts panel count, shader detail, spill and cull range.
@@ -232,12 +234,11 @@ Props are capped per tier (DTLA medium is 1,600 street props). A pure DTLA chunk
 the heaviest sampled chunk that included DTLA blocks was about 20 k. The acceptance test is still
 the global medium budget, not the two-batch guide.
 
-Ground cars (`vehicles/groundTraffic.ts`) are two instanced draws city-wide, not per chunk. The street graph
-(`vehicles/streetGraph.ts`) is shared with the low spinner layer: the downtown avenues (`lane` 7.2 m) and, since
-Stage 6, the historic-core lattice (`lane` 3.15 m on 18 m streets). The lattices do not share nodes. Spinners
-skip `lane < 5`. Over historic-core they fly free at 148–260 m instead of 74 / 112 m. Avenue sky lanes in the
-175–260 m band are ordinary `LaneTraffic` polylines (`dtla-avenue-*`). A Broadway LOD0 chunk adds the same
-kit / steam / pool draws the market and DTLA already add; a measured fabric chunk there was about 8–9 k triangles.
+Ground traffic is one graph (`vehicles/streetGraph.ts`, also exported as `downtownGraph`), not a per-chunk mesh. A district registers a lattice by importing a module from `vehicles/traffic-index.ts` and calling `registerStreetLattice`, and by setting `traffic` (0–1) on the district in `city-layout.json`. That weight scales the street budget. `coastal-strip`, `k-megablock` and `wallace-vernon` are refused even if the weight is raised. Do not add another graph.
+
+The downtown avenues (`lane` 7.2 m) and the historic-core lattice (`lane` 3.15 m) are two registrations. Their nodes are not shared, and neither shares nodes with a freeway chain. Freeway trenches (`registerFreewayTraffic`) are the 110, the 101 and the 10. The chunk mesher omits ground cells over those three (`trenchQuery.ts`) so the deck is visible; the lips cover the seam. The 405, 5, 105 and 710 are far streaks only. Spinners skip `lane < 5` and every `kind: 'freeway'` edge. Over historic-core they fly free at 148–260 m instead of 74 / 112 m. Avenue sky lanes in the 175–260 m band are ordinary `LaneTraffic` polylines (`dtla-avenue-*`).
+
+Near vehicles are one instanced draw per class (compact, van, box truck, hauler) on a shared wet material. Headlights and taillights are emissive on that mesh, plus the existing wet-street pool when it is raining. Signals are two more instanced draws (pole and head), hidden beyond 480 m. The trench is one mesh. Streaks are one instanced draw. Low tier draws streaks only. A Broadway LOD0 chunk still adds the same kit / steam / pool draws the market and DTLA already add; a measured fabric chunk there was about 8–9 k triangles.
 
 ## URL parameters and debug API
 
@@ -245,8 +246,8 @@ kit / steam / pool draws the market and DTLA already add; a measured fabric chun
 &webgl=1 &hud=1 &ui=0 &freeze=1 &touch=1 &refl=0|1`
 
 `window.__nla` (console and automation): `isIdle()`, `setMode(m)`, `setPose(x,y,z,yaw°,pitch°)`, `streetView(idOrX, z?, along?)`,
-`marketView('street'|'interior'|'crowd'|'roof'|'bibi')`, `holoView('street'|'aerial'|'cine')`, `megaView('approach'|'skyline'|'street'|'lanes'|'crown')`, `dtlaView('street'|'walkway'|'roof'|'lanes'|'plaza')`, `civicView('approach'|'steps'|'hall'|'lobby'|'plaza')`, `broadwayView('street'|'bridge'|'bradbury'|'spinner'|'atrium')`, `interiorView('court'|'stair'|'door'|'service')`, `kView('street'|'market'|'lobby'|'corridor'|'apartment'|'roof'|'aerial')`, `wallaceView('approach'|'plaza'|'face'|'satellite'|'factories'|'convoy'|'oldpyramids'|'atrium')`, `coastView('crest'|'terraces'|'apron'|'spray'|'piers'|'blocks'|'aerial')`, `holoSpec(id)`, `setTime(h)`, `setWeather(id)`, `cut()`, `holdShot(on)`, `stats()`,
-`geoToLocal(lat,lon)`, `app`. `stats()` includes draw calls, triangles, crowd count, hologram panel count, query-worker counters, lane cars and lanes, ground cars, landmark LOD levels, the beacon count, and the interior fields (`interior`, `interiorOccluded`, `interiorMuffle`, `interiorTris`, `interiorMeshes`, `interiorMounted`).
+`marketView('street'|'interior'|'crowd'|'roof'|'bibi')`, `holoView('street'|'aerial'|'cine')`, `megaView('approach'|'skyline'|'street'|'lanes'|'crown')`, `dtlaView('street'|'walkway'|'roof'|'lanes'|'plaza')`, `civicView('approach'|'steps'|'hall'|'lobby'|'plaza')`, `broadwayView('street'|'bridge'|'bradbury'|'spinner'|'atrium')`, `interiorView('court'|'stair'|'door'|'service')`, `kView('street'|'market'|'lobby'|'corridor'|'apartment'|'roof'|'aerial')`, `wallaceView('approach'|'plaza'|'face'|'satellite'|'factories'|'convoy'|'oldpyramids'|'atrium')`, `coastView('crest'|'terraces'|'apron'|'spray'|'piers'|'blocks'|'aerial')`, `trafficView('intersection'|'freeway'|'canyon'|'aerial-night'|'rain')`, `holoSpec(id)`, `setTime(h)`, `setWeather(id)`, `cut()`, `holdShot(on)`, `stats()`,
+`geoToLocal(lat,lon)`, `app`. `stats()` includes draw calls, triangles, crowd count, hologram panel count, query-worker counters, lane cars and lanes, ground cars, freeway cars, streak count, the nearest signal (`viewSignal`), queued cars, the traffic bed, landmark LOD levels, the beacon count, and the interior fields (`interior`, `interiorOccluded`, `interiorMuffle`, `interiorTris`, `interiorMeshes`, `interiorMounted`).
 
 Keys: `1/2/3` fly/walk/cinematic, `F` toggle fly↔walk, `V` cockpit, `E` sit / stand at a market stool (walk mode; in fly mode `E` is still up),
 `N` next shot, `H` HUD, `M` mute, `[ ]` time −/+ 1 h, `B` next weather. The iPhone joystick has no sit button.

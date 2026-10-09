@@ -14,11 +14,13 @@
       "Districts are resolved by priority: highest priority polygon containing a point wins. Points on land outside every polygon use `defaultDistrict`.",
       "Freeway and river polylines reserve open corridors (no fabric) of the given width: these become the deep glowing traffic trenches.",
       "Landmarks reserve their footprint (reserveRadius) so procedural fabric never intersects them.",
-      "See docs/BIBLE.md for the evidence and reasoning behind every number."
+      "See docs/BIBLE.md for the evidence and reasoning behind every number.",
+      "Each district has a traffic weight from 0 to 1. Ground traffic scales its street budget by that weight. The coast, K and Wallace stay off the street graph."
     ]
   },
   "defaultDistrict": {
     "id": "basin-sprawl",
+    "traffic": 0.2,
     "name": "Basin Sprawl",
     "loreSector": "unnamed residential sectors",
     "archetype": "basin-sprawl",
@@ -28,6 +30,7 @@
   "districts": [
     {
       "id": "dtla",
+      "traffic": 1,
       "name": "Downtown Megablocks",
       "loreSector": "Sector 5 / Sector 9 fringe",
       "archetype": "megablock-downtown",
@@ -38,6 +41,7 @@
     },
     {
       "id": "financial-megatowers",
+      "traffic": 0.9,
       "name": "Financial District Megatowers",
       "loreSector": "Sector 9 - Financial District",
       "archetype": "financial-megatowers",
@@ -48,6 +52,7 @@
     },
     {
       "id": "civic-center",
+      "traffic": 0.88,
       "name": "Civic Center (LAPD HQ)",
       "loreSector": "Sector 5 - Central District",
       "archetype": "civic-center",
@@ -58,6 +63,7 @@
     },
     {
       "id": "little-tokyo-market",
+      "traffic": 0.25,
       "name": "Little Tokyo Night Market",
       "loreSector": "Sector 5 - Little Tokyo Shopping District / Bar District",
       "archetype": "little-tokyo-market",
@@ -68,6 +74,7 @@
     },
     {
       "id": "historic-core",
+      "traffic": 0.92,
       "name": "Broadway Neon Canyon",
       "loreSector": "Sector 9 - Retirement Row / Bradbury",
       "archetype": "historic-core",
@@ -78,6 +85,7 @@
     },
     {
       "id": "arts-district",
+      "traffic": 0.16,
       "name": "Arts District Works",
       "loreSector": "Sector 4 fringe",
       "archetype": "industrial-dense",
@@ -88,6 +96,7 @@
     },
     {
       "id": "wallace-vernon",
+      "traffic": 0,
       "name": "Wallace Corporation Precinct (Vernon)",
       "loreSector": "Sector 4 - Industrial District",
       "archetype": "wallace-vernon",
@@ -98,6 +107,7 @@
     },
     {
       "id": "southeast-industrial",
+      "traffic": 0.14,
       "name": "Southeast Refinery Belt",
       "loreSector": "Sector 4 - Industrial District",
       "archetype": "industrial",
@@ -108,6 +118,7 @@
     },
     {
       "id": "south-la-megablocks",
+      "traffic": 0.18,
       "name": "South LA Megablocks",
       "loreSector": "residential sectors",
       "archetype": "megablock-residential",
@@ -118,6 +129,7 @@
     },
     {
       "id": "lakewood-megablocks",
+      "traffic": 0.15,
       "name": "Lakewood / Downey Megablocks",
       "loreSector": "residential sectors (K's sector on the 2049 spinner map)",
       "archetype": "megablock-residential",
@@ -128,6 +140,7 @@
     },
     {
       "id": "k-megablock",
+      "traffic": 0,
       "name": "K's Megablock",
       "loreSector": "residential; centre of the on-screen spinner map (~Woodruff Ave & South St)",
       "archetype": "k-megablock",
@@ -138,6 +151,7 @@
     },
     {
       "id": "westside",
+      "traffic": 0.22,
       "name": "Westside Sprawl (Mid-Wilshire to Culver)",
       "loreSector": "Sector 2 / 3 (Uptown)",
       "archetype": "sprawl-dense",
@@ -148,6 +162,7 @@
     },
     {
       "id": "hollywood",
+      "traffic": 0.42,
       "name": "Hollywood Entertainment Strip",
       "loreSector": "Sector 1 - Entertainment District",
       "archetype": "entertainment",
@@ -158,6 +173,7 @@
     },
     {
       "id": "coastal-strip",
+      "traffic": 0,
       "name": "Grey Coast (behind the Sea Wall)",
       "loreSector": "coastal sectors",
       "archetype": "coastal-grey",
@@ -168,6 +184,7 @@
     },
     {
       "id": "lax-spaceport",
+      "traffic": 0.08,
       "name": "LAX Off-World Spaceport",
       "loreSector": "Sector 12 - LAX Spaceport",
       "archetype": "spaceport",
@@ -178,6 +195,7 @@
     },
     {
       "id": "south-bay-refineries",
+      "traffic": 0.12,
       "name": "South Bay Refineries",
       "loreSector": "industrial (the 1982 'Hades' landscape)",
       "archetype": "industrial",
@@ -188,6 +206,7 @@
     },
     {
       "id": "harbor",
+      "traffic": 0.1,
       "name": "Harbor & Container Port",
       "loreSector": "Sector 12 - Warehouse District / Sea Wall Docks",
       "archetype": "port",
@@ -198,6 +217,7 @@
     },
     {
       "id": "long-beach",
+      "traffic": 0.2,
       "name": "Long Beach Secondary Core",
       "loreSector": "southern sectors",
       "archetype": "megablock-downtown",
@@ -208,6 +228,7 @@
     },
     {
       "id": "east-la",
+      "traffic": 0.26,
       "name": "East LA Sprawl",
       "loreSector": "eastern sectors",
       "archetype": "sprawl-dense",

@@ -177,7 +177,7 @@ Hologram slots from `placeKit` register as `${id}-holo-a` (first shaft slot), `-
 
 `buildMegablock` returns colliders, signs, the roof and the **base** half-extents. Put kiosks in the overhang (outside `baseHalf*`, inside the lot) so the street stays clear. Masses stay inside the footprint.
 
-The downtown grid (bearing 38°, 205 × 125 m) is shared with the Financial District and Civic Center. `downtownGraph` in `src/vehicles/streetGraph.ts` is the lane graph for low spinners and ground cars. Do not build a second graph. A district whose blocks are a different size adds another lattice inside that same function (Stage 6 did this for historic-core: 110 × 70 m, `lane` 3.15 m). Prefix the node keys so the lattices do not merge, and set `GraphEdge.lane` to the driving-line offset. Ground traffic reads `lane`; spinners skip edges with `lane < 5`.
+The downtown grid (bearing 38°, 205 × 125 m) is shared with the Financial District and Civic Center. Ground cars and the low spinner layer share one graph, `streetGraph` in `src/vehicles/streetGraph.ts` (`downtownGraph` is that same function). Do not build a second graph. A district with its own block size registers a lattice: import a module from `src/vehicles/traffic-index.ts` that calls `registerStreetLattice`, and set `traffic` (0–1) on the district in `city-layout.json`. Prefix the node keys so the lattices do not merge, and set `lane` to the driving-line offset. Ground traffic reads `lane` and `traffic`. Spinners skip `lane < 5` and every freeway edge. `coastal-strip`, `k-megablock` and `wallace-vernon` stay off the graph. Street lattices do not connect to freeway trenches.
 
 ### The heritage façade kit (Stage 6; reuse it for theatre streets)
 

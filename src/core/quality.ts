@@ -41,15 +41,17 @@ export interface QualitySettings {
   landmarkLod: number;
   /** Spinners on the high sky lanes and holding patterns between the megatowers. */
   laneTraffic: number;
-  /** Ground cars and vans on the downtown street graph. */
+  /** Street cars near the camera. The district `traffic` weight scales this. Low tier is 0 (light streaks only). */
   groundTraffic: number;
+  /** Near vehicles in a freeway trench. Low tier is 0. */
+  freewayTraffic: number;
 }
 
 const BASE: Record<Tier, Omit<QualitySettings, 'tier'>> = {
-  low: { pixelRatio: 1, nearRadius: 900, lod0Radius: 320, farRadius: 4500, rainCount: 2500, snowCount: 1500, bloom: false, traffic: 24, uploadsPerFrame: 1, workers: 2, streetDetail: true, antialias: false, detailScale: 0.3, crowd: 56, crowdRadius: 48, steam: 48, holoCount: 6, holoDetail: 0, holoSpill: 0, holoCards: 0, landmarkLod: 0.6, laneTraffic: 60, groundTraffic: 10 },
-  medium: { pixelRatio: 1.5, nearRadius: 1300, lod0Radius: 450, farRadius: 7000, rainCount: 6000, snowCount: 3500, bloom: false, traffic: 50, uploadsPerFrame: 2, workers: 2, streetDetail: true, antialias: false, detailScale: 0.55, crowd: 160, crowdRadius: 64, steam: 140, holoCount: 18, holoDetail: 1, holoSpill: 3, holoCards: 6, landmarkLod: 0.8, laneTraffic: 140, groundTraffic: 22 },
-  high: { pixelRatio: 2, nearRadius: 1800, lod0Radius: 600, farRadius: 10000, rainCount: 14000, snowCount: 7000, bloom: true, traffic: 110, uploadsPerFrame: 3, workers: 3, streetDetail: true, antialias: true, detailScale: 0.82, crowd: 340, crowdRadius: 78, steam: 300, holoCount: 32, holoDetail: 2, holoSpill: 4, holoCards: 12, landmarkLod: 1.0, laneTraffic: 240, groundTraffic: 40 },
-  ultra: { pixelRatio: 3, nearRadius: 2400, lod0Radius: 800, farRadius: 14000, rainCount: 24000, snowCount: 12000, bloom: true, traffic: 180, uploadsPerFrame: 4, workers: 4, streetDetail: true, antialias: true, detailScale: 1, crowd: 680, crowdRadius: 88, steam: 520, holoCount: 48, holoDetail: 3, holoSpill: 4, holoCards: 16, landmarkLod: 1.35, laneTraffic: 380, groundTraffic: 64 },
+  low: { pixelRatio: 1, nearRadius: 900, lod0Radius: 320, farRadius: 4500, rainCount: 2500, snowCount: 1500, bloom: false, traffic: 24, uploadsPerFrame: 1, workers: 2, streetDetail: true, antialias: false, detailScale: 0.3, crowd: 56, crowdRadius: 48, steam: 48, holoCount: 6, holoDetail: 0, holoSpill: 0, holoCards: 0, landmarkLod: 0.6, laneTraffic: 60, groundTraffic: 0, freewayTraffic: 0 },
+  medium: { pixelRatio: 1.5, nearRadius: 1300, lod0Radius: 450, farRadius: 7000, rainCount: 6000, snowCount: 3500, bloom: false, traffic: 50, uploadsPerFrame: 2, workers: 2, streetDetail: true, antialias: false, detailScale: 0.55, crowd: 160, crowdRadius: 64, steam: 140, holoCount: 18, holoDetail: 1, holoSpill: 3, holoCards: 6, landmarkLod: 0.8, laneTraffic: 140, groundTraffic: 22, freewayTraffic: 24 },
+  high: { pixelRatio: 2, nearRadius: 1800, lod0Radius: 600, farRadius: 10000, rainCount: 14000, snowCount: 7000, bloom: true, traffic: 110, uploadsPerFrame: 3, workers: 3, streetDetail: true, antialias: true, detailScale: 0.82, crowd: 340, crowdRadius: 78, steam: 300, holoCount: 32, holoDetail: 2, holoSpill: 4, holoCards: 12, landmarkLod: 1.0, laneTraffic: 240, groundTraffic: 40, freewayTraffic: 40 },
+  ultra: { pixelRatio: 3, nearRadius: 2400, lod0Radius: 800, farRadius: 14000, rainCount: 24000, snowCount: 12000, bloom: true, traffic: 180, uploadsPerFrame: 4, workers: 4, streetDetail: true, antialias: true, detailScale: 1, crowd: 680, crowdRadius: 88, steam: 520, holoCount: 48, holoDetail: 3, holoSpill: 4, holoCards: 16, landmarkLod: 1.35, laneTraffic: 380, groundTraffic: 64, freewayTraffic: 56 },
 };
 
 export function settingsFor(tier: Tier): QualitySettings {
