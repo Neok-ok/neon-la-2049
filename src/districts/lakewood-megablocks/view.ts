@@ -71,7 +71,7 @@ export function lakewoodCamera(layout: CityLayout, kind: LakewoodView): LakePose
   if (kind === 'aerial') {
     const [x, z] = geoToLocal(33.86, -118.145);
     const g = layout.heightAt(x, z);
-    return fly({ x, y: g + 680, z: z + 420 }, { x, y: g + 36, z }, false);
+    return fly({ x, y: g + 680, z: z + 420 }, { x, y: g + 36, z }, true);
   }
   if (kind === 'k-edge') {
     const x = K_TOWER.x;
@@ -81,26 +81,18 @@ export function lakewoodCamera(layout: CityLayout, kind: LakewoodView): LakePose
     return walk({ x, y: g, z }, { x, y: g + 96, z: K_TOWER.z }, 0.55);
   }
   if (kind === 'river') {
-    for (const z0 of [18800, 20500, 22000, 23600, 25200]) {
-      let x = 7800;
-      let hit = false;
-      for (let k = 0; k < 90 && x > 1600; k++) {
-        if (layout.isReserved(x, z0, 2) && layout.districtAt(x + 40, z0).id === 'lakewood-megablocks') {
-          hit = true;
-          break;
-        }
-        x -= 50;
-      }
-      if (!hit) continue;
-      let sx = x;
-      for (let k = 0; k < 48; k++) {
-        sx += 4;
-        if (!layout.isReserved(sx, z0, 1.5) && layout.districtAt(sx, z0).id === 'lakewood-megablocks') break;
-      }
-      sx += 10;
-      if (layout.districtAt(sx, z0).id !== 'lakewood-megablocks') continue;
-      const g = layout.heightAt(sx, z0);
-      return walk({ x: sx, y: g, z: z0 }, { x: sx - 36, y: g + 9, z: z0 }, 0.2);
+    // West face of an edge block, where the −B sidewalk meets the river / I-710 reserve.
+    const edges = searchResidential(layout, 6400, 21400, 7000).filter((f) => f.plan.edge);
+    edges.sort((a, b) => a.block.cx - b.block.cx);
+    for (const f of edges) {
+      const b = f.block;
+      const probe = worldAt(b, 0, -b.lb / 2 - 16, 0);
+      if (!layout.isReserved(probe.x, probe.z, 2)) continue;
+      const feet = worldAt(b, -6, -b.lb / 2 - 8, 0.04);
+      if (layout.districtAt(feet.x, feet.z).id !== 'lakewood-megablocks') continue;
+      if (layout.isReserved(feet.x, feet.z, 0.8)) continue;
+      const look = worldAt(b, 10, -b.lb / 2 + 6, 3.2);
+      return walk(feet, look, 0.16);
     }
     return null;
   }
@@ -135,8 +127,10 @@ export function lakewoodCamera(layout: CityLayout, kind: LakewoodView): LakePose
     if (!hub?.plan.shop) return null;
     const door = worldAt(hub.block, hub.plan.shop.s, hub.plan.shop.t, 0);
     if (kind === 'hub') {
-      const feet = worldAt(hub.block, hub.plan.shop.s - 14, hub.plan.shop.t, 0.04);
-      return walk(feet, { x: door.x, y: door.y + 3.2, z: door.z }, 0.12);
+      // South yard, looking north. The tanks sit beside the door, so a stance there is a slot.
+      const feet = worldAt(hub.block, -16, 6, 0.04);
+      const look = worldAt(hub.block, 28, -2, 5.5);
+      return walk(feet, look, 0.14);
     }
     // Inside the corridor, looking north into the counter room. Local +Z is south.
     const feet = { x: door.x, y: door.y + 0.16, z: door.z - 2.1 };
