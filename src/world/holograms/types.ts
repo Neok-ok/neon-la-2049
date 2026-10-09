@@ -8,6 +8,7 @@ export const HOLO_DESIGNS = [
   'glyph-loop',
   'lease-loop',
   'lantern-loop',
+  'veil-dancer',
 ] as const;
 
 export type HoloDesignId = (typeof HOLO_DESIGNS)[number];

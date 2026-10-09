@@ -184,7 +184,7 @@ All controllers implement `Controller { enter(pose), exit(), update(dt), pose() 
 
 ### Holograms (`world/holograms/`)
 
-One instanced draw for every projector, plus one draw for wet-street spill cards. Placements come from `registerHologram` (landmarks, the X4 showcase) and from kind-2 signs on chunks that are currently showing. The field re-picks the visible set every frame:
+One instanced draw for every projector, plus one draw for wet-street spill cards. Seven designs share that shader; index 6 is `veil-dancer` (Stage 6). A new design is a branch in `material.ts`, not a second material. Placements come from `registerHologram` (landmarks, the X4 showcase) and from kind-2 signs on chunks that are currently showing. The field re-picks the visible set every frame:
 
 | Tier | Panels | Detail | Spill lights into fabric/kit | Ground cards |
 |---|---|---|---|---|
@@ -216,8 +216,11 @@ the heaviest sampled chunk that included DTLA blocks was about 20 k. The accepta
 the global medium budget, not the two-batch guide.
 
 Ground cars (`vehicles/groundTraffic.ts`) are two instanced draws city-wide, not per chunk. The street graph
-(`vehicles/streetGraph.ts`) is shared with the low spinner layer. Avenue sky lanes in the 175–260 m band are
-ordinary `LaneTraffic` polylines (`dtla-avenue-*`).
+(`vehicles/streetGraph.ts`) is shared with the low spinner layer: the downtown avenues (`lane` 7.2 m) and, since
+Stage 6, the historic-core lattice (`lane` 3.15 m on 18 m streets). The lattices do not share nodes. Spinners
+skip `lane < 5`. Over historic-core they fly free at 148–260 m instead of 74 / 112 m. Avenue sky lanes in the
+175–260 m band are ordinary `LaneTraffic` polylines (`dtla-avenue-*`). A Broadway LOD0 chunk adds the same
+kit / steam / pool draws the market and DTLA already add; a measured fabric chunk there was about 8–9 k triangles.
 
 ## URL parameters and debug API
 
@@ -225,7 +228,7 @@ ordinary `LaneTraffic` polylines (`dtla-avenue-*`).
 &webgl=1 &hud=1 &ui=0 &freeze=1 &touch=1 &refl=0|1`
 
 `window.__nla` (console and automation): `isIdle()`, `setMode(m)`, `setPose(x,y,z,yaw°,pitch°)`, `streetView(idOrX, z?, along?)`,
-`marketView('street'|'interior'|'crowd'|'roof'|'bibi')`, `holoView('street'|'aerial'|'cine')`, `megaView('approach'|'skyline'|'street'|'lanes'|'crown')`, `dtlaView('street'|'walkway'|'roof'|'lanes'|'plaza')`, `holoSpec(id)`, `setTime(h)`, `setWeather(id)`, `cut()`, `holdShot(on)`, `stats()`,
+`marketView('street'|'interior'|'crowd'|'roof'|'bibi')`, `holoView('street'|'aerial'|'cine')`, `megaView('approach'|'skyline'|'street'|'lanes'|'crown')`, `dtlaView('street'|'walkway'|'roof'|'lanes'|'plaza')`, `civicView('approach'|'steps'|'hall'|'lobby'|'plaza')`, `broadwayView('street'|'bridge'|'bradbury'|'spinner'|'atrium')`, `holoSpec(id)`, `setTime(h)`, `setWeather(id)`, `cut()`, `holdShot(on)`, `stats()`,
 `geoToLocal(lat,lon)`, `app`. `stats()` includes draw calls, triangles, crowd count, hologram panel count, query-worker counters, lane cars and lanes, ground cars, landmark LOD levels and the beacon count.
 
 Keys: `1/2/3` fly/walk/cinematic, `F` toggle fly↔walk, `V` cockpit, `E` sit / stand at a market stool (walk mode; in fly mode `E` is still up),

@@ -175,7 +175,23 @@ Hologram slots from `placeKit` register as `${id}-holo-a` (first shaft slot), `-
 
 `buildMegablock` returns colliders, signs, the roof and the **base** half-extents. Put kiosks in the overhang (outside `baseHalf*`, inside the lot) so the street stays clear. Masses stay inside the footprint.
 
-The downtown grid (bearing 38°, 205 × 125 m) is shared with the Financial District and Civic Center. `downtownGraph` in `src/vehicles/streetGraph.ts` is the lane graph for low spinners and ground cars. Do not build a second one for Civic Center; add edges by extending the district allow-list if a new grid matches.
+The downtown grid (bearing 38°, 205 × 125 m) is shared with the Financial District and Civic Center. `downtownGraph` in `src/vehicles/streetGraph.ts` is the lane graph for low spinners and ground cars. Do not build a second graph. A district whose blocks are a different size adds another lattice inside that same function (Stage 6 did this for historic-core: 110 × 70 m, `lane` 3.15 m). Prefix the node keys so the lattices do not merge, and set `GraphEdge.lane` to the driving-line offset. Ground traffic reads `lane`; spinners skip edges with `lane < 5`.
+
+### The heritage façade kit (Stage 6; reuse it for theatre streets)
+
+`src/districts/_shared/heritage/` builds one pre-collapse street face under newer cladding. It does not use `MassSink`: that frame is kit +Z = block +A, and a façade needs +Z toward the street. `projectFace` / `faceSize` map the façade frame onto `a+`, `a-`, `b+`, `b-`.
+
+| Field | Meaning |
+|---|---|
+| `family` | `beaux`, `deco`, `baroque`, `gothic`, `roman`, `marquee`. Stone is style 18 (`Masonry`) except deco and marquee, which use style 19 (`Deco`). |
+| `frontH` / `height` | Historic cornice, then the cladding cap. Broadway keeps the sum in **40–110 m**. |
+| `wrap` | 0 leaves the old front in charge. Toward 1, side jackets and a narrower cap climb around a masonry spine. |
+| `blades` | Vertical blade signs. Phrases are atlas indexes, never a real venue name. |
+| `billboard` | One 16 × 10 m kind-2 panel when the face is taller than 50 m and wider than 18 m. The existing hologram field can promote it. |
+| `skin` | Skip mass, cap, jackets and tanks. A landmark atrium calls this so the ornament sits on a volume the kit does not own. |
+| `compact` | Fewer pilasters. Fabric passes `true`. |
+
+Piece `y` is the centre. `ctx.box` wants the bottom, so pass `base: y - h / 2`. A pure fabric chunk on Broadway measured about 8–9 k triangles. Hollywood (Stage 16) should call `buildHeritage` rather than grow a second theatre front.
 
 Stage 5 (`src/districts/civic-center/`) is the landmark-heavy district. The fabric is a quiet compact-megablock field; LAPD and City Hall are `registerLandmarkType` builders with their own LODs, and a registration replaces the Stage-1 blockout of that type (`lapd-hq`, `heritage-tower`). Police pad traffic is not a new mesh and not a street-graph edge: the graph is flat, and `isReserved` drops anything through the footprint. `civic-center/lanes.ts` builds open polylines in landmark-local metres; `buildSkyLanes` appends them after `hold-lapd`. Open lanes take `altBias` and `fade` (see ARCHITECTURE, *Sky lanes*) so a short roof approach is not lifted 7 m and does not fade out before the pad.
 

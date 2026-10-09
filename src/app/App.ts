@@ -17,6 +17,7 @@ import { megaCamera, type MegaView } from '../districts/financial-megatowers/vie
 import { dtlaCamera, type DtlaView } from '../districts/dtla/view';
 import { installDtlaHolos } from '../districts/dtla/holos';
 import { civicCamera, type CivicView } from '../districts/civic-center/view';
+import { broadwayCamera, type BroadwayView } from '../districts/historic-core/view';
 import { installCivicHolos } from '../districts/civic-center/holos';
 import { SpinnerTraffic } from '../vehicles/SpinnerTraffic';
 import { Input } from '../input/Input';
@@ -316,10 +317,15 @@ export class App {
     const districtNow = this.query.district(cam.x, cam.z);
     const inMarket = districtNow.id === 'little-tokyo-market';
     const inDtla = districtNow.id === 'dtla';
+    const inHistoric = districtNow.id === 'historic-core';
     const inCanyon = inDtla || (districtNow.id === 'financial-megatowers' && alt < 40);
-    U.neonWet.value = inMarket && alt < 140 ? 0.92 : inCanyon && alt < 90 ? 0.62 : 0.22;
+    U.neonWet.value = inMarket && alt < 140 ? 0.92
+      : inHistoric && alt < 120 ? 0.88
+        : inCanyon && alt < 90 ? 0.62
+          : 0.22;
     U.streetFog.value = inMarket ? Math.max(0, Math.min(1, 1 - alt / 70)) * 0.8
-      : inDtla && alt < 80 ? 0.28 * (1 - alt / 80) : 0;
+      : inHistoric && alt < 90 ? 0.42 * (1 - alt / 90)
+        : inDtla && alt < 80 ? 0.28 * (1 - alt / 80) : 0;
     const dtSafe = Math.max(dt, 1e-4);
     this.query.warm(cam.x, cam.z, cam.x + ((cam.x - this.lastCam.x) / dtSafe) * 0.45, cam.z + ((cam.z - this.lastCam.z) / dtSafe) * 0.45);
     this.lastCam.copy(cam);
@@ -476,6 +482,20 @@ export class App {
       /** Stage 3 cameras: approach (Wallace), skyline, street (looking up MT-1), lanes, crown. */
       /** Stage 4 cameras: canyon street, a lit walkway, a spinner over a roof, an avenue lane, the MT-1 plaza. */
       /** Stage 5 cameras: spinner on a pad approach, the steps, City Hall, the lobby, the mall. */
+      /** Stage 6 cameras: Broadway at street level, the footbridge, the Bradbury face, spinner height, the court. */
+      broadwayView: (kind: BroadwayView) => {
+        const p = broadwayCamera(this.query.layout, kind);
+        if (!p) return false;
+        this.query.fabricAt(p.x, p.z);
+        this.cams.setMode(p.mode);
+        if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
+        this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
+        if (p.mode === 'walk') {
+          this.cams.walk.pitch = p.pitch;
+          if (p.feet) this.cams.walk.pos.set(p.feet.x, p.feet.y, p.feet.z);
+        }
+        return true;
+      },
       civicView: (kind: CivicView) => {
         const p = civicCamera(this.query.layout, kind, this.lanes.lanes);
         if (!p) return false;

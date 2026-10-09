@@ -79,6 +79,15 @@ const shots = [
   { name: 'civic-low', ctx: desktop, q: `mode=walk&at=lapd-steps&time=22.5&weather=rain&freeze=1&ui=0&quality=low${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.civicView('steps'), near: true },
   { name: 'civic-medium', ctx: desktop, q: `mode=walk&at=lapd-steps&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.civicView('steps'), near: true },
   { name: 'civic-ultra', ctx: desktop, q: `mode=walk&at=lapd-steps&time=22.5&weather=rain&freeze=1&ui=0&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.civicView('steps'), near: true },
+  // Stage 6 — Broadway Neon Canyon. Cameras come from __nla.broadwayView.
+  { name: 'broadway-street-rain', ctx: desktop, q: `mode=walk&at=bradbury&time=22.5&weather=rain&${common}`, after: () => window.__nla.broadwayView('street'), near: true },
+  { name: 'broadway-bridge', ctx: desktop, q: `mode=walk&at=joi-bridge&time=22.5&weather=rain&${common}`, after: () => window.__nla.broadwayView('bridge'), near: true },
+  { name: 'broadway-bradbury', ctx: desktop, q: `mode=walk&at=bradbury&time=22.5&weather=rain&${common}`, after: () => window.__nla.broadwayView('bradbury'), near: true },
+  { name: 'broadway-spinner', ctx: desktop, q: `mode=fly&at=bradbury&time=22.5&weather=rain&${common}`, after: () => window.__nla.broadwayView('spinner'), near: true },
+  { name: 'broadway-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=bradbury&time=22.5&weather=rain&freeze=1&ui=0&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.broadwayView('street'), near: true },
+  { name: 'broadway-low', ctx: desktop, q: `mode=walk&at=bradbury&time=22.5&weather=rain&freeze=1&ui=0&quality=low${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.broadwayView('street'), near: true },
+  { name: 'broadway-medium', ctx: desktop, q: `mode=walk&at=bradbury&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.broadwayView('street'), near: true },
+  { name: 'broadway-ultra', ctx: desktop, q: `mode=walk&at=bradbury&time=22.5&weather=rain&freeze=1&ui=0&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.broadwayView('street'), near: true },
 ];
 
 const args = GPU

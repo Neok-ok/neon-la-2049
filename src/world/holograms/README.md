@@ -2,7 +2,7 @@
 
 Shared projectors for the whole city. Stage 3 (financial megatowers), Stage 6 (the footbridge) and Stage 16 (Hollywood) add placements. They do not add shaders.
 
-Figures and ads are original. There is no pink bridge dancer here — that set piece is Stage 6, and it should register a new design or reuse one of these without copying the film.
+Figures and ads are original. Stage 6's canyon figure is `veil-dancer` (Veil House), a geometric body in this same shader. It is not a character from either film.
 
 ## Add a placement
 
@@ -38,6 +38,7 @@ Designs (`HoloDesignId`):
 | `glyph-loop` | Scrolling block-glyph ad. The blocks are noise, not a wordmark. |
 | `lease-loop` | "Lease a wedge" — an original flying wedge and two pods over a barcode. |
 | `lantern-loop` | Red Lantern house mark. A pulsing lamp and three motes. |
+| `veil-dancer` | Veil House canyon figure. Diamond head, no face, three chevron skirts, one arm up, a long veil. |
 
 `color` is a `SignColor` index and only tints the design. It does not swap the shape.
 
@@ -90,3 +91,13 @@ Do not build a second shader. A new design means a new branch in `material.ts` p
 | `dtla-mt5-glyph` | First clear DTLA point on a 230 m ring around MT-5 | glyph-loop | tower |
 
 Do not reuse `dtla-hero-0` / `dtla-hero-1` (the flyover billboards in `showcase.ts`). Megablock kind-2 signs at least 16 × 10 m are promoted by the field with everything else.
+
+## Stage 6 placement
+
+`canyon-bridge` registers one panel from the landmark builder (main thread):
+
+| Id | Where | Design | Band |
+|---|---|---|---|
+| `joi-bridge-dancer` | Spring-side footbridge, bottom of the quad on the 11.2 m deck, normal facing north along the street | veil-dancer | tower |
+
+Rank 0, 14 × 46 m, pink, spill 28 m. Kind-2 billboards in the canyon still promote crane / coil / ribbon. They do not use `veil-dancer`.

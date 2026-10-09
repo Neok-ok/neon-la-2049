@@ -1,11 +1,15 @@
-// Pure module. Lane graph for the shared downtown grid (DTLA, the Financial District, Civic Center).
-// Nodes sit on intersections. An edge is kept when its midpoint is in one of those three districts,
+// Pure module. Lane graph for the shared downtown grid (DTLA, the Financial District, Civic Center)
+// plus the historic-core lattice (110 × 70 m, 18 m streets). The two lattices share one graph and
+// do not share nodes, so a vehicle cannot turn from a 7.2 m avenue onto a 3.15 m canyon lane.
+// Nodes sit on intersections. An edge is kept when its midpoint is in that lattice's district set,
 // on land, and clear of a landmark reserve or a freeway / river corridor.
 // Low spinners and ground cars both drive this. Sky lanes at 175–260 m are a separate polyline set.
 import type { CityLayout } from '../world/layout';
 import { DOWNTOWN_BLOCK_A, DOWNTOWN_BLOCK_B, gridAxes } from '../districts/_shared/megablock/grid';
+import { BLOCK_A, BLOCK_B, LANE } from '../districts/historic-core/spec';
 
 const DISTRICTS = new Set(['dtla', 'financial-megatowers', 'civic-center']);
+const CANYON = new Set(['historic-core']);
 
 export interface GraphNode {
   i: number;
@@ -24,6 +28,8 @@ export interface GraphEdge {
   /** Unit vector from node a to node b. */
   fx: number;
   fz: number;
+  /** Metres from the centreline to the driving line. Avenues 7.2; the historic canyon 3.15. */
+  lane: number;
 }
 
 export interface GraphLink {
@@ -48,62 +54,71 @@ export interface GraphPose {
 
 let cache: { layout: CityLayout; graph: StreetGraph } | null = null;
 
-function intersection(i: number, j: number, ax: number, az: number, bx: number, bz: number): { x: number; z: number } {
-  const s = i * DOWNTOWN_BLOCK_A;
-  const t = j * DOWNTOWN_BLOCK_B;
-  return { x: ax * s + bx * t, z: az * s + bz * t };
-}
-
-/** The downtown street graph. Cached on the layout instance. */
-export function downtownGraph(layout: CityLayout): StreetGraph {
-  if (cache?.layout === layout) return cache.graph;
-  const { ax, az, bx, bz } = gridAxes();
-  const nodes: GraphNode[] = [];
-  const idOf = new Map<string, number>();
+function addLattice(
+  layout: CityLayout,
+  nodes: GraphNode[],
+  idOf: Map<string, number>,
+  edges: GraphEdge[],
+  ax: number, az: number, bx: number, bz: number,
+  blockA: number, blockB: number,
+  prefix: string,
+  i0: number, i1: number, j0: number, j1: number,
+  lane: number,
+  districts: Set<string>,
+): void {
+  const at = (i: number, j: number) => {
+    const s = i * blockA;
+    const t = j * blockB;
+    return { x: ax * s + bx * t, z: az * s + bz * t };
+  };
   const nodeAt = (i: number, j: number): number => {
-    const key = `${i},${j}`;
+    const key = `${prefix}${i},${j}`;
     const hit = idOf.get(key);
     if (hit !== undefined) return hit;
-    const p = intersection(i, j, ax, az, bx, bz);
+    const p = at(i, j);
     const id = nodes.length;
     nodes.push({ i, j, x: p.x, z: p.z });
     idOf.set(key, id);
     return id;
   };
-  const edges: GraphEdge[] = [];
   const keep = (x: number, z: number) => {
     if (layout.isOcean(x, z) || layout.isReserved(x, z, 4)) return false;
-    return DISTRICTS.has(layout.districtAt(x, z).id);
+    return districts.has(layout.districtAt(x, z).id);
   };
-  const I0 = -42, I1 = 42, J0 = -42, J1 = 42;
-  for (let j = J0; j <= J1; j++) {
-    for (let i = I0; i < I1; i++) {
-      const a = intersection(i, j, ax, az, bx, bz);
-      const b = intersection(i + 1, j, ax, az, bx, bz);
-      const mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2;
-      if (!keep(mx, mz)) continue;
-      const ia = nodeAt(i, j), ib = nodeAt(i + 1, j);
-      const len = Math.hypot(b.x - a.x, b.z - a.z) || 1;
-      edges.push({
-        index: edges.length, a: ia, b: ib, axis: 0, length: len,
-        fx: (b.x - a.x) / len, fz: (b.z - a.z) / len,
-      });
+  const push = (ia: number, ib: number, a: { x: number; z: number }, b: { x: number; z: number }, axis: 0 | 1) => {
+    const len = Math.hypot(b.x - a.x, b.z - a.z) || 1;
+    edges.push({
+      index: edges.length, a: ia, b: ib, axis, length: len,
+      fx: (b.x - a.x) / len, fz: (b.z - a.z) / len, lane,
+    });
+  };
+  for (let j = j0; j <= j1; j++) {
+    for (let i = i0; i < i1; i++) {
+      const a = at(i, j);
+      const b = at(i + 1, j);
+      if (!keep((a.x + b.x) / 2, (a.z + b.z) / 2)) continue;
+      push(nodeAt(i, j), nodeAt(i + 1, j), a, b, 0);
     }
   }
-  for (let i = I0; i <= I1; i++) {
-    for (let j = J0; j < J1; j++) {
-      const a = intersection(i, j, ax, az, bx, bz);
-      const b = intersection(i, j + 1, ax, az, bx, bz);
-      const mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2;
-      if (!keep(mx, mz)) continue;
-      const ia = nodeAt(i, j), ib = nodeAt(i, j + 1);
-      const len = Math.hypot(b.x - a.x, b.z - a.z) || 1;
-      edges.push({
-        index: edges.length, a: ia, b: ib, axis: 1, length: len,
-        fx: (b.x - a.x) / len, fz: (b.z - a.z) / len,
-      });
+  for (let i = i0; i <= i1; i++) {
+    for (let j = j0; j < j1; j++) {
+      const a = at(i, j);
+      const b = at(i, j + 1);
+      if (!keep((a.x + b.x) / 2, (a.z + b.z) / 2)) continue;
+      push(nodeAt(i, j), nodeAt(i, j + 1), a, b, 1);
     }
   }
+}
+
+/** The downtown street graph, plus the historic canyon lattice. Cached on the layout instance. */
+export function downtownGraph(layout: CityLayout): StreetGraph {
+  if (cache?.layout === layout) return cache.graph;
+  const { ax, az, bx, bz } = gridAxes();
+  const nodes: GraphNode[] = [];
+  const idOf = new Map<string, number>();
+  const edges: GraphEdge[] = [];
+  addLattice(layout, nodes, idOf, edges, ax, az, bx, bz, DOWNTOWN_BLOCK_A, DOWNTOWN_BLOCK_B, 'd', -42, 42, -42, 42, 7.2, DISTRICTS);
+  addLattice(layout, nodes, idOf, edges, ax, az, bx, bz, BLOCK_A, BLOCK_B, 'h', -28, 8, -12, 6, LANE, CANYON);
   const links: GraphLink[][] = nodes.map(() => []);
   for (const e of edges) {
     links[e.a]!.push({ edge: e.index, dir: 1 });
