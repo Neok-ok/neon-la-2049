@@ -129,7 +129,9 @@ export class LaneTraffic {
       if (k <= 0) return;
       let placed = 0;
       while (placed < k && this.cars.length < n) {
-        const size = Math.min(k - placed, 1 + Math.floor(r.next() * r.next() * 4.2));
+        const size = lane.platoon
+          ? Math.min(k - placed, lane.platoon[0] + Math.floor(r.next() * r.next() * (lane.platoon[1] - lane.platoon[0] + 0.2)))
+          : Math.min(k - placed, 1 + Math.floor(r.next() * r.next() * 4.2));
         const head = r.next() * lane.length;
         const dir: 1 | -1 = lane.loop || r.chance(0.5) ? 1 : -1;
         const u0 = r.next();
