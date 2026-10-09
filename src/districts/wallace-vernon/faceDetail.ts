@@ -110,21 +110,28 @@ function buildSector(s: Stream, w: Want): Mesh {
     const d = put(ua, vb, lift);
     gw.quad([a, d, c, b], [[0, 0], [0, 1], [1, 1], [1, 0]], st);
   };
+  // `u` is across the whole face, so a joint is a few tenths of a metre, not a slice of the sector.
+  const mid = faceSample(w.step, w.face, 0, 0.5);
+  const half = Math.max(40, Math.hypot(mid.x, mid.z));
+  const du = (metres: number) => metres / half;
+  const dv = (metres: number) => metres / pyramidStepH();
   // Board-formed bands and vertical panel joints, proud of the Stage 3 face.
-  const bands = 5;
+  const bands = 4;
   for (let i = 0; i < bands; i++) {
     const va = v0 + ((v1 - v0) * i) / bands;
-    const vb = va + (v1 - v0) * 0.045;
+    const vb = va + dv(0.85);
     quad(u0, va, u1, vb, 0.22, i % 2 ? GROOVE : MONO);
   }
   const joints = 4;
   for (let i = 1; i < joints; i++) {
     const u = u0 + ((u1 - u0) * i) / joints;
-    quad(u - 0.004, v0, u + 0.004, v1, 0.28, GROOVE);
+    const j = du(0.16);
+    quad(u - j, v0, u + j, v1, 0.28, GROOVE);
   }
   // One drainage channel and a scupper at the foot of the sector.
   const um = (u0 + u1) / 2;
-  quad(um - 0.01, v0, um + 0.01, v1, 0.34, GROOVE);
+  const drain = du(0.35);
+  quad(um - drain, v0, um + drain, v1, 0.34, GROOVE);
   const lip = put(um, v0, 1.1);
   gw.box(lip[0], lip[2], lip[1], 1.3, 0.55, 0.28, s.yaw, LEDGE);
   // Maintenance ledge along the bottom edge of the sector, outside the stone.
@@ -141,9 +148,9 @@ function buildSector(s: Stream, w: Want): Mesh {
   if (w.band > 0 && w.step < 14) {
     for (const fu of [0.3, 0.7]) {
       const u = u0 + (u1 - u0) * fu;
-      const va = v0 + (v1 - v0) * 0.35;
-      const vb = va + (v1 - v0) * 0.12;
-      quad(u - 0.006, va, u + 0.006, vb, 0.4, SLIT);
+      const va = v0 + (v1 - v0) * 0.42;
+      const slit = du(0.28);
+      quad(u - slit, va, u + slit, va + dv(2.2), 0.4, SLIT);
     }
   }
   const mesh = new Mesh(gw.build(), getCityMaterial());

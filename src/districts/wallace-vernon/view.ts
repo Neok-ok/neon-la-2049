@@ -56,22 +56,22 @@ export function wallaceCamera(layout: CityLayout, kind: WallaceView): WallacePos
   });
 
   if (kind === 'approach') {
-    // Low in the walled causeway, looking south at the portal.
-    const eye = world(0, 4.6, COURT.roadNorth + 42);
-    const look = world(0, 48, -1880);
+    // In the walled causeway, above the truck lanes, looking south at the portal.
+    const eye = world(0, 6.4, COURT.roadNorth + 78);
+    const look = world(0, 42, -1900);
     return fly(eye, look);
   }
   if (kind === 'plaza') {
-    // On the plinth, inside the district polygon, facing the sealed portal.
-    const feet = world(8, COURT.deckY + 0.04, -1688);
-    const look = world(0, COURT.deckY + 18, COURT.doorZ);
-    return walk(feet, look, 0.22);
+    // North court, through the security gap, so the paving and the stair read with the portal.
+    const feet = world(6, 0.16, -2068);
+    const look = world(0, 26, -1760);
+    return walk(feet, look, 0.14);
   }
   if (kind === 'face') {
-    // East of the portal pylons, close enough for the streamed skin.
-    const feet = world(340, 0.04, -1724);
-    const look = world(220, 48, -1596);
-    return walk(feet, look, 0.42);
+    // On the plinth, east of the pylons, a few dozen metres off the stone.
+    const feet = world(248, COURT.deckY + 0.08, -1662);
+    const look = world(300, 14, -1594);
+    return walk(feet, look, 0.2);
   }
   if (kind === 'satellite') {
     const s = layout.landmarkById('wallace-satellite-a');
@@ -84,8 +84,8 @@ export function wallaceCamera(layout: CityLayout, kind: WallaceView): WallacePos
   }
   if (kind === 'factories' || kind === 'convoy') {
     const sx = factoryStreetX(pyr.x);
-    const eye = { x: sx + (kind === 'convoy' ? 22 : 16), y: g + (kind === 'convoy' ? 28 : 36), z: pyr.z + 760 };
-    const look = { x: sx, y: g + (kind === 'convoy' ? 18 : 22), z: pyr.z + (kind === 'convoy' ? 1180 : 1280) };
+    const eye = { x: sx + (kind === 'convoy' ? 18 : 14), y: g + (kind === 'convoy' ? 22 : 32), z: pyr.z + 640 };
+    const look = { x: sx - 8, y: g + (kind === 'convoy' ? 12 : 16), z: pyr.z + (kind === 'convoy' ? 1080 : 1180) };
     return fly(eye, look);
   }
   if (kind === 'oldpyramids') {
@@ -97,16 +97,19 @@ export function wallaceCamera(layout: CityLayout, kind: WallaceView): WallacePos
     const len = Math.hypot(dx, dz) || 1;
     const ux = dx / len;
     const uz = dz / len;
-    const back = n.reserveRadius + 200;
     const ng = layout.heightAt(n.x, n.z);
-    const eye = { x: n.x - ux * back, y: ng + 80, z: n.z - uz * back };
-    const look = { x: (n.x + s.x) / 2, y: ng + 160, z: (n.z + s.z) / 2 };
+    const mx = (n.x + s.x) / 2;
+    const mz = (n.z + s.z) / 2;
+    // Beside the pair, outside both reserves, so both silhouettes and the near ring are in frame.
+    const side = 720;
+    const eye = { x: mx - uz * side, y: ng + 120, z: mz + ux * side };
+    const look = { x: mx, y: ng + 200, z: mz };
     return fly(eye, look);
   }
   const frame: PlaceFrame | null = atriumFrame(layout);
   if (!frame) return null;
-  const feetL = { x: 0.2, y: 0.24, z: -3.2 };
-  const lookL = { x: -0.9, y: 1.55, z: -6.8 };
+  const feetL = { x: 0.05, y: 0.22, z: -2.15 };
+  const lookL = { x: 0.35, y: 1.05, z: -7.1 };
   const [fx, fz] = xformXZ(frame, feetL.x, feetL.z);
   const [lx, lz] = xformXZ(frame, lookL.x, lookL.z);
   const feet = { x: fx, y: frame.y + feetL.y, z: fz };

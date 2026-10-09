@@ -18,7 +18,7 @@ export interface PlazaFrame {
   yaw: number;
 }
 
-const STONE: FaceStyle = { style: Style.Monolith, lit: 0.05, tint: 0.66, seed: 0.17 };
+const STONE: FaceStyle = { style: Style.Monolith, lit: 0.09, tint: 0.74, seed: 0.17 };
 const ROAD: FaceStyle = { style: Style.Solid, lit: 0, tint: 0.32, seed: 0.08 };
 const WALL: FaceStyle = { style: Style.Monolith, lit: 0.04, tint: 0.55, seed: 0.29 };
 const BRONZE: FaceStyle = { style: Style.Glow, lit: 0.42, tint: 1.08, seed: 0.51 };

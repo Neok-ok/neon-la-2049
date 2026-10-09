@@ -21,12 +21,12 @@ Vernon industrial polygon. Grid bearing 0°, blocks 240 × 160 m, streets 30 m. 
 
 ## What was built
 
-* **Pyramid.** The Stage 3 terraces, portal glow, pylons and far LODs are untouched. The close skin is a second mesh, streamed by face sector (reach 150 / 230 / 300 / 340 m and a cap of 3 / 6 / 9 / 12 on low / medium / high / ultra). The central slot and the portal mouth are skipped. Slits stay off the top two tiers.
+* **Pyramid.** The Stage 3 terraces, portal glow, pylons and far LODs are untouched. The close skin is a second mesh, streamed by face sector (reach 150 / 230 / 300 / 340 m and a cap of 3 / 6 / 9 / 12 on low / medium / high / ultra). Joints, drains and slits are sized in metres (a slit is about 0.55 × 2.2 m), not as a fraction of the 3.2 km face. The central slot and the portal mouth are skipped. Slits stay off the top two tiers.
 * **Plaza.** Causeway from kit z −2,360 to −2,100, half-width 15 m, walls 8.6 m. Eight risers of 0.375 m onto the 3 m plinth. Security barriers with a centre gap. A bridge at y = 3 to a human door at z = −1,606. The portal behind the door stays a glow. The district edge at this longitude cuts the plinth, so the road is a landmark, not fabric.
 * **Satellites.** Six battered tiers, a slot per face (warm on the top two), a crown lantern, a 36 m mast whose tip is the published height, corner lights. LOD distances 2,400 and 8,000 m before `landmarkLod`.
 * **Fabric.** Halls 18–42 m with a sawtooth ridge, tanks, pipe bents, a conveyor, a dock, stacks 28–58 m, walls with a 9 m gate. No food-atlas signs. Sodium lamps are off for this district.
 * **Freight.** `wallace-freight-in` (north apron, then the factory street), `wallace-dock-ns`, `wallace-dock-ew`. Transport only, platoon 2–5, `altBias` 0. The hauler is the Stage 3 transport. Ground trucks are `haulers.ts`.
-* **Haze and sound.** Street fog 0.78 below 110 m in the polygon and inside the pyramid reserve. A noise bed and a 41 Hz tone on the ambience bus. The atrium uses the existing 74 Hz hum.
+* **Haze and sound.** Street fog 0.78 below 110 m in the polygon and inside the pyramid reserve. Wet-street neon for this archetype is 0.06 in `mesher.ts` (industrial is 0.1). A noise bed and a 41 Hz tone on the ambience bus. The atrium uses the existing 74 Hz hum.
 * **Atrium.** Dark stone, shallow water either side of one walkway, caustic patches via the interior `flick` attribute. `showFromOutside: false`. No open sky, no stair, no figure. The volume sits in the gap in front of the stone collider so walk mode is not stopped by the first terrace.
 * **Old pyramids.** Unchanged models. A ring of tanks, pipes, a low wall and a few steaming stacks from 18 m to 168 m outside each reserve, skipped where the reserves overlap or the point is not `southeast-industrial`.
 
