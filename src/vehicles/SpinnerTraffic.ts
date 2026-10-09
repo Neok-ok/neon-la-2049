@@ -106,7 +106,8 @@ export class SpinnerTraffic {
       const tryHit = edgeAround(g, x, z, this.radius * 0.9, this.rng);
       if (!tryHit) return false;
       const edge = g.edges[tryHit.edge];
-      if (!edge || edge.kind === 'freeway' || (edge.lane ?? 7.2) < 5) continue;
+      // Lakewood slabs are 45–130 m. A 74 m or 112 m park on a lane ≥ 5 would sit inside them.
+      if (!edge || edge.kind === 'freeway' || (edge.lane ?? 7.2) < 5 || edge.district === 'lakewood-megablocks') continue;
       hit = tryHit;
       break;
     }
@@ -132,14 +133,16 @@ export class SpinnerTraffic {
     const here = this.query.district(cam.x, cam.z).id;
     const downtown = here === 'dtla' || here === 'financial-megatowers' || here === 'civic-center';
     const canyon = here === 'historic-core';
+    const lakewood = here === 'lakewood-megablocks';
     const layer = r.next();
     car.police = r.chance(0.18);
     car.phase = r.next();
     // Over downtown the 175–260 m band belongs to the avenue sky lanes, so free fliers stay above the fabric ceiling.
     // The historic canyon is not that graph: roofs are 40–110 m and the streets are 18 m, so spinners stay free at 148–260 m.
+    // Lakewood fabric is 45–130 m, so spinners stay off that lattice and above the slabs.
     if (!canyon && downtown && layer < 0.78) {
       if (this.onGraph(car, cam.x, cam.z, layer < 0.4)) return car;
-    } else if (!canyon && !downtown && layer < 0.22 && this.onGraph(car, cam.x, cam.z, layer < 0.1)) {
+    } else if (!canyon && !downtown && !lakewood && layer < 0.22 && this.onGraph(car, cam.x, cam.z, layer < 0.1)) {
       return car;
     }
     const district = this.query.district(cam.x, cam.z);
@@ -154,6 +157,7 @@ export class SpinnerTraffic {
     const ground = this.query.groundHeight(car.p.x, car.p.z);
     if (downtown) car.p.y = ground + r.range(340, 520);
     else if (canyon) car.p.y = ground + r.range(148, 260);
+    else if (lakewood) car.p.y = ground + (layer < 0.72 ? r.range(158, 210) : r.range(240, 420));
     else car.p.y = ground + (layer < 0.12 ? r.range(55, 90) : layer < 0.82 ? r.range(175, 260) : r.range(320, 520));
     car.speed = r.range(35, 85);
     return car;
@@ -181,6 +185,11 @@ export class SpinnerTraffic {
         c.p.addScaledVector(c.dir, c.speed * dt);
         c.p.y += Math.sin(U.time.value * 0.5 + c.phase * 20) * 0.02;
         if (this.query.insideLandmark(c.p.x, c.p.y, c.p.z, 30)) c.p.y += 120 * dt + 4;
+        // A free flier that drifts in from the 55–90 m band would otherwise cut the 45–130 m slabs.
+        if (this.query.district(c.p.x, c.p.z).id === 'lakewood-megablocks') {
+          const floor = this.query.groundHeight(c.p.x, c.p.z) + 155;
+          if (c.p.y < floor) c.p.y = floor;
+        }
       }
       const dx = c.p.x - cam.x, dz = c.p.z - cam.z;
       if (dx * dx + dz * dz > this.radius * this.radius * 1.1) this.spawn(c, cam, false);

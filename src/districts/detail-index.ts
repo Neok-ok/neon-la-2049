@@ -10,6 +10,8 @@ import './historic-core/details';
 import './historic-core/crowd';
 import './k-megablock/details';
 import './k-megablock/crowd';
+import './lakewood-megablocks/details';
+import './lakewood-megablocks/crowd';
 import './wallace-vernon/details';
 import './wallace-vernon/oldSurround';
 import './coastal-strip/details';

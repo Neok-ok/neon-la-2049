@@ -151,6 +151,24 @@ const shots = [
   { name: 'traffic-freeway-medium', ctx: desktop, q: `mode=fly&time=22&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.trafficView('freeway'), near: true },
   { name: 'traffic-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&time=22&weather=drizzle&freeze=1&ui=0&hud=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.trafficView('intersection'), near: true, signal: true },
   { name: 'traffic-ultra', ctx: desktop, q: `mode=walk&time=22&weather=drizzle&freeze=1&ui=0&hud=1&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.trafficView('intersection'), near: true, signal: true },
+  // Stage 11 — Lakewood / Downey residential megablocks. Cameras come from __nla.lakewoodView.
+  { name: 'lakewood-street-rain', ctx: desktop, q: `mode=walk&at=lakewood-market&time=22.5&weather=rain&${common}`, after: () => window.__nla.lakewoodView('street'), near: true, settle: true },
+  { name: 'lakewood-courtyard', ctx: desktop, q: `mode=walk&at=lakewood-market&time=22.5&weather=rain&${common}`, after: () => window.__nla.lakewoodView('courtyard'), near: true, settle: true },
+  { name: 'lakewood-market', ctx: desktop, q: `mode=walk&at=lakewood-market&time=22.5&weather=rain&${common}`, after: () => window.__nla.lakewoodView('market'), near: true, settle: true },
+  { name: 'lakewood-laundry', ctx: desktop, q: `mode=walk&at=lakewood-market&time=22.5&weather=rain&${common}`, after: () => window.__nla.lakewoodView('laundry'), near: true, settle: true },
+  { name: 'lakewood-traffic', ctx: desktop, q: `mode=walk&at=lakewood-market&time=22.5&weather=rain&${common}`, after: () => window.__nla.lakewoodView('traffic'), near: true, signal: true },
+  { name: 'lakewood-k-edge', ctx: desktop, q: `mode=walk&at=lakewood-market&time=22.5&weather=rain&${common}`, after: () => window.__nla.lakewoodView('k-edge'), near: true, settle: true },
+  { name: 'lakewood-river', ctx: desktop, q: `mode=walk&at=lakewood-market&time=22&weather=rain&${common}`, after: () => window.__nla.lakewoodView('river'), near: true, settle: true },
+  { name: 'lakewood-aerial-dusk', ctx: desktop, q: `mode=fly&at=lakewood-market&time=18.4&weather=drizzle&${common}`, after: () => window.__nla.lakewoodView('aerial'), settle: true },
+  { name: 'lakewood-shop', ctx: desktop, q: `mode=walk&at=lakewood-market&time=22.5&weather=rain&${common}`, after: () => window.__nla.lakewoodView('shop'), near: true },
+  { name: 'lakewood-hub', ctx: desktop, q: `mode=walk&at=lakewood-market&time=22.5&weather=rain&${common}`, after: () => window.__nla.lakewoodView('hub'), near: true },
+  { name: 'lakewood-low', ctx: desktop, q: `mode=walk&at=lakewood-market&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=low${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.lakewoodView('street'), near: true, settle: true },
+  { name: 'lakewood-medium', ctx: desktop, q: `mode=walk&at=lakewood-market&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.lakewoodView('street'), near: true, settle: true },
+  { name: 'lakewood-courtyard-medium', ctx: desktop, q: `mode=walk&at=lakewood-market&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.lakewoodView('courtyard'), near: true, settle: true },
+  { name: 'lakewood-hub-medium', ctx: desktop, q: `mode=walk&at=lakewood-market&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.lakewoodView('hub'), near: true },
+  { name: 'lakewood-traffic-medium', ctx: desktop, q: `mode=walk&at=lakewood-market&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.lakewoodView('traffic'), near: true, signal: true },
+  { name: 'lakewood-ultra', ctx: desktop, q: `mode=walk&at=lakewood-market&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.lakewoodView('street'), near: true, settle: true },
+  { name: 'lakewood-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=lakewood-market&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.lakewoodView('courtyard'), near: true, settle: true },
 ];
 
 const args = GPU
