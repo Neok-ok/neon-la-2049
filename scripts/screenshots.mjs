@@ -48,6 +48,15 @@ const shots = [
   { name: 'holo-street', ctx: desktop, q: `mode=walk&at=noodle-bar&time=22.5&weather=rain&${common}`, after: () => window.__nla.holoView('street'), holo: 'street' },
   { name: 'holo-aerial', ctx: desktop, q: `mode=fly&at=megatower-1&time=22&weather=rain&${common}`, after: () => window.__nla.holoView('aerial'), holo: 'aerial' },
   { name: 'holo-cine', ctx: desktop, q: `mode=cine&time=22&weather=rain&freeze=1&ui=0&quality=high${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.holoView('cine'), holo: 'cine' },
+  // Stage 3 — Financial District megatowers. Cameras come from __nla.megaView.
+  { name: 'mega-approach-night', ctx: desktop, q: `mode=fly&at=megatower-1&time=22&weather=rain&${common}`, after: () => window.__nla.megaView('approach') },
+  { name: 'mega-skyline-day', ctx: desktop, q: `mode=fly&at=megatower-1&time=14&weather=clear&${common}`, after: () => window.__nla.megaView('skyline') },
+  { name: 'mega-street-up', ctx: desktop, q: `mode=walk&at=megatower-1&time=22&weather=rain&${common}`, after: () => window.__nla.megaView('street') },
+  { name: 'mega-lanes', ctx: desktop, q: `mode=fly&at=megatower-1&time=22&weather=drizzle&${common}`, after: () => window.__nla.megaView('lanes') },
+  { name: 'mega-crown', ctx: desktop, q: `mode=fly&at=megatower-1&time=21&weather=rain&${common}`, after: () => window.__nla.megaView('crown') },
+  { name: 'mega-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=fly&at=megatower-1&time=22&weather=rain&freeze=1&ui=0&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.megaView('crown') },
+  { name: 'mega-low', ctx: desktop, q: `mode=fly&at=megatower-1&time=22&weather=drizzle&freeze=1&ui=0&quality=low${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.megaView('lanes') },
+  { name: 'mega-ultra', ctx: desktop, q: `mode=fly&at=megatower-1&time=22&weather=drizzle&freeze=1&ui=0&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.megaView('lanes') },
   { name: 'holo-medium', ctx: desktop, q: `mode=walk&at=noodle-bar&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.holoView('street'), holo: 'street' },
 ];
 

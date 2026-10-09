@@ -23,13 +23,13 @@ interface WeatherDef extends WeatherParams {
 }
 
 export const WEATHER: Record<WeatherId, WeatherDef> = {
-  clear: { label: 'Dry smog haze', rain: 0, snow: 0, fog: 0.0007, falloff: 600, wind: 2, overcast: 0.45, smogTint: 0.5, wetTarget: 0.15, layer: 0.0011, layerY: 250, dur: [240, 600], next: { overcast: 0.4, smog: 0.25, drizzle: 0.2, fog: 0.15 } },
-  overcast: { label: 'Overcast', rain: 0, snow: 0, fog: 0.001, falloff: 450, wind: 4, overcast: 0.8, smogTint: 0.25, wetTarget: 0.35, layer: 0.0009, layerY: 300, dur: [150, 360], next: { drizzle: 0.35, rain: 0.25, clear: 0.2, fog: 0.1, snow: 0.1 } },
+  clear: { label: 'Dry smog haze', rain: 0, snow: 0, fog: 0.0007, falloff: 600, wind: 2, overcast: 0.45, smogTint: 0.5, wetTarget: 0.15, layer: 0.0007, layerY: 210, dur: [240, 600], next: { overcast: 0.4, smog: 0.25, drizzle: 0.2, fog: 0.15 } },
+  overcast: { label: 'Overcast', rain: 0, snow: 0, fog: 0.001, falloff: 450, wind: 4, overcast: 0.8, smogTint: 0.25, wetTarget: 0.35, layer: 0.0006, layerY: 260, dur: [150, 360], next: { drizzle: 0.35, rain: 0.25, clear: 0.2, fog: 0.1, snow: 0.1 } },
   drizzle: { label: 'Drizzle', rain: 0.3, snow: 0, fog: 0.0013, falloff: 420, wind: 3, overcast: 0.85, smogTint: 0.2, wetTarget: 0.75, layer: 0.0007, layerY: 280, dur: [120, 300], next: { rain: 0.45, overcast: 0.25, fog: 0.15, sleet: 0.15 } },
   rain: { label: 'Rain', rain: 0.65, snow: 0, fog: 0.0016, falloff: 380, wind: 5, overcast: 0.9, smogTint: 0.2, wetTarget: 1, layer: 0.0006, layerY: 300, dur: [180, 420], next: { downpour: 0.3, drizzle: 0.35, overcast: 0.2, sleet: 0.15 } },
   downpour: { label: 'Heavy rain', rain: 1, snow: 0, fog: 0.0024, falloff: 340, wind: 9, overcast: 0.95, smogTint: 0.15, wetTarget: 1, layer: 0.0004, layerY: 320, dur: [90, 240], next: { rain: 0.7, drizzle: 0.3 } },
   fog: { label: 'Thick fog', rain: 0, snow: 0, fog: 0.0042, falloff: 220, wind: 1, overcast: 0.9, smogTint: 0.1, wetTarget: 0.6, layer: 0.0012, layerY: 150, dur: [150, 360], next: { overcast: 0.4, drizzle: 0.3, clear: 0.2, smog: 0.1 } },
-  smog: { label: 'Toxic smog', rain: 0, snow: 0, fog: 0.0026, falloff: 300, wind: 1.5, overcast: 0.75, smogTint: 1, wetTarget: 0.25, layer: 0.0019, layerY: 240, dur: [150, 360], next: { clear: 0.4, overcast: 0.3, fog: 0.3 } },
+  smog: { label: 'Toxic smog', rain: 0, snow: 0, fog: 0.0026, falloff: 300, wind: 1.5, overcast: 0.75, smogTint: 1, wetTarget: 0.25, layer: 0.0011, layerY: 200, dur: [150, 360], next: { clear: 0.4, overcast: 0.3, fog: 0.3 } },
   snow: { label: 'Snow', rain: 0, snow: 0.85, fog: 0.0022, falloff: 380, wind: 3, overcast: 0.9, smogTint: 0, wetTarget: 0.5, layer: 0.0005, layerY: 300, dur: [180, 420], next: { sleet: 0.3, overcast: 0.4, fog: 0.3 } },
   sleet: { label: 'Rain & snow', rain: 0.45, snow: 0.5, fog: 0.0019, falloff: 380, wind: 5, overcast: 0.9, smogTint: 0.05, wetTarget: 0.9, layer: 0.0005, layerY: 300, dur: [120, 300], next: { snow: 0.3, rain: 0.4, drizzle: 0.3 } },
 };

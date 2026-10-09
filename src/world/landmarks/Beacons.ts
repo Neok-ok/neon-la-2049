@@ -1,5 +1,5 @@
 // Aviation, pad, police and floodlight points: one merged mesh of camera-facing additive quads.
-// A quad never shrinks below ~2.5 px (it grows with distance and dims instead), so a 1 km tower still
+// A quad never shrinks below ~3 px (it grows with distance and dims instead), so a 1 km tower still
 // shows its obstruction lights from across the basin. Lights see a fraction of the fog optical depth:
 // real beacons punch through haze, but the smog layer still swallows the far ones.
 // Red obstruction lights flash in sync city-wide (0.5 Hz, as aviation rules require for one structure;
@@ -28,8 +28,8 @@ export const LightKind = {
   Warm: 5,
 } as const;
 
-/** Apparent size floor, as a fraction of distance (≈ 2.5 px at 60° FOV on a 900 px tall view). */
-const MIN_ANGLE = 0.0029;
+/** Apparent size floor, as a fraction of distance (≈ 3 px radius at 60° FOV on a 540 px tall view). */
+const MIN_ANGLE = 0.0058;
 
 export class Beacons {
   private list: Array<{ x: number; y: number; z: number; kind: number; size: number; phase: number }> = [];
@@ -102,7 +102,7 @@ export class Beacons {
             select(kind.lessThan(3.5), vec3(0.85, 0.92, 1.0).mul(strobe.mul(2.2)),
               select(kind.lessThan(4.5), vec3(1.0, 0.55, 0.12).mul(pulse), vec3(1.0, 0.78, 0.5))))));
       const r = length(k.xy);
-      const core = smoothstep(0.32, 0.0, r);
+      const core = smoothstep(0.4, 0.0, r);
       const halo = smoothstep(1.0, 0.0, r).pow(2.6).mul(0.55);
       // enlarged far quads spread the same light over more pixels: dim them, but keep a floor
       const s = worldSize();

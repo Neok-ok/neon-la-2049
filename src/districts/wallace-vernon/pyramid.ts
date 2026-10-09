@@ -51,7 +51,7 @@ registerLandmarkType('wallace-pyramid', (l, env) => {
     tiers: 7,
     steps: 3,
     look: 'wallace',
-    // the monumental entrance faces north-west, toward downtown and the spinner approach
+    // the monumental entrance is on the north face, the one turned toward downtown and the spinner approach
     entrance: 2,
   };
   return build(l, env, plan, WALLACE_LOD_DIST);

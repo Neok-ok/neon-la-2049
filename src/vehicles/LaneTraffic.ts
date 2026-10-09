@@ -65,15 +65,15 @@ export class LaneTraffic {
       const mode = T.floor(c.w);
       const ph = T.fract(c.w);
       const r = T.length(T.uv().sub(0.5)).mul(2.0);
-      const core = T.smoothstep(0.35, 0.0, r);
-      const fall = T.smoothstep(1.0, 0.0, r).pow(2.4).mul(0.6).add(core);
+      const core = T.smoothstep(0.42, 0.0, r);
+      const fall = T.smoothstep(1.0, 0.0, r).pow(2.2).mul(0.6).add(core);
       const t = U.time.add(ph.mul(13.0));
       const police = T.step(0.5, T.fract(t.mul(2.5)));
       const navFlash = T.step(T.fract(t.mul(0.9)), 0.06);
       const policeCol = T.mix(T.vec3(1.0, 0.08, 0.1), T.vec3(0.15, 0.3, 1.0), police);
       const col = T.select(mode.lessThan(0.5), c.xyz, T.select(mode.lessThan(1.5), policeCol, c.xyz.add(T.vec3(1.2, 1.25, 1.3).mul(navFlash.mul(1.4)))));
-      const att = T.exp(fogDepth(T.cameraPosition, T.positionWorld).mul(-0.32));
-      return T.vec4(col.mul(fall).mul(att).mul(1.7), T.float(1));
+      const att = T.exp(fogDepth(T.cameraPosition, T.positionWorld).mul(-0.26));
+      return T.vec4(col.mul(fall).mul(att).mul(2.2), T.float(1));
     })();
     this.glow = new InstancedMesh(glowGeo, gm, max);
     const all = [this.spinBody, this.spinLights, this.trBody, this.trLights, this.glow];
@@ -100,16 +100,28 @@ export class LaneTraffic {
     const w = this.lanes.map((l) => Math.sqrt(l.length / 1000) * l.weight);
     const total = w.reduce((a, b) => a + b, 0);
     let spin = 0, tr = 0;
+    // cars travel in platoons of 1–4 at a shared speed, so a lane reads as strings of lights rather than dust
     this.lanes.forEach((lane, li) => {
       const k = Math.max(1, Math.round((n * w[li]!) / total));
-      for (let i = 0; i < k && this.cars.length < n; i++) {
-        const u = r.next();
-        const cls: LaneClass = u < lane.police ? 'police' : u < lane.police + lane.transport ? 'transport' : 'civilian';
-        const speed = r.range(lane.speed[0], lane.speed[1]) * (cls === 'transport' ? 0.7 : 1);
-        this.cars.push({
-          lane, s: ((i + r.range(0.1, 0.9)) / k) * lane.length, dir: lane.loop || r.chance(0.5) ? 1 : -1,
-          speed, cls, phase: r.next(), p: new Vector3(), vel: new Vector3(), slot: cls === 'transport' ? tr++ : spin++,
-        });
+      let placed = 0;
+      while (placed < k && this.cars.length < n) {
+        const size = Math.min(k - placed, 1 + Math.floor(r.next() * r.next() * 4.2));
+        const head = r.next() * lane.length;
+        const dir: 1 | -1 = lane.loop || r.chance(0.5) ? 1 : -1;
+        const u0 = r.next();
+        const lead: LaneClass = u0 < lane.police ? 'police' : u0 < lane.police + lane.transport ? 'transport' : 'civilian';
+        const speed = r.range(lane.speed[0], lane.speed[1]) * (lead === 'transport' ? 0.7 : 1);
+        let gap = 0;
+        for (let i = 0; i < size && this.cars.length < n; i++) {
+          // police escort their own; transports pull a civilian or two behind them
+          const cls: LaneClass = i === 0 || lead === 'police' ? lead : r.chance(lane.transport) ? 'transport' : 'civilian';
+          this.cars.push({
+            lane, s: head - dir * gap, dir, speed, cls, phase: r.next(),
+            p: new Vector3(), vel: new Vector3(), slot: cls === 'transport' ? tr++ : spin++,
+          });
+          gap += r.range(45, 90) + (cls === 'transport' ? 25 : 0);
+          placed++;
+        }
       }
     });
   }
@@ -161,7 +173,7 @@ export class LaneTraffic {
         ns++;
       }
       const d = c.p.distanceTo(cam);
-      const size = Math.max(c.cls === 'transport' ? 6 : 3.4, d * 0.0034) * edge;
+      const size = Math.max(c.cls === 'transport' ? 6 : 3.4, d * 0.0052) * edge;
       _m.compose(c.p, camera.quaternion, _s.setScalar(size));
       this.glow.setMatrixAt(i, _m);
       const mode = c.cls === 'police' ? 1 : 2;

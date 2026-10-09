@@ -72,7 +72,8 @@ When sources disagree, the higher one wins:
 Positions are in [`city-layout.json`](../src/data/city-layout.json) (`landmarks`) and drawn to scale on the maps. Dimensions below are what the engine builds.
 
 ### 5.1 Wallace Corporation Earth Headquarters — the pyramid
-* **Height 3,500 m, base 3,200 m square, top platform 420 m**, seven stepped tiers with ledges, edge ribs, a crown and ground-level entrance blocks.
+* **Height 3,500 m, base 3,200 m square, top platform 420 m**, seven major tiers of three battered steps each (21 terraces), edge ribs, a crown and ground-level entrance blocks.
+* **Stage 3 model** (`src/districts/wallace-vernon/pyramid.ts`, kit `buildPyramid`, `look: 'wallace'`): every step leans back (batter) and carries a dark ledge; every major tier ends in a cornice with a thin warm light strip. Vertical slot channels with fins break the faces. The top two tiers have warm glowing slots, and the apex is a glazed **lantern** (up to 220 m tall) under an overhanging cap with a 110 m mast. That warm interior glow is the only strongly lit part of the pyramid, as in the film's night aerials. The monumental entrance is on the north face, the one turned toward downtown: a tall portal glow between pylons, a lintel and a forecourt plinth. Three LODs (~6.8 k / 2.1 k / 150 triangles) switch at 6 km and 18 km. No logo; the building is a pure form.
 * **Evidence:** Weta Workshop built the Wallace HQ as a large-scale miniature for the film's aerial establishing shots. The figure
   quoted alongside that work is roughly **3.5 km** of represented height. Dennis Gassner has described the Wallace buildings as
   monumental pyramids that dwarf the city, with "hundreds" of storeys. At ~300 storeys that gives ~11.7 m "mega-storeys", consistent with the
@@ -96,7 +97,10 @@ Positions are in [`city-layout.json`](../src/data/city-layout.json) (`landmarks`
 | Id | What | Size | Location and reasoning | Confidence |
 |---|---|---|---|---|
 | `city-hall` | Old City Hall, kept as a heritage tower among megablocks | 138 m, 45 × 45 m | Real building (1928). Survival to 2049 assumed, as the Bradbury survived in 2019. | medium |
-| `megatower-1…6` | Financial District megatowers | 280–420 m, 56–78 m footprints, podium + shaft + flared crown + mast, 2 hologram panels each | Real Bunker Hill / Financial District sites. Heights bracketed between LAPD (216 m) and the Wallace satellites (1.1 km+): the film's downtown has towers clearly taller than LAPD. The two faces are live X4 projectors (`${id}-holo-a/b`), not flat billboards. Stage 3 replaces the blockout mass and may register more panels. | invented |
+| `megatower-1…7` | Financial District megastructures (Stage 3) | **520–1,020 m**; shafts 100–170 m × 70–130 m on podiums up to 220 × 150 m. MT-1 1,020 m slab with raking buttresses, hammer crown, landing pads and an 85 m mast; MT-5 880 m twin slab; MT-2 760 m stack; MT-3 660 m stepped; MT-4 600 m cross plan with a lantern crown; MT-7 560 m slab with a cage crown; MT-6 520 m blade | Real Bunker Hill / Financial District sites, rotated to the 38° grid. Heights: the film's downtown aerials show slab-and-buttress masses many times taller than LAPD that rise out of the smog and still sit well below Wallace; see [§7.3](#73-financial-district-megatowers-stage-3) and rule 7. Hologram slots on crowns, shafts and podiums are X4 projectors (`${id}-holo-a`, `-b`, `-crown`, `-gap`). | invented |
+| `legacy-tower-1…3` | 2019-era stepped towers | 310–420 m, 58–66 m shafts, ziggurat crowns with flame stacks | Lore: the city of the 1982 film survives under the 2049 megastructures. Their ziggurat tops and rooftop flames are an homage to its skyline, built new. | invented |
+| `skybridge-1…4` | Enclosed skybridges between heroes | decks at 336–560 m, 22–28 m wide, 12–16 m deep, spans 150–330 m | Downtown in the film is layered and connected above the street. Decks stay above the 320 m fabric ceiling so background towers never cut through them. | invented |
+| `old-pyramid-north`, `old-pyramid-south` | Two 1982-style stepped pyramids | 1,000 m / 860 m, bases 1,180 / 1,080 m, 45° to the grid | The 2049 opening crawl says Wallace bought the remains of the first film's replicant maker. We keep its twin pyramids, dormant, as Wallace holdings in the refinery belt the 1982 film opened over, 3–5 km east of the Wallace pyramid. They are drawn in that film's style (stepped faces, a lit penthouse, flame stacks, a spire) and are unnamed: no Tyrell name or logo. The 1982 production quoted ~700 storeys, but on screen the pyramid reads closer to 1 km, and 1 km keeps it under the Wallace satellites. | invented |
 | `k-megablock-tower` | K's apartment megabuilding | 185 m, 230 × 85 m slab | Centre of the on-screen spinner navigation map when K flies home (fan frame analysis puts it near Woodruff Ave & South St, Lakewood/Bellflower). Size from exterior shots: a long, featureless, many-storey slab with an open market at its feet. | medium-low |
 | `lax-spaceport-towers` | LAX Off-World launch gantries | 3 gantries to 420 m on a 2.6 × 1.3 km apron | Lore: LAX becomes the off-world spaceport. Structures invented. | invented |
 | `el-segundo-refinery` | Refinery flare field | stacks to 140 m over 1.6 × 1.1 km | Real El Segundo refinery. Homage to the 1982 "Hades landscape" opening. | medium |
@@ -135,7 +139,7 @@ in full detail). Heights below are the Stage 1 blockout, except Little Tokyo, wh
 | District (stage) | Lore sector | Palette | Materials | Signage | Typologies | Heights | Streets | Traffic |
 |---|---|---|---|---|---|---|---|---|
 | **Little Tokyo Night Market** (2) | Sector 5 shopping/bar district | wet black, sodium amber, red/pink/cyan neon, steam white | stained concrete, corrugated metal, plastic sheeting, tarp | **very dense** (blade signs, stall headers, LED strips) | stalls, kiosks, 2–8 storey shophouses, occasional megablock | 7–38 m, a few 55–95 m | 7 m lanes, covered walkways | pedestrians, umbrellas, bikes; spinners overhead |
-| **Financial District Megatowers** (3) | Sector 9 | blue-grey, white LED, cyan holograms | dark glass, brushed metal, ribbed concrete | billboards and giant holograms on towers | podium + tower, stepped towers, megatowers | 100–290 m fabric; 280–420 m landmarks | 38 m avenues | heavy spinner layer at 175–260 m |
+| **Financial District Megatowers** (3) | Sector 9 | blue-grey, white LED, cyan holograms, red aviation lights | ribbed and board-formed concrete, dark glass, lit window bands | billboards low, giant holograms on crowns and shafts | podium + tower, stepped towers, kit towers, hero megastructures | 90–155 m megablocks, 165–305 m kit towers; heroes 520–1,020 m, legacy 310–420 m | 38 m avenues | spinner layer 175–260 m, sky avenues 430–860 m, holding patterns over the crowns |
 | **Downtown Megablocks** (4) | Sector 5/9 fringe | grey-brown, warm windows, pink/cyan ads | board-formed concrete, cantilevered upper masses ("top-heavy brutalism") | dense at street level, billboards high | flat-topped megablocks 90–150 m with rooftop clutter | 90–250 m | 34 m | dense spinners, few ground cars |
 | **Civic Center** (5) | Sector 5 central | cold grey, white light, police red/blue | monumental concrete | sparse, institutional | plazas, civic slabs | 55–125 m, LAPD 216 m | 40 m | police spinners on pads |
 | **Broadway Neon Canyon** (6) | Sector 9 Retirement Row | magenta, violet, amber neon on black | old masonry under new cladding | **extreme**, vertical blade signs stacked up façades | narrow deep canyon, heritage façades at the base | 40–110 m | 18 m | pedestrians, rickshaws |
@@ -182,6 +186,16 @@ The films are full of giant animated ads. None of those designs are reproduced. 
 * **Light.** A projector spills its colour onto nearby concrete and kit surfaces (the nearest few, wrapped falloff, no shadow map) and, under about 80 m, onto a soft disc on the wet street. Low tier keeps the silhouette and turns the spill off. The wash is invented in extent: roughly half a panel-width, enough to tint a podium or a lane and not a whole block.
 * **The pink footbridge** (`joi-bridge`, stage 6) is still not built. It must not reuse a traced film dancer. Register a placement, or add a design, through the API in `src/world/holograms/README.md`.
 
+### 7.3 Financial District megatowers (stage 3)
+
+* **The look.** Downtown in *2049* is a field of monumental brutalist slabs: flat-topped, buttressed, banded with thin lines of lit windows, standing out of a brown smog sea with red lights on every edge. The district reproduces that composition with original forms. Nothing here copies a specific building from the film.
+* **Three layers.** (1) The street canyon: **90–155 m** megablocks (Ribbon and Megablock façades, slit service cores, rooftop plant, shop signs). (2) **Kit towers** on about half the lots, **165–305 m** with masts, built from the same kit as the heroes in compact form (fewer, larger pieces) so they fit the fabric ceiling of 320 m. (3) **Ten hand-placed heroes** and four skybridges (§5.3), which are landmarks with colliders, LODs and hologram slots.
+* **Kit vocabulary** (`src/districts/_shared/megatower/`). A podium with an entrance canopy and a lit lobby band. A shaft broken by **setbacks** at roughly 35–75% of height, with mechanical floors every 90–130 m (dark louvred bands with a glow line). Pilasters and fins on the long faces. **Raking buttresses** on slabs. Crowns: hammer (an overhanging top block), stepped, lantern (a glazed glowing box), flare (a widening cap), blade (a thin fin), cage (an open frame) and ziggurat. Masts with strobes, rooftop pads with amber edge lights, rails and antennas at LOD0 only.
+* **Sizes.** Storeys read at 4.0–5.5 m; the window grid is the city material's, so a 1 km slab shows ~200 floors of tiny lit cells. Podiums are 46–52 m tall (10–12 storeys). Skybridge decks are 12–16 m deep (three storeys) and 22–28 m wide.
+* **Light.** Above ~100 m everything is dark except window bands (26–45% lit at night), mechanical-floor glow lines, crown glows, holograms and aviation lights. Obstruction lights follow real practice in spirit: synchronised flashing red at the top and on every major setback, steady red at intermediate levels, white double strobes on mast tips. They are screen-size billboards (§ARCHITECTURE *Landmarks*) so they still read from 5 km.
+* **Holograms.** Crowns carry the large panels (`skyline` band, visible across the basin), shafts and podiums the smaller ones. The canyon Ash Crane (`financial-canyon-crane`) is placed by searching for a clear gap outside the new, wider reserves.
+* `confidence: invented` for every tower; the composition (slabs out of smog, red lights, crown holograms) is from the film's aerial establishing shots.
+
 ## 8. Vehicles and traffic
 
 | Vehicle | Size | Notes |
@@ -189,6 +203,8 @@ The films are full of giant animated ads. None of those designs are reproduced. 
 | Spinner (2049 police/civilian) | **5.0 m long, 2.3 m wide, 1.45 m tall** | The 1982 spinner is usually quoted at ~4.7 m; the 2049 car is a little longer and lower. Original model (`spinnerModel.ts`), not a replica. No brand badges. |
 | Player spinner cruise / boost | 75 / 260 m/s | arcade-fast for a 50 km city; real spinners are slower on screen |
 | AI spinner layers | 55–90 m (low), 175–260 m (main), 320–520 m (high) | `SpinnerTraffic.ts` |
+| Transport hauler | **14 m long, 5.2 m wide, 3.6 m tall** | Invented heavy cargo spinner for the sky lanes (`transportModel.ts`): boxy body, amber running lights. Sized like a large rigid truck. |
+| Sky lanes (Stage 3) | avenues 430–860 m, holding patterns 140 m over MT-1, around the MT-2/MT-4 pair, over LAPD and at the Wallace apex (~3.2 km) and mid-height, corridors 360–3,240 m | `skyLanes.ts`, `LaneTraffic.ts`. Avenues run on the 38°/128° grid between the heroes. Right-hand traffic, opposite directions 16–30 m apart sideways and 7 m in height. Cars travel in platoons of 1–4, bank into turns and blink (white nav flash, red/blue police strobe, amber transports). Counts 60 / 140 / 240 / 380 by tier. Corridors climb from downtown to the Wallace apex, run on to the old pyramids, south-west toward LAX and north-west toward Hollywood. Every lane is checked against landmark colliders when it is built. Positional flyby sound with Doppler. |
 | Ground vehicles | not yet | Stage 2+ adds street-level cars and trucks to the freeway trenches |
 
 ## 9. Weather and time-of-day looks
@@ -209,6 +225,7 @@ It rains most of the time, and it **snows** in the finale. The weather state mac
 | Rain & snow | sleet | 0.45 / 0.5 | 0.0019 | 380 m | 5 |
 
 * Fog is an **exponential height fog** integrated along each view ray, so the pyramid and megatowers rise out of the smog layer as they do in the film.
+* On top of that sits an **inversion layer**: a gaussian band of extra density, centred at **150–320 m** with a 115 m half-width (peak 0.0004–0.0012 /m by weather; 0.0007 in dry haze, 0.0011 in toxic smog). Looking across from above, the canyon and podiums sink into a flat brown sea and only the upper half of the megatowers stands clear, which is the film's daytime skyline. Aviation lights see 30% of the fog depth, so beacons punch through it.
 * Wetness and snow cover build up and dry out over time (puddles, darkened concrete, white roofs).
 * A day lasts 30 real minutes by default. The window-lit fraction rises after dusk and the neon gets stronger at night.
 
@@ -223,7 +240,7 @@ It rains most of the time, and it **snows** in the finale. The weather state mac
 5. **Light comes from people.** Windows, signs, stalls and spinners. Street level is the brightest and most saturated, and everything above
    ~100 m is dark except beacons, holograms and lit windows.
 6. **Signage density goes by commerce:** markets and entertainment are extreme, downtown dense, residential sparse, industry and civic almost none.
-7. **Scale continuity.** Nothing between 420 m and 1,100 m (the gap separates the city from Wallace), and nothing above 3.5 km.
+7. **Scale continuity.** Procedural fabric stays under **320 m**. Taller things are hand-placed landmarks: the Financial District megastructures (up to **1,020 m**), the old pyramids (≤ 1 km), the Wallace satellites (1.1–1.4 km) and the Wallace pyramid (3.5 km). Nothing above 3.5 km, and the Wallace pyramid stays at least 3× the tallest tower so it still dominates every view. *(Stage 3 revised this rule. It used to forbid anything between 420 m and 1,100 m, but the film's downtown aerials show kilometre-scale slabs.)*
 8. **Wet and dirty.** Every surface is weathered, stained and wet unless the weather is dry.
 9. **When you invent, record it** with `confidence: "invented"` in the JSON and in §5 or §7, with a one-line reason.
 10. **Never copy.** Use original models, original textures (procedural preferred) and invented brand names. Look-alike is fine;
@@ -255,6 +272,7 @@ It rains most of the time, and it **snows** in the finale. The weather state mac
 
 * Exact Wallace HQ placement. The film never ties it to a street. If a later stage finds stronger evidence, move the pyramid in the JSON.
   Its 2.4 km reserve radius keeps the surrounding fabric consistent.
-* Whether the Tyrell pyramids still stand in 2049. They are unseen, so they are omitted for now.
+* Whether the first film's pyramids still stand in 2049. Stage 3 keeps two unnamed 1982-style pyramids as dormant Wallace holdings (§5.3). If later evidence places them elsewhere, or shows they were demolished, move or delete `old-pyramid-*` in the JSON.
+* Megatower heights. The film never gives numbers; 520–1,020 m is read from the aerials against LAPD and Wallace. Revisit together with Stage 4 if the megablocks look too small beside them.
 * Ground-level freeway use in 2049 (trench traffic vs. abandoned).
 * Sea wall crest height: 90 m is a reasoned estimate. Revisit with frame-by-frame analysis in Stage 10.

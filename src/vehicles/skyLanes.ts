@@ -123,7 +123,7 @@ export function buildSkyLanes(q: CityQuery): SkyLane[] {
           if ((bi + made + (bearing === 38 ? 0 : 1)) % 2 === 1) continue;
           const pts = line(ox - ax * half, oz - az * half, y, ox + ax * half, oz + az * half, y);
           if (!clear(q, pts, false, 45)) continue;
-          lanes.push(lane(`avenue-${bearing}-${off}`, pts, false, { weight: 1.3, police: 0.14, transport: 0.12, speed: [60, 105] }));
+          lanes.push(lane(`avenue-${bearing}-${off}`, pts, false, { weight: 2.2, police: 0.14, transport: 0.12, speed: [60, 105] }));
           made++;
           break;
         }
