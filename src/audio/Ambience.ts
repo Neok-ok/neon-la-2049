@@ -17,6 +17,14 @@ export class Ambience {
   private hum = 0;
   /** 0..1 low industrial bed. Wallace precinct sets this near the ground. */
   private machinery = 0;
+  private surfGain: GainNode | null = null;
+  private impactGain: GainNode | null = null;
+  /** 0..1 wash under the wall. Stored before the audio context exists. */
+  private surfAmount = 0;
+  /** 0..1 breaker transient, same clock as the visible swell. */
+  private surfImpact = 0;
+  /** 0..1 extra wind while the listener is on the crest. */
+  private crestWind = 0;
   muted = false;
 
   start(): void {
@@ -130,6 +138,25 @@ export class Ambience {
     this.windGain = ctx.createGain();
     this.windGain.gain.value = 0.05;
     wind.connect(wbp).connect(this.windGain).connect(this.master);
+
+    const wash = noise('brown', 6);
+    const surfHp = ctx.createBiquadFilter();
+    surfHp.type = 'highpass';
+    surfHp.frequency.value = 80;
+    const surfLp = ctx.createBiquadFilter();
+    surfLp.type = 'lowpass';
+    surfLp.frequency.value = 420;
+    this.surfGain = ctx.createGain();
+    this.surfGain.gain.value = 0;
+    wash.connect(surfHp).connect(surfLp).connect(this.surfGain).connect(this.master);
+    const hit = noise('white', 2);
+    const surfBp = ctx.createBiquadFilter();
+    surfBp.type = 'bandpass';
+    surfBp.frequency.value = 180;
+    surfBp.Q.value = 0.7;
+    this.impactGain = ctx.createGain();
+    this.impactGain.gain.value = 0;
+    hit.connect(surfBp).connect(this.impactGain).connect(this.master);
   }
 
   get context(): AudioContext | null {
@@ -161,6 +188,13 @@ export class Ambience {
     this.machinery = Math.max(0, Math.min(1, amount));
   }
 
+  /** 0..1 wash, 0..1 impact, 0..1 crest wind. Stored before the audio context exists. */
+  setSurf(amount: number, impact: number, crest: number): void {
+    this.surfAmount = Math.max(0, Math.min(1, amount));
+    this.surfImpact = Math.max(0, Math.min(1, impact));
+    this.crestWind = Math.max(0, Math.min(1, crest));
+  }
+
   /** altitude in meters above ground: street-level sounds fade when flying high. */
   update(rain: number, snow: number, wind: number, altitude: number): void {
     if (!this.ctx) return;
@@ -172,10 +206,13 @@ export class Ambience {
     const wobble = 0.78 + 0.22 * Math.sin(t * 0.7);
     if (this.machGain) this.machGain.gain.setTargetAtTime(mach * 0.04 * wobble, t, 0.5);
     if (this.machTone) this.machTone.gain.setTargetAtTime(mach * 0.01, t, 0.5);
+    const surf = this.surfAmount * (1 - 0.45 * m);
+    if (this.surfGain) this.surfGain.gain.setTargetAtTime(surf * 0.075, t, 0.35);
+    if (this.impactGain) this.impactGain.gain.setTargetAtTime(surf * this.surfImpact * 0.17, t, 0.03);
     const street = Math.max(0.15, 1 - altitude / 400);
     this.rainGain.gain.setTargetAtTime(rain * 0.32 * (1 - 0.58 * m), t, 0.5);
     this.patterGain.gain.setTargetAtTime(rain * 0.25 * street * (1 - 0.72 * m), t, 0.5);
     this.cityGain.gain.setTargetAtTime((0.18 + 0.3 * street) * (1 - 0.5 * m), t, 0.8);
-    this.windGain.gain.setTargetAtTime(Math.min(0.5, 0.03 + wind * 0.02 + snow * 0.08 + (1 - street) * 0.12) * (1 - 0.35 * m), t, 0.8);
+    this.windGain.gain.setTargetAtTime(Math.min(0.55, 0.03 + wind * 0.02 + snow * 0.08 + (1 - street) * 0.12 + this.crestWind * 0.16) * (1 - 0.35 * m), t, 0.45);
   }
 }

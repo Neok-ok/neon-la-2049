@@ -8,3 +8,4 @@ import './civic-center/archetype';
 import './historic-core/archetype';
 import './k-megablock/archetype';
 import './wallace-vernon/archetype';
+import './coastal-strip/archetype';

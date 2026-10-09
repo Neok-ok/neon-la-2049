@@ -12,3 +12,4 @@ import './k-megablock/details';
 import './k-megablock/crowd';
 import './wallace-vernon/details';
 import './wallace-vernon/oldSurround';
+import './coastal-strip/details';

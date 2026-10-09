@@ -11,6 +11,7 @@ import { DOWNTOWN_BLOCK_A, DOWNTOWN_BLOCK_B, gridAxes } from '../districts/_shar
 import { lapdPadRuns } from '../districts/civic-center/lanes';
 import { kPadRuns } from '../districts/k-megablock/lanes';
 import { wallaceFreightRuns } from '../districts/wallace-vernon/lanes';
+import { coastPatrolRuns } from '../districts/coastal-strip/lanes';
 
 export type LaneClass = 'civilian' | 'police' | 'transport';
 
@@ -228,6 +229,13 @@ export function buildSkyLanes(q: CityQuery): SkyLane[] {
         platoon: run.platoon,
       }));
     }
+  }
+  for (const run of coastPatrolRuns(L, (x, y, z) => q.insideLandmark(x, y, z, 3.5))) {
+    lanes.push(lane(run.id, run.pts.map((p) => new Vector3(p[0], p[1], p[2])), run.loop, {
+      weight: run.weight, police: run.police, transport: run.transport,
+      speed: run.speed, sep: run.sep, altBias: run.altBias, fade: run.fade,
+      platoon: run.platoon,
+    }));
   }
   return lanes;
 }

@@ -11,6 +11,8 @@ import { Style, SignColor, type Sign } from '../fabric/types';
 import { Rng, hashString } from '../../core/rng';
 import type { CityQuery } from '../CityQuery';
 import '../../districts/landmark-index';
+import { seaWallColliders } from '../../districts/coastal-strip/collision';
+import { SEA_Y } from '../../districts/coastal-strip/profile';
 import { getOceanMaterial } from '../materials/oceanMaterial';
 import { Beacons } from './Beacons';
 import { Flares } from './Flares';
@@ -167,7 +169,6 @@ registerLandmarkDefault('flare-field', (l, env) => {
 // ---------------------------------------------------------------- sea walls + ocean
 function buildSeaWalls(layout: CityLayout): { object: Object3D; colliders: LandmarkCollider[] } {
   const w = new GeoWriter();
-  const cols: LandmarkCollider[] = [];
   for (const wall of layout.seaWalls) {
     const H = wall.crestHeight, base = wall.baseWidth, crest = wall.crestWidth, T = wall.terraces;
     // cross-section (across, height): landward base -> crest -> stepped seaward face -> toe below the water
@@ -205,10 +206,10 @@ function buildSeaWalls(layout: CityLayout): { object: Object3D; colliders: Landm
         if (flip) w.quad([p0, q0, q1, p1], [[u, 0], [u + len, 0], [u + len, sl], [u, sl]], fs);
         else w.quad([p0, p1, q1, q0], [[u, 0], [u, sl], [u + len, sl], [u + len, 0]], fs);
       }
-      cols.push({ x: mx + nx * (base / 2 - crest / 2), z: mz + nz * (base / 2 - crest / 2), hw: base / 2 + 4, hd: len / 2 + 6, yaw: Math.atan2(nx, nz), y0: -20, top: H });
       u += len;
     }
   }
+  const cols = seaWallColliders(layout);
   // ocean surface: the 2049 sea stands well above the old beaches, held back by the wall
   const shape = new Shape(layout.oceanPoly.map(([x, z]) => new Vector2(x, -z)));
   const og = new ShapeGeometry(shape);
@@ -223,7 +224,7 @@ function buildSeaWalls(layout: CityLayout): { object: Object3D; colliders: Landm
 }
 
 /** 2049 mean sea level relative to the (flattened) basin floor. */
-export const SEA_LEVEL_2049 = 6;
+export const SEA_LEVEL_2049 = SEA_Y;
 
 export class Landmarks {
   readonly root = new Group();
