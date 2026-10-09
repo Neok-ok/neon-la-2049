@@ -164,13 +164,17 @@ export function lakewoodCamera(layout: CityLayout, kind: LakewoodView): LakePose
     const hit = list.find((f) => f.plan.laundry && !f.plan.hub && f.plan.height > 40);
     const L = hit?.plan.laundry;
     if (!hit || !L) return null;
-    const feet = worldAt(hit.block, L.s + L.ns * 9, L.t + L.nt * 9, 0.04);
-    const look = worldAt(hit.block, L.s + L.ns * 0.4, L.t + L.nt * 0.4, L.y);
-    return walk(feet, look, 0.42);
+    // Stand off the −B face and look along it, so the lines and AC sit in the frame.
+    const dist = 12;
+    const feet = worldAt(hit.block, L.s + L.ns * dist + 8, L.t + L.nt * dist, 0.04);
+    const look = worldAt(hit.block, L.s - 6, L.t + L.nt * 0.2, 11);
+    return walk(feet, look, 0.52);
   }
+  // Sidewalk, looking along the street. A look into the mass fills the frame with one slab.
   const hit = list.find((f) => f.plan.family === 'bar' && !f.plan.hub && !f.plan.edge);
   if (!hit) return null;
-  const feet = worldAt(hit.block, -(hit.block.la / 2 + 6.5), 12, 0.04);
-  const look = worldAt(hit.block, -hit.block.la * 0.22, -8, 18);
-  return walk(feet, look, 0.22);
+  const s = -(hit.block.la / 2 + 8);
+  const feet = worldAt(hit.block, s, -22, 0.04);
+  const look = worldAt(hit.block, s + 10, 58, 8);
+  return walk(feet, look, 0.1);
 }
