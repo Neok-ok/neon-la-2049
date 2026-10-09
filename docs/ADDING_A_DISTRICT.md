@@ -159,6 +159,26 @@ All builders return `TowerParts`: colliders, hologram slots (`crown`, `shaft`, `
 Hologram slots from `placeKit` register as `${id}-holo-a` (first shaft slot), `-holo-b` (podium), `-holo-crown`, `-holo-gap` and
 `-holo-i` for the rest. Crown slots use the `skyline` band, so they stay on out to about half the far radius.
 
+### The megablock kit (Stage 4; reuse it for the residential cores)
+
+`src/districts/_shared/megablock/` is the shorter cousin of the megatower kit. Same frame (kit +Z = block +A, kit +X = block −B), same `MassSink`, so `FabricSink` and the DTLA `MemorySink` both work. One `MegablockPlan` is deterministic.
+
+| Field | Meaning |
+|---|---|
+| `form` | `cantilever` (small base, shifted upper mass), `slab-podium` (arcade and terrace), `bar`, `courtyard` (four wings, open court). |
+| `family` | `ribbed`, `coffered`, `panelled`. These are styles 15–17 plus proud geometry. Do not add a façade shader. |
+| `height` | Roof of the main mass. Keep fabric under 320 m. DTLA clamps plans to **90–250 m** so the blocks still read under the 0.5–1 km slabs. |
+| `residential` | 0 = downtown plant (tanks, pad, mast). About 0.7–1 = laundry cages and balcony rows. Stages 11, 12 and 20 should pass that and a lower height, not fork the builder. |
+| `compact` | `true` skips rails and thins ribs (fabric budgets). DTLA passes `false`. A heaviest mixed chunk in the sample was ~20 k triangles of fabric; a pure DTLA chunk ~10 k. |
+| `walkAt` | Deck heights the mass actually covers. Downtown streets share heights from `lineWalkY(i, j, axis, high)` in `grid.ts` — pass the **grid line** index, not the block index. |
+| `holo` | 0–2. Comes back as kind-2 signs. Keep them ≥ 16 × 10 m if the hologram field should promote them (140 m²). |
+
+`buildMegablock` returns colliders, signs, the roof and the **base** half-extents. Put kiosks in the overhang (outside `baseHalf*`, inside the lot) so the street stays clear. Masses stay inside the footprint.
+
+The downtown grid (bearing 38°, 205 × 125 m) is shared with the Financial District and Civic Center. `downtownGraph` in `src/vehicles/streetGraph.ts` is the lane graph for low spinners and ground cars. Do not build a second one for Civic Center; add edges by extending the district allow-list if a new grid matches.
+
+A dressed district that wants pedestrians calls `registerCrowdSource(districtId, fn)` from `little-tokyo-market/crowd.ts`. The mesh and the shader stay there. Return loops of `[x, z]` points. Hide nothing at the origin: the field already parks vendor slots that have no cook.
+
 ## 6. Holograms
 
 Giant figures and ad loops are not kind-2 signs. Register them with `registerHologram` from `src/world/holograms/api.ts` (see that folder's README). The call is main-thread only. `band: 'street'` culls with the LOD0 radius; `band: 'tower'` culls with the near radius; `band: 'skyline'` (crowns and anything read across the basin) culls at `max(1.35 × near, 0.55 × far)`. `rank: 0` is kept when the tier cap binds. Spill radius `0` skips the wash. Do not add a second hologram shader.

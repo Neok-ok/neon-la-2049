@@ -58,6 +58,6 @@ Everything here. The forms are original; the composition (slabs out of smog, red
 
 ## Left for later
 
-* No street-level podium plazas yet (steps, canopies you can walk under, planters-turned-vents). Stage 4 shares the edges.
+* Podium aprons and the ground under skybridges 1 and 3 are dressed by Stage 4 (`src/districts/dtla/plaza.ts`), including on this polygon. There is still no stair up to a skybridge deck.
 * Window bands are the city material's procedural grid. Real banding per spec (e.g. dark spandrels every 4 floors) would need a style per hero.
 * Holograms sit on flat slots. Wrapped or corner-mounted panels need a new placement shape in the X4 API, not a second shader.

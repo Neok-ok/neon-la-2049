@@ -12,7 +12,10 @@ import { CityQuery } from '../world/CityQuery';
 import { Landmarks } from '../world/landmarks/Landmarks';
 import { localToGeo, geoToLocal } from '../world/geo';
 import { LaneTraffic } from '../vehicles/LaneTraffic';
+import { GroundTraffic } from '../vehicles/groundTraffic';
 import { megaCamera, type MegaView } from '../districts/financial-megatowers/view';
+import { dtlaCamera, type DtlaView } from '../districts/dtla/view';
+import { installDtlaHolos } from '../districts/dtla/holos';
 import { SpinnerTraffic } from '../vehicles/SpinnerTraffic';
 import { Input } from '../input/Input';
 import { TouchControls } from '../input/TouchControls';
@@ -61,6 +64,7 @@ export class App {
   atmosphere!: Atmosphere;
   traffic!: SpinnerTraffic;
   lanes!: LaneTraffic;
+  ground!: GroundTraffic;
   rain!: Precipitation;
   snow!: Precipitation;
   cams!: CameraSystem;
@@ -137,10 +141,12 @@ export class App {
     this.landmarks = new Landmarks(this.query);
     this.scene.add(this.landmarks.root);
     installShowcase(this.query.layout);
+    installDtlaHolos(this.query.layout);
     this.holos = new HologramField(this.query.layout);
     this.scene.add(this.holos.group);
     this.traffic = new SpinnerTraffic(this.scene, this.query, settingsFor('ultra').traffic);
     this.lanes = new LaneTraffic(this.scene, this.query, settingsFor('ultra').laneTraffic);
+    this.ground = new GroundTraffic(this.scene, this.query, settingsFor('ultra').groundTraffic);
     const ultra = settingsFor('ultra');
     this.rain = new Precipitation('rain', ultra.rainCount);
     this.snow = new Precipitation('snow', ultra.snowCount);
@@ -306,8 +312,11 @@ export class App {
     const alt = cam.y - ground;
     const districtNow = this.query.district(cam.x, cam.z);
     const inMarket = districtNow.id === 'little-tokyo-market';
-    U.neonWet.value = inMarket && alt < 140 ? 0.92 : 0.22;
-    U.streetFog.value = inMarket ? Math.max(0, Math.min(1, 1 - alt / 70)) * 0.8 : 0;
+    const inDtla = districtNow.id === 'dtla';
+    const inCanyon = inDtla || (districtNow.id === 'financial-megatowers' && alt < 40);
+    U.neonWet.value = inMarket && alt < 140 ? 0.92 : inCanyon && alt < 90 ? 0.62 : 0.22;
+    U.streetFog.value = inMarket ? Math.max(0, Math.min(1, 1 - alt / 70)) * 0.8
+      : inDtla && alt < 80 ? 0.28 * (1 - alt / 80) : 0;
     const dtSafe = Math.max(dt, 1e-4);
     this.query.warm(cam.x, cam.z, cam.x + ((cam.x - this.lastCam.x) / dtSafe) * 0.45, cam.z + ((cam.z - this.lastCam.z) / dtSafe) * 0.45);
     this.lastCam.copy(cam);
@@ -319,6 +328,7 @@ export class App {
     this.holos.update(this.camera, this.quality, this.streamer.billboards());
     this.traffic.update(dt, this.camera, this.quality.traffic);
     this.lanes.update(dt, this.camera, this.quality.laneTraffic);
+    this.ground.update(dt, this.camera, this.quality.groundTraffic);
     this.atmosphere.update(dt, this.elapsed, this.renderer);
     this.crowd.update(dt, cam.x, cam.z, this.query, this.quality, this.atmosphere.weather.params.rain);
     this.haze.update(cam.x, cam.z, ground, alt, this.quality.tier);
@@ -375,7 +385,7 @@ export class App {
     const a = this.atmosphere;
     return [
       ['gpu', `${this.backend} · ${this.quality.tier}${this.qualityChoice === 'auto' ? ' (auto)' : ''} · dpr ${this.renderer.getPixelRatio().toFixed(2)}`],
-      ['draw', `${info.drawCalls} calls · ${(info.triangles / 1e6).toFixed(2)} M tris · crowd ${this.crowd.count} · holo ${this.holos.shown}`],
+      ['draw', `${info.drawCalls} calls · ${(info.triangles / 1e6).toFixed(2)} M tris · crowd ${this.crowd.count} · holo ${this.holos.shown} · ground ${this.ground.count}`],
       ['query', `sync ${this.query.syncCount} · pending ${this.query.pending} · cell ${this.query.lastQueryMs.toFixed(0)} ms`],
       ['chunks', `far ${s.supersFar} · near ${s.chunksNear} · lod0 ${s.lod0} · jobs ${s.inFlight} · queue ${s.readyQueue} · gen ${s.lastGenMs.toFixed(0)} ms`],
       ['pos', `${p.x.toFixed(0)}, ${p.y.toFixed(0)}, ${p.z.toFixed(0)} m · ${alt.toFixed(0)} m AGL`],
@@ -461,6 +471,20 @@ export class App {
         return true;
       },
       /** Stage 3 cameras: approach (Wallace), skyline, street (looking up MT-1), lanes, crown. */
+      /** Stage 4 cameras: canyon street, a lit walkway, a spinner over a roof, an avenue lane, the MT-1 plaza. */
+      dtlaView: (kind: DtlaView) => {
+        const p = dtlaCamera(this.query.layout, kind, this.lanes.lanes);
+        if (!p) return false;
+        this.query.fabricAt(p.x, p.z);
+        this.cams.setMode(p.mode);
+        if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
+        this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
+        if (p.mode === 'walk') {
+          this.cams.walk.pitch = p.pitch;
+          if (p.feet) this.cams.walk.pos.set(p.feet.x, p.feet.y, p.feet.z);
+        }
+        return true;
+      },
       megaView: (kind: MegaView) => {
         const p = megaCamera(this.query.layout, kind, this.lanes.lanes);
         if (!p) return false;
@@ -495,6 +519,7 @@ export class App {
         holoCards: this.holos.cards,
         laneCars: this.lanes.count,
         lanes: this.lanes.lanes.length,
+        groundCars: this.ground.count,
         landmarkLods: this.landmarks.lods.active.join('/'),
         beacons: this.landmarks.beacons.count,
         querySyncs: this.query.syncCount,

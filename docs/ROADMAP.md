@@ -56,18 +56,23 @@ What the next district should not copy blindly: the per-chunk draw-call exceptio
 
 What the next stages should know: heroes are landmarks, not fabric, so the 320 m fabric ceiling still holds. Hologram slot ids are stable (`${id}-holo-a/-b/-crown/-gap/-i`). The kit's detail 3 only exists on landmark LOD0. Fabric towers are box-only.
 
-## Stage 4 — Downtown Megablocks
-`dtla`: top-heavy brutalist megablocks with distinct façade families (ribbed, coffered, panelled), rooftop infrastructure (tanks,
-antennae, pads), mid-level walkways, a street layer with cars, steam vents and kiosks.
+## Stage 4 — Downtown Megablocks ✅
+**District:** `dtla` · **POIs:** `dtla-canyon`, `mt1-plaza`, `mt5-edge`
 
-* Reuse the megatower kit through `FabricSink` for the occasional 200–300 m tower; write the megablock forms (cantilevered upper masses, slab-on-podium) as new kit plans rather than another archetype of raw boxes, so Stages 11, 12 and 20 can share them.
-* Megablocks must still read against 0.5–1 km neighbours: keep the 90–250 m band, add rooftop clutter and lit mid-level walkways so the canyon has a top.
-* Extend the sky lanes down into this district's avenues (175–260 m layer) and hand the low layer (`SpinnerTraffic`) a real lane graph.
-* Street level under the megatowers (MT-1/MT-5 podium plazas, the skybridge shadows) is in this district's polygon on two sides; dress the shared edges.
+* **Megablock kit** (`src/districts/_shared/megablock/`): cantilever, slab-on-podium, bar and courtyard plans; ribbed / coffered / panelled façades (city-material styles 15–17); rooftop tanks, masts and pads; lit ring decks. `residential` is the hook for Stages 11, 12 and 20. Fabric districts call `buildMegablock` into a box sink. DTLA passes `compact: false`; a heavy district can pass `true`.
+* Heights stay **90–250 m**. About one wide lot in eight is a compact megatower-kit shaft at **200–300 m** (under the 320 m ceiling).
+* Lit crossings at **46 / 68 m**, and **92 / 118 m** on about three streets in five, shared by grid line so the two sides meet. Only the +A and +B block emits a crossing.
+* Avenue sky lanes at **188 / 222 / 250 m** on the street centre lines (`dtla-avenue-*`), split around hero colliders. Low `SpinnerTraffic` follows `streetGraph.ts` at 74 and 112 m over DTLA, the Financial District and Civic Center. Ground cars and vans use the same graph.
+* Street kit (kiosks, steam, pools, curb vans, bollards), crowds on the shared mesh, and holograms (`dtla-canyon-ribbon`, `dtla-canyon-lantern`, `dtla-mt1-lease`, `dtla-mt5-glyph`). The MT-1 / MT-5 aprons and the ground under skybridges 1 and 3 are dressed from a detail module registered for both polygons.
+* `__nla.dtlaView('street'|'walkway'|'roof'|'lanes'|'plaza')`.
+
+What the next stages should know: the financial polygon still wins on top of MT-1 and MT-5, so plaza dressing is detail, not fabric. Walkway decks are flat slabs — there is no stair, and walk mode only stands on one if something places the feet on the deck. Fabric towers are boxes. Ground cars do not enter a landmark reserve, so the aprons stay pedestrian.
 
 ## Stage 5 — Civic Center and LAPD Headquarters
 `civic-center`: LAPD HQ in full detail (landing deck, lobby entrance, police spinner pads with traffic), City Hall restoration,
 monumental plazas, the steps where K walks. Optional interior: LAPD lobby.
+
+The downtown street graph and the 74 / 112 m spinner layer already include this polygon (40 m streets, same 38° grid). Police pads should be lanes or graph side-spurs, not a new traffic mesh. The holding pattern `hold-lapd` is still the high orbit.
 
 ## Stage 6 — Broadway Neon Canyon
 `historic-core` + POIs `bradbury`, `joi-bridge`: heritage façades under new cladding, stacked vertical blade signs, the hologram

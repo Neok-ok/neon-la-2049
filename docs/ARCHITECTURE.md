@@ -207,8 +207,15 @@ Street-band panels cull at `lod0Radius * 0.9`. Tower-band panels cull at `nearRa
 
 New district stages must keep a LOD0 chunk under ~40 k triangles and ~4 draw calls (fabric + signs + ≤ 2 detail batches),
 or add their own LOD rules. Little Tokyo is the documented exception: a dressed chunk adds kit opaque, an optional
-fade pass, steam and neon pools (about four detail draws). Props are capped per tier. The acceptance test is still
+fade pass, steam and neon pools (about four detail draws). Downtown megablocks are the second: the same kit passes,
+plus an optional add pass for stall faces, and a plaza detail group on chunks that contain the MT-1 or MT-5 apron.
+Props are capped per tier (DTLA medium is 1,600 street props). A pure DTLA chunk is about 10 k fabric triangles;
+the heaviest sampled chunk that included DTLA blocks was about 20 k. The acceptance test is still
 the global medium budget, not the two-batch guide.
+
+Ground cars (`vehicles/groundTraffic.ts`) are two instanced draws city-wide, not per chunk. The street graph
+(`vehicles/streetGraph.ts`) is shared with the low spinner layer. Avenue sky lanes in the 175–260 m band are
+ordinary `LaneTraffic` polylines (`dtla-avenue-*`).
 
 ## URL parameters and debug API
 
@@ -216,8 +223,8 @@ the global medium budget, not the two-batch guide.
 &webgl=1 &hud=1 &ui=0 &freeze=1 &touch=1 &refl=0|1`
 
 `window.__nla` (console and automation): `isIdle()`, `setMode(m)`, `setPose(x,y,z,yaw°,pitch°)`, `streetView(idOrX, z?, along?)`,
-`marketView('street'|'interior'|'crowd'|'roof'|'bibi')`, `holoView('street'|'aerial'|'cine')`, `megaView('approach'|'skyline'|'street'|'lanes'|'crown')`, `holoSpec(id)`, `setTime(h)`, `setWeather(id)`, `cut()`, `holdShot(on)`, `stats()`,
-`geoToLocal(lat,lon)`, `app`. `stats()` includes draw calls, triangles, crowd count, hologram panel count, query-worker counters, lane cars and lanes, landmark LOD levels and the beacon count.
+`marketView('street'|'interior'|'crowd'|'roof'|'bibi')`, `holoView('street'|'aerial'|'cine')`, `megaView('approach'|'skyline'|'street'|'lanes'|'crown')`, `dtlaView('street'|'walkway'|'roof'|'lanes'|'plaza')`, `holoSpec(id)`, `setTime(h)`, `setWeather(id)`, `cut()`, `holdShot(on)`, `stats()`,
+`geoToLocal(lat,lon)`, `app`. `stats()` includes draw calls, triangles, crowd count, hologram panel count, query-worker counters, lane cars and lanes, ground cars, landmark LOD levels and the beacon count.
 
 Keys: `1/2/3` fly/walk/cinematic, `F` toggle fly↔walk, `V` cockpit, `E` sit / stand at a market stool (walk mode; in fly mode `E` is still up),
 `N` next shot, `H` HUD, `M` mute, `[ ]` time −/+ 1 h, `B` next weather. The iPhone joystick has no sit button.

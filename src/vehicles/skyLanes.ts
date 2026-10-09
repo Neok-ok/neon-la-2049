@@ -7,6 +7,7 @@ import { Vector3 } from 'three/webgpu';
 import { bearingToDir } from '../world/geo';
 import type { CityQuery } from '../world/CityQuery';
 import type { Landmark } from '../world/layout';
+import { DOWNTOWN_BLOCK_A, DOWNTOWN_BLOCK_B, gridAxes } from '../districts/_shared/megablock/grid';
 
 export type LaneClass = 'civilian' | 'police' | 'transport';
 
@@ -183,5 +184,66 @@ export function buildSkyLanes(q: CityQuery): SkyLane[] {
     const pn = line(mt1.x - 500, mt1.z - 400, 400, mt1.x - 500 + nx * 7000, mt1.z - 400 + nz * 7000, 360, 400);
     if (clear(q, pn, false, 50)) lanes.push(lane('corridor-hollywood', pn, false, { weight: 0.8, police: 0.1, transport: 0.15, speed: [65, 95], sep: 20 }));
   }
+  // DTLA / financial / civic avenues in the 175–260 m band, on the street centre lines.
+  // A run is split where a hero collider crosses it, instead of dropping the whole avenue.
+  for (const av of downtownAvenues(q)) lanes.push(av);
   return lanes;
+}
+
+const AVENUE_DISTRICTS = new Set(['dtla', 'financial-megatowers', 'civic-center']);
+
+/** Clear samples along one grid line, split into runs that miss landmark colliders. */
+function avenueRuns(q: CityQuery, axis: 0 | 1, index: number, y: number): Vector3[][] {
+  const { ax, az, bx, bz } = gridAxes();
+  const runs: Vector3[][] = [];
+  let cur: Vector3[] = [];
+  const flush = () => {
+    if (cur.length >= 2) runs.push(cur);
+    cur = [];
+  };
+  for (let s = -6500; s <= 6500; s += 55) {
+    const along = axis === 0 ? s : s;
+    const cross = axis === 0 ? index * DOWNTOWN_BLOCK_B : index * DOWNTOWN_BLOCK_A;
+    const u = axis === 0 ? along : cross;
+    const v = axis === 0 ? cross : along;
+    const x = ax * u + bx * v;
+    const z = az * u + bz * v;
+    const district = q.layout.districtAt(x, z).id;
+    const ok = AVENUE_DISTRICTS.has(district)
+      && !q.layout.isOcean(x, z)
+      && !q.insideLandmark(x, y, z, 42);
+    if (!ok) { flush(); continue; }
+    cur.push(new Vector3(x, y, z));
+  }
+  flush();
+  return runs;
+}
+
+function downtownAvenues(q: CityQuery): SkyLane[] {
+  const heights = [188, 222, 250];
+  const out: SkyLane[] = [];
+  for (const axis of [0, 1] as const) {
+    const found: Array<{ index: number; pts: Vector3[]; len: number }> = [];
+    for (let index = -36; index <= 36; index++) {
+      if (Math.abs(index) % 4 !== 1) continue;
+      const y = heights[Math.abs(index) % heights.length]!;
+      for (const pts of avenueRuns(q, axis, index, y)) {
+        let len = 0;
+        for (let i = 1; i < pts.length; i++) len += pts[i]!.distanceTo(pts[i - 1]!);
+        if (len >= 780) found.push({ index, pts, len });
+      }
+    }
+    found.sort((a, b) => b.len - a.len);
+    const used: number[] = [];
+    let made = 0;
+    for (const f of found) {
+      if (used.some((u) => Math.abs(u - f.index) < 3)) continue;
+      used.push(f.index);
+      out.push(lane(`dtla-avenue-${axis}-${f.index}`, f.pts, false, {
+        weight: 3.35, police: 0.16, transport: 0.08, speed: [48, 82], sep: 11,
+      }));
+      if (++made >= 3) break;
+    }
+  }
+  return out;
 }

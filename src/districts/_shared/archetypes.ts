@@ -102,22 +102,7 @@ function lotLoop(ctx: FabricCtx, lots: LotRect[], fn: (l: LotRect) => void): voi
 
 // ---------------------------------------------------------------------------------------------
 
-registerArchetype('megablock-downtown', (ctx) => {
-  const r = ctx.rng;
-  const plateau = r.range(90, 150);
-  lotLoop(ctx, ctx.lots(35, 110, r.range(0, 3)), (l) => {
-    if (r.chance(0.04)) return;
-    const tower = r.chance(0.1);
-    const H = tower ? r.range(170, 250) : plateau * r.range(0.85, 1.08);
-    const style = tower ? Style.Office : Style.Megablock;
-    const lit = r.range(0.2, 0.55);
-    const tint = r.range(0.75, 1.2);
-    if (tower) stepped(ctx, l.s, l.t, l.lb, l.la, H, style, lit, tint, r.int(2, 4));
-    else topHeavy(ctx, l.s, l.t, l.lb, l.la, H, style, lit, tint);
-    roofClutter(ctx, l.s, l.t, l.lb, l.la, H, r.int(1, 4), style);
-    signsOn(ctx, l.s, l.t, l.lb, l.la, H, 0.9, PAL_DOWNTOWN, 0.25);
-  });
-});
+// `megablock-downtown` is Stage 4 (`src/districts/dtla/archetype.ts`), built from the shared megablock kit.
 
 registerArchetype('megatower-core', (ctx) => {
   const r = ctx.rng;

@@ -24,6 +24,12 @@ export const Style = {
   Glow: 13,
   /** Windowless dark stone in 11.7 m panels with pinpoint lights (Wallace). */
   Monolith: 14,
+  /** Narrow vertical bays between concrete ribs (megablock family). */
+  Ribbed: 15,
+  /** Square coffers with a punched window in each recess. */
+  Coffer: 16,
+  /** Wide cladding panels with a single horizontal window strip. */
+  Panel: 17,
 } as const;
 export type StyleId = (typeof Style)[keyof typeof Style];
 

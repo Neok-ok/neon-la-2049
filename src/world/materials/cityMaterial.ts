@@ -14,13 +14,13 @@ const {
 } = T;
 
 // Per-style tables, indexed by Style id (src/world/fabric/types.ts)
-//                     ground  mega  office indus market coast resid civic sprawl neon  solid ribbon slit  glow  monolith
-const CELL_W = [1, 3.6, 2.2, 9.0, 3.2, 5.0, 3.2, 6.0, 3.4, 3.0, 4.0, 19.0, 4.6, 6.0, 11.7];
-const CELL_H = [1, 3.6, 4.0, 7.0, 3.2, 3.4, 3.1, 5.5, 3.2, 3.4, 3.2, 4.4, 13.0, 4.5, 11.7];
-const WIN_W = [0, 0.55, 0.7, 0.3, 0.6, 0.35, 0.5, 0.25, 0.45, 0.6, 0, 0.97, 0.14, 0.94, 0.07];
-const WIN_H = [0, 0.45, 0.5, 0.25, 0.5, 0.35, 0.45, 0.2, 0.45, 0.5, 0, 0.4, 0.86, 0.82, 0.05];
-const ALBEDO = [0.06, 0.2, 0.15, 0.2, 0.24, 0.3, 0.22, 0.3, 0.25, 0.17, 0.14, 0.13, 0.19, 0.1, 0.085];
-const WARMTH = [0, 0.55, 0.25, 0.7, 0.9, 0.5, 0.75, 0.3, 0.8, 0.6, 0.45, 0.35, 0.6, 0.9, 0.95];
+//                     ground mega  office indus market coast resid civic sprawl neon  solid ribbon slit  glow  monolith ribbed coffer panel
+const CELL_W = [1, 3.6, 2.2, 9.0, 3.2, 5.0, 3.2, 6.0, 3.4, 3.0, 4.0, 19.0, 4.6, 6.0, 11.7, 2.6, 7.2, 9.6];
+const CELL_H = [1, 3.6, 4.0, 7.0, 3.2, 3.4, 3.1, 5.5, 3.2, 3.4, 3.2, 4.4, 13.0, 4.5, 11.7, 3.5, 6.6, 3.9];
+const WIN_W = [0, 0.55, 0.7, 0.3, 0.6, 0.35, 0.5, 0.25, 0.45, 0.6, 0, 0.97, 0.14, 0.94, 0.07, 0.2, 0.36, 0.8];
+const WIN_H = [0, 0.45, 0.5, 0.25, 0.5, 0.35, 0.45, 0.2, 0.45, 0.5, 0, 0.4, 0.86, 0.82, 0.05, 0.74, 0.32, 0.22];
+const ALBEDO = [0.06, 0.2, 0.15, 0.2, 0.24, 0.3, 0.22, 0.3, 0.25, 0.17, 0.14, 0.13, 0.19, 0.1, 0.085, 0.18, 0.155, 0.17];
+const WARMTH = [0, 0.55, 0.25, 0.7, 0.9, 0.5, 0.75, 0.3, 0.8, 0.6, 0.45, 0.35, 0.6, 0.9, 0.95, 0.62, 0.48, 0.4];
 
 let shared: MeshStandardNodeMaterial | null = null;
 
@@ -111,7 +111,7 @@ export function getCityMaterial(): MeshStandardNodeMaterial {
   const stain = mx_noise_float(vec3(facade.x.mul(0.11), facade.y.mul(0.018), seed.mul(37.0))).mul(0.5).add(0.5);
   const slab = step(0.9, fract(facade.y.div(cellH))).mul(isWall);
   // Monolith panels: vertical joints as well, so a windowless face still shows its module at street level.
-  const isMono = step(13.5, styleF);
+  const isMono = step(13.5, styleF).mul(step(styleF, 14.5));
   const joint = step(0.965, fract(facade.x.div(cellW))).mul(isWall).mul(isMono).mul(float(1).sub(farFade));
   const wallC = vec3(albedo).mul(tint).mul(stain.mul(0.45).add(0.75)).mul(float(1).sub(slab.mul(0.35))).mul(float(1).sub(joint.mul(0.45)));
   const tinted = wallC.mul(vec3(1.0, mix(0.97, 1.0, warmth), mix(0.92, 1.02, float(1).sub(warmth))));

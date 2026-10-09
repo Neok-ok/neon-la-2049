@@ -9,6 +9,7 @@ import { spinnerGeometries, spinnerMaterials } from './spinnerModel';
 import { U } from '../atmosphere/uniforms';
 import type { CityQuery } from '../world/CityQuery';
 import { Rng, trueRandomSeed } from '../core/rng';
+import { advanceGraph, downtownGraph, edgeAround, poseOn } from './streetGraph';
 
 const T = TSL as any;
 
@@ -18,6 +19,14 @@ interface Car {
   speed: number;
   police: boolean;
   phase: number;
+  /** Low layer over the downtown street graph (74 m and 112 m, between the walkway decks). */
+  graph: boolean;
+  edge: number;
+  t: number;
+  gdir: 1 | -1;
+  alt: number;
+  side: number;
+  salt: number;
 }
 
 const _m = new Matrix4(), _q = new Quaternion(), _s = new Vector3(1, 1, 1), _f = new Vector3(0, 0, -1);
@@ -79,25 +88,60 @@ export class SpinnerTraffic {
     this.glow.name = 'traffic-glow';
   }
 
+  private blank(c: Car | null): Car {
+    return c ?? {
+      p: new Vector3(), dir: new Vector3(), speed: 0, police: false, phase: 0,
+      graph: false, edge: 0, t: 0, gdir: 1, alt: 80, side: 11, salt: 1,
+    };
+  }
+
+  /** Park a spinner on the street graph, offset so it clears the 5.6 m centre bridges. */
+  private onGraph(car: Car, x: number, z: number, low: boolean): boolean {
+    const g = downtownGraph(this.query.layout);
+    const hit = edgeAround(g, x, z, this.radius * 0.9, this.rng);
+    if (!hit) return false;
+    car.graph = true;
+    car.edge = hit.edge;
+    car.t = hit.t;
+    car.gdir = this.rng.chance(0.5) ? 1 : -1;
+    car.alt = low ? 74 : 112;
+    car.side = this.rng.chance(0.5) ? -11 : 11;
+    car.speed = this.rng.range(28, 52);
+    car.salt = this.rng.int(1, 8000);
+    const pose = poseOn(g, car.edge, car.t, car.gdir, car.side);
+    car.p.set(pose.x, this.query.groundHeight(pose.x, pose.z) + car.alt, pose.z);
+    car.dir.set(pose.fx, 0, pose.fz);
+    return true;
+  }
+
   private spawn(c: Car | null, cam: Vector3, initial: boolean): Car {
     const r = this.rng;
-    const car = c ?? { p: new Vector3(), dir: new Vector3(), speed: 0, police: false, phase: 0 };
+    const car = this.blank(c);
+    car.graph = false;
+    const here = this.query.district(cam.x, cam.z).id;
+    const downtown = here === 'dtla' || here === 'financial-megatowers' || here === 'civic-center';
+    const layer = r.next();
+    car.police = r.chance(0.18);
+    car.phase = r.next();
+    // Over downtown the 175–260 m band belongs to the avenue sky lanes, so free fliers stay above the fabric ceiling.
+    if (downtown && layer < 0.78) {
+      if (this.onGraph(car, cam.x, cam.z, layer < 0.4)) return car;
+    } else if (!downtown && layer < 0.22 && this.onGraph(car, cam.x, cam.z, layer < 0.1)) {
+      return car;
+    }
     const district = this.query.district(cam.x, cam.z);
     const bearing = r.chance(0.6) ? district.grid.bearingDeg : r.pick([0, 90, 38, 128]);
     const heading = ((bearing + r.pick([0, 90, 180, 270]) + r.range(-6, 6)) * Math.PI) / 180;
     car.dir.set(Math.sin(heading), 0, -Math.cos(heading));
     const dist = initial ? r.range(100, this.radius) : this.radius * r.range(0.85, 0.98);
-    // spawn upstream so the car flies through the view
     const side = r.range(-1, 1) * this.radius * 0.7;
     const perp = new Vector3(-car.dir.z, 0, car.dir.x);
     if (initial) car.p.set(cam.x + r.range(-1, 1) * dist, 0, cam.z + r.range(-1, 1) * dist);
     else car.p.set(cam.x - car.dir.x * dist + perp.x * side, 0, cam.z - car.dir.z * dist + perp.z * side);
-    const layer = r.next();
     const ground = this.query.groundHeight(car.p.x, car.p.z);
-    car.p.y = ground + (layer < 0.12 ? r.range(55, 90) : layer < 0.82 ? r.range(175, 260) : r.range(320, 520));
+    if (downtown) car.p.y = ground + r.range(340, 520);
+    else car.p.y = ground + (layer < 0.12 ? r.range(55, 90) : layer < 0.82 ? r.range(175, 260) : r.range(320, 520));
     car.speed = r.range(35, 85);
-    car.police = r.chance(0.18);
-    car.phase = r.next();
     return car;
   }
 
@@ -110,10 +154,20 @@ export class SpinnerTraffic {
     const warm = new Color(1.0, 0.85, 0.65), pol = new Color(0.9, 0.2, 0.25);
     for (let i = 0; i < n; i++) {
       const c = this.cars[i];
-      c.p.addScaledVector(c.dir, c.speed * dt);
-      // gentle bob
-      c.p.y += Math.sin(U.time.value * 0.5 + c.phase * 20) * 0.02;
-      if (this.query.insideLandmark(c.p.x, c.p.y, c.p.z, 30)) c.p.y += 120 * dt + 4;
+      if (c.graph) {
+        const g = downtownGraph(this.query.layout);
+        const step = advanceGraph(g, c.edge, c.t, c.gdir, c.speed * dt, c.salt);
+        c.edge = step.edge;
+        c.t = step.t;
+        c.gdir = step.dir;
+        const pose = poseOn(g, c.edge, c.t, c.gdir, c.side);
+        c.p.set(pose.x, this.query.groundHeight(pose.x, pose.z) + c.alt, pose.z);
+        c.dir.set(pose.fx, 0, pose.fz);
+      } else {
+        c.p.addScaledVector(c.dir, c.speed * dt);
+        c.p.y += Math.sin(U.time.value * 0.5 + c.phase * 20) * 0.02;
+        if (this.query.insideLandmark(c.p.x, c.p.y, c.p.z, 30)) c.p.y += 120 * dt + 4;
+      }
       const dx = c.p.x - cam.x, dz = c.p.z - cam.z;
       if (dx * dx + dz * dz > this.radius * this.radius * 1.1) this.spawn(c, cam, false);
       _q.setFromUnitVectors(_f, c.dir);
