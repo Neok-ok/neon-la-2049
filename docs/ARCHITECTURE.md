@@ -24,16 +24,17 @@ src/
     detail/registry.ts     main-thread LOD0 street-detail modules (lamps, props...)
     materials/             node materials: city fabric, neon signs, ocean, LUT helper
     holograms/             shared projectors: registry, scanline shader, spill, tiered field (see that folder's README)
-    landmarks/             hand-built landmark generators + sea walls + beacons + flares
+    landmarks/             landmark registry, LOD manager, Stage-1 blockout builders, sea walls, beacons, flares
     CityQuery.ts           collision / ground / "where am I". Frame loop reads a worker-filled LRU; cold calls still generate on the main thread
     query.worker.ts        packs colliders + block records for CityQuery
     queryPack.ts           shared collider filter (worker and main thread)
   districts/
     fabric-index.ts        worker-side registry entry: imports every archetype module
     detail-index.ts        main-thread registry entry: imports every detail module
-    _shared/               Stage-1 blockout archetypes + shared street lamps
+    landmark-index.ts      main-thread registry entry: imports every landmark builder module
+    _shared/               Stage-1 blockout archetypes, shared street lamps, the street kit and the megatower kit
   atmosphere/              uniforms, sky + height fog, day/night, weather state machine, rain/snow
-  vehicles/                spinner model + AI spinner traffic
+  vehicles/                spinner + transport models, AI spinner traffic, high sky lanes and holding patterns
   camera/                  fly / walk / cinematic controllers + CameraSystem (mode switching)
   input/                   keyboard/mouse/pointer-lock + touch joysticks
   audio/                   procedural rain/city/wind ambience (WebAudio, no samples, no music)
@@ -100,22 +101,48 @@ Far away, the window pattern fades to its mean emission (`fwidth` + distance), s
 
 ## Landmarks (`world/landmarks/`)
 
-Each landmark `type` in the JSON maps to a builder registered with `registerLandmarkType(type, builder)`. A builder returns
-`{ object, colliders }` and may add beacons (instanced, blinking, fog-piercing) or flares. Geometry goes through `GeoWriter` and uses
-the **same vertex layout and material as the fabric**, so a landmark gets windows, wetness and snow for free.
+Each landmark `type` in the JSON maps to a builder registered with `registerLandmarkType(type, builder)` (`registry.ts`). District
+modules register through `src/districts/landmark-index.ts` and override the Stage-1 blockouts, which `Landmarks.ts` registers with
+`registerLandmarkDefault`. A builder returns `{ object, colliders }` and may add beacons or flares. Geometry goes through `GeoWriter`
+and uses the **same vertex layout and material as the fabric**, so a landmark gets windows, wetness and snow for free.
 Sea walls are extruded along their polylines with a terraced profile, and the ocean is a single shape at `SEA_LEVEL_2049 = 6 m`.
+
+* **LODs** (`LandmarkLods.ts`): a builder can hand `env.lods.add(id, levels, dists, x, z, y0, y1, r)` up to three levels. Each frame
+  the manager measures the distance to the structure's vertical axis segment minus its footprint radius, scales the switch distances
+  by the tier's `landmarkLod` (0.6 / 0.8 / 1.0 / 1.35) and keeps 8% hysteresis. Hero towers switch at 1.9 / 6.5 km, skybridges at
+  1.5 / 5 km, the Wallace pyramid at 6 / 18 km and the old pyramids at 3.5 / 11 km. The last level is a mass-only proxy of about
+  100–200 triangles: at that range it is a silhouette in the fog and serves as the distant impostor. All levels share the city
+  material, so a switch never changes material or draw-call count. `stats().landmarkLods` reports `lod0/lod1/lod2` counts.
+* **Megatower kit**: heroes and the Wallace pyramid are built by `src/districts/_shared/megatower/` (see ADDING_A_DISTRICT §5).
+* **Beacons** (`Beacons.ts`): every aviation, pad, police and floodlight point in the city is one merged mesh of camera-facing additive
+  quads (one draw). The quad never shrinks below ~3 px (`MIN_ANGLE`); bigger far quads dim to keep the energy roughly constant.
+  Kinds: synchronised red flash (0.5 Hz, the whole skyline together), steady red, police red/blue, white double strobe, amber pad
+  pulse, warm floodlight. Lights see 30% of the fog optical depth and dim by day, except the strobes.
+* **Colliders**: landmark colliders sit in a 120 m bucket grid in `CityQuery` (`insideLandmark`, `landmarkTopAt`), so a few hundred
+  kit boxes cost the same per query as the old dozen.
 
 ## Atmosphere (`atmosphere/`)
 
 * `uniforms.ts`: one shared set of TSL uniforms (time, day/night, wetness, snow, fog, sky colours, sun, window-lit fraction, sign power, lightning) read by every material.
 * `SkyFog.ts`: background node (gradient, drifting cloud noise, sun glow, horizon blend) plus **analytic exponential height fog**.
-  The fog integral along the view ray lets tall landmarks rise above the smog.
+  The fog integral along the view ray lets tall landmarks rise above the smog. `fogDepth(ro, p)` returns the optical depth: the
+  exponential ground fog, a gaussian **inversion layer** (`layerDensity`, `layerY`, `layerW`; integrated with an erf approximation)
+  and uniform haze. Beacons and lane lights reuse it at a fraction.
 * `Atmosphere.ts`: day/night (30 real minutes per day by default), palette blending (night / dusk / day, smog and snow tints),
   hemisphere + sun lights, exposure, a procedural environment map, lightning.
 * `Weather.ts`: a Markov state machine (dry haze, overcast, drizzle, rain, heavy rain, fog, smog, snow, sleet) with timed,
   45 s cross-faded transitions. Wetness and snow cover accumulate and dry with time.
 * `Precipitation.ts`: rain streaks and snowflakes are GPU quads in a box that wraps around the camera. All motion happens in the vertex
   shader, wind drift is accumulated on the CPU, and the particle count is set per tier with `drawRange`.
+
+## Sky lanes (`vehicles/skyLanes.ts`, `vehicles/LaneTraffic.ts`)
+
+`buildSkyLanes(query)` derives the high traffic from the landmark JSON: grid-aligned avenues between the heroes, holding loops
+over crowns, LAPD and the Wallace apex, and long corridors. Each lane is sampled against the landmark collider grid and moved or
+dropped if it would hit a tower. `LaneTraffic` deals `quality.laneTraffic` cars over the lanes (platoons, weighted by length),
+moves them on the CPU and writes five instanced meshes: spinner body + lights, transport body + lights, and one glow billboard per
+car with a minimum pixel size. That is five draws in total whatever the count. `nearestTo()` feeds the positional flyby voice in
+`MarketAudio` (closing speed sets a Doppler pitch, transports are lower and heavier).
 
 ## Cameras (`camera/`)
 
@@ -141,12 +168,12 @@ All controllers implement `Controller { enter(pose), exit(), update(dt), pose() 
 
 ## Quality tiers (`core/quality.ts`)
 
-| Tier | Pixel ratio cap | LOD0 / near / far radius | Rain | Bloom | AI spinners | Workers |
-|---|---|---|---|---|---|---|
-| low | 1.0 | 320 / 900 / 4,500 m | 2.5 k | off | 24 | 2 |
-| medium | 1.5 | 450 / 1,300 / 7,000 m | 6 k | off | 50 | 2 |
-| high | 2.0 | 600 / 1,800 / 10,000 m | 14 k | on | 110 | 3 |
-| ultra | 3.0 | 800 / 2,400 / 14,000 m | 24 k | on | 180 | 4 |
+| Tier | Pixel ratio cap | LOD0 / near / far radius | Rain | Bloom | AI spinners | Lane cars | Landmark LOD scale | Workers |
+|---|---|---|---|---|---|---|---|---|
+| low | 1.0 | 320 / 900 / 4,500 m | 2.5 k | off | 24 | 60 | 0.6 | 2 |
+| medium | 1.5 | 450 / 1,300 / 7,000 m | 6 k | off | 50 | 140 | 0.8 | 2 |
+| high | 2.0 | 600 / 1,800 / 10,000 m | 14 k | on | 110 | 240 | 1.0 | 3 |
+| ultra | 3.0 | 800 / 2,400 / 14,000 m | 24 k | on | 180 | 380 | 1.35 | 4 |
 
 * **Auto-detect** picks the tier from the UA, the WebGL renderer string and WebGPU availability: software → low; iPhone with WebGPU → medium;
   other mobile → low (medium on 8-core, 8 GB devices); integrated GPU → medium; Apple silicon or discrete GPU → high.
@@ -164,7 +191,7 @@ One instanced draw for every projector, plus one draw for wet-street spill cards
 | high | 32 | plus a ghost slice on the nearest 5 | 4 | 12 |
 | ultra | 48 | plus a second ghost slice | 4 | 16 |
 
-Street-band panels cull at `lod0Radius * 0.9`. Tower-band panels cull at `nearRadius * 1.35`. Both radii are the streaming radii above, so a tier change moves holograms with the city. Off-screen panels do not spend the cap. Spill is a wrapped falloff on the shared city and kit materials (four fixed slots, no uniform array — those mis-index on WebGL2), not a shadow-casting light. The API for Stage 3 is [`src/world/holograms/README.md`](../src/world/holograms/README.md).
+Street-band panels cull at `lod0Radius * 0.9`. Tower-band panels cull at `nearRadius * 1.35`. Skyline-band panels (megatower crowns) cull at `max(nearRadius * 1.35, farRadius * 0.55)`. Both radii are the streaming radii above, so a tier change moves holograms with the city. Off-screen panels do not spend the cap. Spill is a wrapped falloff on the shared city and kit materials (four fixed slots, no uniform array — those mis-index on WebGL2), not a shadow-casting light. The API for Stage 3 is [`src/world/holograms/README.md`](../src/world/holograms/README.md).
 
 ### iPhone performance budget (target: iPhone 13+ in Safari, medium tier, 30–60 fps)
 
@@ -189,8 +216,8 @@ the global medium budget, not the two-batch guide.
 &webgl=1 &hud=1 &ui=0 &freeze=1 &touch=1 &refl=0|1`
 
 `window.__nla` (console and automation): `isIdle()`, `setMode(m)`, `setPose(x,y,z,yaw°,pitch°)`, `streetView(idOrX, z?, along?)`,
-`marketView('street'|'interior'|'crowd'|'roof'|'bibi')`, `holoView('street'|'aerial'|'cine')`, `holoSpec(id)`, `setTime(h)`, `setWeather(id)`, `cut()`, `holdShot(on)`, `stats()`,
-`geoToLocal(lat,lon)`, `app`. `stats()` includes draw calls, triangles, crowd count, hologram panel count and query-worker counters.
+`marketView('street'|'interior'|'crowd'|'roof'|'bibi')`, `holoView('street'|'aerial'|'cine')`, `megaView('approach'|'skyline'|'street'|'lanes'|'crown')`, `holoSpec(id)`, `setTime(h)`, `setWeather(id)`, `cut()`, `holdShot(on)`, `stats()`,
+`geoToLocal(lat,lon)`, `app`. `stats()` includes draw calls, triangles, crowd count, hologram panel count, query-worker counters, lane cars and lanes, landmark LOD levels and the beacon count.
 
 Keys: `1/2/3` fly/walk/cinematic, `F` toggle fly↔walk, `V` cockpit, `E` sit / stand at a market stool (walk mode; in fly mode `E` is still up),
 `N` next shot, `H` HUD, `M` mute, `[ ]` time −/+ 1 h, `B` next weather. The iPhone joystick has no sit button.

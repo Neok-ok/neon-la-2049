@@ -14,6 +14,37 @@ const fogColorFor = (dir: any) => {
   return (U.fogColor as any).add(U.sunColor.mul(sunScatter)).add(U.fogColor.mul(lowGlow)).add(vec3(U.lightning.mul(0.5)));
 };
 
+/** erf(x), Winitzki's approximation (max error ~1e-4). */
+const erf = (x: any) => {
+  const x2 = x.mul(x);
+  const a = 0.147;
+  const k = x2.mul(a).add(4 / Math.PI).div(x2.mul(a).add(1.0));
+  return T.sign(x).mul(T.sqrt(float(1.0).sub(exp(x2.mul(k).negate()))));
+};
+
+/**
+ * Fog optical depth from `ro` to `p` (call inside a TSL Fn): exponential height fog, a gaussian smog
+ * inversion layer (the flat brown sea the megatowers and the pyramid rise out of) and uniform haze.
+ * Lights and holograms use a fraction of it so they read through the smog like the film's beacons.
+ */
+export const fogDepth = (ro: any, p: any) => {
+  const d = p.sub(ro);
+  const dist = length(d);
+  const rdY = d.y.div(max(dist, 0.001));
+  const b = U.fogFalloff;
+  const tt = clamp(b.mul(rdY).mul(dist), -60.0, 60.0);
+  const integ = select(abs(tt).greaterThan(0.0001), float(1.0).sub(exp(tt.negate())).div(b.mul(rdY)), dist);
+  const ground = U.fogDensity.mul(exp(b.mul(ro.y).negate().max(-60.0))).mul(integ);
+  // ∫ exp(-((y(t) - Y) / W)²) dt along the ray, analytic via erf; near-horizontal rays use the midpoint.
+  const u0 = ro.y.sub(U.layerY).div(U.layerW);
+  const u1 = p.y.sub(U.layerY).div(U.layerW);
+  const du = u1.sub(u0);
+  const um = u0.add(u1).mul(0.5);
+  const slab = select(abs(du).greaterThan(0.02), erf(u1).sub(erf(u0)).div(du).mul(Math.sqrt(Math.PI) / 2), exp(um.mul(um).negate()));
+  const layer = U.layerDensity.mul(dist).mul(slab);
+  return ground.add(layer).add(U.haze.mul(dist));
+};
+
 export function installSkyAndFog(scene: Scene): void {
   const s = scene as any;
 
@@ -35,14 +66,7 @@ export function installSkyAndFog(scene: Scene): void {
   })();
 
   const factor = Fn(() => {
-    const ro = cameraPosition;
-    const d = positionWorld.sub(ro);
-    const dist = length(d);
-    const rdY = d.y.div(max(dist, 0.001));
-    const b = U.fogFalloff;
-    const tt = clamp(b.mul(rdY).mul(dist), -60.0, 60.0);
-    const integ = select(abs(tt).greaterThan(0.0001), float(1.0).sub(exp(tt.negate())).div(b.mul(rdY)), dist);
-    const amount = U.fogDensity.mul(exp(b.mul(ro.y).negate().max(-60.0))).mul(integ).add(U.haze.mul(dist));
+    const amount = fogDepth(cameraPosition, positionWorld);
     return clamp(float(1.0).sub(exp(amount.negate())), 0.0, 1.0);
   })();
 

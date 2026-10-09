@@ -11,6 +11,7 @@ import type { QueryWorkerRequest, QueryWorkerResponse } from './query.worker';
 
 export const QUERY_CELL = 500;
 const BUCKET = 50;
+const EXTRA_BUCKET = 120;
 
 export interface Collider {
   x: number;
@@ -96,6 +97,8 @@ export class CityQuery {
   readonly layout: CityLayout = getLayout();
   private cells = new Map<string, Cell>();
   private extra: Collider[] = [];
+  /** Landmark colliders bucketed on a coarse grid (megatower kits register hundreds). */
+  private extraGrid = new Map<number, Collider[]>();
   private maxCells = 48;
   private worker: Worker | null = null;
   private workerDead = false;
@@ -126,7 +129,47 @@ export class CityQuery {
 
   /** Landmarks register their own coarse colliders (boxes) here. */
   addColliders(list: Array<Omit<Collider, 'c' | 's'> & { yaw: number }>): void {
-    for (const b of list) this.extra.push({ ...b, c: Math.cos(b.yaw), s: Math.sin(b.yaw) });
+    for (const b of list) {
+      const cl: Collider = { x: b.x, z: b.z, hw: b.hw, hd: b.hd, y0: b.y0, top: b.top, c: Math.cos(b.yaw), s: Math.sin(b.yaw) };
+      this.extra.push(cl);
+      const r = Math.max(cl.hw, cl.hd) * 1.42;
+      const i0 = Math.floor((cl.x - r) / EXTRA_BUCKET), i1 = Math.floor((cl.x + r) / EXTRA_BUCKET);
+      const j0 = Math.floor((cl.z - r) / EXTRA_BUCKET), j1 = Math.floor((cl.z + r) / EXTRA_BUCKET);
+      for (let i = i0; i <= i1; i++)
+        for (let j = j0; j <= j1; j++) {
+          const k = i * 100003 + j;
+          let arr = this.extraGrid.get(k);
+          if (!arr) this.extraGrid.set(k, (arr = []));
+          arr.push(cl);
+        }
+    }
+  }
+
+  /** Landmark colliders whose bucket overlaps the square (x ± r, z ± r). Each collider at most once. */
+  private nearExtra(x: number, z: number, r: number, cb: (c: Collider) => boolean | void): void {
+    const i0 = Math.floor((x - r) / EXTRA_BUCKET), i1 = Math.floor((x + r) / EXTRA_BUCKET);
+    const j0 = Math.floor((z - r) / EXTRA_BUCKET), j1 = Math.floor((z + r) / EXTRA_BUCKET);
+    if (i0 === i1 && j0 === j1) {
+      const arr = this.extraGrid.get(i0 * 100003 + j0);
+      if (arr) for (const cl of arr) if (cb(cl) === true) return;
+      return;
+    }
+    const seen = new Set<Collider>();
+    for (let i = i0; i <= i1; i++)
+      for (let j = j0; j <= j1; j++) {
+        const arr = this.extraGrid.get(i * 100003 + j);
+        if (!arr) continue;
+        for (const cl of arr) {
+          if (seen.has(cl)) continue;
+          seen.add(cl);
+          if (cb(cl) === true) return;
+        }
+      }
+  }
+
+  /** Number of landmark colliders (debug stats). */
+  get landmarkColliderCount(): number {
+    return this.extra.length;
   }
 
   /**
@@ -185,12 +228,24 @@ export class CityQuery {
 
   /** Cheap test against landmark colliders only (no fabric generation). */
   insideLandmark(x: number, y: number, z: number, pad = 0): boolean {
-    for (const cl of this.extra) {
-      if (y < cl.y0 - pad || y > cl.top + pad) continue;
+    let hit = false;
+    this.nearExtra(x, z, pad, (cl) => {
+      if (y < cl.y0 - pad || y > cl.top + pad) return;
       const [lx, lz] = local(cl, x, z);
-      if (Math.abs(lx) <= cl.hw + pad && Math.abs(lz) <= cl.hd + pad) return true;
-    }
-    return false;
+      if (Math.abs(lx) <= cl.hw + pad && Math.abs(lz) <= cl.hd + pad) return (hit = true);
+    });
+    return hit;
+  }
+
+  /** Highest landmark collider top under (x, z) within `pad` (0 if none). Spinner lanes use it to stay clear. */
+  landmarkTopAt(x: number, z: number, pad = 0): number {
+    let best = 0;
+    this.nearExtra(x, z, pad, (cl) => {
+      if (cl.top <= best) return;
+      const [lx, lz] = local(cl, x, z);
+      if (Math.abs(lx) <= cl.hw + pad && Math.abs(lz) <= cl.hd + pad) best = cl.top;
+    });
+    return best;
   }
 
   /** Tallest fabric box in the region is ~300 m; above this only landmarks can be hit. */
@@ -401,9 +456,9 @@ export class CityQuery {
             for (const cl of arr) if (!seen.has(cl)) { seen.add(cl); cb(cl); }
           }
       }
-    for (const cl of this.extra) {
+    this.nearExtra(x, z, r, (cl) => {
       const rr = Math.max(cl.hw, cl.hd) * 1.42 + r;
       if (Math.abs(cl.x - x) < rr && Math.abs(cl.z - z) < rr) cb(cl);
-    }
+    });
   }
 }

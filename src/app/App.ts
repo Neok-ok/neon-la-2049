@@ -11,6 +11,8 @@ import { ChunkStreamer } from '../world/streaming/ChunkStreamer';
 import { CityQuery } from '../world/CityQuery';
 import { Landmarks } from '../world/landmarks/Landmarks';
 import { localToGeo, geoToLocal } from '../world/geo';
+import { LaneTraffic } from '../vehicles/LaneTraffic';
+import { megaCamera, type MegaView } from '../districts/financial-megatowers/view';
 import { SpinnerTraffic } from '../vehicles/SpinnerTraffic';
 import { Input } from '../input/Input';
 import { TouchControls } from '../input/TouchControls';
@@ -58,6 +60,7 @@ export class App {
   streamer!: ChunkStreamer;
   atmosphere!: Atmosphere;
   traffic!: SpinnerTraffic;
+  lanes!: LaneTraffic;
   rain!: Precipitation;
   snow!: Precipitation;
   cams!: CameraSystem;
@@ -69,6 +72,7 @@ export class App {
   readonly marketAudio: MarketAudio;
   readonly crowd = new CrowdField();
   holos!: HologramField;
+  landmarks!: Landmarks;
   readonly haze = new GroundHaze();
   readonly wet: WetReflector;
   private readonly software: boolean;
@@ -130,12 +134,13 @@ export class App {
     }
 
     this.streamer = new ChunkStreamer(this.scene, this.quality);
-    const landmarks = new Landmarks(this.query);
-    this.scene.add(landmarks.root);
+    this.landmarks = new Landmarks(this.query);
+    this.scene.add(this.landmarks.root);
     installShowcase(this.query.layout);
     this.holos = new HologramField(this.query.layout);
     this.scene.add(this.holos.group);
     this.traffic = new SpinnerTraffic(this.scene, this.query, settingsFor('ultra').traffic);
+    this.lanes = new LaneTraffic(this.scene, this.query, settingsFor('ultra').laneTraffic);
     const ultra = settingsFor('ultra');
     this.rain = new Precipitation('rain', ultra.rainCount);
     this.snow = new Precipitation('snow', ultra.snowCount);
@@ -310,8 +315,10 @@ export class App {
     const foci = [cam];
     if (this.cams.mode === 'cine' && this.cams.cine.prefetch) foci.push(this.cams.cine.prefetch);
     this.streamer.update(foci);
+    this.landmarks.update(cam, this.quality.landmarkLod);
     this.holos.update(this.camera, this.quality, this.streamer.billboards());
     this.traffic.update(dt, this.camera, this.quality.traffic);
+    this.lanes.update(dt, this.camera, this.quality.laneTraffic);
     this.atmosphere.update(dt, this.elapsed, this.renderer);
     this.crowd.update(dt, cam.x, cam.z, this.query, this.quality, this.atmosphere.weather.params.rain);
     this.haze.update(cam.x, cam.z, ground, alt, this.quality.tier);
@@ -343,7 +350,7 @@ export class App {
       inMarket,
       alt,
       cook,
-      this.traffic.nearestTo(cam.x, cam.y, cam.z),
+      this.nearestSpinner(cam),
     );
 
     if (this.pipeline) this.pipeline.render();
@@ -377,6 +384,15 @@ export class App {
       ['sky', `${a.dayNight.label} · ${a.weather.label} · wet ${a.weather.wetness.toFixed(2)}`],
       ['mode', this.cams.mode === 'cine' ? `cinematic · ${this.cams.cine.label}` : this.cams.mode],
     ];
+  }
+
+  /** Closest street-layer or sky-lane spinner, for the positional flyby voice. */
+  private nearestSpinner(cam: Vector3) {
+    const a = this.traffic.nearestTo(cam.x, cam.y, cam.z);
+    const b = this.lanes.nearestTo(cam.x, cam.y, cam.z);
+    if (!a) return b;
+    if (!b || a.dist <= b.dist) return { ...a, closing: 0, heavy: false };
+    return b;
   }
 
   /** Debug / automation hooks (screenshots, console). */
@@ -444,6 +460,16 @@ export class App {
         if (kind === 'street') this.cams.walk.pitch = pitch;
         return true;
       },
+      /** Stage 3 cameras: approach (Wallace), skyline, street (looking up MT-1), lanes, crown. */
+      megaView: (kind: MegaView) => {
+        const p = megaCamera(this.query.layout, kind, this.lanes.lanes);
+        if (!p) return false;
+        this.cams.setMode(p.mode);
+        if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
+        this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
+        if (p.mode === 'walk') this.cams.walk.pitch = p.pitch;
+        return true;
+      },
       marketView: (kind: MarketView) => {
         const p = marketCamera(this.query.layout, kind);
         if (!p) return false;
@@ -467,6 +493,10 @@ export class App {
         holo: this.holos.shown,
         holoCandidates: this.holos.candidates,
         holoCards: this.holos.cards,
+        laneCars: this.lanes.count,
+        lanes: this.lanes.lanes.length,
+        landmarkLods: this.landmarks.lods.active.join('/'),
+        beacons: this.landmarks.beacons.count,
         querySyncs: this.query.syncCount,
         queryPending: this.query.pending,
         refl: this.wet.enabled,

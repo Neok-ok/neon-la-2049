@@ -66,12 +66,12 @@
 <path d="M484.3,210.6 L650.3,221.6 L668.7,276.9 L465.8,265.9 Z" fill="#a03a8a" fill-opacity="0.55" stroke="#a03a8a" stroke-width="1.5"/>
 <path d="M189.1,354.3 L281.4,387.5 L373.6,476.0 L410.5,564.4 L456.6,719.2 L484.3,851.9 L438.2,863.0 L419.7,763.4 L373.6,652.9 L314.6,531.2 L244.5,431.7 L161.5,374.2 Z" fill="#6e7a80" fill-opacity="0.55" stroke="#6e7a80" stroke-width="1.5"/>
 <path d="M613.4,896.1 L890.1,896.1 L890.1,1006.7 L724.1,1050.9 L613.4,1073.1 Z" fill="#3a5a6a" fill-opacity="0.55" stroke="#3a5a6a" stroke-width="1.5"/>
-<path d="M687.2,323.4 L707.5,330.0 L694.6,354.3 L678.0,358.7 L668.7,343.3 Z" fill="#6a7fb0" fill-opacity="0.55" stroke="#6a7fb0" stroke-width="1.5"/>
+<path d="M687.2,323.4 L707.5,330.0 L694.6,354.3 L678.0,358.7 L668.7,343.3 Z" fill="#555" fill-opacity="0.55" stroke="#888" stroke-width="1.5"/>
 <path d="M711.2,323.4 L727.8,327.8 L724.1,343.3 L711.2,341.1 Z" fill="#8c8c9c" fill-opacity="0.55" stroke="#8c8c9c" stroke-width="1.5"/>
 <path d="M703.8,336.6 L716.7,341.1 L703.8,365.4 L690.9,361.0 Z" fill="#b04ad0" fill-opacity="0.55" stroke="#b04ad0" stroke-width="1.5"/>
 <path d="M727.8,338.8 L744.4,343.3 L742.5,387.5 L724.1,380.9 Z" fill="#7a5a3a" fill-opacity="0.55" stroke="#7a5a3a" stroke-width="1.5"/>
 <path d="M373.6,557.8 L465.8,557.8 L465.8,608.6 L373.6,608.6 Z" fill="#3a6a8a" fill-opacity="0.55" stroke="#3a6a8a" stroke-width="1.5"/>
-<path d="M716.7,338.8 L733.3,339.9 L731.4,352.1 L716.7,351.0 Z" fill="#d0457a" fill-opacity="0.55" stroke="#d0457a" stroke-width="1.5"/>
+<path d="M716.7,338.8 L733.3,339.9 L731.4,352.1 L716.7,351.0 Z" fill="#555" fill-opacity="0.55" stroke="#888" stroke-width="1.5"/>
 <path d="M923.3,754.6 L952.8,754.6 L952.8,778.9 L923.3,778.9 Z" fill="#c06a3a" fill-opacity="0.55" stroke="#c06a3a" stroke-width="1.5"/>
 <path d="M60.0,365.4 L96.9,365.4 L170.7,374.2 L216.8,398.5 L248.2,431.7 L277.7,464.9 L299.8,498.1 L321.9,529.0 L336.7,557.8 L358.8,608.6 L379.1,652.9 L404.9,708.2 L427.1,763.4 L443.7,807.7 L443.7,851.9 L434.5,885.1 L410.5,918.2 L384.7,962.5 L410.5,1017.8 L465.8,1062.0 L521.2,1084.1 L594.9,1095.2 L641.1,1095.2 L687.2,1084.1 L724.1,1050.9 L779.4,1017.8 L825.5,995.6 L871.6,980.2 L936.2,1006.7 L982.3,1039.9 L1056.1,1095.2 L1093.0,1139.4 L1111.4,1161.5 L1111.4,1338.4 L-124.5,1338.4 L-124.5,365.4 Z" fill="#0c1a26" stroke="#2a4a66" stroke-width="1"/>
 <path d="M650.3,111.1 L724.1,232.7 L746.2,299.0 L744.4,365.4 L742.5,431.7 L807.1,509.1 L834.7,608.6 L834.7,741.3 L788.6,874.0 L788.6,973.5" fill="none" stroke="#3a6a8a" stroke-width="2.2" stroke-linejoin="round"/>
@@ -124,25 +124,54 @@
 <rect x="743.2" y="495.1" width="6" height="6" transform="rotate(0 746.2 498.1)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
 <circle cx="746.2" cy="498.1" r="2.5" fill="#ff9a2e"/>
 <text x="746.2" y="498.1" dx="6" dy="-4" fill="#ffcf8a" font-size="11">Wallace Tower C (1100 m)</text>
+<rect x="858.9000000000001" y="461.3" width="23.6" height="23.6" transform="rotate(45 870.7 473.1)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<circle cx="870.7" cy="473.1" r="2.5" fill="#ff9a2e"/>
+<text x="870.7" y="473.1" dx="6" dy="-4" fill="#ffcf8a" font-size="11">Old Corporate Pyramid (north) (1000 m)</text>
+<rect x="882.6" y="482.8" width="21.6" height="21.6" transform="rotate(45 893.4 493.6)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<circle cx="893.4" cy="493.6" r="2.5" fill="#ff9a2e"/>
+<text x="893.4" y="493.6" dx="6" dy="-4" fill="#ffcf8a" font-size="11">Old Corporate Pyramid (south) (860 m)</text>
 <rect x="715.0799999999999" y="338.1" width="1.44" height="2" transform="rotate(38 715.8 339.1)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
 <circle cx="715.8" cy="339.1" r="2.5" fill="#ff9a2e"/>
 <text x="715.8" y="339.1" dx="6" dy="-4" fill="#ffcf8a" font-size="11">LAPD Headquarters (2049) (216 m)</text>
 <rect x="718.65" y="334.65000000000003" width="0.9" height="0.9" transform="rotate(38 719.1 335.1)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
 <circle cx="719.1" cy="335.1" r="2.5" fill="#ff9a2e"/>
 <text x="719.1" y="335.1" dx="6" dy="-4" fill="#ffcf8a" font-size="11">Old City Hall (heritage) (138 m)</text>
-<rect x="693.82" y="338.16" width="1.56" height="1.28" transform="rotate(38 694.6 338.8)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<rect x="693.1" y="337.84000000000003" width="3" height="1.92" transform="rotate(38 694.6 338.8)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
 <circle cx="694.6" cy="338.8" r="2.5" fill="#ff9a2e"/>
-<text x="694.6" y="338.8" dx="6" dy="-4" fill="#ffcf8a" font-size="11">Financial District megatowers (280–420 m)</text>
-<rect x="688.3" y="344.3" width="1.4" height="1.4" transform="rotate(38 689.0 345.0)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<text x="694.6" y="338.8" dx="6" dy="-4" fill="#ffcf8a" font-size="11">Financial District megatowers (520–1,020 m)</text>
+<rect x="687.9" y="343.9" width="2.2" height="2.2" transform="rotate(38 689.0 345.0)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
 <circle cx="689.0" cy="345.0" r="2.5" fill="#ff9a2e"/>
-<rect x="700.94" y="332.02000000000004" width="1.32" height="1.16" transform="rotate(38 701.6 332.6)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<rect x="700.3000000000001" y="331.3" width="2.6" height="2.6" transform="rotate(38 701.6 332.6)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
 <circle cx="701.6" cy="332.6" r="2.5" fill="#ff9a2e"/>
-<rect x="683.28" y="350.18" width="1.24" height="1.24" transform="rotate(38 683.9 350.8)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<rect x="682.6999999999999" y="349.6" width="2.4" height="2.4" transform="rotate(38 683.9 350.8)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
 <circle cx="683.9" cy="350.8" r="2.5" fill="#ff9a2e"/>
-<rect x="688.66" y="327.79999999999995" width="1.48" height="1.2" transform="rotate(38 689.4 328.4)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<rect x="687.6999999999999" y="327.59999999999997" width="3.4" height="1.6" transform="rotate(38 689.4 328.4)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
 <circle cx="689.4" cy="328.4" r="2.5" fill="#ff9a2e"/>
-<rect x="694" y="355.94" width="1.2" height="1.12" transform="rotate(38 694.6 356.5)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<rect x="693.6" y="355.8" width="2" height="1.4" transform="rotate(38 694.6 356.5)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
 <circle cx="694.6" cy="356.5" r="2.5" fill="#ff9a2e"/>
+<rect x="675.8" y="347.40000000000003" width="2.4" height="1.4" transform="rotate(38 677.0 348.1)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<circle cx="677.0" cy="348.1" r="2.5" fill="#ff9a2e"/>
+<rect x="699.0400000000001" y="339.98" width="1.32" height="1.24" transform="rotate(38 699.7 340.6)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<circle cx="699.7" cy="340.6" r="2.5" fill="#ff9a2e"/>
+<text x="699.7" y="340.6" dx="6" dy="-4" fill="#ffcf8a" font-size="11">2019-era Ziggurat Tower A (420 m)</text>
+<rect x="684.48" y="334.72" width="1.24" height="1.16" transform="rotate(38 685.1 335.3)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<circle cx="685.1" cy="335.3" r="2.5" fill="#ff9a2e"/>
+<text x="685.1" y="335.3" dx="6" dy="-4" fill="#ffcf8a" font-size="11">2019-era Ziggurat Tower B (360 m)</text>
+<rect x="690.3199999999999" y="352.02000000000004" width="1.16" height="1.16" transform="rotate(38 690.9 352.6)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<circle cx="690.9" cy="352.6" r="2.5" fill="#ff9a2e"/>
+<text x="690.9" y="352.6" dx="6" dy="-4" fill="#ffcf8a" font-size="11">2019-era Ziggurat Tower C (310 m)</text>
+<rect x="696.88" y="339.58" width="0.44" height="0.24" transform="rotate(38 697.1 339.7)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<circle cx="697.1" cy="339.7" r="2.5" fill="#ff9a2e"/>
+<text x="697.1" y="339.7" dx="6" dy="-4" fill="#ffcf8a" font-size="11">Skybridge MT-1 / Ziggurat A (342 m)</text>
+<rect x="686.14" y="347.76" width="0.52" height="0.28" transform="rotate(38 686.4 347.9)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<circle cx="686.4" cy="347.9" r="2.5" fill="#ff9a2e"/>
+<text x="686.4" y="347.9" dx="6" dy="-4" fill="#ffcf8a" font-size="11">Skybridge MT-2 / MT-4 (436 m)</text>
+<rect x="686.98" y="331.68" width="0.44" height="0.24" transform="rotate(38 687.2 331.8)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<circle cx="687.2" cy="331.8" r="2.5" fill="#ff9a2e"/>
+<text x="687.2" y="331.8" dx="6" dy="-4" fill="#ffcf8a" font-size="11">Skybridge MT-5 / Ziggurat B (336 m)</text>
+<rect x="697.82" y="335.53999999999996" width="0.56" height="0.32" transform="rotate(38 698.1 335.7)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<circle cx="698.1" cy="335.7" r="2.5" fill="#ff9a2e"/>
+<text x="698.1" y="335.7" dx="6" dy="-4" fill="#ffcf8a" font-size="11">Skybridge MT-1 / MT-3 (560 m)</text>
 <rect x="935.7" y="765.9499999999999" width="4.6" height="1.7" transform="rotate(0 938.0 766.8)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
 <circle cx="938.0" cy="766.8" r="2.5" fill="#ff9a2e"/>
 <text x="938.0" y="766.8" dx="6" dy="-4" fill="#ffcf8a" font-size="11">K&#39;s Apartment Megabuilding (185 m)</text>

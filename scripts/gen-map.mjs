@@ -84,7 +84,7 @@ for (const l of L.landmarks) {
   out.push(`<circle cx="${cx}" cy="${cz}" r="2.5" fill="#ff9a2e"/>`);
   const zoomed = M_PER_PX < 20;
   if (zoomed || !l.id.startsWith('megatower-') || l.id === 'megatower-1') {
-    const label = !zoomed && l.id === 'megatower-1' ? 'Financial District megatowers (280–420 m)' : `${l.name} (${l.height} m)`;
+    const label = !zoomed && l.id === 'megatower-1' ? 'Financial District megatowers (520–1,020 m)' : `${l.name} (${l.height} m)`;
     out.push(`<text x="${cx}" y="${cz}" dx="6" dy="-4" fill="#ffcf8a" font-size="11">${esc(label)}</text>`);
   }
 }

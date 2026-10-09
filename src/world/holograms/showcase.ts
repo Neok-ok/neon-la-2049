@@ -110,8 +110,9 @@ function gapAt(layout: CityLayout, boxes: Box[], x: number, z: number): number {
     nearest = Math.min(nearest, Math.hypot(ox, oz));
   }
   for (const l of layout.landmarks) {
-    if (l.type !== 'megatower') continue;
-    const reach = Math.max(l.baseWidth, l.baseDepth ?? l.baseWidth) * 0.55;
+    if (l.type !== 'megatower' && l.type !== 'legacy-tower') continue;
+    // Stage 3 heroes: podium, buttresses and arcade fill most of the reserve circle
+    const reach = Math.max(l.reserveRadius * 0.92, Math.max(l.baseWidth, l.baseDepth ?? l.baseWidth) * 0.55);
     nearest = Math.min(nearest, Math.hypot(l.x - x, l.z - z) - reach);
   }
   return nearest;
@@ -124,27 +125,27 @@ function gapAt(layout: CityLayout, boxes: Box[], x: number, z: number): number {
 function placeCanyon(layout: CityLayout): void {
   const tower = layout.landmarkById('megatower-1');
   if (!tower) return;
-  const x0 = Math.floor((tower.x - 200) / 500) * 500;
-  const z0 = Math.floor((tower.z - 200) / 500) * 500;
+  const x0 = Math.floor((tower.x - 360) / 500) * 500;
+  const z0 = Math.floor((tower.z - 360) / 500) * 500;
   const boxes: Box[] = [];
   for (const dx of [0, 500]) {
     for (const dz of [0, 500]) boxes.push(...generateFabric(layout, x0 + dx, z0 + dz, 500).boxes);
   }
   let best: { x: number; z: number; score: number } | null = null;
-  for (let x = tower.x - 280; x <= tower.x + 280; x += 20) {
-    for (let z = tower.z - 280; z <= tower.z + 280; z += 20) {
+  for (let x = tower.x - 360; x <= tower.x + 360; x += 20) {
+    for (let z = tower.z - 360; z <= tower.z + 360; z += 20) {
       if (layout.districtAt(x, z).id !== 'financial-megatowers') continue;
       if (layout.isReserved(x, z, 8)) continue;
       const gap = gapAt(layout, boxes, x, z);
       const dist = Math.hypot(x - tower.x, z - tower.z);
-      if (gap < 28 || dist < 100 || dist > 240) continue;
-      // Prefer a wide gap about 150 m from the tower, so the shaft reads behind the figure.
-      const score = gap - Math.abs(dist - 150) * 0.2;
+      if (gap < 28 || dist < 160 || dist > 340) continue;
+      // Prefer a wide gap about 210 m out (just past the podium), so the kilometre shaft reads behind the figure.
+      const score = gap - Math.abs(dist - 210) * 0.2;
       if (!best || score > best.score) best = { x, z, score };
     }
   }
-  const px = best?.x ?? tower.x + 140;
-  const pz = best?.z ?? tower.z + 40;
+  const px = best?.x ?? tower.x + 200;
+  const pz = best?.z ?? tower.z + 60;
   const ground = layout.heightAt(px, pz);
   const tx = tower.x - px;
   const tz = tower.z - pz;

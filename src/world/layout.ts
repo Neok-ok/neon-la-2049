@@ -39,6 +39,9 @@ export interface Landmark {
   crownHeight?: number;
   reserveRadius: number;
   confidence?: string;
+  /** Skybridges: ids of the two landmarks they join. `height` is the deck height. */
+  from?: string;
+  to?: string;
 }
 
 export interface Polyline {

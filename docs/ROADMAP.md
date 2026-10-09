@@ -42,13 +42,28 @@ The first fully dressed district, and the kit later districts should copy (`src/
 
 What the next district should not copy blindly: the per-chunk draw-call exception (kit opaque + fade + steam + pools, documented in the district README), and the fact that crowds, seats and the reflector are wired from `App.ts` rather than a generic district hook. Generalise those when the second dressed district needs them.
 
-## Stage 3 — Financial District Megatowers
-`financial-megatowers`: real tower silhouettes for the six landmark megatowers (setbacks, crowns, masts, fins), podium plazas, sky
-bridges, more giant holograms on the new crowns (register them with the X4 API — do not add a second shader), the high spinner traffic layer with lanes and holding patterns.
+## Stage 3 — Financial District Megatowers ✅
+**District:** `financial-megatowers` · **Landmarks:** `megatower-1…7`, `legacy-tower-1…3`, `skybridge-1…4`, `wallace-pyramid` (hero model), `old-pyramid-north/south`
+
+* **Megatower kit** (`src/districts/_shared/megatower/`): one deterministic plan → sinks for real geometry (`GeoSink`) or fabric boxes (`FabricSink`). Podiums, setbacks, mechanical floors, fins, pilasters, raking buttresses, seven crown types, masts, pads, skybridges, terraced pyramids, hologram and sign slots, aviation lights.
+* Ten hand-placed heroes from 310 m to 1,020 m with three LODs each, four skybridges, and kit towers (165–305 m) on half the fabric lots of the district's new archetype.
+* The Wallace pyramid as a hero model (21 battered terraces, slot channels, a warm apex lantern, mast, monumental entrance; LODs at 6 / 18 km) and two dormant 1982-style pyramids in the refinery belt.
+* Landmark registry + LOD manager, screen-size billboard beacons for every aviation light, a landmark collider grid.
+* High sky lanes: avenues, holding patterns, corridors to Wallace and beyond; police, civilian and a new 14 m transport hauler, platoons, blinking lights, Doppler flybys.
+* A gaussian smog inversion layer in the fog, tuned per weather.
+* Crown, shaft, gap and podium holograms through `registerHologram` (new `skyline` band).
+* `__nla.megaView(...)` cameras and the Stage 3 screenshot set.
+
+What the next stages should know: heroes are landmarks, not fabric, so the 320 m fabric ceiling still holds. Hologram slot ids are stable (`${id}-holo-a/-b/-crown/-gap/-i`). The kit's detail 3 only exists on landmark LOD0. Fabric towers are box-only.
 
 ## Stage 4 — Downtown Megablocks
 `dtla`: top-heavy brutalist megablocks with distinct façade families (ribbed, coffered, panelled), rooftop infrastructure (tanks,
 antennae, pads), mid-level walkways, a street layer with cars, steam vents and kiosks.
+
+* Reuse the megatower kit through `FabricSink` for the occasional 200–300 m tower; write the megablock forms (cantilevered upper masses, slab-on-podium) as new kit plans rather than another archetype of raw boxes, so Stages 11, 12 and 20 can share them.
+* Megablocks must still read against 0.5–1 km neighbours: keep the 90–250 m band, add rooftop clutter and lit mid-level walkways so the canyon has a top.
+* Extend the sky lanes down into this district's avenues (175–260 m layer) and hand the low layer (`SpinnerTraffic`) a real lane graph.
+* Street level under the megatowers (MT-1/MT-5 podium plazas, the skybridge shadows) is in this district's polygon on two sides; dress the shared edges.
 
 ## Stage 5 — Civic Center and LAPD Headquarters
 `civic-center`: LAPD HQ in full detail (landing deck, lobby entrance, police spinner pads with traffic), City Hall restoration,
@@ -59,8 +74,10 @@ monumental plazas, the steps where K walks. Optional interior: LAPD lobby.
 footbridge (an original giant pink hologram dancer, not a copy), the Bradbury exterior.
 
 ## Stage 7 — Wallace Precinct
-`wallace-vernon` + `wallace-pyramid` + satellites: pyramid surface detail (panel lines, lit slits, the sealed monumental entrance),
-Wallace factories and tanks, the approach road, amber interior glow at the top. Optional interior: the water-lit atrium (scaled-down).
+`wallace-vernon` + satellites: the pyramid's hero model and its warm apex lantern already exist (Stage 3, `wallace-vernon/pyramid.ts`).
+This stage adds close-range surface detail (panel lines, formwork, drainage, lit slit windows at human scale), a walkable sealed entrance
+plaza, the satellites rebuilt with the kit, Wallace factories, tanks and the approach road, freight spinner convoys into the precinct
+(extend `skyLanes.ts`), and the dormant old pyramids' surroundings. Optional interior: the water-lit atrium (scaled-down).
 
 ## Stage 8 — K's Megablock
 `k-megablock` + POI `k-apartment`: the slab, its harsh corridors, the street market at its feet, and **K's apartment interior**
@@ -104,11 +121,11 @@ and the El Segundo flare field in full.
 | **X1 Crowds** | The market shipped the first crowd (instanced coats, umbrellas, lane follow, cheap avoidance, tier counts). Generalise it: density from district data, more than two sidewalk loops, and a walk cycle that is more than a foot slide. | the market is the reference scene |
 | **X2 Ground traffic** | cars and trucks in streets and freeway trenches, traffic lights | |
 | **X3 Interiors framework** | The noodle bar is a recess in the street mesh, not a portal. A real interior stream (separate light, occluded exterior, door volumes) still has to be built before K's apartment and the LAPD lobby. | Stage 2 proved the walk camera can enter a soffit |
-| **X4 Holograms** | shared hologram system (giant animated figures, ad loops, scanline/flicker shader, light spill) | ✅ API in `src/world/holograms/README.md`. Showcase set is on the market lane, the six megatower faces, the financial avenue and two downtown billboards. Kind-2 panels under 140 m² stay the cheap sign. Stage 3/6/16 only call `registerHologram`. |
+| **X4 Holograms** | shared hologram system (giant animated figures, ad loops, scanline/flicker shader, light spill) | ✅ API in `src/world/holograms/README.md`. Showcase set is on the market lane, the megatower crowns, shafts and podiums (Stage 3), the financial avenue and two downtown billboards. Kind-2 panels under 140 m² stay the cheap sign. Stages 6/16 only call `registerHologram`. |
 | **X5 Audio** | Market bed is in (awning rain, murmur, sizzle, distant spinner), on the ambience bus, equal-power panners. Still to do: PA in invented languages, sea-wall surf, per-stall variety, and a bus that districts can register without editing `App.ts`. | no music |
 | **X6 Performance** | Frame-loop collision is now a worker with a sync fallback for cinematic queries and street spawn. Still open: GPU culling, interior mapping, shadows on high/ultra, and an iPhone profiling pass on device (the VM only has SwiftShader). | do this if a later district blows the 250-draw / 1.5 M budget |
 | **X7 Photo mode** | free camera, depth of field, film grain, screenshot export | |
 
 ## Suggested order
 
-Stage 2 and X4 are done. Next: 3 → 4 → 5 → 6 → (X1 only if a second district needs a crowd that is not the market's) → 8 → 7 → 10 → X2 → 11 → 12 → 9 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21, with X3/X5/X6/X7 where they unblock the next district. Stage 3 should add megatower holograms by calling `registerHologram`, not by replacing the field.
+Stages 2 and 3 and X4 are done. Next: 4 → 5 → 6 → (X1 only if a second district needs a crowd that is not the market's) → 8 → 7 → 10 → X2 → 11 → 12 → 9 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21, with X3/X5/X6/X7 where they unblock the next district. Later stages add holograms by calling `registerHologram`, not by replacing the field, and build anything taller than 320 m with the megatower kit as a landmark.

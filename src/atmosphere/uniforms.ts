@@ -19,6 +19,10 @@ export const U = {
   fogFalloff: uniform(1 / 320),
   /** altitude-independent haze (per meter) */
   haze: uniform(0.00004),
+  /** smog inversion layer: peak density (1/m), centre height and gaussian half-width (m) */
+  layerDensity: uniform(0.0008),
+  layerY: uniform(260),
+  layerW: uniform(115),
   fogColor: uniform(new Color(0.1, 0.08, 0.07)),
   skyZenith: uniform(new Color(0.02, 0.025, 0.035)),
   skyHorizon: uniform(new Color(0.12, 0.09, 0.07)),

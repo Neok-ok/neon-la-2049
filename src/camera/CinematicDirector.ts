@@ -29,7 +29,10 @@ const TYPE_WEIGHTS: Record<ShotType, number> = {
 
 const LANDMARK_WEIGHTS: Record<string, number> = {
   'wallace-pyramid': 4, 'lapd-hq': 3, 'k-megablock-tower': 2, 'lax-spaceport-towers': 1, 'el-segundo-refinery': 1.2, 'city-hall': 0.6,
+  'megatower-1': 1.8, 'megatower-5': 1.2,
 };
+/** Fallback weight by landmark type. Skybridges are spans between towers, not something to orbit. */
+const LANDMARK_TYPE_WEIGHTS: Record<string, number> = { megatower: 0.8, 'legacy-tower': 0.5, 'old-pyramid': 1, skybridge: 0 };
 
 const STREET_DISTRICTS = ['little-tokyo-market', 'historic-core', 'k-megablock', 'dtla', 'financial-megatowers', 'hollywood', 'civic-center', 'westside'];
 const FLY_DISTRICTS = ['dtla', 'financial-megatowers', 'little-tokyo-market', 'historic-core', 'wallace-vernon', 'south-la-megablocks', 'lakewood-megablocks', 'coastal-strip', 'harbor', 'hollywood', 'long-beach'];
@@ -194,7 +197,7 @@ export class CinematicDirector implements Controller {
 
   private pickLandmark(): Landmark {
     const ls = this.query.layout.landmarks;
-    const ws = ls.map((l) => LANDMARK_WEIGHTS[l.id] ?? (l.type === 'megatower' ? 0.8 : 0.3));
+    const ws = ls.map((l) => LANDMARK_WEIGHTS[l.id] ?? LANDMARK_TYPE_WEIGHTS[l.type] ?? 0.3);
     let r = this.rng.next() * ws.reduce((a, b) => a + b, 0);
     for (let i = 0; i < ls.length; i++) if ((r -= ws[i]) <= 0) return ls[i];
     return ls[0];

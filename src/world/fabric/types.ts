@@ -16,6 +16,14 @@ export const Style = {
   Neon: 9,
   /** Flat stained wall, no windows. Interiors, counters, shutters. */
   Solid: 10,
+  /** Continuous strip windows: the long lit floor bands of the megatowers. */
+  Ribbon: 11,
+  /** Brutalist slit windows: tall narrow openings in buttresses, fins and service cores. */
+  Slit: 12,
+  /** Glowing glazing (crown lanterns, lobbies, the pyramid apex). `lit` = intensity, `tint` 1 = amber .. 2 = cold white. */
+  Glow: 13,
+  /** Windowless dark stone in 11.7 m panels with pinpoint lights (Wallace). */
+  Monolith: 14,
 } as const;
 export type StyleId = (typeof Style)[keyof typeof Style];
 

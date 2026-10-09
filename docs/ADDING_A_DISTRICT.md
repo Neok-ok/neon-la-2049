@@ -118,12 +118,50 @@ Crowds, stools-you-can-sit-on, the market bed and the wet reflector are still ap
 ## 5. Landmarks and POIs
 
 Unique buildings belong in `landmarks[]` (with `reserveRadius` so the fabric leaves room) and get a builder registered with
-`registerLandmarkType(type, builder)` (see `src/world/landmarks/Landmarks.ts`). Points of interest (future interiors, set pieces) go in `pois[]`.
+`registerLandmarkType(type, builder)` from `src/world/landmarks/registry.ts`. Put the registration in your district folder and import
+it from `src/districts/landmark-index.ts` (main thread only). A district registration overrides the Stage-1 blockout of the same type,
+which `Landmarks.ts` registers with `registerLandmarkDefault`. Points of interest (future interiors, set pieces) go in `pois[]`.
 `?at=<id>` jumps the camera to any landmark or POI.
+
+A builder gets `(landmark, env)` and returns `{ object, colliders }`. `env` has the layout, the shared `beacons` and `flares` lists, and
+`lods`, the landmark LOD manager. Hand it your levels with `env.lods.add(id, [lod0, lod1, lod2], [d01, d12], x, z, y0, y1, radius)`.
+It switches on the distance to the structure's vertical axis minus `radius`, with 8% hysteresis. The tier's `landmarkLod` scales the
+distances (0.6 low, 0.8 medium, 1.0 high, 1.35 ultra).
+
+### The megatower kit (Stage 3; reuse it for anything tall)
+
+`src/districts/_shared/megatower/` builds towers, pyramids and skybridges from one **plan** into a **sink**. The plan is plain data
+and fully deterministic, so the same plan gives the same parts at every LOD and in every thread. The sink decides what the
+pieces turn into:
+
+| File | What it is |
+|---|---|
+| `sink.ts` | `MassSink`: receives boxes and frustums with a `FaceStyle` (style, lit, tint, seed) and a `KitDetail`. Detail 0 is the mass, 1 secondary, 2 tertiary, 3 hero clutter (rails, louvres, small fins). `CountingSink` counts triangles. |
+| `tower.ts` | `buildTower(plan, sink)`. `TowerPlan`: `height`, shaft `w`×`d`, optional `podium`, `form` (`slab`, `stepped`, `cross`, `twin`, `stack`, `blade`), `crown` (`hammer`, `stepped`, `lantern`, `flare`, `blade`, `cage`, `ziggurat`), `mast`, `fins`, `buttress`, `pads`, `holo` (slots wanted), `flames`, `compact`. `buildSkybridge(plan, sink)` makes a deck between two shafts. |
+| `pyramid.ts` | `buildPyramid(plan, sink)`: battered terraced tiers, cornice light strips, face slots, `look: 'wallace'` (glowing apex lantern, mast) or `'old'` (penthouse, flame stacks, spire), a monumental entrance on one face. |
+| `geoSink.ts` | `GeoSink(maxDetail, frame)`: writes real geometry (one merged mesh in the shared city material) in a `KitFrame {x, z, y, yaw}`. Main thread. |
+| `fabricSink.ts` | `FabricSink(ctx, s, t)`: turns kit pieces into `ctx.box` calls inside an archetype. Box-only, drops detail 3 and rotated pieces, approximates frustums. Pure, worker-safe. `signs(parts.signs)` and `holoPanels(parts, palette, seed)` emit the kit's sign and hologram slots as fabric signs. |
+| `place.ts` | `buildLevels(name, frame, [3, 1, 0], sink => buildTower(plan, sink))` builds one mesh per LOD. `placeKit(parts, frame, env, {id, designs, colors, seed})` turns the parts into world colliders, beacons, flares, registered holograms and sign meshes. |
+
+All builders return `TowerParts`: colliders, hologram slots (`crown`, `shaft`, `gap`, `podium`, `bridge`), lights
+(`red`, `steady`, `strobe`, `pad`, `police`, `warm`), signs, flames, the roof and top heights and the footprint half-extents.
+
+**Two ways to use it:**
+
+* **Hand-placed heroes** (landmarks): write a spec per id (see `financial-megatowers/specs.ts`), then
+  `buildLevels` → `placeKit` → `env.lods.add`, as `financial-megatowers/landmarks.ts` does. Signs go only into the LOD0 group.
+  Budget: LOD0 ≤ ~10 k triangles per tower, LOD1 ≤ ~2.5 k, the proxy ≤ ~200. Run the plan through `CountingSink` to check.
+* **Background towers** (fabric): in your archetype, `new FabricSink(ctx, lot.s, lot.t)` and `buildTower({...compact: true}, sink)`.
+  `compact` halves the pier and fin counts. A compact tower is 75–170 boxes, so keep them to a share of the lots, and check
+  `ctx.reserved` for the whole footprint before you build (the kit doesn't clip against corridors). Fabric tops out at the
+  320 m ceiling; anything taller has to be a landmark.
+
+Hologram slots from `placeKit` register as `${id}-holo-a` (first shaft slot), `-holo-b` (podium), `-holo-crown`, `-holo-gap` and
+`-holo-i` for the rest. Crown slots use the `skyline` band, so they stay on out to about half the far radius.
 
 ## 6. Holograms
 
-Giant figures and ad loops are not kind-2 signs. Register them with `registerHologram` from `src/world/holograms/api.ts` (see that folder's README). The call is main-thread only. `band: 'street'` culls with the LOD0 radius; `band: 'tower'` culls with the near radius. `rank: 0` is kept when the tier cap binds. Spill radius `0` skips the wash. Do not add a second hologram shader.
+Giant figures and ad loops are not kind-2 signs. Register them with `registerHologram` from `src/world/holograms/api.ts` (see that folder's README). The call is main-thread only. `band: 'street'` culls with the LOD0 radius; `band: 'tower'` culls with the near radius; `band: 'skyline'` (crowns and anything read across the basin) culls at `max(1.35 × near, 0.55 × far)`. `rank: 0` is kept when the tier cap binds. Spill radius `0` skips the wash. Do not add a second hologram shader.
 
 ## 7. Verify
 
