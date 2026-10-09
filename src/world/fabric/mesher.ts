@@ -45,7 +45,7 @@ const SPRAWL_LIGHTS: Record<string, number> = {
   entertainment: 1,
   'coastal-grey': 0.25,
   industrial: 0.35,
-  'wallace-vernon': 0.15,
+  'wallace-vernon': 0,
   'industrial-dense': 0.5,
   port: 0.4,
   spaceport: 0.3,

@@ -175,8 +175,8 @@ for (const s of shots) {
       // The preset can land kilometres from `at=`. Wait until that neighbourhood is dressed.
       await page.waitForFunction(() => {
         const st = window.__nla?.stats?.();
-        return st && st.lod0 >= 6 && st.queryPending === 0 && st.fps > 0;
-      }, null, { timeout: 90_000, polling: 500 }).catch(() => console.warn(`${s.name}: area still streaming`));
+        return st && st.lod0 >= 8 && st.inFlight === 0 && st.readyQueue === 0 && st.fps > 0;
+      }, null, { timeout: 120_000, polling: 500 }).catch(() => console.warn(`${s.name}: area still streaming`));
       await page.evaluate(s.after);
       await page.waitForTimeout(1800);
     }
