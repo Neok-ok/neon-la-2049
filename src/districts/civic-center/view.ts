@@ -2,7 +2,7 @@
 import { Vector3 } from 'three/webgpu';
 import type { CityLayout } from '../../world/layout';
 import { sampleLane, type SkyLane } from '../../vehicles/skyLanes';
-import { HQ, HALL_STAIR, HOVER_Y, STAIR, localToWorld, treadTop, yawOf } from './spec';
+import { HQ, HOVER_Y, STAIR, localToWorld, treadTop, yawOf } from './spec';
 
 export type CivicView = 'approach' | 'steps' | 'hall' | 'lobby' | 'plaza';
 
@@ -76,11 +76,12 @@ export function civicCamera(layout: CityLayout, kind: CivicView, lanes: readonly
   }
 
   if (kind === 'lobby') {
-    const [x, z] = localToWorld(lapd.x, lapd.z, yaw, 0, -52);
-    const [dx, dz] = localToWorld(lapd.x, lapd.z, yaw, 0, -43);
+    // Just inside the door, so the columns and the desk sit in front of the sign.
+    const [x, z] = localToWorld(lapd.x, lapd.z, yaw, 0, -56.6);
+    const [dx, dz] = localToWorld(lapd.x, lapd.z, yaw, 0, -44);
     const y = g + HQ.lobbyFloor;
     return {
-      x, y, z, heading: headingTo(x, z, dx, dz), pitch: -0.12, mode: 'walk',
+      x, y, z, heading: headingTo(x, z, dx, dz), pitch: 0.04, mode: 'walk',
       feet: { x, y, z },
     };
   }
@@ -97,13 +98,13 @@ export function civicCamera(layout: CityLayout, kind: CivicView, lanes: readonly
   if (!hall) return null;
   const hy = yawOf(hall.bearingDeg);
   const gh = layout.heightAt(hall.x, hall.z);
-  // At the foot of the stair, looking up so the pyramid sits in the frame.
-  const lz = HALL_STAIR.z0 + 1.2;
-  const [x, z] = localToWorld(hall.x, hall.z, hy, 0, lz);
-  const [tx, tz] = localToWorld(hall.x, hall.z, hy, 0, 0);
-  const y = gh + treadTop(HALL_STAIR, lz);
+  // Out on the mall, so the jacket, the shaft and the pyramid all sit in one frame.
+  const lz = 102;
+  const [x, z] = localToWorld(hall.x, hall.z, hy, 10, lz);
+  const [tx, tz] = localToWorld(hall.x, hall.z, hy, 0, 8);
+  const y = gh + 0.2;
   return {
-    x, y, z, heading: headingTo(x, z, tx, tz), pitch: 0.82, mode: 'walk',
+    x, y, z, heading: headingTo(x, z, tx, tz), pitch: 0.48, mode: 'walk',
     feet: { x, y, z },
   };
 }

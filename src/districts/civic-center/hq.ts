@@ -98,12 +98,15 @@ function lobby(m: Mass): void {
   m.box(2, 0, faceZ - 0.25, ceil - 0.4, door * 2 - 0.5, 0.4, 0.32, COLD);
 
   if (m.max < 2) return;
+  const room = face(Style.Civic, 0.22, 0.9, 0.36);
   m.box(2, 0, backZ - 1.7, floor, 8.6, 1.35, 1.15, SOLID);
   m.box(2, 0, backZ - 1.7, floor + 1.05, 8.6, 0.16, 0.1, COLD);
-  m.box(2, 0, mouthCz, floor, 1.2, mouthD - 1.2, 0.05, COLD);
-  m.box(2, 0, backZ - 0.35, floor + 3.6, 9.5, 0.28, 0.45, COLD);
+  m.box(2, 0, mouthCz, floor + 0.02, 2.4, mouthD - 1.4, 0.04, COLD);
+  // A dim concrete wall behind the sign, plus a thin cold line. A full glow panel blooms the room out.
+  m.box(2, 0, backZ - 0.28, floor + 1.1, 12.4, 0.2, 7.6, room);
+  m.box(2, 0, backZ - 0.42, floor + 3.5, 9.2, 0.1, 0.22, COLD);
   for (const lx of [-5.4, 5.4]) {
-    for (const lz of [-56.2, -50.4, -45.2]) m.box(2, lx, lz, floor, 0.9, 0.9, ceil - floor - 0.1, CON);
+    for (const lz of [-56.2, -50.4, -45.2]) m.box(2, lx, lz, floor, 0.9, 0.9, ceil - floor - 0.1, room);
   }
   m.box(2, -door + 0.4, mouthCz, floor, 0.45, mouthD - 0.6, ceil - floor, DARK);
   m.box(2, door - 0.4, mouthCz, floor, 0.45, mouthD - 0.6, ceil - floor, DARK);

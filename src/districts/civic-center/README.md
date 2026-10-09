@@ -42,8 +42,8 @@ Measured with a Vite SSR pass over `generateFabric` and the two builders (CPU ge
 | Origin (0, −500), 9 of 10 blocks civic | 9 | 499 | ~5.0 k | 24 |
 | (−500, −500), 5 civic blocks | 5 | 524 | ~5.2 k | 60 |
 
-A chunk that only contains the district stays near 5 k triangles of fabric. The origin chunk is heavier because neighbouring districts share it. Pad runs clear the crown with no altitude lift: plaza approaches are about 860–880 m, the far-side pair about 1.0 km, the circuit 265 m, hover 222.5 m (circuit 223.7 m). The medium-tier acceptance test is still the city-wide 250 draws / 1.5 M triangles, read from `stats()` on the steps.
+A chunk that only contains the district stays near 5 k triangles of fabric. The origin chunk is heavier because neighbouring districts share it. Pad runs clear the crown with no altitude lift: plaza approaches are about 860–880 m, the far-side pair about 1.0 km, the circuit 265 m, hover 222.5 m (circuit 223.7 m). The medium-tier acceptance test is the city-wide 250 draws / 1.5 M triangles. On the steps in rain, SwiftShader reported about 130 draws and 0.35 M triangles at medium (HUD in the same frame read 117 calls and 0.31 M; that shot still had a ready queue), 195 draws and 0.43 M at high, and 213 draws and 0.52 M at ultra. Crowd count on that spot was 35 / 75 / 150 at medium / high / ultra, which is the 0.22 share of the market budget.
 
 ## Left for later
 
-The lobby is a soffit, not an X3 interior: no separate light, and the exterior is not occluded. Crowds stay on the ground. Pad hover is a flare, not gear-down. No stair handrail. No second pylon row down the mall.
+The lobby is a soffit, not an X3 interior: no separate light, and the exterior is not occluded. The back wall is dim concrete; the sign carries the room. Crowds stay on the ground. Pad hover is a flare, not gear-down. No stair handrail. No second pylon row down the mall.
