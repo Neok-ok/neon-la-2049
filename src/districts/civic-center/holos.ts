@@ -13,12 +13,12 @@ export function installCivicHolos(layout: CityLayout): void {
     id: 'lapd-shaft-notice',
     x, y: layout.heightAt(lapd.x, lapd.z) + 42, z,
     yaw: yaw + Math.PI,
-    w: 14, h: 26,
+    w: 10, h: 16,
     design: 'glyph-loop',
     color: SignColor.White,
     seed: 0.27,
     rank: 0,
     band: 'street',
-    spill: 18,
+    spill: 10,
   });
 }

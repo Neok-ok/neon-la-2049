@@ -101,7 +101,7 @@ function lobby(m: Mass): void {
   m.box(2, 0, backZ - 1.7, floor, 8.6, 1.35, 1.15, SOLID);
   m.box(2, 0, backZ - 1.7, floor + 1.05, 8.6, 0.16, 0.1, COLD);
   m.box(2, 0, mouthCz, floor, 1.2, mouthD - 1.2, 0.05, COLD);
-  m.box(2, 0, backZ - 0.4, floor + 1.4, 13, 0.45, 6.8, COLD);
+  m.box(2, 0, backZ - 0.35, floor + 3.6, 9.5, 0.28, 0.45, COLD);
   for (const lx of [-5.4, 5.4]) {
     for (const lz of [-56.2, -50.4, -45.2]) m.box(2, lx, lz, floor, 0.9, 0.9, ceil - floor - 0.1, CON);
   }
@@ -255,11 +255,11 @@ function beacons(l: Landmark, env: LandmarkEnv, yaw: number): void {
   const cw = HQ.crownW / 2 - 2, cd = HQ.crownD / 2 - 2;
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) add(sx * cw, HQ.height + 1.2, sz * cd, LightKind.Police, 3.6);
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) add(sx * (HQ.shaftW / 2 - 1), SHAFT_Y * 0.55, sz * (HQ.shaftD / 2 - 1), LightKind.Steady, 2.2);
-  add(-6.4, 8.2, -HQ.podiumD / 2 - 1.2, LightKind.Police, 1.8);
-  add(6.4, 8.2, -HQ.podiumD / 2 - 1.2, LightKind.Police, 1.8);
-  add(-18, 6.5, -96, LightKind.Warm, 7);
-  add(18, 6.5, -96, LightKind.Warm, 7);
-  add(0, 7.2, -70, LightKind.Warm, 5);
+  add(-6.4, 8.2, -HQ.podiumD / 2 - 1.2, LightKind.Police, 1.05);
+  add(6.4, 8.2, -HQ.podiumD / 2 - 1.2, LightKind.Police, 1.05);
+  // Small practicals at the pylon heads. Large warm quads bloom out the whole stair on high.
+  add(-20, 10.4, -96, LightKind.Warm, 2.2);
+  add(20, 10.4, -96, LightKind.Warm, 2.2);
 }
 
 export function buildLapdHq(l: Landmark, env: LandmarkEnv) {

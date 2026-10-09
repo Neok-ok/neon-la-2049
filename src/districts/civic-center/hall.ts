@@ -85,7 +85,7 @@ function portico(m: Mass): void {
       m.solid(lx, faceZ + 1.6, 1.15, 1.15, floor, floor + 6.4);
     }
     m.box(2, 0, faceZ + 1.6, floor + 6.4, 20, 1.3, 0.7, STONE);
-    m.box(2, 0, backZ + 0.3, floor + 1.2, 10, 0.35, 5.2, COLD);
+    m.box(2, 0, backZ + 0.25, floor + 4.2, 8.5, 0.22, 0.4, COLD);
   }
 }
 
@@ -152,8 +152,8 @@ function beacons(l: Landmark, env: LandmarkEnv, yaw: number): void {
   add(0, HALL.height + 1.4, 0, LightKind.Red, 3.2);
   const s = HALL.neck / 2 - 1;
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) add(sx * s, HALL.neckTop + 1, sz * s, LightKind.Warm, 4);
-  add(-16, 8, HALL.baseD / 2 + 2, LightKind.Warm, 6);
-  add(16, 8, HALL.baseD / 2 + 2, LightKind.Warm, 6);
+  add(-14, 9.2, 62, LightKind.Warm, 2.2);
+  add(14, 9.2, 62, LightKind.Warm, 2.2);
 }
 
 export function buildCityHall(l: Landmark, env: LandmarkEnv) {

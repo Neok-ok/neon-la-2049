@@ -57,7 +57,7 @@ export function civicCamera(layout: CityLayout, kind: CivicView, lanes: readonly
     const sx = -tan.z, sz = tan.x;
     const x = p.x + sx * 18;
     const z = p.z + sz * 18;
-    const y = p.y + 1.4;
+    const y = p.y + 16;
     const dist = Math.hypot(tx - x, tz - z) || 1;
     const pitch = Math.atan2(HOVER_Y - y, dist);
     return { x, y, z, heading: headingTo(x, z, tx, tz), pitch, mode: 'fly', cockpit: true };
@@ -65,12 +65,12 @@ export function civicCamera(layout: CityLayout, kind: CivicView, lanes: readonly
 
   if (kind === 'steps') {
     // Low on the stair, off the centre line, looking up the run toward the door.
-    const lz = -74;
-    const [x, z] = localToWorld(lapd.x, lapd.z, yaw, 7.5, lz);
-    const [dx, dz] = localToWorld(lapd.x, lapd.z, yaw, 0, -50);
+    const lz = -80;
+    const [x, z] = localToWorld(lapd.x, lapd.z, yaw, 4, lz);
+    const [dx, dz] = localToWorld(lapd.x, lapd.z, yaw, 0, -52);
     const y = g + treadTop(STAIR, lz);
     return {
-      x, y, z, heading: headingTo(x, z, dx, dz), pitch: 0.42, mode: 'walk',
+      x, y, z, heading: headingTo(x, z, dx, dz), pitch: 0.34, mode: 'walk',
       feet: { x, y, z },
     };
   }
@@ -80,7 +80,7 @@ export function civicCamera(layout: CityLayout, kind: CivicView, lanes: readonly
     const [dx, dz] = localToWorld(lapd.x, lapd.z, yaw, 0, -43);
     const y = g + HQ.lobbyFloor;
     return {
-      x, y, z, heading: headingTo(x, z, dx, dz), pitch: 0.06, mode: 'walk',
+      x, y, z, heading: headingTo(x, z, dx, dz), pitch: -0.12, mode: 'walk',
       feet: { x, y, z },
     };
   }
@@ -89,7 +89,7 @@ export function civicCamera(layout: CityLayout, kind: CivicView, lanes: readonly
     const [x, z] = localToWorld(lapd.x, lapd.z, yaw, 6, -130);
     const y = g + 0.2;
     return {
-      x, y, z, heading: headingTo(x, z, lapd.x, lapd.z), pitch: 0.22, mode: 'walk',
+      x, y, z, heading: headingTo(x, z, lapd.x, lapd.z), pitch: 0.42, mode: 'walk',
       feet: { x, y, z },
     };
   }
@@ -97,13 +97,13 @@ export function civicCamera(layout: CityLayout, kind: CivicView, lanes: readonly
   if (!hall) return null;
   const hy = yawOf(hall.bearingDeg);
   const gh = layout.heightAt(hall.x, hall.z);
-  // On a tread (the run's midpoint falls in the gap between two treads).
-  const lz = HALL_STAIR.z0 + (HALL_STAIR.z1 - HALL_STAIR.z0) * (10.5 / HALL_STAIR.n);
-  const [x, z] = localToWorld(hall.x, hall.z, hy, 4.5, lz);
-  const [tx, tz] = localToWorld(hall.x, hall.z, hy, 0, 10);
+  // At the foot of the stair, looking up so the pyramid sits in the frame.
+  const lz = HALL_STAIR.z0 + 1.2;
+  const [x, z] = localToWorld(hall.x, hall.z, hy, 0, lz);
+  const [tx, tz] = localToWorld(hall.x, hall.z, hy, 0, 0);
   const y = gh + treadTop(HALL_STAIR, lz);
   return {
-    x, y, z, heading: headingTo(x, z, tx, tz), pitch: 0.5, mode: 'walk',
+    x, y, z, heading: headingTo(x, z, tx, tz), pitch: 0.82, mode: 'walk',
     feet: { x, y, z },
   };
 }
