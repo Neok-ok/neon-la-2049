@@ -1,6 +1,7 @@
 // Screenshot and debug cameras for Stage 12 (`__nla.southLaView`).
 import type { CityLayout } from '../../world/layout';
 import { geoToLocal } from '../../world/geo';
+import { poseOn, streetGraph } from '../../vehicles/streetGraph';
 import { findHub, searchResidential, worldAt, type Found } from './locate';
 import { HUB } from './spec';
 
@@ -79,39 +80,53 @@ export function southLaCamera(layout: CityLayout, kind: SouthLaView): SouthPose 
     return fly({ x, y: g + 820, z: z + 380 }, { x, y: g + 40, z }, true);
   }
   if (kind === 'seam') {
-    // Above the south-east corner, Lakewood in the foreground, South LA beyond.
-    const [x, z] = geoToLocal(33.905, -118.185);
-    const [lx, lz] = geoToLocal(33.97, -118.27);
+    // Just southeast of the shared corner, looking down at it. Lakewood is the near ground.
+    const [x, z] = geoToLocal(33.912, -118.212);
+    const [lx, lz] = geoToLocal(33.920, -118.220);
     const g = layout.heightAt(x, z);
-    return fly({ x, y: g + 760, z }, { x: lx, y: g + 30, z: lz }, true);
+    return fly({ x, y: g + 720, z }, { x: lx, y: g + 8, z: lz }, true);
   }
   if (kind === 'wallace') {
     const py = layout.landmarkById('wallace-pyramid');
     const tower = layout.landmarkById('wallace-satellite-c');
     if (!py) return null;
-    const aimX = tower ? (py.x * 0.62 + tower.x * 0.38) : py.x;
-    const aimZ = tower ? (py.z * 0.62 + tower.z * 0.38) : py.z;
-    for (const j of [-28, -24, -32, -20, -36]) {
-      const x = j * 120 + 40;
-      const z = 5200 + 7.2;
-      if (!openStreet(layout, x, z)) continue;
-      const g = layout.heightAt(x, z);
-      return walk({ x, y: g, z }, { x: aimX, y: g + 80, z: aimZ }, 0.26);
+    const aimX = tower ? (py.x * 0.72 + tower.x * 0.28) : py.x;
+    const aimZ = tower ? (py.z * 0.72 + tower.z * 0.28) : py.z;
+    // Eastern streets, inside the step-down, so the roofs do not hide the crown.
+    for (const j of [1, 0, -1, -2, -3, -4, -6, -8]) {
+      for (const i of [-26, -24, -28, -22]) {
+        const x = j * 120 + 16;
+        const z = -i * 200 + 7.2;
+        if (!openStreet(layout, x, z)) continue;
+        const g = layout.heightAt(x, z);
+        return walk({ x, y: g, z }, { x: aimX, y: g + 400, z: aimZ }, 0.42);
+      }
     }
     return null;
   }
   if (kind === 'trench') {
-    const edges = searchResidential(layout, -3300, 7000, 2800).filter((f) => f.plan.edge);
-    edges.sort((a, b) => Math.abs(a.block.cx + 3400) - Math.abs(b.block.cx + 3400));
-    for (const f of edges) {
-      const b = f.block;
-      const probe = worldAt(b, 0, b.lb / 2 + 18, 0);
-      if (!layout.isReserved(probe.x, probe.z, 2)) continue;
-      if (Math.abs(probe.x + 3400) > 900) continue;
-      const feet = worldAt(b, 4, b.lb / 2 - 6, 0.04);
-      if (!openStreet(layout, feet.x, feet.z)) continue;
-      const look = worldAt(b, 4, b.lb / 2 + 22, -2.4);
-      return walk(feet, look, -0.12);
+    // West lip of the 110, looking south down the cut. The block-edge stance
+    // was either inside the hole or aimed at the retaining wall.
+    const g = streetGraph(layout);
+    let best: { index: number; z: number } | null = null;
+    for (const e of g.edges) {
+      if (e.kind !== 'freeway' || e.route !== 'I-110') continue;
+      const a = g.nodes[e.a]!;
+      const b = g.nodes[e.b]!;
+      const mz = (a.z + b.z) / 2;
+      if (mz < 5600 || mz > 8200) continue;
+      if (!best || Math.abs(mz - 6400) < Math.abs(best.z - 6400)) best = { index: e.index, z: mz };
+    }
+    if (!best) return null;
+    for (const side of [-54, 54, -68, 68]) {
+      const pose = poseOn(g, best.index, 0.42, 1, side);
+      if (!openStreet(layout, pose.x, pose.z)) continue;
+      const ground = layout.heightAt(pose.x, pose.z);
+      return walk(
+        { x: pose.x, y: ground, z: pose.z },
+        { x: pose.x + pose.fx * 40, y: ground - 6, z: pose.z + pose.fz * 40 },
+        -0.46,
+      );
     }
     return null;
   }
@@ -148,8 +163,9 @@ export function southLaCamera(layout: CityLayout, kind: SouthLaView): SouthPose 
       const look = worldAt(hub.block, 26, -2, 5.2);
       return walk(feet, look, 0.12);
     }
-    const feet = { x: door.x - 1.4, y: door.y + 0.16, z: door.z - 6.2 };
-    const look = { x: door.x - 2.1, y: door.y + 1.15, z: door.z - 7.4 };
+    // In the corridor, looking north along the washer row. Local +Z is south.
+    const feet = { x: door.x - 0.85, y: door.y + 0.16, z: door.z - 2.15 };
+    const look = { x: door.x - 1.5, y: door.y + 1.15, z: door.z - 7.6 };
     return walk(feet, look, 0.02);
   }
   if (kind === 'courtyard') {
