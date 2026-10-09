@@ -255,26 +255,29 @@ export class GroundTraffic {
     return true;
   }
 
-  /** Keep a few street cars on the edge under the camera so a crossing reads as a queue. */
-  private anchorStreet(g: StreetGraph, x: number, z: number): void {
+  /** Keep a few street cars ahead of the camera so a crossing reads as a queue. */
+  private anchorStreet(g: StreetGraph, x: number, z: number, fx: number, fz: number): void {
     let close = 0;
     let far: Agent | null = null;
     let farD = -1;
     for (const c of this.street) {
       if (!c.live) continue;
       const d2 = (c.p.x - x) ** 2 + (c.p.z - z) ** 2;
-      if (d2 < 55 * 55) close++;
+      if (d2 < 48 * 48) close++;
       else if (d2 > farD) { farD = d2; far = c; }
     }
-    if (close >= 5 || !far) return;
-    const near = edgeNear(g, x, z, 90, 'street');
+    if (close >= 6 || !far) return;
+    const ahead = 12 + this.rng.next() * 22;
+    const near = edgeNear(g, x + fx * ahead, z + fz * ahead, 36, 'street') ?? edgeNear(g, x, z, 80, 'street');
     if (!near) return;
     const e = g.edges[near.edge];
     if (!e) return;
+    const withLook: 1 | -1 = e.fx * fx + e.fz * fz >= 0 ? 1 : -1;
+    const oncoming = this.rng.chance(0.42);
     far.edge = near.edge;
-    far.t = Math.min(0.9, Math.max(0.1, near.t + (this.rng.next() - 0.5) * 0.12));
-    far.dir = this.rng.chance(0.5) ? 1 : -1;
-    far.side = (this.rng.chance(0.5) ? 1 : -1) * e.lane;
+    far.t = Math.min(0.92, Math.max(0.08, near.t));
+    far.dir = oncoming ? (withLook === 1 ? -1 : 1) : withLook;
+    far.side = e.lane;
     far.freeway = false;
     far.salt = this.rng.int(1, 9000);
     Object.assign(far, this.style(e, false));
@@ -507,7 +510,9 @@ export class GroundTraffic {
     };
     maintain(this.street, false, STREET_R);
     maintain(this.freeway, true, FREEWAY_R);
-    for (let n = 0; n < 4; n++) this.anchorStreet(g, cam.x, cam.z);
+    camera.updateMatrixWorld();
+    const look = camera.matrixWorld.elements;
+    for (let n = 0; n < 4; n++) this.anchorStreet(g, cam.x, cam.z, -look[8]!, -look[10]!);
     this.separate(this.street, g, elapsed, false);
     this.separate(this.freeway, g, elapsed, true);
 
@@ -559,7 +564,7 @@ export class GroundTraffic {
       const low = tier === 'low';
       this.dress.streaks.count = low ? this.dress.streakTotal : this.dress.freewayStreaks;
       this.dress.streaks.visible = this.dress.streaks.count > 0;
-      streakNear.value = low || alt > 16 ? -180 : 32;
+      streakNear.value = low ? -180 : alt > 16 ? 18 : 32;
       this.streakCount = this.dress.streaks.count;
     } else this.streakCount = 0;
 
