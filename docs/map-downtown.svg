@@ -197,6 +197,10 @@
 <text x="2476.5" y="4854.7" dx="5" dy="12" fill="#8fe8ff" font-size="10">Lakewood Center market yard</text>
 <circle cx="-235.1" cy="1294.2" r="2" fill="#29d8ff"/>
 <text x="-235.1" y="1294.2" dx="5" dy="12" fill="#8fe8ff" font-size="10">Exposition market yard</text>
+<circle cx="746.9" cy="702.2" r="2" fill="#29d8ff"/>
+<text x="746.9" y="702.2" dx="5" dy="12" fill="#8fe8ff" font-size="10">Arts District pour hall</text>
+<circle cx="853.2" cy="697.1" r="2" fill="#29d8ff"/>
+<text x="853.2" y="697.1" dx="5" dy="12" fill="#8fe8ff" font-size="10">LA River at the works</text>
 <circle cx="1388.1" cy="1028.4" r="2" fill="#29d8ff"/>
 <text x="1388.1" y="1028.4" dx="5" dy="12" fill="#8fe8ff" font-size="10">Wallace causeway (north apron)</text>
 <circle cx="1388.1" cy="1155.5" r="2" fill="#29d8ff"/>

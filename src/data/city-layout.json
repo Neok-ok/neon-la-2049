@@ -85,7 +85,7 @@
     },
     {
       "id": "arts-district",
-      "traffic": 0.16,
+      "traffic": 0.34,
       "name": "Arts District Works",
       "loreSector": "Sector 4 fringe",
       "archetype": "industrial-dense",
@@ -431,6 +431,8 @@
     { "id": "k-apartment", "name": "K's apartment (enterable)", "lat": 33.8585, "lon": -118.1240, "kind": "interior", "stage": 8 },
     { "id": "lakewood-market", "name": "Lakewood Center market yard", "lat": 33.8530, "lon": -118.1410, "kind": "market", "stage": 11 },
     { "id": "south-la-hub", "name": "Exposition market yard", "lat": 34.0140, "lon": -118.2880, "kind": "market", "stage": 12 },
+    { "id": "arts-foundry", "name": "Arts District pour hall", "lat": 34.04077, "lon": -118.23476, "kind": "interior", "stage": 9 },
+    { "id": "arts-river", "name": "LA River at the works", "lat": 34.0410, "lon": -118.2290, "kind": "street", "stage": 9 },
     { "id": "wallace-approach", "name": "Wallace causeway (north apron)", "lat": 34.02602, "lon": -118.2000, "kind": "street", "stage": 7 },
     { "id": "wallace-plaza", "name": "Wallace entrance plinth", "lat": 34.02027, "lon": -118.2000, "kind": "plaza", "stage": 7 },
     { "id": "wallace-atrium", "name": "Wallace water room (sealed door)", "lat": 34.01952, "lon": -118.2000, "kind": "interior", "stage": 7 },

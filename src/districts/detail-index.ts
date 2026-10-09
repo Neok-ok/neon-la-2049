@@ -17,3 +17,5 @@ import './south-la-megablocks/crowd';
 import './wallace-vernon/details';
 import './wallace-vernon/oldSurround';
 import './coastal-strip/details';
+import './arts-district/details';
+import './arts-district/crowd';

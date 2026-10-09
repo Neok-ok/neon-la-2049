@@ -218,6 +218,9 @@ export class GroundTraffic {
       const j = g?.nodes[e.a]?.j;
       const spine = e.axis === 0 && j !== undefined && (SPINE_B as readonly number[]).includes(j) && e.length >= 160;
       mesh = spine && rng.chance(0.08) ? 'box' : rng.chance(0.2) ? 'van' : 'car';
+    } else if (e.district === 'arts-district') {
+      const r = rng.next();
+      mesh = r < 0.62 ? 'box' : r < 0.9 ? 'hauler' : 'van';
     } else {
       const r = rng.next();
       mesh = r < 0.62 ? 'car' : r < 0.82 ? 'van' : r < 0.94 ? 'box' : 'hauler';
