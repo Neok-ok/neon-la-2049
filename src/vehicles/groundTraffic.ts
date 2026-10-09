@@ -69,6 +69,7 @@ export class GroundTraffic {
   private poles: InstancedMesh | null = null;
   private heads: InstancedMesh | null = null;
   private headRec: Head[] = [];
+  private headMats: Matrix4[] = [];
   private lampAttr: InstancedBufferAttribute | null = null;
   private pools: InstancedMesh;
   private poolAttr: InstancedBufferAttribute;
@@ -173,13 +174,15 @@ export class GroundTraffic {
     this.heads.name = 'traffic-heads';
     this.heads.frustumCulled = false;
     this.heads.renderOrder = 3;
-    for (let i = 0; i < rec.length; i++) {
-      this.poles.setMatrixAt(i, matrices[i]!);
-      this.heads.setMatrixAt(i, matrices[i]!);
-    }
-    this.poles.count = rec.length;
-    this.heads.count = rec.length;
+    this.poles.instanceMatrix.setUsage(DynamicDrawUsage);
+    this.heads.instanceMatrix.setUsage(DynamicDrawUsage);
+    // The whole basin's heads would be one mesh. Draw only the ones near the camera.
+    this.poles.count = 0;
+    this.heads.count = 0;
+    this.poles.visible = false;
+    this.heads.visible = false;
     this.headRec = rec;
+    this.headMats = matrices;
     scene.add(this.poles, this.heads);
   }
 
@@ -208,6 +211,8 @@ export class GroundTraffic {
       mesh = r < 0.34 ? 'car' : r < 0.58 ? 'van' : r < 0.8 ? 'box' : 'hauler';
     } else if (e.district === 'civic-center') {
       mesh = rng.chance(0.2) ? 'van' : 'car';
+    } else if (e.district === 'lakewood-megablocks') {
+      mesh = rng.chance(0.16) ? 'van' : 'car';
     } else {
       const r = rng.next();
       mesh = r < 0.62 ? 'car' : r < 0.82 ? 'van' : r < 0.94 ? 'box' : 'hauler';
@@ -399,25 +404,34 @@ export class GroundTraffic {
 
   private repaintSignals(g: StreetGraph, cam: Vector3, time: number): void {
     if (!this.heads || !this.poles || !this.lampAttr) return;
-    let best = 1e12;
     const rgb = this.lampAttr.array as Float32Array;
+    const reach = 500 * 500;
+    let n = 0;
     for (let i = 0; i < this.headRec.length; i++) {
       const h = this.headRec[i]!;
-      const n = g.nodes[h.node];
-      if (n) {
-        const d = (n.x - cam.x) ** 2 + (n.z - cam.z) ** 2;
-        if (d < best) best = d;
-      }
+      const node = g.nodes[h.node];
+      if (!node) continue;
+      const d = (node.x - cam.x) ** 2 + (node.z - cam.z) ** 2;
+      if (d > reach) continue;
       const lamp = axisLamp(h.node, h.axis, time);
       const c = LAMP_RGB[lamp];
-      rgb[i * 3] = c[0];
-      rgb[i * 3 + 1] = c[1];
-      rgb[i * 3 + 2] = c[2];
+      rgb[n * 3] = c[0];
+      rgb[n * 3 + 1] = c[1];
+      rgb[n * 3 + 2] = c[2];
+      const mat = this.headMats[i];
+      if (mat) {
+        this.poles.setMatrixAt(n, mat);
+        this.heads.setMatrixAt(n, mat);
+      }
+      n++;
     }
+    this.poles.count = n;
+    this.heads.count = n;
+    this.poles.instanceMatrix.needsUpdate = true;
+    this.heads.instanceMatrix.needsUpdate = true;
     this.lampAttr.needsUpdate = true;
-    const show = best < 480 * 480;
-    this.heads.visible = show;
-    this.poles.visible = show;
+    this.heads.visible = n > 0;
+    this.poles.visible = n > 0;
   }
 
   private readSignal(g: StreetGraph, camera: Camera, time: number): Lamp | 'none' {

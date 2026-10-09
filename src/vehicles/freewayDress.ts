@@ -11,7 +11,7 @@ import type { CityLayout } from '../world/layout';
 import { U } from '../atmosphere/uniforms';
 import { NO_STREET_GRAPH, freewayRoutes, type FreewayTrafficSpec } from './trafficRegistry';
 import { TRENCH_LIP } from './trenchQuery';
-import { poseOn, streetGraph, type StreetGraph } from './streetGraph';
+import { poseOn, streetGraph, type GraphEdge, type StreetGraph } from './streetGraph';
 
 const T = TSL as any;
 
@@ -204,23 +204,59 @@ function freewayStreaks(layout: CityLayout, spec: FreewayTrafficSpec, out: Strea
   }
 }
 
-function streetStreaks(layout: CityLayout, g: StreetGraph, out: StreakSlot[]): void {
+const CORE_STREAKS = new Set(['downtown-avenues', 'broadway-canyon']);
+
+function emitStreak(layout: CityLayout, g: StreetGraph, e: GraphEdge, t: number, span: number, i: number, out: StreakSlot[]): void {
+  for (const dir of [1, -1] as const) {
+    const pose = poseOn(g, e.index, t, dir, e.lane);
+    const y = layout.heightAt(pose.x, pose.z) + e.deck;
+    pushStreak(out, pose.x, y, pose.z, pose.fx, pose.fz, span, dir < 0 ? 0.37 : 0.08, (i + (dir < 0 ? 1 : 0)) % 2);
+  }
+}
+
+/** Downtown and Broadway keep the original combined step, so adding a basin lattice does not thin them. */
+function coreStreaks(layout: CityLayout, g: StreetGraph, edges: GraphEdge[], out: StreakSlot[]): void {
   let len = 0;
-  for (const e of g.edges) if (e.kind !== 'freeway') len += e.length;
+  for (const e of edges) len += e.length;
   const step = Math.max(26, (len * 2) / 7000);
-  for (const e of g.edges) {
-    if (e.kind === 'freeway' || e.length < step) continue;
+  for (const e of edges) {
+    if (e.length < step) continue;
     const n = Math.floor(e.length / step);
-    for (let i = 0; i < n; i++) {
-      const t = (i + 0.35) / n;
-      for (const dir of [1, -1] as const) {
-        const pose = poseOn(g, e.index, t, dir, e.lane);
-        const span = e.length / n;
-        const y = layout.heightAt(pose.x, pose.z) + e.deck;
-        pushStreak(out, pose.x, y, pose.z, pose.fx, pose.fz, span, dir < 0 ? 0.37 : 0.08, (i + (dir < 0 ? 1 : 0)) % 2);
-      }
+    for (let i = 0; i < n; i++) emitStreak(layout, g, e, (i + 0.35) / n, e.length / n, i, out);
+  }
+}
+
+/** Each later route gets its own cap. Short residential edges still receive a dash. */
+function routeStreaks(layout: CityLayout, g: StreetGraph, edges: GraphEdge[], out: StreakSlot[]): void {
+  let len = 0;
+  for (const e of edges) len += e.length;
+  const step = Math.max(140, (len * 2) / 7000);
+  let acc = step * 0.35;
+  let i = 0;
+  for (const e of edges) {
+    while (acc < e.length) {
+      emitStreak(layout, g, e, acc / e.length, Math.min(72, Math.max(26, e.length * 0.45)), i, out);
+      acc += step;
+      i++;
+    }
+    acc -= e.length;
+  }
+}
+
+function streetStreaks(layout: CityLayout, g: StreetGraph, out: StreakSlot[]): void {
+  const core: GraphEdge[] = [];
+  const extra = new Map<string, GraphEdge[]>();
+  for (const e of g.edges) {
+    if (e.kind === 'freeway') continue;
+    if (CORE_STREAKS.has(e.route)) core.push(e);
+    else {
+      const list = extra.get(e.route);
+      if (list) list.push(e);
+      else extra.set(e.route, [e]);
     }
   }
+  coreStreaks(layout, g, core, out);
+  for (const edges of extra.values()) routeStreaks(layout, g, edges, out);
 }
 
 function fillStreaks(slots: StreakSlot[]): InstancedMesh {

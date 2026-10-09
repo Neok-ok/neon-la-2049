@@ -46,13 +46,13 @@
 <ellipse cx="3140.5" cy="1050.9" rx="480" ry="300" transform="rotate(0 3140.5 1050.9)" fill="#2a2a1e" stroke="#3a3a28"/>
 <path d="M1664.8,940.4 L2863.8,1161.5 L2863.8,2709.5 L1664.8,2709.5 Z" fill="#6a4a2a" fill-opacity="0.55" stroke="#6a4a2a" stroke-width="1.5"/>
 <path d="M-1194.4,984.6 L650.3,1050.9 L1019.2,3373.0 L-1194.4,3373.0 Z" fill="#4f6a5a" fill-opacity="0.55" stroke="#4f6a5a" stroke-width="1.5"/>
-<path d="M1019.2,3373.0 L3786.2,3373.0 L3786.2,6026.8 L1019.2,6026.8 Z" fill="#4f6a5a" fill-opacity="0.55" stroke="#4f6a5a" stroke-width="1.5"/>
+<path d="M1019.2,3373.0 L3786.2,3373.0 L3786.2,6026.8 L1019.2,6026.8 Z" fill="#6a6860" fill-opacity="0.55" stroke="#6a6860" stroke-width="1.5"/>
 <path d="M-3592.4,-386.5 L96.9,-165.4 L-13.8,719.2 L-1194.4,984.6 L-2854.5,1825.0 L-3776.8,940.4 Z" fill="#4a4a4a" fill-opacity="0.55" stroke="#4a4a4a" stroke-width="1.5"/>
 <path d="M-2485.6,3151.8 L1019.2,3373.0 L1019.2,6026.8 L-1747.7,5805.6 L-2116.7,4257.6 Z" fill="#6a4a2a" fill-opacity="0.55" stroke="#6a4a2a" stroke-width="1.5"/>
 <path d="M1388.1,6026.8 L3417.2,6026.8 L3417.2,7243.1 L1388.1,7021.9 Z" fill="#4a5a78" fill-opacity="0.55" stroke="#4a5a78" stroke-width="1.5"/>
 <path d="M871.6,-165.4 L2679.4,276.9 L2679.4,1161.5 L853.2,940.4 Z" fill="#4a4a4a" fill-opacity="0.55" stroke="#4a4a4a" stroke-width="1.5"/>
 <path d="M613.4,100.0 L871.6,232.7 L853.2,829.8 L465.8,984.6 L-13.8,785.6 L96.9,365.4 Z" fill="#4a5a78" fill-opacity="0.55" stroke="#4a5a78" stroke-width="1.5"/>
-<path d="M650.3,1095.2 L1664.8,1161.5 L1664.8,1935.5 L650.3,1935.5 Z" fill="#6a4a2a" fill-opacity="0.55" stroke="#6a4a2a" stroke-width="1.5"/>
+<path d="M650.3,1095.2 L1664.8,1161.5 L1664.8,1935.5 L650.3,1935.5 Z" fill="#3e3834" fill-opacity="0.55" stroke="#3e3834" stroke-width="1.5"/>
 <path d="M-1747.7,-828.8 L-87.6,-718.2 L96.9,-165.4 L-1932.2,-276.0 Z" fill="#a03a8a" fill-opacity="0.55" stroke="#a03a8a" stroke-width="1.5"/>
 <path d="M-4699.2,608.6 L-3776.8,940.4 L-2854.5,1825.0 L-2485.6,2709.5 L-2024.4,4257.6 L-1747.7,5584.5 L-2208.9,5695.0 L-2393.4,4699.9 L-2854.5,3594.1 L-3444.8,2377.8 L-4145.8,1382.7 L-4975.9,807.7 Z" fill="#6e7a80" fill-opacity="0.55" stroke="#6e7a80" stroke-width="1.5"/>
 <path d="M-456.5,6026.8 L2310.5,6026.8 L2310.5,7132.5 L650.3,7574.8 L-456.5,7796.0 Z" fill="#3a5a6a" fill-opacity="0.55" stroke="#3a5a6a" stroke-width="1.5"/>
@@ -62,7 +62,7 @@
 <path d="M687.2,453.8 L853.2,498.1 L834.7,940.4 L650.3,874.0 Z" fill="#7a5a3a" fill-opacity="0.55" stroke="#7a5a3a" stroke-width="1.5"/>
 <path d="M-2854.5,2643.2 L-1932.2,2643.2 L-1932.2,3151.8 L-2854.5,3151.8 Z" fill="#3a6a8a" fill-opacity="0.55" stroke="#3a6a8a" stroke-width="1.5"/>
 <path d="M576.5,453.8 L742.5,464.9 L724.1,586.5 L576.5,575.5 Z" fill="#555" fill-opacity="0.55" stroke="#888" stroke-width="1.5"/>
-<path d="M2642.5,4611.4 L2937.6,4611.4 L2937.6,4854.7 L2642.5,4854.7 Z" fill="#c06a3a" fill-opacity="0.55" stroke="#c06a3a" stroke-width="1.5"/>
+<path d="M2642.5,4611.4 L2937.6,4611.4 L2937.6,4854.7 L2642.5,4854.7 Z" fill="#8a8478" fill-opacity="0.55" stroke="#8a8478" stroke-width="1.5"/>
 <path d="M-5990.4,719.2 L-5621.5,719.2 L-4883.6,807.7 L-4422.5,1050.9 L-4108.9,1382.7 L-3813.7,1714.4 L-3592.4,2046.1 L-3371.0,2355.7 L-3223.4,2643.2 L-3002.1,3151.8 L-2799.2,3594.1 L-2540.9,4147.0 L-2319.6,4699.9 L-2153.6,5142.2 L-2153.6,5584.5 L-2245.8,5916.2 L-2485.6,6247.9 L-2743.8,6690.2 L-2485.6,7243.1 L-1932.2,7685.4 L-1378.8,7906.5 L-641.0,8017.1 L-179.8,8017.1 L281.4,7906.5 L650.3,7574.8 L1203.7,7243.1 L1664.8,7021.9 L2126.0,6867.1 L2771.6,7132.5 L3232.8,7464.2 L3970.6,8017.1 L4339.6,8459.4 L4524.0,8680.5 L4524.0,10449.7 L-7835.0,10449.7 L-7835.0,719.2 Z" fill="#0c1a26" stroke="#2a4a66" stroke-width="1"/>
 <path d="M-87.6,-1824.0 L650.3,-607.7 L871.6,55.8 L853.2,719.2 L834.7,1382.7 L1480.4,2156.7 L1757.1,3151.8 L1757.1,4478.7 L1295.9,5805.6 L1295.9,6800.8" fill="none" stroke="#3a6a8a" stroke-width="22" stroke-linejoin="round"/>
 <path d="M-4016.6,1349.5 L-3223.4,1095.2 L-2301.1,918.2 L-1747.7,874.0 L-1009.9,785.6 L-272.0,719.2 L96.9,829.8 L558.1,1006.7 L1019.2,1050.9 L1572.6,829.8 L2310.5,166.3" fill="none" stroke="#e0a040" stroke-opacity="0.75" stroke-width="14" stroke-linejoin="round"/>
@@ -193,6 +193,14 @@
 <text x="501.1" y="482.9" dx="5" dy="12" fill="#8fe8ff" font-size="10">Bradbury Building (heritage exterior)</text>
 <circle cx="2790.1" cy="4733.1" r="2" fill="#29d8ff"/>
 <text x="2790.1" y="4733.1" dx="5" dy="12" fill="#8fe8ff" font-size="10">K&#39;s apartment (enterable)</text>
+<circle cx="2476.5" cy="4854.7" r="2" fill="#29d8ff"/>
+<text x="2476.5" y="4854.7" dx="5" dy="12" fill="#8fe8ff" font-size="10">Lakewood Center market yard</text>
+<circle cx="1388.1" cy="1028.4" r="2" fill="#29d8ff"/>
+<text x="1388.1" y="1028.4" dx="5" dy="12" fill="#8fe8ff" font-size="10">Wallace causeway (north apron)</text>
+<circle cx="1388.1" cy="1155.5" r="2" fill="#29d8ff"/>
+<text x="1388.1" y="1155.5" dx="5" dy="12" fill="#8fe8ff" font-size="10">Wallace entrance plinth</text>
+<circle cx="1388.1" cy="1172.1" r="2" fill="#29d8ff"/>
+<text x="1388.1" y="1172.1" dx="5" dy="12" fill="#8fe8ff" font-size="10">Wallace water room (sealed door)</text>
 <circle cx="-3168.1" cy="2576.9" r="2" fill="#29d8ff"/>
 <text x="-3168.1" y="2576.9" dx="5" dy="12" fill="#8fe8ff" font-size="10">Sea wall finale site</text>
 <circle cx="397.6" cy="279.4" r="2" fill="#29d8ff"/>
