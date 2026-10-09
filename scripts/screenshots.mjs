@@ -91,6 +91,9 @@ for (const s of shots) {
     await page.evaluate(s.after);
     await page.waitForTimeout(market ? 2500 : 1500);
     if (!market) await page.waitForFunction(() => window.__nla.isIdle(), null, { timeout: 120_000, polling: 1000 }).catch(() => {});
+    // camera presets are idempotent; set it again in case a slow first frame swallowed the first call
+    await page.evaluate(s.after);
+    await page.waitForTimeout(1500);
   }
   if (s.cine) {
     // cut until the director lands on a wide establishing shot, then let its area stream in
