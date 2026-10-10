@@ -56,6 +56,19 @@ Up close the amber is the shared sodium lamps, the darker window lit range, and 
 
 `aerial` is about 1 km up over the Century / La Brea pin. The seam cameras match the before shots: eye about 1 km up, looking across the boundary with Westside, South LA, the Lakewood east edge, the Arts District south gap, and downtown's north edge.
 
+## Measured
+
+SwiftShader WebGL2, drizzle, the Century / La Brea street. Medium is the acceptance shot: 115 draws and 0.46 M triangles, under 250 and 1.5 M. Crowd was 11 and street cars were 4, which is `round(160 × 0.07)` and `round(22 × 0.2)`.
+
+| Tier | Draws | Triangles | Street cars | Crowd |
+|---|---|---|---|---|
+| low | 94 | 0.49 M | 0 (streaks) | 0 |
+| medium | 115 | 0.46 M | 4 | 11 |
+| high | 148 | 0.51 M | 8 | 24 |
+| ultra | 188 | 0.62 M | 13 | 48 |
+
+Ultra still had a ready queue, so that row is a sample, not a settled peak. The iPhone viewport (390×844, medium, touch) was 81 draws and 0.33 M triangles. An 8 km eastbound hop at 160 m stayed at about 10 fps / 100 ms on this software renderer, with draws falling from 79 to 32. The street graph for this lattice is 106,670 edges.
+
 ## Known gaps
 
 The 405, 5, 105 and 710 are still far streaks, not trenches, and this stage adds no freeway wall. The 605 and the 91 are still absent from `city-layout.json`. Ambient spinners in the 55–90 m band are not lifted. East LA is still the Stage 1 `sprawl-dense` blockout. Valley floor above 45 m stays `hills-sparse`, so those blocks are not this low-rise grid. There is no interior.
