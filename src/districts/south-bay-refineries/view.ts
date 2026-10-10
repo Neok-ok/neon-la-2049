@@ -1,5 +1,5 @@
 // Screenshot and debug cameras for Stage 18 (`__nla.southBayView`).
-import type { CityLayout } from '../../world/layout';
+import { distToSegment, type CityLayout } from '../../world/layout';
 import type { RefineryBlock } from '../_shared/refinery/plan';
 import { planSouthBay } from './plan';
 import { COAST_X, DOOR_S, LATTICE, controlBlock, doorWorld, southBayBlock } from './spec';
@@ -52,6 +52,27 @@ function fly(
     pitch: Math.atan2(look.y - eye.y, dist),
     mode: 'fly', cockpit: true,
   };
+}
+
+function nearestSeaWall(layout: CityLayout, x: number, z: number): { x: number; z: number; d: number; crest: number } | null {
+  let best: { x: number; z: number; d: number; crest: number } | null = null;
+  for (const wall of layout.seaWalls) {
+    for (let i = 0; i < wall.pts.length - 1; i++) {
+      const ax = wall.pts[i]![0];
+      const az = wall.pts[i]![1];
+      const bx = wall.pts[i + 1]![0];
+      const bz = wall.pts[i + 1]![1];
+      const d = distToSegment(x, z, ax, az, bx, bz);
+      if (best && d >= best.d) continue;
+      const dx = bx - ax;
+      const dz = bz - az;
+      const l2 = dx * dx + dz * dz;
+      let t = l2 > 0 ? ((x - ax) * dx + (z - az) * dz) / l2 : 0;
+      t = Math.max(0, Math.min(1, t));
+      best = { x: ax + dx * t, z: az + dz * t, d, crest: wall.crestHeight };
+    }
+  }
+  return best;
 }
 
 function owned(layout: CityLayout, x: number, z: number): boolean {
@@ -156,17 +177,28 @@ export function southBayCamera(layout: CityLayout, kind: SouthBayView): SouthBay
     return null;
   }
   if (kind === 'wall') {
-    const west = blocks(layout).filter((b) => b.cx < COAST_X);
-    west.sort((a, b) => a.cx - b.cx);
-    for (const b of west) {
+    let best: RefineryBlock | null = null;
+    let hit: { x: number; z: number; crest: number } | null = null;
+    let bestD = Infinity;
+    for (const b of blocks(layout)) {
+      if (b.cx >= COAST_X) continue;
       const plan = planSouthBay(b, layout);
       if (plan.kind !== 'sphere' && plan.kind !== 'tank') continue;
-      const feet = at(b, 4, -b.lb * 0.5 - 6, 0.02);
-      const look = at(b, 8, -b.lb * 0.5 - 80, 36);
-      if (!owned(layout, feet.x, feet.z)) continue;
-      return walk(feet, look, 0.06);
+      const wall = nearestSeaWall(layout, b.cx, b.cz);
+      if (!wall || wall.d >= bestD) continue;
+      best = b;
+      bestD = wall.d;
+      hit = wall;
     }
-    return null;
+    if (!best || !hit) return null;
+    // The west face of this block is already the coastal strip. Stand on the east side
+    // of the yard so the tanks sit between the camera and the wall.
+    const eye = at(best, 0, best.lb * 0.35, 42);
+    if (!owned(layout, eye.x, eye.z)) return fly(
+      { x: best.cx, y: best.ground + 42, z: best.cz },
+      { x: hit.x, y: hit.crest * 0.72, z: hit.z },
+    );
+    return fly(eye, { x: hit.x, y: hit.crest * 0.72, z: hit.z });
   }
   return null;
 }

@@ -12,7 +12,7 @@ Ordinary blocks are tank farms (share 0.36), coastal spheres (0.14), cracking ya
 
 Invented heights, recorded in the Bible: cracking columns 50–60 m snapped to 5.0 m, flare stacks 100–140 m snapped to 5.0 m, spheres 16.8–25.2 m (4–6 × 4.2 m) on the kit's 1.5 m berm, pump house 12.0 m (3 × 4.0 m). Berms, catwalks and pipe decks stay the kit. Yard signs are existing atlas cells only (`BLACK OIL`, hanzi `STEAM`, `2049`, kana `STEAM`), about one block in twelve. No company names.
 
-`jetty: true` asks for a short pier, and the planner emits one only when a walk reaches the sea-wall corridor within 220 m without leaving the district or entering the ocean. The nearest owned block is about 1.4 km from the Sepulveda centreline, so this polygon emits no jetty. The western sphere and tank blocks are the refinery edge. The camera `wall` stands on that edge and looks west toward the 90 m crest.
+`jetty: true` asks for a short pier, and the planner emits one only when a walk reaches the sea-wall corridor within 220 m without leaving the district or entering the ocean. The nearest owned block is about 1.4 km from the Sepulveda centreline, so this polygon emits no jetty. The western sphere and tank blocks are the refinery edge. The camera `wall` stands on the east side of the coastal yard nearest the Sepulveda crest and looks west across it. The crest is about 1.4 km away, on `coastal-strip`.
 
 `details.ts` rebuilds the block seed with `hash2i(i + 100000, j + 100000, districtIndex * 7919 + 13)`. The worker ships `seed` as a float32, and past 2^24 the rounded value changes the yard, so the cylinders and spheres would miss the berm. This district's index is 16. Crowd loops use the same rebuild.
 
