@@ -154,36 +154,36 @@ function planTiles(shot: Shot, cropW: number, cropH: number, viewW: number, view
   return tiles;
 }
 
-function drawTiles(shot: Shot, ctx: CanvasRenderingContext2D, tiles: Tile[], _flip: boolean): number {
+function aimTile(shot: Shot, tile: Tile): void {
   const cam = shot.camera;
+  shot.renderer.setPixelRatio(1);
+  shot.renderer.setSize(tile.vw, tile.vh, false);
+  cam.aspect = tile.fullW / tile.fullH;
+  cam.setFocalLength(shot.focal);
+  cam.setViewOffset(tile.fullW, tile.fullH, tile.vx, tile.vy, tile.vw, tile.vh);
+}
+
+function drawTiles(shot: Shot, ctx: CanvasRenderingContext2D, tiles: Tile[], _flip: boolean): number {
   let renderMs = 0;
   for (const tile of tiles) {
-    shot.renderer.setPixelRatio(1);
-    shot.renderer.setSize(tile.vw, tile.vh, false);
-    cam.aspect = tile.fullW / tile.fullH;
-    cam.setFocalLength(shot.focal);
-    cam.setViewOffset(tile.fullW, tile.fullH, tile.vx, tile.vy, tile.vw, tile.vh);
+    aimTile(shot, tile);
+    shot.pipeline.setTile(tile);
     const t = performance.now();
-    shot.pipeline.render();
-    renderMs += performance.now() - t;
+    shot.pipeline.renderTile();
     blitCanvas(ctx, shot.renderer.domElement, tile, _flip);
+    renderMs += performance.now() - t;
   }
   return renderMs;
 }
 
 async function drawTilesAsync(shot: Shot, ctx: CanvasRenderingContext2D, tiles: Tile[]): Promise<number> {
-  const cam = shot.camera;
   const webgl = shot.backend === 'WebGL2';
   let renderMs = 0;
   for (const tile of tiles) {
-    shot.renderer.setPixelRatio(1);
-    shot.renderer.setSize(tile.vw, tile.vh, false);
-    cam.aspect = tile.fullW / tile.fullH;
-    cam.setFocalLength(shot.focal);
-    cam.setViewOffset(tile.fullW, tile.fullH, tile.vx, tile.vy, tile.vw, tile.vh);
+    aimTile(shot, tile);
+    shot.pipeline.setTile(tile);
     const t = performance.now();
-    shot.pipeline.render();
-    renderMs += performance.now() - t;
+    shot.pipeline.renderTile();
     const tex = new FramebufferTexture(tile.vw, tile.vh);
     shot.renderer.copyFramebufferToTexture(tex);
     const buf = await (shot.renderer.backend as unknown as {
@@ -191,6 +191,7 @@ async function drawTilesAsync(shot: Shot, ctx: CanvasRenderingContext2D, tiles: 
     }).copyTextureToBuffer(tex, 0, 0, tile.vw, tile.vh, 0);
     tex.dispose();
     blitBuffer(ctx, buf, tile, webgl);
+    renderMs += performance.now() - t;
   }
   return renderMs;
 }

@@ -2,7 +2,7 @@
 // Depth of field is a few gather taps, not three's 64-tap DoF, which keeps several
 // half-float buffers and is too heavy for a phone. Low and medium also skip the
 // mip bloom and use a short glow in this same shader.
-import { Vector3, type Scene, type WebGPURenderer, type PerspectiveCamera, RenderPipeline } from 'three/webgpu';
+import { Vector2, Vector3, type Scene, type WebGPURenderer, type PerspectiveCamera, RenderPipeline } from 'three/webgpu';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import * as TSL from 'three/tsl';
 import { gradeById } from './grades';
@@ -11,6 +11,13 @@ import type { GradeId } from './types';
 import type { Tier } from '../core/quality';
 
 const T = TSL as any;
+
+interface BloomHandle {
+  strength: { value: number };
+  updateBeforeType: string;
+  updateBefore(frame: object): void;
+  dispose(): void;
+}
 
 export interface PhotoShade {
   focus: number;
@@ -26,7 +33,11 @@ export interface PhotoPipeline {
   heavyBloom: boolean;
   dofTaps: number;
   render(): void;
+  /** One capture tile. The scene pass otherwise draws once per animation frame, so a second render in that frame would repeat the viewfinder. */
+  renderTile(): void;
   shade(s: PhotoShade): void;
+  /** Tile rectangle inside the full frame, in pixels. Null covers the drawing buffer (the viewfinder). */
+  setTile(rect: { vx: number; vy: number; vw: number; vh: number; fullW: number; fullH: number } | null): void;
   dispose(): void;
 }
 
@@ -50,6 +61,10 @@ export function createPhotoPipeline(
   const uContrast = T.uniform(1);
   const uGamma = T.uniform(1);
   const uGrainSeed = T.uniform(0);
+  const uTileScale = T.uniform(new Vector2(1, 1));
+  const uTileOffset = T.uniform(new Vector2());
+  const uFullSize = T.uniform(new Vector2(1, 1));
+  const drawSize = new Vector2();
 
   // samples: 0 keeps a plain depth texture. MSAA depth on the WebGL2 fallback is the
   // blit that reversed-Z already had to avoid, so the photo pass does not ask for it.
@@ -87,10 +102,11 @@ export function createPhotoPipeline(
   })();
 
   let image = dof;
-  let bloomNode: { strength: { value: number }; dispose(): void } | null = null;
+  let bloomNode: BloomHandle | null = null;
   if (cap.heavyBloom) {
-    bloomNode = bloom(dof, 0.4, 0.25, 0.9);
-    image = dof.add(bloomNode);
+    const node = bloom(dof, 0.4, 0.25, 0.9);
+    bloomNode = node as unknown as BloomHandle;
+    image = dof.add(node);
   }
 
   const graded = T.Fn(() => {
@@ -101,9 +117,11 @@ export function createPhotoPipeline(
     c = T.max(c, T.vec3(0, 0, 0));
     c = c.mul(uGain).add(uLift);
     c = T.pow(c, T.vec3(1, 1, 1).div(T.max(uGamma, T.float(0.2))));
-    const n = T.fract(T.sin(T.uv().x.mul(T.screenSize.x).add(T.uv().y.mul(T.screenSize.y).mul(13.7)).add(uGrainSeed)).mul(43758.5453));
+    // Grain and vignette live in the full frame. A tile's own uv() would stamp a fresh matte on every slice.
+    const uvFrame = T.uv().mul(uTileScale).add(uTileOffset);
+    const n = T.fract(T.sin(uvFrame.x.mul(uFullSize.x).add(uvFrame.y.mul(uFullSize.y).mul(13.7)).add(uGrainSeed)).mul(43758.5453));
     c = c.add(n.sub(0.5).mul(uGrain));
-    const vig = T.smoothstep(T.float(0.35), T.float(1.15), T.length(T.uv().sub(0.5)).mul(1.7)).mul(uVignette);
+    const vig = T.smoothstep(T.float(0.35), T.float(1.15), T.length(uvFrame.sub(0.5)).mul(1.7)).mul(uVignette);
     c = c.mul(T.float(1).sub(vig));
     if (!cap.heavyBloom) {
       const texel = T.vec2(1, 1).div(T.screenSize).mul(6);
@@ -120,6 +138,21 @@ export function createPhotoPipeline(
   })();
 
   const pipeline = new RenderPipeline(renderer, graded);
+
+  function setTile(rect: { vx: number; vy: number; vw: number; vh: number; fullW: number; fullH: number } | null): void {
+    if (!rect) {
+      renderer.getDrawingBufferSize(drawSize);
+      uTileScale.value.set(1, 1);
+      uTileOffset.value.set(0, 0);
+      uFullSize.value.set(Math.max(1, drawSize.x), Math.max(1, drawSize.y));
+      return;
+    }
+    const fw = Math.max(1, rect.fullW);
+    const fh = Math.max(1, rect.fullH);
+    uTileScale.value.set(rect.vw / fw, rect.vh / fh);
+    uTileOffset.value.set(rect.vx / fw, rect.vy / fh);
+    uFullSize.value.set(fw, fh);
+  }
 
   return {
     heavyBloom: cap.heavyBloom,
@@ -138,9 +171,29 @@ export function createPhotoPipeline(
       uContrast.value = g.contrast;
       uGamma.value = g.gamma;
       if (bloomNode) bloomNode.strength.value = Math.max(0, s.bloom);
+      setTile(null);
     },
+    setTile,
     render() {
       pipeline.render();
+    },
+    renderTile() {
+      // PassNode and BloomNode redraw once per animation frame. The shutter renders
+      // every tile inside that frame, so call them directly and keep the pipeline
+      // from drawing the viewfinder over the tile.
+      const frame = { renderer };
+      const passType = scenePass.updateBeforeType;
+      const bloomType = bloomNode?.updateBeforeType;
+      scenePass.updateBeforeType = T.NodeUpdateType.NONE;
+      if (bloomNode) bloomNode.updateBeforeType = T.NodeUpdateType.NONE;
+      try {
+        scenePass.updateBefore(frame);
+        bloomNode?.updateBefore(frame);
+        pipeline.render();
+      } finally {
+        scenePass.updateBeforeType = passType;
+        if (bloomNode && bloomType !== undefined) bloomNode.updateBeforeType = bloomType;
+      }
     },
     dispose() {
       pipeline.dispose();
