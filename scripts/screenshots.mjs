@@ -271,6 +271,21 @@ const shots = [
   { name: 'lax-ultra', ctx: desktop, q: `mode=walk&at=lax-concourse&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.laxView('burn'), near: true, settle: true },
   { name: 'lax-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=lax-concourse&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.laxView('terminal'), near: true, settle: true },
   { name: 'lax-flyover', ctx: desktop, q: `mode=fly&at=lax-concourse&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.laxView('aerial'), near: true, settle: true, flyover: true, hop: { x0: -16800, z0: 12400, y: 180, yaw: 90, pitch: -12, dx: 130, dz: 0, n: 32 } },
+  // Stage 18 — South Bay refineries. Cameras come from __nla.southBayView.
+  { name: 'sb-aerial-night', ctx: desktop, q: `mode=fly&at=south-bay-control&time=22&weather=drizzle&${common}`, after: () => window.__nla.southBayView('aerial'), near: true, settle: true },
+  { name: 'sb-from-lax', ctx: desktop, q: `mode=fly&at=south-bay-control&time=22&weather=drizzle&${common}`, after: () => window.__nla.southBayView('lax'), near: true, settle: true },
+  { name: 'sb-downtown', ctx: desktop, q: `mode=fly&at=south-bay-control&time=22&weather=drizzle&${common}`, after: () => window.__nla.southBayView('downtown'), once: true },
+  { name: 'sb-tanks-rain', ctx: desktop, q: `mode=walk&at=south-bay-control&time=22.5&weather=rain&${common}`, after: () => window.__nla.southBayView('tanks'), near: true, settle: true },
+  { name: 'sb-spheres', ctx: desktop, q: `mode=walk&at=south-bay-control&time=22.5&weather=rain&${common}`, after: () => window.__nla.southBayView('spheres'), near: true, settle: true },
+  { name: 'sb-wall', ctx: desktop, q: `mode=walk&at=south-bay-control&time=22.5&weather=rain&${common}`, after: () => window.__nla.southBayView('wall'), near: true, settle: true },
+  { name: 'sb-flare', ctx: desktop, q: `mode=fly&at=south-bay-control&time=22.5&weather=rain&${common}`, after: () => window.__nla.southBayView('flare'), near: true, settle: true },
+  { name: 'sb-street', ctx: desktop, q: `mode=walk&at=south-bay-control&time=22.5&weather=rain&${common}`, after: () => window.__nla.southBayView('street'), near: true, settle: true },
+  { name: 'interior-south-bay', ctx: desktop, q: `mode=walk&at=south-bay-control&time=22.5&weather=rain&${common}`, after: () => window.__nla.southBayView('interior'), near: true, settle: true },
+  { name: 'sb-low', ctx: desktop, q: `mode=walk&at=south-bay-control&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=low${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.southBayView('tanks'), near: true, settle: true },
+  { name: 'sb-medium', ctx: desktop, q: `mode=walk&at=south-bay-control&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.southBayView('tanks'), near: true, settle: true },
+  { name: 'sb-ultra', ctx: desktop, q: `mode=walk&at=south-bay-control&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.southBayView('tanks'), near: true, settle: true },
+  { name: 'sb-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=south-bay-control&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.southBayView('tanks'), near: true, settle: true },
+  { name: 'sb-flyover', ctx: desktop, q: `mode=fly&at=south-bay-control&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.southBayView('aerial'), near: true, settle: true, flyover: true, hop: { x0: -7000, z0: 16000, y: 140, yaw: 90, pitch: -8, dx: 180, dz: 0, n: 32 } },
 ];
 
 const args = GPU

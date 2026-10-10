@@ -101,6 +101,47 @@ export function makeCylinder(sides = 6): KitTemplate {
   return b.done();
 }
 
+/**
+ * Storage sphere. Radius 0.5, centred, so sx = sy = sz = diameter.
+ * Outward normals. Southeast never asks for this id.
+ */
+export function makeSphere(stacks = 5, slices = 8): KitTemplate {
+  const b = new Bld();
+  const r = 0.5;
+  const face = (p0: number[], p1: number[], p2: number[], p3: number[]) => {
+    const cx = (p0[0] + p1[0] + p2[0] + p3[0]) * 0.25;
+    const cy = (p0[1] + p1[1] + p2[1] + p3[1]) * 0.25;
+    const cz = (p0[2] + p1[2] + p2[2] + p3[2]) * 0.25;
+    const e1x = p1[0] - p0[0], e1y = p1[1] - p0[1], e1z = p1[2] - p0[2];
+    const e2x = p2[0] - p0[0], e2y = p2[1] - p0[1], e2z = p2[2] - p0[2];
+    const nx = e1y * e2z - e1z * e2y;
+    const ny = e1z * e2x - e1x * e2z;
+    const nz = e1x * e2y - e1y * e2x;
+    const out = nx * cx + ny * cy + nz * cz;
+    if (out >= 0) b.quad([p0, p1, p2, p3], cx, cy, cz);
+    else b.quad([p0, p3, p2, p1], cx, cy, cz);
+  };
+  for (let i = 0; i < stacks; i++) {
+    const v0 = (i / stacks) * Math.PI;
+    const v1 = ((i + 1) / stacks) * Math.PI;
+    const y0 = Math.cos(v0) * r;
+    const y1 = Math.cos(v1) * r;
+    const r0 = Math.sin(v0) * r;
+    const r1 = Math.sin(v1) * r;
+    for (let j = 0; j < slices; j++) {
+      const a0 = (j / slices) * Math.PI * 2;
+      const a1 = ((j + 1) / slices) * Math.PI * 2;
+      face(
+        [Math.cos(a0) * r0, y0, Math.sin(a0) * r0],
+        [Math.cos(a1) * r0, y0, Math.sin(a1) * r0],
+        [Math.cos(a1) * r1, y1, Math.sin(a1) * r1],
+        [Math.cos(a0) * r1, y1, Math.sin(a0) * r1],
+      );
+    }
+  }
+  return b.done();
+}
+
 /** Storage tank: 12-side wall plus a roof. Radius 0.5, height 1, centred. Same scale as `cyl` (sx = diameter). */
 export function makeDrum(sides = 12): KitTemplate {
   const b = new Bld();
@@ -164,7 +205,7 @@ export function makeCross(): KitTemplate {
   return b.done();
 }
 
-export type TemplateId = 'box' | 'awning' | 'canopy' | 'cyl' | 'drum' | 'quadY' | 'quadZ' | 'stool';
+export type TemplateId = 'box' | 'awning' | 'canopy' | 'cyl' | 'drum' | 'sphere' | 'quadY' | 'quadZ' | 'stool';
 
 const cache = new Map<TemplateId, KitTemplate>();
 
@@ -176,6 +217,7 @@ export function getTemplate(id: TemplateId): KitTemplate {
     else if (id === 'canopy') t = makeCanopy();
     else if (id === 'cyl') t = makeCylinder();
     else if (id === 'drum') t = makeDrum();
+    else if (id === 'sphere') t = makeSphere();
     else if (id === 'quadY') t = makeQuadY();
     else if (id === 'quadZ') t = makeQuadZ();
     else t = makeStool();

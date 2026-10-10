@@ -16,7 +16,8 @@ const T = TSL as any;
 /** A lane ≥ 5 must not park spinners at 74 m or 112 m. Those bands sit inside the slabs and the stacks. */
 function overRoofs(id: string): boolean {
   return id === 'lakewood-megablocks' || id === 'south-la-megablocks' || id === 'arts-district'
-    || id === 'southeast-industrial' || id === 'hollywood' || id === 'lax-spaceport';
+    || id === 'southeast-industrial' || id === 'hollywood' || id === 'lax-spaceport'
+    || id === 'south-bay-refineries';
 }
 
 /** Gantries are 420 m, so the 158–420 m roof skip would still fly through the shafts. */

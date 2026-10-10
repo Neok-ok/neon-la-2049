@@ -174,7 +174,7 @@ registerArchetype('industrial-dense', (ctx) => {
   });
 });
 
-// South Bay still uses this body. Southeast moved to `southeast-refinery` in Stage 15.
+// Unused. Southeast moved to `southeast-refinery` in Stage 15. South Bay moved to `south-bay-refinery` in Stage 18.
 registerArchetype('industrial', (ctx) => {
   const r = ctx.rng;
   lotLoop(ctx, ctx.lots(40, 120, 8), (l) => {

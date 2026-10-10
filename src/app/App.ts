@@ -36,6 +36,9 @@ import { installLaxHolos } from '../districts/lax-spaceport/holos';
 import { launchPad, launchPhase, launchRumble, mountLaunch, requestLaunch, updateLaunch } from '../districts/lax-spaceport/launch';
 import { gantryTris } from '../districts/lax-spaceport/gantry';
 import { mountSoutheastFlares } from '../districts/southeast-industrial/field';
+import { southBayCamera, type SouthBayView } from '../districts/south-bay-refineries/view';
+import { installSouthBayHolos } from '../districts/south-bay-refineries/holos';
+import { mountSouthBayFlares, southBayHum } from '../districts/south-bay-refineries/field';
 import { setRefineryFlame } from '../districts/_shared/refinery/flames';
 import { installArtsHolos } from '../districts/arts-district/holos';
 import { artsRiverBoost } from '../districts/arts-district/plan';
@@ -174,6 +177,7 @@ export class App {
     this.landmarks = new Landmarks(this.query);
     this.scene.add(this.landmarks.root);
     mountSoutheastFlares(this.scene, this.query.layout);
+    mountSouthBayFlares(this.scene, this.query.layout);
     mountLaunch(this.scene, this.query.layout);
     installCoast(this.scene, this.query, this.quality.tier);
     installShowcase(this.query.layout);
@@ -184,6 +188,7 @@ export class App {
     installArtsHolos(this.query.layout);
     installHollywoodHolos(this.query.layout);
     installLaxHolos(this.query.layout);
+    installSouthBayHolos(this.query.layout);
     this.holos = new HologramField(this.query.layout);
     this.scene.add(this.holos.group);
     this.traffic = new SpinnerTraffic(this.scene, this.query, settingsFor('ultra').traffic);
@@ -371,6 +376,7 @@ export class App {
     const inSouth = districtNow.id === 'south-la-megablocks';
     const inArts = districtNow.id === 'arts-district';
     const inSoutheast = districtNow.id === 'southeast-industrial';
+    const inSouthBay = districtNow.id === 'south-bay-refineries';
     const southAmber = inSouth ? Math.max(0, 1 - eastDistance(cam.x, cam.z) / 1500) : 0;
     const walLm = this.query.layout.landmarkById('wallace-pyramid');
     const inWallace = districtNow.id === 'wallace-vernon'
@@ -385,8 +391,9 @@ export class App {
             : inSouth && alt < 46 ? 0.42 + southAmber * 0.14
               : inLake && alt < 46 ? 0.38
                 : inArts && alt < 50 ? 0.26
-                  : inCoast ? 0.06
-                    : 0.22;
+                  : inSouthBay && alt < 60 ? 0.16
+                    : inCoast ? 0.06
+                      : 0.22;
     const districtFog = inMarket ? Math.max(0, Math.min(1, 1 - alt / 70)) * 0.8
       : inHistoric && alt < 90 ? 0.42 * (1 - alt / 90)
         : inDtla && alt < 80 ? 0.28 * (1 - alt / 80)
@@ -402,7 +409,12 @@ export class App {
     const artsFog = inArts && alt < 42
       ? (0.46 + artsRiverBoost(this.query.layout, cam.x, cam.z) * 0.28) * (1 - alt / 42) * artsFogK
       : 0;
-    U.streetFog.value = Math.max(districtFog, coast.fog, artsFog);
+    const sbFogK = this.quality.tier === 'low' ? 0.35
+      : this.quality.tier === 'medium' ? 0.6
+        : this.quality.tier === 'high' ? 0.85
+          : 1;
+    const sbFog = inSouthBay && alt < 80 ? 0.4 * (1 - alt / 80) * sbFogK : 0;
+    U.streetFog.value = Math.max(districtFog, coast.fog, artsFog, sbFog);
     const dtSafe = Math.max(dt, 1e-4);
     this.query.warm(cam.x, cam.z, cam.x + ((cam.x - this.lastCam.x) / dtSafe) * 0.45, cam.z + ((cam.z - this.lastCam.z) / dtSafe) * 0.45);
     this.lastCam.copy(cam);
@@ -451,7 +463,7 @@ export class App {
       ? Math.max(0, 1 - alt / 140) * 0.82
       : inArts ? Math.max(0, 1 - alt / 90) * 0.66
         : inSoutheast ? Math.max(0, 1 - alt / 110) * 0.5 : 0;
-    this.ambience.setMachinery(Math.min(1, districtMach + launchRumble(cam.x, cam.y, cam.z)));
+    this.ambience.setMachinery(Math.min(1, districtMach + launchRumble(cam.x, cam.y, cam.z) + southBayHum(cam.x, cam.y, cam.z, this.query.layout)));
     setRefineryFlame(this.quality.tier, w.windDir, w.params.wind);
     this.ambience.setTraffic(this.ground.bed);
     this.ambience.setSurf(coast.surf, coast.impact, coast.crest);
@@ -734,6 +746,26 @@ export class App {
       launch: (phase?: number, pad?: number) => {
         requestLaunch(phase ?? 0, pad);
         return { phase: phase ?? 0, pad: pad ?? launchPad() };
+      },
+      /** Stage 18 cameras: the coast from a kilometre up, the flare field from LAX, tanks, spheres, the sea-wall edge, a stack, the door, the control room, downtown. */
+      southBayView: (kind: SouthBayView) => {
+        const p = southBayCamera(this.query.layout, kind);
+        if (!p) return false;
+        this.query.fabricAt(p.x, p.z);
+        this.cams.setMode(p.mode);
+        if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
+        this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
+        if (p.mode === 'walk') {
+          this.cams.walk.pitch = p.pitch;
+          this.cams.walk.heading = p.heading;
+          if (p.feet) {
+            this.cams.walk.pos.set(p.feet.x, p.feet.y, p.feet.z);
+            this.camera.position.set(p.feet.x, p.feet.y + 1.7, p.feet.z);
+            this.camera.rotation.set(p.pitch, -p.heading, 0, 'YXZ');
+            this.camera.updateMatrixWorld();
+          }
+        }
+        return true;
       },
       /** Stage 15 cameras: the belt from a kilometre up, a flare, a tank farm, a pipe canyon, the pump door, the control room, downtown. */
       southeastView: (kind: SoutheastView) => {

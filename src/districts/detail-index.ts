@@ -28,3 +28,5 @@ import './southeast-industrial/crowd';
 import './hollywood/details';
 import './hollywood/crowd';
 import './lax-spaceport/details';
+import './south-bay-refineries/details';
+import './south-bay-refineries/crowd';

@@ -1,5 +1,5 @@
 // Southeast Refinery Belt. The Stage 1 polygon, bearing and block stay.
-// The archetype id does not: `industrial` is still South Bay and the Stage 1 body.
+// The archetype id does not: `industrial` stays registered and unused. South Bay is `south-bay-refinery`.
 import { hash2i } from '../../core/rng';
 import { geoToLocal } from '../../world/geo';
 import type { CityLayout } from '../../world/layout';

@@ -1,6 +1,6 @@
 # LAX Off-World Spaceport
 
-Sector 12 apron. District id `lax-spaceport`. Archetype id `lax-apron`. The Stage 1 body `spaceport` stays registered and unused. `industrial` stays the Stage 1 body for `south-bay-refineries`. The El Segundo landmark (`flare-field`) is not this district and was not rebuilt.
+Sector 12 apron. District id `lax-spaceport`. Archetype id `lax-apron`. The Stage 1 body `spaceport` stays registered and unused. `industrial` stays registered and unused. South Bay is `south-bay-refinery`. The El Segundo landmark (`flare-field`) is not this district and was not rebuilt.
 
 The polygon, the bearing 0 grid, the 420 × 260 m blocks and the 60 m streets are the Stage 1 entry. JSON `traffic` is 0.28 (the placeholder was 0.08).
 
