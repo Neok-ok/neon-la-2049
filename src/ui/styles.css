@@ -33,6 +33,11 @@ canvas#view { position: fixed; inset: 0; width: 100vw; height: 100dvh; display: 
   border-radius: 6px; padding: 8px 10px; cursor: pointer;
 }
 .toolbar select { text-transform: none; letter-spacing: 0.02em; }
+.toolbar .vol {
+  display: inline-flex; align-items: center; gap: 4px;
+  font: 600 10px/1 inherit; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text);
+}
+.toolbar .vol input { width: 84px; accent-color: var(--cyan); }
 .toolbar button.active { border-color: var(--cyan); color: #fff; box-shadow: 0 0 10px rgba(41,216,255,0.45) inset; }
 .toolbar button:hover, .title-card button:hover { border-color: var(--neon); }
 

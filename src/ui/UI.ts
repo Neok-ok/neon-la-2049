@@ -2,6 +2,8 @@
 import type { ModeId } from '../camera/types';
 import { TIERS, type Tier } from '../core/quality';
 import { WEATHER, type WeatherId } from '../atmosphere/Weather';
+import { audioPrefs, onAudioPrefs } from '../audio/prefs';
+import { activeAmbience } from '../audio/Ambience';
 
 export interface UICallbacks {
   setMode(m: ModeId): void;
@@ -22,6 +24,7 @@ export class UI {
   private title: HTMLDivElement | null = null;
   private qualitySel: HTMLSelectElement;
   private soundBtn: HTMLButtonElement;
+  private volume: HTMLInputElement;
   private nextBtn: HTMLButtonElement;
   private toast: HTMLDivElement;
   private toastTimer = 0;
@@ -80,11 +83,27 @@ export class UI {
     });
     more.appendChild(timeSel);
 
-    this.soundBtn = button('Sound: on', () => {
-      const on = cb.toggleSound();
-      this.soundBtn.textContent = `Sound: ${on ? 'on' : 'off'}`;
+    this.soundBtn = button(`Sound: ${audioPrefs.muted ? 'off' : 'on'}`, () => {
+      cb.toggleSound();
     });
+    this.soundBtn.title = 'Mute (M). The choice is remembered.';
     more.appendChild(this.soundBtn);
+    const vol = document.createElement('label');
+    vol.className = 'vol';
+    vol.textContent = 'Vol';
+    this.volume = document.createElement('input');
+    this.volume.type = 'range';
+    this.volume.min = '0';
+    this.volume.max = '100';
+    this.volume.step = '1';
+    this.volume.value = String(Math.round(audioPrefs.volume * 100));
+    this.volume.title = 'Volume. Remembered after reload.';
+    this.volume.addEventListener('input', () => {
+      activeAmbience()?.setVolume(Number(this.volume.value) / 100);
+    });
+    vol.appendChild(this.volume);
+    more.appendChild(vol);
+    onAudioPrefs(() => this.syncSound());
     more.appendChild(button('HUD', () => cb.toggleHUD()));
     const help = button('?', () => this.showHelp());
     help.title = 'Controls';
@@ -117,7 +136,7 @@ export class UI {
   showHelp(): void {
     this.flash(
       'Fly: WASD thrust · mouse/arrow keys steer · Space/E up · C/Q down · Shift boost · V cockpit<br/>' +
-        'Walk: WASD · mouse look · Shift run · E sit at a stall<br/>1 Fly · 2 Walk · 3 Cinematic · F toggle fly/walk · N next shot · H HUD · M mute · [ ] time −/+1 h · B next weather',
+        'Walk: WASD · mouse look · Shift run · E sit at a stall<br/>1 Fly · 2 Walk · 3 Cinematic · F toggle fly/walk · N next shot · H HUD · M mute · volume slider remembers · [ ] time −/+1 h · B next weather',
       7000,
     );
   }
@@ -127,6 +146,12 @@ export class UI {
     this.toast.classList.add('show');
     clearTimeout(this.toastTimer);
     this.toastTimer = window.setTimeout(() => this.toast.classList.remove('show'), ms);
+  }
+
+  private syncSound(): void {
+    this.soundBtn.textContent = `Sound: ${audioPrefs.muted ? 'off' : 'on'}`;
+    const next = String(Math.round(audioPrefs.volume * 100));
+    if (this.volume.value !== next) this.volume.value = next;
   }
 
   setMode(m: ModeId): void {

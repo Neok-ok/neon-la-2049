@@ -340,6 +340,12 @@ const shots = [
   { name: 'd1-ela-iphone', ctx: iphone, q: `mode=walk&at=east-la-market&time=22.5&weather=rain&freeze=1&ui=0&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.eastLaView('market'), near: true, settle: true },
   { name: 'd1-queue-iphone', ctx: iphone, q: `mode=walk&at=noodle-bar&time=22.5&weather=rain&freeze=1&ui=0&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.marketView('crowd'), near: true, settle: true },
   { name: 'd1-rain-iphone', ctx: iphone, q: `mode=walk&at=noodle-bar&time=22.5&weather=downpour&freeze=1&ui=0&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.marketView('street'), near: true, settle: true },
+  // D2 — city sound. The picture does not change; the toolbar shot shows mute and volume.
+  { name: 'd2-sound-toolbar', ctx: iphone, q: `mode=walk&at=noodle-bar&time=22.5&weather=rain&freeze=1&ui=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => { window.__nla.marketView('street'); document.querySelector('.toolbar')?.classList.add('open'); }, near: true, settle: true },
+  { name: 'd2-market', ctx: desktop, q: `mode=walk&at=noodle-bar&time=22.5&weather=rain&${common}`, after: () => window.__nla.marketView('street'), near: true, settle: true },
+  { name: 'd2-broadway', ctx: desktop, q: `mode=walk&at=bradbury&time=22.5&weather=rain&${common}`, after: () => window.__nla.broadwayView('street'), near: true, settle: true },
+  { name: 'd2-harbor', ctx: desktop, q: `mode=walk&at=harbor-control&time=22.5&weather=rain&${common}`, after: () => window.__nla.harborView('street'), near: true, settle: true },
+  { name: 'd2-interior', ctx: desktop, q: `mode=walk&at=bradbury&time=22.5&weather=rain&${common}`, after: () => window.__nla.interiorView('court'), near: true, settle: true },
 ];
 
 const args = GPU

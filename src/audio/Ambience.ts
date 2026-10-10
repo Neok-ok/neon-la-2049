@@ -1,5 +1,15 @@
 // Procedural ambience (no music, no samples): rain hiss + patter, distant city rumble, wind.
-// Starts on the first user gesture (required by iOS Safari).
+// Starts on the first user gesture (required by iOS Safari). A later tap resumes a
+// context that iOS suspended while the phone was locked.
+import { audioPrefs, writeAudioPrefs } from './prefs';
+
+let activeBus: Ambience | null = null;
+
+/** The one ambience the toolbar slider talks to. */
+export function activeAmbience(): Ambience | null {
+  return activeBus;
+}
+
 export class Ambience {
   private ctx: AudioContext | null = null;
   private rainGain!: GainNode;
@@ -29,7 +39,18 @@ export class Ambience {
   private traffic = 0;
   private tireGain: GainNode | null = null;
   private rumbleGain: GainNode | null = null;
-  muted = false;
+  private roomGain: GainNode | null = null;
+  /** Master level before mute. Remembered in localStorage. */
+  private volume = audioPrefs.volume;
+  private resumeArmed = false;
+  private rainLevel = 0;
+  private windLevel = 0;
+  private altLevel = 0;
+  muted = audioPrefs.muted;
+
+  constructor() {
+    activeBus = this;
+  }
 
   start(): void {
     if (this.ctx) {
@@ -40,7 +61,7 @@ export class Ambience {
     if (!AC) return;
     const ctx = (this.ctx = new AC());
     this.master = ctx.createGain();
-    this.master.gain.value = this.muted ? 0 : 0.8;
+    this.master.gain.value = this.masterLevel();
     const muffle = ctx.createBiquadFilter();
     muffle.type = 'lowpass';
     muffle.frequency.value = 14000;
@@ -178,6 +199,36 @@ export class Ambience {
     this.rumbleGain = ctx.createGain();
     this.rumbleGain.gain.value = 0;
     rumble.connect(rumbleLp).connect(this.rumbleGain).connect(this.master);
+
+    // Quiet room air. It sits on the master so mute still cuts it, and the interior
+    // low-pass takes the street off the top while this stays a low bed.
+    const room = noise('brown', 4);
+    const roomLp = ctx.createBiquadFilter();
+    roomLp.type = 'lowpass';
+    roomLp.frequency.value = 220;
+    this.roomGain = ctx.createGain();
+    this.roomGain.gain.value = 0;
+    room.connect(roomLp).connect(this.roomGain).connect(this.master);
+    this.armResume();
+  }
+
+  /** iOS drops a running context when the tab is backgrounded. The next tap resumes it. */
+  private armResume(): void {
+    if (this.resumeArmed) return;
+    this.resumeArmed = true;
+    const kick = () => {
+      if (this.ctx && this.ctx.state === 'suspended') void this.ctx.resume();
+    };
+    document.addEventListener('pointerdown', kick);
+    document.addEventListener('touchend', kick);
+    document.addEventListener('keydown', kick);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') kick();
+    });
+  }
+
+  private masterLevel(): number {
+    return this.muted || this.volume <= 0.001 ? 0 : this.volume;
   }
 
   get context(): AudioContext | null {
@@ -191,7 +242,49 @@ export class Ambience {
 
   setMuted(m: boolean): void {
     this.muted = m;
-    if (this.master) this.master.gain.value = m ? 0 : 0.8;
+    audioPrefs.muted = m;
+    writeAudioPrefs();
+    this.applyMaster();
+  }
+
+  /** 0..1. Remembered with the mute flag. */
+  setVolume(v: number): void {
+    this.volume = Math.max(0, Math.min(1, v));
+    audioPrefs.volume = this.volume;
+    writeAudioPrefs();
+    this.applyMaster();
+  }
+
+  get volumeLevel(): number {
+    return this.volume;
+  }
+
+  private applyMaster(): void {
+    if (!this.master || !this.ctx) return;
+    this.master.gain.setTargetAtTime(this.masterLevel(), this.ctx.currentTime, 0.04);
+  }
+
+  get interiorAmount(): number {
+    return this.interior;
+  }
+
+  get trafficAmount(): number {
+    return this.traffic;
+  }
+
+  /** Shared beds that are actually sounding: rain, city, wind, traffic, surf, machinery, room. */
+  bedVoices(): number {
+    let n = 0;
+    const street = Math.max(0.15, 1 - this.altLevel / 400);
+    if (this.rainLevel > 0.05) n += 2;
+    if (0.18 + 0.3 * street > 0.05) n += 1;
+    if (this.windLevel > 0.02 || this.crestWind > 0.05) n += 1;
+    if (this.machinery > 0.05) n += 1;
+    if (this.traffic > 0.05) n += 1;
+    if (this.surfAmount > 0.05) n += 1;
+    if (this.hum > 0.05 && this.interior > 0.2) n += 1;
+    if (this.interior > 0.45) n += 1;
+    return n;
   }
 
   /** 0..1. Stored even before the audio context exists. */
@@ -223,8 +316,12 @@ export class Ambience {
 
   /** altitude in meters above ground: street-level sounds fade when flying high. */
   update(rain: number, snow: number, wind: number, altitude: number): void {
+    this.rainLevel = rain;
+    this.windLevel = wind;
+    this.altLevel = altitude;
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
+    if (this.roomGain) this.roomGain.gain.setTargetAtTime(this.interior * 0.02, t, 0.4);
     const m = this.interior;
     if (this.muffleFilter) this.muffleFilter.frequency.setTargetAtTime(Math.max(280, 15000 - m * 14720), t, 0.35);
     if (this.humGain) this.humGain.gain.setTargetAtTime(this.hum * 0.016, t, 0.45);

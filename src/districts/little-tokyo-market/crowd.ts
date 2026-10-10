@@ -56,6 +56,38 @@ interface CrowdReg {
 
 const crowdSources = new Map<string, CrowdReg>();
 
+export interface CrowdAudioSnap {
+  districtId: string;
+  /** Registered share of the tier count. */
+  share: number;
+  /** People actually drawn this frame. */
+  count: number;
+  /** Tier count times share, before the sidewalk test. */
+  want: number;
+  /** Stall, counter and awning anchors the district already built. */
+  life: readonly CrowdLifeSpot[];
+}
+
+const NO_LIFE: readonly CrowdLifeSpot[] = [];
+const crowdAudio: CrowdAudioSnap = { districtId: '', share: 0, count: 0, want: 0, life: NO_LIFE };
+
+/** What the city-sound bus reads. Density is the registered share, filled by the live count. */
+export function crowdAudioSnap(): CrowdAudioSnap {
+  return crowdAudio;
+}
+
+export function crowdShareOf(id: string): number {
+  return crowdSources.get(id)?.share ?? 0;
+}
+
+function publishCrowd(id: string, share: number, count: number, want: number, life: readonly CrowdLifeSpot[]): void {
+  crowdAudio.districtId = id;
+  crowdAudio.share = share;
+  crowdAudio.count = count;
+  crowdAudio.want = want;
+  crowdAudio.life = life;
+}
+
 /**
  * Register where this district's people walk, and its share of the market tier count.
  * The market mesh is the only draw. App does not grow a branch per district.
@@ -534,6 +566,7 @@ export class CrowdField {
       this.idle = 0;
       this.tris = 0;
       this.mesh.count = 0;
+      publishCrowd(district.id, share, 0, 0, NO_LIFE);
       return;
     }
     const blocks = query.cachedBlocks(x, z, radius);
@@ -565,6 +598,7 @@ export class CrowdField {
       this.idle = 0;
       this.tris = 0;
       this.mesh.count = 0;
+      publishCrowd(district.id, share, 0, want, this.life);
       return;
     }
     const n = Math.min(this.agents.length, want, MAX);
@@ -662,6 +696,7 @@ export class CrowdField {
     this.canopyAttr.needsUpdate = true;
     this.motionAttr.needsUpdate = true;
     this.styleAttr.needsUpdate = true;
+    publishCrowd(district.id, share, n, want, this.life);
   }
 
   private retarget(want: number, x: number, z: number, rain: number): void {
