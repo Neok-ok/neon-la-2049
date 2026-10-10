@@ -216,18 +216,19 @@ const shots = [
   { name: 'westside-ultra', ctx: desktop, q: `mode=walk&at=westside-yard&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.westsideView('street'), near: true, settle: true },
   { name: 'westside-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=westside-yard&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.westsideView('street'), near: true, settle: true },
   // Stage 14 — Basin sprawl, the default district. Cameras come from __nla.basinView.
-  { name: 'basin-seam-west-dusk', ctx: desktop, q: `mode=fly&at=basin-strip&time=18.4&weather=drizzle&${common}`, after: () => window.__nla.basinView('seam-west'), near: true, settle: true },
-  { name: 'basin-seam-west-night', ctx: desktop, q: `mode=fly&at=basin-strip&time=22.5&weather=drizzle&${common}`, after: () => window.__nla.basinView('seam-west'), near: true, settle: true },
-  { name: 'basin-seam-south-dusk', ctx: desktop, q: `mode=fly&at=basin-strip&time=18.4&weather=drizzle&${common}`, after: () => window.__nla.basinView('seam-south'), near: true, settle: true },
-  { name: 'basin-seam-south-night', ctx: desktop, q: `mode=fly&at=basin-strip&time=22.5&weather=drizzle&${common}`, after: () => window.__nla.basinView('seam-south'), near: true, settle: true },
-  { name: 'basin-seam-lake-dusk', ctx: desktop, q: `mode=fly&at=basin-strip&time=18.4&weather=drizzle&${common}`, after: () => window.__nla.basinView('seam-lake'), near: true, settle: true },
-  { name: 'basin-seam-lake-night', ctx: desktop, q: `mode=fly&at=basin-strip&time=22.5&weather=drizzle&${common}`, after: () => window.__nla.basinView('seam-lake'), near: true, settle: true },
-  { name: 'basin-seam-arts-dusk', ctx: desktop, q: `mode=fly&at=basin-strip&time=18.4&weather=drizzle&${common}`, after: () => window.__nla.basinView('seam-arts'), near: true, settle: true },
-  { name: 'basin-seam-arts-night', ctx: desktop, q: `mode=fly&at=basin-strip&time=22.5&weather=drizzle&${common}`, after: () => window.__nla.basinView('seam-arts'), near: true, settle: true },
-  { name: 'basin-seam-dtla-dusk', ctx: desktop, q: `mode=fly&at=basin-strip&time=18.4&weather=drizzle&${common}`, after: () => window.__nla.basinView('seam-dtla'), near: true, settle: true },
-  { name: 'basin-seam-dtla-night', ctx: desktop, q: `mode=fly&at=basin-strip&time=22.5&weather=drizzle&${common}`, after: () => window.__nla.basinView('seam-dtla'), near: true, settle: true },
-  { name: 'basin-aerial-dusk', ctx: desktop, q: `mode=fly&at=basin-strip&time=18.4&weather=drizzle&${common}`, after: () => window.__nla.basinView('aerial'), near: true, settle: true },
-  { name: 'basin-aerial-night', ctx: desktop, q: `mode=fly&at=basin-strip&time=22.5&weather=drizzle&${common}`, after: () => window.__nla.basinView('aerial'), near: true, settle: true },
+  // Seam URLs match the before frames. `once` waits for idle on that pose, then the view only flips the cockpit.
+  { name: 'basin-seam-west-dusk', ctx: desktop, q: `mode=fly&x=-16260.5&y=1000&z=7390.7&yaw=0&pitch=-36.9&time=18.4&weather=drizzle&${common}`, after: () => window.__nla.basinView('seam-west'), once: true },
+  { name: 'basin-seam-west-night', ctx: desktop, q: `mode=fly&x=-16260.5&y=1000&z=7390.7&yaw=0&pitch=-36.9&time=22.5&weather=drizzle&${common}`, after: () => window.__nla.basinView('seam-west'), once: true },
+  { name: 'basin-seam-south-dusk', ctx: desktop, q: `mode=fly&x=-9782&y=1000&z=7983.4&yaw=90&pitch=-36.9&time=18.4&weather=drizzle&${common}`, after: () => window.__nla.basinView('seam-south'), once: true },
+  { name: 'basin-seam-south-night', ctx: desktop, q: `mode=fly&x=-9782&y=1000&z=7983.4&yaw=90&pitch=-36.9&time=22.5&weather=drizzle&${common}`, after: () => window.__nla.basinView('seam-south'), once: true },
+  { name: 'basin-seam-lake-dusk', ctx: desktop, q: `mode=fly&x=16766.8&y=1000&z=21252.3&yaw=-90&pitch=-41.6&time=18.4&weather=drizzle&${common}`, after: () => window.__nla.basinView('seam-lake'), once: true },
+  { name: 'basin-seam-lake-night', ctx: desktop, q: `mode=fly&x=16766.8&y=1000&z=21252.3&yaw=-90&pitch=-41.6&time=22.5&weather=drizzle&${common}`, after: () => window.__nla.basinView('seam-lake'), once: true },
+  { name: 'basin-seam-arts-dusk', ctx: desktop, q: `mode=fly&x=894.6&y=1000&z=3188.4&yaw=0&pitch=-41.6&time=18.4&weather=drizzle&${common}`, after: () => window.__nla.basinView('seam-arts'), once: true },
+  { name: 'basin-seam-arts-night', ctx: desktop, q: `mode=fly&x=894.6&y=1000&z=3188.4&yaw=0&pitch=-41.6&time=22.5&weather=drizzle&${common}`, after: () => window.__nla.basinView('seam-arts'), once: true },
+  { name: 'basin-seam-dtla-dusk', ctx: desktop, q: `mode=fly&x=-581.1&y=1000&z=-2137.9&yaw=180&pitch=-39.1&time=18.4&weather=drizzle&${common}`, after: () => window.__nla.basinView('seam-dtla'), once: true },
+  { name: 'basin-seam-dtla-night', ctx: desktop, q: `mode=fly&x=-581.1&y=1000&z=-2137.9&yaw=180&pitch=-39.1&time=22.5&weather=drizzle&${common}`, after: () => window.__nla.basinView('seam-dtla'), once: true },
+  { name: 'basin-aerial-dusk', ctx: desktop, q: `mode=fly&x=-10250&y=1000&z=13080&yaw=8&pitch=-37.3&time=18.4&weather=drizzle&${common}`, after: () => window.__nla.basinView('aerial'), once: true },
+  { name: 'basin-aerial-night', ctx: desktop, q: `mode=fly&x=-10250&y=1000&z=13080&yaw=8&pitch=-37.3&time=22.5&weather=drizzle&${common}`, after: () => window.__nla.basinView('aerial'), once: true },
   { name: 'basin-street', ctx: desktop, q: `mode=walk&at=basin-strip&time=22.5&weather=drizzle&${common}`, after: () => window.__nla.basinView('street'), near: true, settle: true },
   { name: 'basin-strip', ctx: desktop, q: `mode=walk&at=basin-strip&time=22.5&weather=drizzle&${common}`, after: () => window.__nla.basinView('strip'), near: true, settle: true },
   { name: 'basin-roof', ctx: desktop, q: `mode=fly&at=basin-strip&time=22&weather=drizzle&${common}`, after: () => window.__nla.basinView('roof'), near: true, settle: true },
@@ -268,7 +269,7 @@ for (const s of shots) {
   if (s.after) {
     await page.evaluate(s.after);
     await page.waitForTimeout(market ? 2500 : 1500);
-    if (!market) await page.waitForFunction(() => window.__nla.isIdle(), null, { timeout: 120_000, polling: 1000 }).catch(() => {});
+    if (!market && !s.once) await page.waitForFunction(() => window.__nla.isIdle(), null, { timeout: 120_000, polling: 1000 }).catch(() => {});
     // camera presets are idempotent; set it again in case a slow first frame swallowed the first call
     await page.evaluate(s.after);
     await page.waitForTimeout(1500);
