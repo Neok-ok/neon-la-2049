@@ -171,6 +171,8 @@ function drawTiles(shot: Shot, ctx: CanvasRenderingContext2D, tiles: Tile[], _fl
     const t = performance.now();
     shot.pipeline.renderTile();
     blitCanvas(ctx, shot.renderer.domElement, tile, _flip);
+    // Reading a pixel flushes SwiftShader. Without it, renderMs is only the CPU submit.
+    ctx.getImageData(tile.tx, tile.ty, 1, 1);
     renderMs += performance.now() - t;
   }
   return renderMs;
