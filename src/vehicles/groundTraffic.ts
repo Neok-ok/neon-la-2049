@@ -238,6 +238,9 @@ export class GroundTraffic {
       mesh = rng.chance(0.12) ? 'van' : 'car';
     } else if (e.district === 'southeast-industrial') {
       mesh = rng.chance(0.58) ? 'box' : 'tanker';
+    } else if (e.district === 'hollywood') {
+      const r = rng.next();
+      mesh = r < 0.72 ? 'car' : r < 0.94 ? 'van' : 'box';
     } else {
       const r = rng.next();
       mesh = r < 0.62 ? 'car' : r < 0.82 ? 'van' : r < 0.94 ? 'box' : 'hauler';

@@ -10,7 +10,7 @@ const T = TSL as any;
 const POLE_H = 7.5;
 const ARM = 1.6;
 const SPACING = 32;
-const NO_LAMPS = new Set(['little-tokyo-market', 'lax-spaceport', 'harbor', 'south-bay-refineries', 'civic-center', 'historic-core', 'wallace-vernon', 'coastal-strip', 'south-la-megablocks']);
+const NO_LAMPS = new Set(['little-tokyo-market', 'lax-spaceport', 'harbor', 'south-bay-refineries', 'civic-center', 'historic-core', 'wallace-vernon', 'coastal-strip', 'south-la-megablocks', 'hollywood']);
 
 let poleGeo: BoxGeometry | null = null;
 let headGeo: BoxGeometry | null = null;

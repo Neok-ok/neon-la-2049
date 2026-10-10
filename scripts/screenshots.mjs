@@ -250,6 +250,17 @@ const shots = [
   { name: 'se-ultra', ctx: desktop, q: `mode=walk&at=southeast-pump&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.southeastView('tanks'), near: true, settle: true },
   { name: 'se-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=southeast-pump&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.southeastView('tanks'), near: true, settle: true },
   { name: 'se-flyover', ctx: desktop, q: `mode=fly&at=southeast-pump&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.southeastView('aerial'), near: true, settle: true, flyover: true, hop: { x0: 5800, z0: 4800, y: 160, yaw: 90, pitch: -8, dx: 170, dz: 0, n: 32 } },
+  // Stage 16 — Hollywood entertainment strip. Cameras come from __nla.hollywoodView.
+  { name: 'hw-aerial-night', ctx: desktop, q: `mode=fly&at=hollywood-lobby&time=22&weather=drizzle&${common}`, after: () => window.__nla.hollywoodView('aerial'), near: true, settle: true },
+  { name: 'hw-street-rain', ctx: desktop, q: `mode=walk&at=hollywood-lobby&time=22.5&weather=rain&${common}`, after: () => window.__nla.hollywoodView('street'), near: true, settle: true },
+  { name: 'hw-holo', ctx: desktop, q: `mode=walk&at=hollywood-lobby&time=22.5&weather=rain&${common}`, after: () => window.__nla.hollywoodView('holo'), near: true, settle: true },
+  { name: 'hw-sign', ctx: desktop, q: `mode=walk&at=veil-mark&time=22&weather=drizzle&${common}`, after: () => window.__nla.hollywoodView('sign'), near: true, settle: true },
+  { name: 'hw-hills', ctx: desktop, q: `mode=fly&at=veil-mark&time=22&weather=drizzle&${common}`, after: () => window.__nla.hollywoodView('hills'), near: true, settle: true },
+  { name: 'hw-low', ctx: desktop, q: `mode=walk&at=hollywood-lobby&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=low${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.hollywoodView('street'), near: true, settle: true },
+  { name: 'hw-medium', ctx: desktop, q: `mode=walk&at=hollywood-lobby&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.hollywoodView('street'), near: true, settle: true },
+  { name: 'hw-ultra', ctx: desktop, q: `mode=walk&at=hollywood-lobby&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.hollywoodView('street'), near: true, settle: true },
+  { name: 'hw-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=hollywood-lobby&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.hollywoodView('street'), near: true, settle: true },
+  { name: 'hw-flyover', ctx: desktop, q: `mode=fly&at=hollywood-lobby&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.hollywoodView('aerial'), near: true, settle: true, flyover: true, hop: { x0: -11000, z0: -5280, y: 160, yaw: 90, pitch: -8, dx: 210, dz: 0, n: 32 } },
 ];
 
 const args = GPU

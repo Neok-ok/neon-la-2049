@@ -101,3 +101,18 @@ Do not reuse `dtla-hero-0` / `dtla-hero-1` (the flyover billboards in `showcase.
 | `joi-bridge-dancer` | Spring-side footbridge, bottom of the quad on the 11.2 m deck, normal facing north along the street | veil-dancer | tower |
 
 Rank 0, 14 × 46 m, pink, spill 28 m. Kind-2 billboards in the canyon still promote crane / coil / ribbon. They do not use `veil-dancer`.
+
+## Stage 16 placements
+
+`src/districts/hollywood/holos.ts` calls `registerHologram` before the field is built. North curb of the boulevard (street line i = 33), yaw 0 so the normal faces south. No new design.
+
+| Id | Where | Design | Band |
+|---|---|---|---|
+| `hollywood-lantern` | j = −128, 16 × 44 m, red, spill 26 m, rank 0 | lantern-loop | tower |
+| `hollywood-dancer` | j = −120, 24 × 68 m, pink, spill 48 m, rank 0 | veil-dancer | skyline |
+| `hollywood-crane` | j = −104, 22 × 56 m, cyan, spill 40 m, rank 0 | ash-crane | skyline |
+| `hollywood-ribbon` | j = −72, 18 × 50 m, violet, spill 32 m, rank 0 | ribbon-column | tower |
+| `hollywood-glyph` | j = −56, 36 × 16 m, yellow, spill 24 m, rank 0 | glyph-loop | tower |
+| `hollywood-lease` | j = −44, 32 × 14 m, amber, spill 20 m, rank 1 | lease-loop | tower |
+
+Every quad is well over 140 m². Heritage billboards on the strip (16 × 10 m) still promote crane / coil / ribbon. The hillside wordmark is a landmark sign, kind 0, and is not a hologram.

@@ -63,7 +63,7 @@
 <path d="M746.2,276.9 L927.0,321.1 L927.0,409.6 L744.4,387.5 Z" fill="#4a4a4a" fill-opacity="0.55" stroke="#4a4a4a" stroke-width="1.5"/>
 <path d="M720.4,303.5 L746.2,316.7 L744.4,376.4 L705.6,391.9 L657.7,372.0 L668.7,330.0 Z" fill="#4a5a78" fill-opacity="0.55" stroke="#4a5a78" stroke-width="1.5"/>
 <path d="M724.1,403.0 L825.5,409.6 L825.5,487.0 L724.1,487.0 Z" fill="#3e3834" fill-opacity="0.55" stroke="#3e3834" stroke-width="1.5"/>
-<path d="M484.3,210.6 L650.3,221.6 L668.7,276.9 L465.8,265.9 Z" fill="#a03a8a" fill-opacity="0.55" stroke="#a03a8a" stroke-width="1.5"/>
+<path d="M484.3,210.6 L650.3,221.6 L668.7,276.9 L465.8,265.9 Z" fill="#555" fill-opacity="0.55" stroke="#888" stroke-width="1.5"/>
 <path d="M189.1,354.3 L281.4,387.5 L373.6,476.0 L410.5,564.4 L456.6,719.2 L484.3,851.9 L438.2,863.0 L419.7,763.4 L373.6,652.9 L314.6,531.2 L244.5,431.7 L161.5,374.2 Z" fill="#6e7a80" fill-opacity="0.55" stroke="#6e7a80" stroke-width="1.5"/>
 <path d="M613.4,896.1 L890.1,896.1 L890.1,1006.7 L724.1,1050.9 L613.4,1073.1 Z" fill="#3a5a6a" fill-opacity="0.55" stroke="#3a5a6a" stroke-width="1.5"/>
 <path d="M687.2,323.4 L707.5,330.0 L694.6,354.3 L678.0,358.7 L668.7,343.3 Z" fill="#555" fill-opacity="0.55" stroke="#888" stroke-width="1.5"/>
@@ -187,6 +187,9 @@
 <rect x="405.5" y="637.4" width="32" height="22" transform="rotate(0 421.5 648.4)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
 <circle cx="421.5" cy="648.4" r="2.5" fill="#ff9a2e"/>
 <text x="421.5" y="648.4" dx="6" dy="-4" fill="#ffcf8a" font-size="11">El Segundo Refinery Flare Stacks (140 m)</text>
+<rect x="485.26" y="211.92" width="1.28" height="0.16" transform="rotate(0 485.9 212.0)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<circle cx="485.9" cy="212.0" r="2.5" fill="#ff9a2e"/>
+<text x="485.9" y="212.0" dx="6" dy="-4" fill="#ffcf8a" font-size="11">Veil Mark (hillside wordmark) (52 m)</text>
 <circle cx="723.7" cy="345.0" r="2" fill="#29d8ff"/>
 <circle cx="725.5" cy="346.1" r="2" fill="#29d8ff"/>
 <circle cx="706.2" cy="348.0" r="2" fill="#29d8ff"/>
@@ -197,6 +200,7 @@
 <circle cx="389.3" cy="357.9" r="2" fill="#29d8ff"/>
 <circle cx="515.8" cy="576.0" r="2" fill="#29d8ff"/>
 <circle cx="848.1" cy="430.6" r="2" fill="#29d8ff"/>
+<circle cx="538.1" cy="232.6" r="2" fill="#29d8ff"/>
 <circle cx="733.7" cy="363.7" r="2" fill="#29d8ff"/>
 <circle cx="744.4" cy="363.2" r="2" fill="#29d8ff"/>
 <circle cx="797.9" cy="396.3" r="2" fill="#29d8ff"/>

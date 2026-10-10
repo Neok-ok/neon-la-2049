@@ -53,7 +53,7 @@
 <path d="M871.6,-165.4 L2679.4,276.9 L2679.4,1161.5 L853.2,940.4 Z" fill="#4a4a4a" fill-opacity="0.55" stroke="#4a4a4a" stroke-width="1.5"/>
 <path d="M613.4,100.0 L871.6,232.7 L853.2,829.8 L465.8,984.6 L-13.8,785.6 L96.9,365.4 Z" fill="#4a5a78" fill-opacity="0.55" stroke="#4a5a78" stroke-width="1.5"/>
 <path d="M650.3,1095.2 L1664.8,1161.5 L1664.8,1935.5 L650.3,1935.5 Z" fill="#3e3834" fill-opacity="0.55" stroke="#3e3834" stroke-width="1.5"/>
-<path d="M-1747.7,-828.8 L-87.6,-718.2 L96.9,-165.4 L-1932.2,-276.0 Z" fill="#a03a8a" fill-opacity="0.55" stroke="#a03a8a" stroke-width="1.5"/>
+<path d="M-1747.7,-828.8 L-87.6,-718.2 L96.9,-165.4 L-1932.2,-276.0 Z" fill="#555" fill-opacity="0.55" stroke="#888" stroke-width="1.5"/>
 <path d="M-4699.2,608.6 L-3776.8,940.4 L-2854.5,1825.0 L-2485.6,2709.5 L-2024.4,4257.6 L-1747.7,5584.5 L-2208.9,5695.0 L-2393.4,4699.9 L-2854.5,3594.1 L-3444.8,2377.8 L-4145.8,1382.7 L-4975.9,807.7 Z" fill="#6e7a80" fill-opacity="0.55" stroke="#6e7a80" stroke-width="1.5"/>
 <path d="M-456.5,6026.8 L2310.5,6026.8 L2310.5,7132.5 L650.3,7574.8 L-456.5,7796.0 Z" fill="#3a5a6a" fill-opacity="0.55" stroke="#3a5a6a" stroke-width="1.5"/>
 <path d="M281.4,299.0 L484.3,365.4 L355.1,608.6 L189.1,652.9 L96.9,498.1 Z" fill="#555" fill-opacity="0.55" stroke="#888" stroke-width="1.5"/>
@@ -183,6 +183,9 @@
 <rect x="-2534.9" y="3439.9" width="320" height="220" transform="rotate(0 -2374.9 3549.9)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
 <circle cx="-2374.9" cy="3549.9" r="2.5" fill="#ff9a2e"/>
 <text x="-2374.9" y="3549.9" dx="6" dy="-4" fill="#ffcf8a" font-size="11">El Segundo Refinery Flare Stacks (140 m)</text>
+<rect x="-1737.4" y="-815.4" width="12.8" height="1.6" transform="rotate(0 -1731.0 -814.6)" fill="none" stroke="#ff9a2e" stroke-width="1.2"/>
+<circle cx="-1731.0" cy="-814.6" r="2.5" fill="#ff9a2e"/>
+<text x="-1731.0" y="-814.6" dx="6" dy="-4" fill="#ffcf8a" font-size="11">Veil Mark (hillside wordmark) (52 m)</text>
 <circle cx="646.6" cy="515.8" r="2" fill="#29d8ff"/>
 <text x="646.6" y="515.8" dx="5" dy="12" fill="#8fe8ff" font-size="10">Bibi&#39;s Bar &amp; vending market</text>
 <circle cx="665.0" cy="526.8" r="2" fill="#29d8ff"/>
@@ -203,6 +206,8 @@
 <text x="-1432.0" y="2825.4" dx="5" dy="12" fill="#8fe8ff" font-size="10">Basin strip corner</text>
 <circle cx="1891.0" cy="1371.0" r="2" fill="#29d8ff"/>
 <text x="1891.0" y="1371.0" dx="5" dy="12" fill="#8fe8ff" font-size="10">Southeast pump house</text>
+<circle cx="-1209.0" cy="-608.8" r="2" fill="#29d8ff"/>
+<text x="-1209.0" y="-608.8" dx="5" dy="12" fill="#8fe8ff" font-size="10">Hollywood arcade lobby</text>
 <circle cx="746.9" cy="702.2" r="2" fill="#29d8ff"/>
 <text x="746.9" y="702.2" dx="5" dy="12" fill="#8fe8ff" font-size="10">Arts District pour hall</text>
 <circle cx="853.2" cy="697.1" r="2" fill="#29d8ff"/>

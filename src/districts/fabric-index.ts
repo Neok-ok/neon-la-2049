@@ -15,3 +15,4 @@ import './arts-district/archetype';
 import './westside/archetype';
 import './basin-sprawl/archetype';
 import './southeast-industrial/archetype';
+import './hollywood/archetype';

@@ -49,6 +49,8 @@ const SPRAWL_LIGHTS: Record<string, number> = {
   'neon-canyon': 1,
   'historic-core': 1,
   entertainment: 1,
+  // Strip carpet. The old entertainment key is unused. Hills fabric is still hills-sparse.
+  'hollywood-strip': 1,
   'coastal-grey': 0.08,
   industrial: 0.35,
   'wallace-vernon': 0,
@@ -68,6 +70,8 @@ const STREET_NEON: Record<string, number> = {
   'neon-canyon': 1,
   'historic-core': 1,
   entertainment: 1,
+  // Wet violet. Under the canyon (1), above the basin (0.16). Fades by ~520 m, so a 1 km aerial is the carpet.
+  'hollywood-strip': 0.86,
   'megablock-market': 0.8,
   'megablock-downtown': 0.72,
   'financial-megatowers': 0.55,
