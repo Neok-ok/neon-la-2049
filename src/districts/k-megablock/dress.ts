@@ -1,6 +1,7 @@
 // Pure street kit. Sidewalks on the 12 m streets, and the covered market along the slab's south face.
 // The market sits inside the reserve, so it is world-space props, not fabric boxes.
 import { Rng } from '../../core/rng';
+import { lifeSpot, type CrowdLifeSpot } from '../../world/crowdLife';
 import type { CityLayout } from '../../world/layout';
 import { bearingToYaw } from '../../world/geo';
 import { HD, localToWorld } from './spec';
@@ -130,6 +131,8 @@ export interface MarketKit {
   pools: KPool[];
   steam: KSteam[];
   loops: Array<Array<[number, number]>>;
+  extra: Array<Array<[number, number]>>;
+  life: CrowdLifeSpot[];
 }
 
 function prop(
@@ -147,7 +150,9 @@ export function marketKit(layout: CityLayout): MarketKit {
   const pools: KPool[] = [];
   const steam: KSteam[] = [];
   const loops: Array<Array<[number, number]>> = [];
-  if (!l) return { props, pools, steam, loops };
+  const extra: Array<Array<[number, number]>> = [];
+  const life: CrowdLifeSpot[] = [];
+  if (!l) return { props, pools, steam, loops, extra, life };
   const yaw = bearingToYaw(l.bearingDeg);
   const g = layout.heightAt(l.x, l.z);
   const add = (lx: number, y: number, lz: number, p: Omit<KProp, 'x' | 'y' | 'z' | 'yaw'>, yawAdd = 0) => {
@@ -213,5 +218,22 @@ export function marketKit(layout: CityLayout): MarketKit {
     [-88, aisle], [100, aisle], [100, aisle - 1.6], [-88, aisle - 1.6],
   ];
   loops.push(loop.map(([lx, lz]) => localToWorld(l.x, l.z, yaw, lx, lz)));
-  return { props, pools, steam, loops };
+  const outer = face + 7.1;
+  extra.push([[-88, outer], [100, outer], [100, outer - 0.7], [-88, outer - 0.7]]
+    .map(([lx, lz]) => localToWorld(l.x, l.z, yaw, lx, lz)));
+  const south = localToWorld(0, 0, yaw, 0, 1);
+  const east = localToWorld(0, 0, yaw, 1, 0);
+  const yawOut = Math.atan2(south[0], south[1]);
+  const spot = (lx: number, lz: number, kind: 'queue' | 'awning', n: number): CrowdLifeSpot => {
+    const [wx, wz] = localToWorld(l.x, l.z, yaw, lx, lz);
+    const placed = lifeSpot(wx, wz, yawOut, kind, n);
+    placed.lx = east[0];
+    placed.lz = east[1];
+    return placed;
+  };
+  // Noodle counter is at local z = face+1.55. The queue stands past the stools.
+  life.push(spot(-70, face + 3.25, 'queue', 4));
+  life.push(spot(8, face + 4.05, 'queue', 3));
+  life.push(spot(-20, face + 1.05, 'awning', 4));
+  return { props, pools, steam, loops, extra, life };
 }

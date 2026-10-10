@@ -23,4 +23,4 @@ registerCrowdSource('southeast-industrial', (blocks, query) => {
     loops.push(...planSoutheast(asBlock(b), query.layout).loops);
   }
   return loops;
-});
+}, 0.04);

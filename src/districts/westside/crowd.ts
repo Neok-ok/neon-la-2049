@@ -20,12 +20,15 @@ function asBlock(b: PackedBlock, id: string): SprawlBlock {
 
 registerCrowdSource('westside', (blocks, query) => {
   const loops: Array<Array<[number, number]>> = [];
+  const life: Array<ReturnType<typeof dressSprawl>['life'][number]> = [];
   for (const b of blocks) {
     const id = idOf(b, query);
     if (id !== 'westside') continue;
     const block = asBlock(b, id);
     const plan = planSprawl(block, WESTSIDE_PARAMS, query.layout);
-    loops.push(...dressSprawl(block, plan, query.layout).loops);
+    const dressed = dressSprawl(block, plan, query.layout);
+    loops.push(...dressed.loops);
+    life.push(...dressed.life);
   }
-  return loops;
-});
+  return { loops, life };
+}, 0.14);

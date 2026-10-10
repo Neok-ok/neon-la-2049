@@ -3,6 +3,7 @@
 // module, not from here. Pass `lamps: 'cold'` to plant civic pylons instead, and opt
 // that district out of the shared module.
 import { Rng } from '../../../core/rng';
+import { lifeSpot, type CrowdLifeSpot } from '../../../world/crowdLife';
 import type { CityLayout } from '../../../world/layout';
 import type { ResidentialPlan, ResBlock, StallMark } from './plan';
 
@@ -79,12 +80,14 @@ export function dressResidential(b: ResBlock, plan: ResidentialPlan, layout: Cit
   pools: ResPool[];
   steam: ResSteam[];
   loops: Array<Array<[number, number]>>;
+  life: CrowdLifeSpot[];
 } {
   const rng = new Rng((b.seed ^ 0x51a7c3) >>> 0 || 1);
   const props: ResProp[] = [];
   const pools: ResPool[] = [];
   const steam: ResSteam[] = [];
   const loops: Array<Array<[number, number]>> = [];
+  const life: CrowdLifeSpot[] = [];
 
   const put = (s: number, t: number, y: number, yaw: number, p: Omit<ResProp, 'x' | 'y' | 'z' | 'yaw'>) => {
     const [x, z] = world(b, s, t);
@@ -130,8 +133,18 @@ export function dressResidential(b: ResBlock, plan: ResidentialPlan, layout: Cit
     });
   }
 
+  let stallQueues = 0;
   for (const stall of plan.stalls) {
     const yaw = yawOf(b, stall.face);
+    if (stallQueues < 2) {
+      stallQueues++;
+      const [sx, sz] = world(b, stall.s, stall.t);
+      const ox = Math.sin(yaw);
+      const oz = Math.cos(yaw);
+      const busy = !!(plan.hub || opts?.busy);
+      life.push(lifeSpot(sx + ox * 1.8, sz + oz * 1.8, yaw, 'queue', busy ? 4 : 2));
+      if (stallQueues === 1) life.push(lifeSpot(sx + ox * 0.55, sz + oz * 0.55, yaw, 'awning', 3));
+    }
     put(stall.s, stall.t, 2.45, yaw, {
       template: 'awning', sx: 3.4, sy: 1, sz: 1.8, color: TARP, emissive: NONE, metal: 0, rank: 0,
     });
@@ -233,5 +246,5 @@ export function dressResidential(b: ResBlock, plan: ResidentialPlan, layout: Cit
       }
     });
   }
-  return { props, pools, steam, loops };
+  return { props, pools, steam, loops, life };
 }

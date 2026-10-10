@@ -27,4 +27,4 @@ registerCrowdSource('civic-center', (blocks, query) => {
   }
   if (near) loops.push(...plazaKit(query.layout).loops);
   return loops;
-});
+}, 0.22);

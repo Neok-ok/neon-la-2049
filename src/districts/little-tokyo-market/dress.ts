@@ -7,6 +7,7 @@ import { Style, SignColor, type FaceDir } from '../../world/fabric/types';
 import { SIGN_RGB } from '../../world/materials/signPalette';
 import { phraseSeed } from '../../world/materials/signPhrases';
 import type { TemplateId } from '../_shared/kit/templates';
+import { lifeSpot, type CrowdLifeSpot } from '../../world/crowdLife';
 
 /** Kit placement. Kept here (not imported from the three.js batcher) so this file stays worker-safe. */
 export interface MarketProp {
@@ -114,6 +115,8 @@ export interface Dressing {
   pools: PoolLight[];
   noodle: ShopSpot | null;
   bibi: ShopSpot | null;
+  /** Queues and awning clusters. The chunk worker ignores this. */
+  life: CrowdLifeSpot[];
 }
 
 interface Axes {
@@ -156,6 +159,16 @@ export function pedestrianLoops(b: MarketBlock): Array<Array<[number, number]>> 
   return loops;
 }
 
+/** Third loop, just past the stall front (the box ends at 1.72 m) and inside the 2.45 m lane. */
+export function stallFrontLoop(b: MarketBlock): Array<[number, number]> {
+  const a = blockAxes(b);
+  const out = 1.95;
+  const hs = b.la / 2 + out;
+  const ht = b.lb / 2 + out;
+  const corners: Array<[number, number]> = [[-hs, -ht], [hs, -ht], [hs, ht], [-hs, ht]];
+  return corners.map(([s, t]) => [b.cx + a.ax * s + a.bx * t, b.cz + a.az * s + a.bz * t]);
+}
+
 interface Slot {
   face: FaceDir;
   s: number;
@@ -184,6 +197,9 @@ export function dressBlock(b: MarketBlock, layout: CityLayout): Dressing {
   const pools: PoolLight[] = [];
   let noodle: ShopSpot | null = null;
   let bibi: ShopSpot | null = null;
+  const life: CrowdLifeSpot[] = [];
+  let awningKept = false;
+  let stallQueues = 0;
 
   const world = (s: number, t: number): [number, number] => toWorld(b, a, s, t);
   const yawOf = (nx: number, nz: number) => Math.atan2(nx, nz);
@@ -434,6 +450,10 @@ export function dressBlock(b: MarketBlock, layout: CityLayout): Dressing {
       };
       if (bar) bibi = spot;
       else noodle = spot;
+      const mid = seats[Math.floor(seats.length / 2)] ?? seats[0];
+      if (mid) {
+        life.push(lifeSpot(mid.x + nx * 0.85, mid.z + nz * 0.85, outYaw, 'queue', bar ? 3 : 4));
+      }
 
       // Backsplash and a soffit. Fabric boxes are shells (no underside), so the recess needs its own ceiling.
       const [bwx, bwz] = world(sl.s + sl.os * (backD - sl.depth / 2), sl.t + sl.ot * (backD - sl.depth / 2));
@@ -506,6 +526,10 @@ export function dressBlock(b: MarketBlock, layout: CityLayout): Dressing {
 
     // awning — every shop, the market's silhouette
     const awn = rng.range(1.55, sl.special ? 2.25 : 1.9);
+    if (!awningKept && sl.open) {
+      awningKept = true;
+      life.push(lifeSpot(fx + nx * (awn * 0.45), fz + nz * (awn * 0.45), outYaw, 'awning', 4));
+    }
     prop('awning', fx, b.ground + rng.range(2.32, 2.55), fz, outYaw, sl.w * 0.94, 1, awn,
       rgb(rng.chance(0.5) ? col : SignColor.Red).map((v) => v * 0.18 + 0.05) as [number, number, number],
       [0, 0, 0], 0.05, 0);
@@ -576,6 +600,10 @@ export function dressBlock(b: MarketBlock, layout: CityLayout): Dressing {
       const slb = alongA ? sw : sd;
       addBox(scs, sct, slb, sla, 1.12, 0, Style.Market, 1, 0.9, rng.range(0.7, 1.1));
       const [sx, sz] = world(scs, sct);
+      if (stallQueues < 4) {
+        stallQueues++;
+        life.push(lifeSpot(sx + nx * (sd * 0.5 + 0.75), sz + nz * (sd * 0.5 + 0.75), outYaw, 'queue', 3));
+      }
       prop('canopy', sx, b.ground + 2.05, sz, outYaw + rng.range(-0.2, 0.2), sw * 0.95, 1, sd * 1.15,
         [0.04, 0.035, 0.04], [0, 0, 0], 0.02, 0);
       const shaftCol = rgb(rng.pick(PAL));
@@ -728,5 +756,5 @@ export function dressBlock(b: MarketBlock, layout: CityLayout): Dressing {
     prop('box', x + nx * 0.34, b.ground + 1.15, z + nz * 0.34, yaw, 0.62, 0.9, 0.04, vc, vc.map((v) => v * 0.9) as [number, number, number], 0.1, 1);
   }
 
-  return { boxes, signs, props, steam, pools, noodle, bibi };
+  return { boxes, signs, props, steam, pools, noodle, bibi, life };
 }

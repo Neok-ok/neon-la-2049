@@ -20,14 +20,30 @@ function asDtla(b: PackedBlock): DtlaBlock {
   };
 }
 
+function ring(b: PackedBlock, out: number): Array<[number, number]> {
+  const bx = -b.az;
+  const bz = b.ax;
+  const s = b.la / 2 + out;
+  const t = b.lb / 2 + out;
+  return [[s, t], [s, -t], [-s, -t], [-s, t]].map(([ds, dt]) => [
+    b.cx + b.ax * ds + bx * dt,
+    b.cz + b.az * ds + bz * dt,
+  ]);
+}
+
 registerCrowdSource('dtla', (blocks, query) => {
   const loops: Array<Array<[number, number]>> = [];
+  const extra: Array<Array<[number, number]>> = [];
+  const life: ReturnType<typeof dressBlock>['life'] = [];
   for (const b of blocks) {
     if (idOf(b, query) !== 'dtla') continue;
-    loops.push(...dressBlock(asDtla(b), query.layout).loops);
+    const dressed = dressBlock(asDtla(b), query.layout);
+    loops.push(...dressed.loops);
+    extra.push(ring(b, 4.6), ring(b, 6.4));
+    life.push(...dressed.life);
   }
-  return loops;
-});
+  return { loops, extra, life };
+}, 0.4);
 
 registerCrowdSource('financial-megatowers', (blocks, query) => {
   const mt1 = query.layout.landmarkById('megatower-1');
@@ -40,4 +56,4 @@ registerCrowdSource('financial-megatowers', (blocks, query) => {
     if (d1 < 220 || d5 < 220) { near = true; break; }
   }
   return near ? plazaLoops(query.layout) : [];
-});
+}, 0.4);
