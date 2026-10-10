@@ -1,20 +1,21 @@
 // Original ground vehicles. Forward is −Z, origin on the tyre contact, same as the spinner.
 // One material: wet body plus emissive lamps, so each class is a single instanced draw.
 // No badges, no film vehicles. The canyon rickshaw is the compact mesh scaled, not a second model.
-import { BoxGeometry, BufferGeometry, Color, Float32BufferAttribute, MeshStandardNodeMaterial } from 'three/webgpu';
+import { BoxGeometry, BufferGeometry, Color, CylinderGeometry, Float32BufferAttribute, MeshStandardNodeMaterial } from 'three/webgpu';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as TSL from 'three/tsl';
 import { U } from '../atmosphere/uniforms';
 
 const T = TSL as any;
 
-export type MeshId = 'car' | 'van' | 'box' | 'hauler';
+export type MeshId = 'car' | 'van' | 'box' | 'hauler' | 'tanker';
 
 export const MESH_LEN: Record<MeshId, number> = {
   car: 4.35,
   van: 5.55,
   box: 7.9,
   hauler: 11.7,
+  tanker: 10.8,
 };
 
 const BODY = {
@@ -22,12 +23,14 @@ const BODY = {
   van: new Color(0.15, 0.13, 0.11),
   box: new Color(0.17, 0.16, 0.14),
   hauler: new Color(0.1, 0.11, 0.12),
+  tanker: new Color(0.16, 0.17, 0.18),
 };
 const CABIN = {
   car: new Color(0.07, 0.075, 0.08),
   van: new Color(0.09, 0.085, 0.08),
   box: new Color(0.08, 0.08, 0.085),
   hauler: new Color(0.06, 0.065, 0.07),
+  tanker: new Color(0.07, 0.075, 0.08),
 };
 const WHITE = new Color(1.75, 1.55, 1.2);
 const RED = new Color(1.85, 0.07, 0.04);
@@ -85,7 +88,20 @@ function build(): Record<MeshId, BufferGeometry> {
     box(0.14, 0.12, 0.12, -1.15, 2.9, -2.6, AMBER, 1),
     box(0.14, 0.12, 0.12, 1.15, 2.9, -2.6, AMBER, 1),
   ])!;
-  return { car, van, box: truck, hauler };
+  // Horizontal tank. The cylinder is original geometry, not a branded trailer.
+  const shell = new CylinderGeometry(1.05, 1.05, 6.8, 10, 1, false);
+  shell.rotateX(Math.PI / 2);
+  shell.translate(0, 1.62, 0.7);
+  const tanker = mergeGeometries([
+    box(2.15, 1.8, 2.15, 0, 1.12, -3.45, CABIN.tanker, 0),
+    tag(shell, BODY.tanker, 0),
+    box(2.2, 0.16, 6.6, 0, 2.7, 0.7, new Color(0.12, 0.13, 0.14), 0),
+    box(1.7, 0.08, 0.06, 0, 0.62, -4.55, WHITE, 1),
+    box(1.9, 0.08, 0.06, 0, 1.15, 4.15, RED, 1),
+    box(0.12, 0.1, 0.1, -0.85, 2.85, 3.9, AMBER, 1),
+    box(0.12, 0.1, 0.1, 0.85, 2.85, 3.9, AMBER, 1),
+  ])!;
+  return { car, van, box: truck, hauler, tanker };
 }
 
 export function vehicleGeometry(id: MeshId): BufferGeometry {

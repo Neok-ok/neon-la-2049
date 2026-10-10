@@ -6,6 +6,7 @@ import { installLakewoodInterior } from './lakewood-megablocks/interior';
 import { installSouthLaInterior } from './south-la-megablocks/interior';
 import { installArtsInterior } from './arts-district/interior';
 import { installWestsideInterior } from './westside/interior';
+import { installSoutheastInterior } from './southeast-industrial/interior';
 
 export function installInteriors(): void {
   installBradburyInteriors();
@@ -15,4 +16,5 @@ export function installInteriors(): void {
   installSouthLaInterior();
   installArtsInterior();
   installWestsideInterior();
+  installSoutheastInterior();
 }

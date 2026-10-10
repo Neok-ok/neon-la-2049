@@ -238,6 +238,18 @@ const shots = [
   { name: 'basin-ultra', ctx: desktop, q: `mode=walk&at=basin-strip&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.basinView('street'), near: true, settle: true },
   { name: 'basin-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=basin-strip&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.basinView('street'), near: true, settle: true },
   { name: 'basin-flyover', ctx: desktop, q: `mode=fly&at=basin-strip&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.basinView('aerial'), near: true, settle: true, flyover: true },
+  // Stage 15 — Southeast refinery belt. Cameras come from __nla.southeastView.
+  { name: 'se-aerial-night', ctx: desktop, q: `mode=fly&at=southeast-pump&time=22&weather=drizzle&${common}`, after: () => window.__nla.southeastView('aerial'), near: true, settle: true },
+  { name: 'se-flare-rain', ctx: desktop, q: `mode=fly&at=southeast-pump&time=22.5&weather=rain&${common}`, after: () => window.__nla.southeastView('flare'), near: true, settle: true },
+  { name: 'se-tanks', ctx: desktop, q: `mode=walk&at=southeast-pump&time=22.5&weather=rain&${common}`, after: () => window.__nla.southeastView('tanks'), near: true, settle: true },
+  { name: 'se-pipes', ctx: desktop, q: `mode=walk&at=southeast-pump&time=22.5&weather=rain&${common}`, after: () => window.__nla.southeastView('pipes'), near: true, settle: true },
+  { name: 'se-street', ctx: desktop, q: `mode=walk&at=southeast-pump&time=22.5&weather=rain&${common}`, after: () => window.__nla.southeastView('street'), near: true, settle: true },
+  { name: 'se-downtown', ctx: desktop, q: `mode=fly&at=southeast-pump&time=22&weather=drizzle&${common}`, after: () => window.__nla.southeastView('downtown'), once: true },
+  { name: 'se-low', ctx: desktop, q: `mode=walk&at=southeast-pump&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=low${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.southeastView('tanks'), near: true, settle: true },
+  { name: 'se-medium', ctx: desktop, q: `mode=walk&at=southeast-pump&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.southeastView('tanks'), near: true, settle: true },
+  { name: 'se-ultra', ctx: desktop, q: `mode=walk&at=southeast-pump&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.southeastView('tanks'), near: true, settle: true },
+  { name: 'se-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=southeast-pump&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.southeastView('tanks'), near: true, settle: true },
+  { name: 'se-flyover', ctx: desktop, q: `mode=fly&at=southeast-pump&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.southeastView('aerial'), near: true, settle: true, flyover: true, hop: { x0: 5800, z0: 4800, y: 160, yaw: 90, pitch: -8, dx: 170, dz: 0, n: 32 } },
 ];
 
 const args = GPU
@@ -321,13 +333,14 @@ for (const s of shots) {
     await page.waitForFunction(() => (window.__nla?.stats?.().coastImpact ?? 0) > 0.55, null, { timeout: 12_000, polling: 40 }).catch(() => {});
   }
   if (s.flyover) {
+    const hop = s.hop ?? { x0: -10070, z0: 11880, y: 160, yaw: 90, pitch: -8, dx: 250, dz: 0, n: 32 };
     const samples = [];
-    const x0 = -10070;
-    const z0 = 11880;
-    const y = 160;
-    for (let i = 0; i <= 32; i++) {
-      const x = x0 + i * 250;
-      await page.evaluate(({ x, y, z }) => window.__nla.setPose(x, y, z, 90, -8), { x, y, z: z0 });
+    for (let i = 0; i <= hop.n; i++) {
+      const x = hop.x0 + i * hop.dx;
+      const z = hop.z0 + i * hop.dz;
+      await page.evaluate(({ x, y, z, yaw, pitch }) => window.__nla.setPose(x, y, z, yaw, pitch), {
+        x, y: hop.y, z, yaw: hop.yaw, pitch: hop.pitch,
+      });
       await page.waitForTimeout(450);
       const st = await page.evaluate(() => {
         const s = window.__nla.stats();
