@@ -30,3 +30,5 @@ import './hollywood/crowd';
 import './lax-spaceport/details';
 import './south-bay-refineries/details';
 import './south-bay-refineries/crowd';
+import './harbor/details';
+import './harbor/crowd';

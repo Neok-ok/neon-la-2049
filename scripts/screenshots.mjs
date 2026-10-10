@@ -286,6 +286,19 @@ const shots = [
   { name: 'sb-ultra', ctx: desktop, q: `mode=walk&at=south-bay-control&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.southBayView('tanks'), near: true, settle: true },
   { name: 'sb-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=south-bay-control&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.southBayView('tanks'), near: true, settle: true },
   { name: 'sb-flyover', ctx: desktop, q: `mode=fly&at=south-bay-control&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.southBayView('aerial'), near: true, settle: true, flyover: true, hop: { x0: -7000, z0: 16000, y: 140, yaw: 90, pitch: -8, dx: 180, dz: 0, n: 32 } },
+  // Stage 19 — Harbor. Cameras come from __nla.harborView.
+  { name: 'harbor-aerial-night', ctx: desktop, q: `mode=fly&at=harbor-control&time=22&weather=drizzle&${common}`, after: () => window.__nla.harborView('aerial'), near: true, settle: true },
+  { name: 'harbor-wall-rain', ctx: desktop, q: `mode=fly&at=harbor-control&time=22.5&weather=rain&${common}`, after: () => window.__nla.harborView('wall'), near: true, settle: true },
+  { name: 'harbor-stacks', ctx: desktop, q: `mode=walk&at=harbor-control&time=22.5&weather=rain&${common}`, after: () => window.__nla.harborView('stacks'), near: true, settle: true },
+  { name: 'harbor-ship', ctx: desktop, q: `mode=fly&at=harbor-control&time=22.5&weather=rain&${common}`, after: () => window.__nla.harborView('ship'), near: true, settle: true },
+  { name: 'harbor-street', ctx: desktop, q: `mode=walk&at=harbor-control&time=22.5&weather=rain&${common}`, after: () => window.__nla.harborView('street'), near: true, settle: true },
+  { name: 'interior-harbor', ctx: desktop, q: `mode=walk&at=harbor-control&time=22.5&weather=rain&${common}`, after: () => window.__nla.harborView('interior'), near: true, settle: true },
+  { name: 'harbor-from-lax', ctx: desktop, q: `mode=fly&at=harbor-control&time=22&weather=drizzle&${common}`, after: () => window.__nla.harborView('lax'), near: true, settle: true },
+  { name: 'harbor-low', ctx: desktop, q: `mode=walk&at=harbor-control&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=low${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.harborView('stacks'), near: true, settle: true },
+  { name: 'harbor-medium', ctx: desktop, q: `mode=walk&at=harbor-control&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.harborView('stacks'), near: true, settle: true },
+  { name: 'harbor-ultra', ctx: desktop, q: `mode=walk&at=harbor-control&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.harborView('stacks'), near: true, settle: true },
+  { name: 'harbor-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=harbor-control&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.harborView('stacks'), near: true, settle: true },
+  { name: 'harbor-flyover', ctx: desktop, q: `mode=fly&at=harbor-control&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.harborView('aerial'), near: true, settle: true, flyover: true, hop: { x0: 2200, z0: 33400, y: 140, yaw: 80, pitch: -8, dx: 160, dz: -30, n: 28 } },
 ];
 
 const args = GPU

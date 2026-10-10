@@ -10,6 +10,7 @@ import { installSoutheastInterior } from './southeast-industrial/interior';
 import { installHollywoodInterior } from './hollywood/interior';
 import { installLaxInterior } from './lax-spaceport/interior';
 import { installSouthBayInterior } from './south-bay-refineries/interior';
+import { installHarborInterior } from './harbor/interior';
 
 export function installInteriors(): void {
   installBradburyInteriors();
@@ -23,4 +24,5 @@ export function installInteriors(): void {
   installHollywoodInterior();
   installLaxInterior();
   installSouthBayInterior();
+  installHarborInterior();
 }

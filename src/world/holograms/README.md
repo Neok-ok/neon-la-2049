@@ -138,3 +138,14 @@ Both quads are over 140 m². Terminal wayfinding stays kind 0. The gantries do n
 | `south-bay-share` | 16 × 10 m, cyan, spill 12 m, rank 1 | lease-loop | street |
 
 The glyphs are noise. The wedge is the existing share ad. No refinery name. Yard stencils stay kind 0.
+
+## Stage 19 placements
+
+`src/districts/harbor/holos.ts` calls `registerHologram` before the field is built. North of the control-room door, yaw π so the normal faces north. No new design.
+
+| Id | Where | Design | Band |
+|---|---|---|---|
+| `harbor-glyph` | 12 × 16 m, amber, spill 16 m, rank 0 | glyph-loop | street |
+| `harbor-courier` | 14 × 20 m, cyan, spill 18 m, rank 1 | ash-crane | tower |
+
+The glyphs are noise. The figure is the existing Ash Line courier. No port or carrier name. Yard stencils stay kind 0.

@@ -17,7 +17,7 @@ const T = TSL as any;
 function overRoofs(id: string): boolean {
   return id === 'lakewood-megablocks' || id === 'south-la-megablocks' || id === 'arts-district'
     || id === 'southeast-industrial' || id === 'hollywood' || id === 'lax-spaceport'
-    || id === 'south-bay-refineries';
+    || id === 'south-bay-refineries' || id === 'harbor';
 }
 
 /** Gantries are 420 m, so the 158–420 m roof skip would still fly through the shafts. */
@@ -152,7 +152,8 @@ export class SpinnerTraffic {
     // Over downtown the 175–260 m band belongs to the avenue sky lanes, so free fliers stay above the fabric ceiling.
     // The historic canyon is not that graph: roofs are 40–110 m and the streets are 18 m, so spinners stay free at 148–260 m.
     // Lakewood and South LA fabric is 45–130 m, Arts District stacks reach about 136 m,
-    // Southeast flare stacks reach 140 m, and Hollywood roofs reach about 119 m,
+    // Southeast flare stacks reach 140 m, Hollywood roofs reach about 119 m,
+    // South Bay stacks reach 140 m, and harbor crane houses are 80 m,
     // so spinners stay off those lattices (158–210 m or 240–420 m, and a lift under ground + 155).
     // LAX gantries are 420 m, so that band is not high enough: spawns are 480–640 m or 720–920 m,
     // and a free flier under ground + 460 m is lifted. The shuttle lane is a separate polyline.

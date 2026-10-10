@@ -10,3 +10,4 @@ import '../districts/southeast-industrial/lanes';
 import '../districts/hollywood/lanes';
 import '../districts/lax-spaceport/lanes';
 import '../districts/south-bay-refineries/lanes';
+import '../districts/harbor/lanes';

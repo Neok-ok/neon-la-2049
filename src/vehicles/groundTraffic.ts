@@ -247,6 +247,9 @@ export class GroundTraffic {
     } else if (e.district === 'south-bay-refineries') {
       const r = rng.next();
       mesh = r < 0.64 ? 'tanker' : r < 0.88 ? 'box' : 'van';
+    } else if (e.district === 'harbor') {
+      const r = rng.next();
+      mesh = r < 0.74 ? 'hauler' : 'box';
     } else {
       const r = rng.next();
       mesh = r < 0.62 ? 'car' : r < 0.82 ? 'van' : r < 0.94 ? 'box' : 'hauler';
