@@ -555,7 +555,10 @@ export class CrowdField {
       this.retarget(want, x, z, rain);
     }
     const loops = this.loops;
-    if (!loops.length && !this.agents.some((a) => a.role !== 'walk')) {
+    // No sidewalk in range: draw nobody. A vendor or a gaze slot is not a loop.
+    // Keeping the mesh up parked those people at the origin and added a draw on
+    // low, where this district previously had an empty count.
+    if (!loops.length) {
       this.count = 0;
       this.animated = 0;
       this.staticCount = 0;
@@ -623,6 +626,8 @@ export class CrowdField {
         if (loop) {
           const p = pointOn(loop, a.u);
           a.x = p.x; a.z = p.z; a.yaw = p.yaw;
+        } else {
+          a.x = 1e6; a.z = 1e6;
         }
       } else {
         a.x = a.ix; a.z = a.iz; a.yaw = a.iyaw;
