@@ -25,6 +25,14 @@ function overGantry(id: string): boolean {
   return id === 'lax-spaceport';
 }
 
+/**
+ * Long Beach roofs are 60–180 m and a compact mast can reach about 204 m.
+ * The 155 m roof band would fly through them. This band is not the LAX gantry floor.
+ */
+function overCore(id: string): boolean {
+  return id === 'long-beach';
+}
+
 interface Car {
   p: Vector3;
   dir: Vector3;
@@ -119,7 +127,7 @@ export class SpinnerTraffic {
       if (!tryHit) return false;
       const edge = g.edges[tryHit.edge];
       // Lakewood and South LA slabs are 45–130 m. A 74 m or 112 m park on a lane ≥ 5 would sit inside them.
-      if (!edge || edge.kind === 'freeway' || (edge.lane ?? 7.2) < 5 || overRoofs(edge.district)) continue;
+      if (!edge || edge.kind === 'freeway' || (edge.lane ?? 7.2) < 5 || overRoofs(edge.district) || overCore(edge.district)) continue;
       hit = tryHit;
       break;
     }
@@ -146,6 +154,7 @@ export class SpinnerTraffic {
     const downtown = here === 'dtla' || here === 'financial-megatowers' || here === 'civic-center';
     const canyon = here === 'historic-core';
     const lakewood = overRoofs(here);
+    const core = overCore(here);
     const layer = r.next();
     car.police = r.chance(0.18);
     car.phase = r.next();
@@ -155,11 +164,13 @@ export class SpinnerTraffic {
     // Southeast flare stacks reach 140 m, Hollywood roofs reach about 119 m,
     // South Bay stacks reach 140 m, and harbor crane houses are 80 m,
     // so spinners stay off those lattices (158–210 m or 240–420 m, and a lift under ground + 155).
+    // Long Beach roofs reach 180 m, so that band is not high enough: spawns are 232–290 m or 340–480 m,
+    // and a free flier under ground + 220 m is lifted. The freight lane is a separate polyline.
     // LAX gantries are 420 m, so that band is not high enough: spawns are 480–640 m or 720–920 m,
     // and a free flier under ground + 460 m is lifted. The shuttle lane is a separate polyline.
     if (!canyon && downtown && layer < 0.78) {
       if (this.onGraph(car, cam.x, cam.z, layer < 0.4)) return car;
-    } else if (!canyon && !downtown && !lakewood && layer < 0.22 && this.onGraph(car, cam.x, cam.z, layer < 0.1)) {
+    } else if (!canyon && !downtown && !lakewood && !core && layer < 0.22 && this.onGraph(car, cam.x, cam.z, layer < 0.1)) {
       return car;
     }
     const district = this.query.district(cam.x, cam.z);
@@ -175,6 +186,7 @@ export class SpinnerTraffic {
     if (downtown) car.p.y = ground + r.range(340, 520);
     else if (canyon) car.p.y = ground + r.range(148, 260);
     else if (overGantry(district.id)) car.p.y = ground + (layer < 0.58 ? r.range(480, 640) : r.range(720, 920));
+    else if (core) car.p.y = ground + (layer < 0.62 ? r.range(232, 290) : r.range(340, 480));
     else if (lakewood) car.p.y = ground + (layer < 0.72 ? r.range(158, 210) : r.range(240, 420));
     else car.p.y = ground + (layer < 0.12 ? r.range(55, 90) : layer < 0.82 ? r.range(175, 260) : r.range(320, 520));
     car.speed = r.range(35, 85);
@@ -210,6 +222,9 @@ export class SpinnerTraffic {
           if (c.p.y < floor) c.p.y = floor;
         } else if (overRoofs(hereId)) {
           const floor = this.query.groundHeight(c.p.x, c.p.z) + 155;
+          if (c.p.y < floor) c.p.y = floor;
+        } else if (overCore(hereId)) {
+          const floor = this.query.groundHeight(c.p.x, c.p.z) + 220;
           if (c.p.y < floor) c.p.y = floor;
         }
       }

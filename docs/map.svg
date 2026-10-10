@@ -59,7 +59,7 @@
 <path d="M761.0,630.8 L1037.7,630.8 L1037.7,896.1 L761.0,896.1 Z" fill="#6a6860" fill-opacity="0.55" stroke="#6a6860" stroke-width="1.5"/>
 <path d="M299.8,254.8 L668.7,276.9 L657.7,365.4 L539.6,391.9 L373.6,476.0 L281.4,387.5 Z" fill="#4a4a4a" fill-opacity="0.55" stroke="#4a4a4a" stroke-width="1.5"/>
 <path d="M410.5,608.6 L761.0,630.8 L761.0,896.1 L484.3,874.0 L447.4,719.2 Z" fill="#c45a22" fill-opacity="0.55" stroke="#c45a22" stroke-width="1.5"/>
-<path d="M797.9,896.1 L1000.8,896.1 L1000.8,1017.8 L797.9,995.6 Z" fill="#4a5a78" fill-opacity="0.55" stroke="#4a5a78" stroke-width="1.5"/>
+<path d="M797.9,896.1 L1000.8,896.1 L1000.8,1017.8 L797.9,995.6 Z" fill="#3e4a62" fill-opacity="0.55" stroke="#3e4a62" stroke-width="1.5"/>
 <path d="M746.2,276.9 L927.0,321.1 L927.0,409.6 L744.4,387.5 Z" fill="#4a4a4a" fill-opacity="0.55" stroke="#4a4a4a" stroke-width="1.5"/>
 <path d="M720.4,303.5 L746.2,316.7 L744.4,376.4 L705.6,391.9 L657.7,372.0 L668.7,330.0 Z" fill="#4a5a78" fill-opacity="0.55" stroke="#4a5a78" stroke-width="1.5"/>
 <path d="M724.1,403.0 L825.5,409.6 L825.5,487.0 L724.1,487.0 Z" fill="#3e3834" fill-opacity="0.55" stroke="#3e3834" stroke-width="1.5"/>
@@ -204,6 +204,7 @@
 <circle cx="413.0" cy="591.1" r="2" fill="#29d8ff"/>
 <circle cx="596.5" cy="669.8" r="2" fill="#29d8ff"/>
 <circle cx="804.5" cy="993.4" r="2" fill="#29d8ff"/>
+<circle cx="946.4" cy="957.5" r="2" fill="#29d8ff"/>
 <circle cx="733.7" cy="363.7" r="2" fill="#29d8ff"/>
 <circle cx="744.4" cy="363.2" r="2" fill="#29d8ff"/>
 <circle cx="797.9" cy="396.3" r="2" fill="#29d8ff"/>

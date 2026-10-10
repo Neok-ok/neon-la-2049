@@ -11,6 +11,7 @@ import { installHollywoodInterior } from './hollywood/interior';
 import { installLaxInterior } from './lax-spaceport/interior';
 import { installSouthBayInterior } from './south-bay-refineries/interior';
 import { installHarborInterior } from './harbor/interior';
+import { installLongBeachInterior } from './long-beach/interior';
 
 export function installInteriors(): void {
   installBradburyInteriors();
@@ -25,4 +26,5 @@ export function installInteriors(): void {
   installLaxInterior();
   installSouthBayInterior();
   installHarborInterior();
+  installLongBeachInterior();
 }
