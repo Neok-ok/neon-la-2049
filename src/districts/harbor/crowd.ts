@@ -23,4 +23,4 @@ registerCrowdSource('harbor', (blocks, query) => {
     ]);
   }
   return loops;
-});
+}, 0.02);

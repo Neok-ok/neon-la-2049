@@ -1,6 +1,7 @@
 // LOD0 kit for sprawl blocks. Pure: no three.js. The district detail module turns these into meshes.
 // Omitted strips and hubs stay quiet: one sidewalk loop, almost no props.
 import { Rng } from '../../../core/rng';
+import { lifeSpot, type CrowdLifeSpot } from '../../../world/crowdLife';
 import type { CityLayout } from '../../../world/layout';
 import type { FaceDir } from '../../../world/fabric/types';
 import type { SprawlBlock, SprawlPlan, SprawlStall } from './plan';
@@ -66,13 +67,15 @@ export function dressSprawl(b: SprawlBlock, plan: SprawlPlan, layout: CityLayout
   pools: SprawlPool[];
   steam: SprawlSteam[];
   loops: Array<Array<[number, number]>>;
+  life: CrowdLifeSpot[];
 } {
   const props: SprawlProp[] = [];
   const pools: SprawlPool[] = [];
   const steam: SprawlSteam[] = [];
   const loops: Array<Array<[number, number]>> = [];
+  const life: CrowdLifeSpot[] = [];
   if (b.ground > 45 || !plan.boxes.length && !plan.stalls.length && !plan.hub) {
-    return { props, pools, steam, loops };
+    return { props, pools, steam, loops, life: [] };
   }
   const rng = new Rng((b.seed ^ 0x5e11) >>> 0 || 1);
   const put = (s: number, t: number, y: number, yaw: number, p: Omit<SprawlProp, 'x' | 'y' | 'z' | 'yaw'>) => {
@@ -81,8 +84,17 @@ export function dressSprawl(b: SprawlBlock, plan: SprawlPlan, layout: CityLayout
     props.push({ ...p, x, y: b.ground + y, z, yaw });
   };
 
+  let stallQueues = 0;
   for (const stall of plan.stalls) {
     const yaw = yawOf(b, stall.face);
+    if (stallQueues < 2) {
+      stallQueues++;
+      const [sx, sz] = world(b, stall.s, stall.t);
+      const ox = Math.sin(yaw);
+      const oz = Math.cos(yaw);
+      life.push(lifeSpot(sx + ox * 1.8, sz + oz * 1.8, yaw, 'queue', plan.hub ? 4 : 2));
+      if (stallQueues === 1) life.push(lifeSpot(sx + ox * 0.55, sz + oz * 0.55, yaw, 'awning', 3));
+    }
     put(stall.s, stall.t, 2.35, yaw, {
       template: 'awning', sx: 3.2, sy: 1, sz: 1.7, color: TARP, emissive: NONE, metal: 0, rank: 0,
     });
@@ -158,7 +170,7 @@ export function dressSprawl(b: SprawlBlock, plan: SprawlPlan, layout: CityLayout
       .filter(([x, z]) => open(layout, x, z));
     if (yard.length >= 4) loops.push(yard);
   }
-  return { props, pools, steam, loops };
+  return { props, pools, steam, loops, life };
 }
 
 function stallLine(b: SprawlBlock, stalls: SprawlStall[]): Array<[number, number]> {

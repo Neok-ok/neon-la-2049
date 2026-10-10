@@ -470,7 +470,7 @@ export class App {
     this.lanes.update(dt, this.camera, this.quality.laneTraffic);
     this.ground.update(dt, this.camera, this.quality.groundTraffic, this.quality.freewayTraffic, this.quality.tier, this.elapsed);
     this.atmosphere.update(dt, this.elapsed, this.renderer);
-    this.crowd.update(dt, cam.x, cam.z, this.query, this.quality, this.atmosphere.weather.params.rain);
+    this.crowd.update(dt, cam.x, cam.z, this.query, this.quality, this.atmosphere.weather.params.rain, this.elapsed);
     this.haze.update(cam.x, cam.z, ground, alt, this.quality.tier);
     const wantRefl = params.refl === 1 || (
       params.refl !== 0 && !this.software && (this.quality.tier === 'high' || this.quality.tier === 'ultra')
@@ -1079,6 +1079,10 @@ export class App {
         drawCalls: this.renderer.info.render.drawCalls,
         triangles: this.renderer.info.render.triangles,
         crowd: this.crowd.count,
+        crowdAnimated: this.crowd.animated,
+        crowdStatic: this.crowd.staticCount,
+        crowdIdle: this.crowd.idle,
+        crowdTris: this.crowd.tris,
         holo: this.holos.shown,
         holoCandidates: this.holos.candidates,
         holoCards: this.holos.cards,

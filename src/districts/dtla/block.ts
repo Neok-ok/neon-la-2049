@@ -2,6 +2,7 @@
 // the street bridges at the shared walkway heights, and the prop / steam / crowd lists LOD0 uses.
 // The chunk worker (archetype) and the main thread (details, crowds) both call dressBlock.
 import { Rng, hash2i } from '../../core/rng';
+import { lifeSpot, type CrowdLifeSpot } from '../../world/crowdLife';
 import { Style, SignColor, type FaceDir } from '../../world/fabric/types';
 import type { CityLayout } from '../../world/layout';
 import { distToSegment } from '../../world/layout';
@@ -110,6 +111,7 @@ export interface DtlaDress {
   steam: DtlaSteam[];
   pools: DtlaPool[];
   loops: Array<Array<[number, number]>>;
+  life: CrowdLifeSpot[];
 }
 
 class MemorySink implements MassSink {
@@ -228,6 +230,7 @@ const NONE: [number, number, number] = [0, 0, 0];
 function dressLot(
   b: DtlaBlock, layout: CityLayout, lot: Lot, r: Rng, busy: boolean,
   boxes: ReplayBox[], signs: DtlaSign[], props: DtlaProp[], steam: DtlaSteam[], pools: DtlaPool[],
+  life: CrowdLifeSpot[],
 ): void {
   const [wx, wz] = world(b, lot.s, lot.t);
   if (layout.isReserved(wx, wz, Math.min(lot.la, lot.lb) * 0.3) || layout.isOcean(wx, wz)) return;
@@ -271,7 +274,7 @@ function dressLot(
   // stored on the sink? Towers' signs live on TowerParts, which we didn't keep.
   if (parts) {
     parts.signs.forEach((s, n) => pushSign(signs, lot.s, lot.t, s, phrase0 + n));
-    placeKiosks(b, lot, parts, r, busy, props, steam, pools);
+    placeKiosks(b, lot, parts, r, busy, props, steam, pools, life);
   } else if (towerOk) {
     // a shaft billboard on the street face, large enough for the hologram field
     const face: Face = 0;
@@ -285,7 +288,7 @@ function dressLot(
 
 function placeKiosks(
   b: DtlaBlock, lot: Lot, parts: MegablockParts, r: Rng, busy: boolean,
-  props: DtlaProp[], steam: DtlaSteam[], pools: DtlaPool[],
+  props: DtlaProp[], steam: DtlaSteam[], pools: DtlaPool[], life: CrowdLifeSpot[],
 ): void {
   // kit +Z = +s (baseHalfD), kit +X = −t (baseHalfW)
   const sides: Array<{ ns: number; nt: number; faceS: number; faceT: number; along: 's' | 't' }> = [
@@ -296,6 +299,7 @@ function placeKiosks(
   ];
   const rgb = SIGN_RGB[r.int(0, 5)]!;
   let vents = 0;
+  let queued = 0;
   for (const side of sides) {
     const outerS = lot.s + (side.ns > 0 ? lot.la / 2 : side.ns < 0 ? -lot.la / 2 : 0);
     const outerT = lot.t + (side.nt > 0 ? lot.lb / 2 : side.nt < 0 ? -lot.lb / 2 : 0);
@@ -316,6 +320,14 @@ function placeKiosks(
       if (Math.abs(s - lot.s) > lot.la / 2 - 1 || Math.abs(t - lot.t) > lot.lb / 2 - 1) continue;
       const yaw = yawNormal(b, side.ns, side.nt);
       const rank = streetish ? 0 : 1;
+      if (streetish && queued < 2) {
+        queued++;
+        const [kx, kz] = world(b, s, t);
+        const ox = Math.sin(yaw);
+        const oz = Math.cos(yaw);
+        life.push(lifeSpot(kx + ox * 2.1, kz + oz * 2.1, yaw, 'queue', busy ? 4 : 3));
+        if (queued === 1) life.push(lifeSpot(kx + ox * 0.45, kz + oz * 0.45, yaw, 'awning', 3));
+      }
       props.push(propAt(b, s, t, 1.15, yaw, {
         template: 'box', sx: 2.4, sy: 2.3, sz: 1.5, color: [0.1, 0.1, 0.11], emissive: NONE, metal: 0.35, rank,
       }));
@@ -386,6 +398,7 @@ export function dressBlock(b: DtlaBlock, layout: CityLayout): DtlaDress {
   const props: DtlaProp[] = [];
   const steam: DtlaSteam[] = [];
   const pools: DtlaPool[] = [];
+  const life: CrowdLifeSpot[] = [];
   const busy = layout.districtAt(b.cx, b.cz).id === 'dtla' && financialEdge(layout, b.cx, b.cz) < 110;
   const lots: Lot[] = [];
   splitLots(r, 0, 0, b.la, b.lb, 36, 108, lots);
@@ -394,7 +407,7 @@ export function dressBlock(b: DtlaBlock, layout: CityLayout): DtlaDress {
     lot.la = Math.max(12, lot.la - gap);
     lot.lb = Math.max(12, lot.lb - gap);
     if (r.chance(0.035)) continue;
-    dressLot(b, layout, lot, r, busy, boxes, signs, props, steam, pools);
+    dressLot(b, layout, lot, r, busy, boxes, signs, props, steam, pools, life);
   }
   bridge(boxes, b, layout, 'a');
   bridge(boxes, b, layout, 'b');
@@ -404,5 +417,5 @@ export function dressBlock(b: DtlaBlock, layout: CityLayout): DtlaDress {
     const [x, z] = world(b, r.range(-8, 8), r.range(-8, 8));
     if (!layout.isReserved(x, z, 2)) steam.push({ x, y: b.ground, z, seed: hash2i(b.i, b.j, 5) / 4294967296, rank: 0 });
   }
-  return { boxes, signs, props, steam, pools, loops: [sidewalkLoop(b)] };
+  return { boxes, signs, props, steam, pools, loops: [sidewalkLoop(b)], life };
 }

@@ -23,4 +23,4 @@ registerCrowdSource('arts-district', (blocks, query) => {
     loops.push(...planArts(asBlock(b), query.layout).loops);
   }
   return loops;
-});
+}, 0.06);

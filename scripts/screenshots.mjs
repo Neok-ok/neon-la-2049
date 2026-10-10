@@ -330,6 +330,16 @@ const shots = [
   { name: 'x6-longbeach-iphone', ctx: iphone, q: `mode=fly&at=long-beach-concourse&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.longBeachView('canyon'), near: true, settle: true },
   { name: 'x6-eastla-iphone', ctx: iphone, q: `mode=walk&at=east-la-market&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.eastLaView('market'), near: true, settle: true },
   { name: 'x6-eastla-iphone-land', ctx: { ...iphone, viewport: { width: 844, height: 390 } }, q: `mode=walk&at=east-la-market&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.eastLaView('interchange'), near: true, settle: true },
+  // D1 — street life. 390x844 at DPR 3, medium, plus one landscape. ONLY=d1-...
+  { name: 'd1-lt-iphone', ctx: iphone, q: `mode=walk&at=noodle-bar&time=22.5&weather=rain&freeze=1&ui=0&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.marketView('street'), near: true, settle: true },
+  { name: 'd1-lt-land', ctx: { ...iphone, viewport: { width: 844, height: 390 } }, q: `mode=walk&at=noodle-bar&time=22.5&weather=rain&freeze=1&ui=0&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.marketView('street'), near: true, settle: true },
+  { name: 'd1-broadway-iphone', ctx: iphone, q: `mode=walk&at=bradbury&time=22.5&weather=rain&freeze=1&ui=0&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.broadwayView('street'), near: true, settle: true },
+  { name: 'd1-dtla-iphone', ctx: iphone, q: `mode=walk&at=dtla-canyon&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.dtlaView('street'), near: true, settle: true },
+  { name: 'd1-k-iphone', ctx: iphone, q: `mode=walk&at=k-megablock-tower&time=22.5&weather=rain&freeze=1&ui=0&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.kView('market'), near: true, settle: true },
+  { name: 'd1-hw-iphone', ctx: iphone, q: `mode=walk&at=hollywood-lobby&time=22.5&weather=rain&freeze=1&ui=0&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.hollywoodView('street'), near: true, settle: true },
+  { name: 'd1-ela-iphone', ctx: iphone, q: `mode=walk&at=east-la-market&time=22.5&weather=rain&freeze=1&ui=0&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.eastLaView('market'), near: true, settle: true },
+  { name: 'd1-queue-iphone', ctx: iphone, q: `mode=walk&at=noodle-bar&time=22.5&weather=rain&freeze=1&ui=0&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.marketView('crowd'), near: true, settle: true },
+  { name: 'd1-rain-iphone', ctx: iphone, q: `mode=walk&at=noodle-bar&time=22.5&weather=downpour&freeze=1&ui=0&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.marketView('street'), near: true, settle: true },
 ];
 
 const args = GPU

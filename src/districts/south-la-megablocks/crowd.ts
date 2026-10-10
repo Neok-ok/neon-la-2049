@@ -1,5 +1,5 @@
 // Sidewalk loops, heavier on market spines and at the Exposition yard.
-// Share is set on the market crowd field, above Lakewood and under K.
+// Share is the third argument of registerCrowdSource, above Lakewood and under K.
 import type { CityQuery, PackedBlock } from '../../world/CityQuery';
 import { registerCrowdSource } from '../little-tokyo-market/crowd';
 import { dressResidential } from '../_shared/residential/dress';
@@ -21,13 +21,16 @@ function asBlock(b: PackedBlock, id: string): ResBlock {
 
 registerCrowdSource('south-la-megablocks', (blocks, query) => {
   const loops: Array<Array<[number, number]>> = [];
+  const life: Array<ReturnType<typeof dressResidential>['life'][number]> = [];
   for (const b of blocks) {
     const id = idOf(b, query);
     if (id !== 'south-la-megablocks') continue;
     const block = asBlock(b, id);
     const plan = planResidential(block, SOUTH_LA_PARAMS, query.layout);
     const busy = plan.spine || plan.hub;
-    loops.push(...dressResidential(block, plan, query.layout, { busy }).loops);
+    const dressed = dressResidential(block, plan, query.layout, { busy });
+    loops.push(...dressed.loops);
+    life.push(...dressed.life);
   }
-  return loops;
-});
+  return { loops, life };
+}, 0.2);

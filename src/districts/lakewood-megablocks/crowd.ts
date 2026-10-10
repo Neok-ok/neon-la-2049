@@ -1,5 +1,5 @@
 // Sidewalk loops, plus a short loop at a corner market and inside a courtyard.
-// Share is set on the market crowd field. This district stays well under K's 0.32.
+// Share is the third argument of registerCrowdSource. This district stays well under K's 0.32.
 import type { CityQuery, PackedBlock } from '../../world/CityQuery';
 import { registerCrowdSource } from '../little-tokyo-market/crowd';
 import { dressResidential } from '../_shared/residential/dress';
@@ -21,12 +21,15 @@ function asBlock(b: PackedBlock, id: string): ResBlock {
 
 registerCrowdSource('lakewood-megablocks', (blocks, query) => {
   const loops: Array<Array<[number, number]>> = [];
+  const life: Array<ReturnType<typeof dressResidential>['life'][number]> = [];
   for (const b of blocks) {
     const id = idOf(b, query);
     if (id !== 'lakewood-megablocks') continue;
     const block = asBlock(b, id);
     const plan = planResidential(block, LAKEWOOD_PARAMS, query.layout);
-    loops.push(...dressResidential(block, plan, query.layout).loops);
+    const dressed = dressResidential(block, plan, query.layout);
+    loops.push(...dressed.loops);
+    life.push(...dressed.life);
   }
-  return loops;
-});
+  return { loops, life };
+}, 0.12);

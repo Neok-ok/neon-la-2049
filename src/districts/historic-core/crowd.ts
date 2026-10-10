@@ -22,4 +22,4 @@ registerCrowdSource('historic-core', (blocks, query) => {
     loops.push(...dressBlock(asCanyon(b), query.layout).loops);
   }
   return loops;
-});
+}, 0.72);

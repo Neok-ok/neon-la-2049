@@ -30,4 +30,4 @@ registerCrowdSource('south-bay-refineries', (blocks, query) => {
     loops.push(...planSouthBay(asBlock(b, d?.index ?? 0), query.layout).loops);
   }
   return loops;
-});
+}, 0.03);
