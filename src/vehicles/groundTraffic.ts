@@ -11,7 +11,7 @@ import type { Tier } from '../core/quality';
 import { Rng, trueRandomSeed } from '../core/rng';
 import { U } from '../atmosphere/uniforms';
 import { getPoolMaterial } from '../districts/_shared/kit/materials';
-import { advanceGraph, edgeNear, poseOn, streetGraph, type GraphEdge, type StreetGraph } from './streetGraph';
+import { advanceGraph, edgeIdsNear, edgeNear, graphBinKey, poseOn, streetGraph, visitBins, type GraphEdge, type StreetGraph } from './streetGraph';
 import { MESH_LEN, vehicleGeometry, vehicleMaterial, type MeshId } from './vehicleModels';
 import { createTrafficDress, streakNear, type TrafficDress } from './freewayDress';
 import { SPINE_B } from '../districts/south-la-megablocks/spec';
@@ -44,7 +44,13 @@ interface Agent {
 interface Head {
   node: number;
   axis: 0 | 1;
+  x: number;
+  y: number;
+  z: number;
 }
+
+/** Visible signal slots. The basin lattice has far more crossings than this; only the near ones are uploaded. */
+const HEAD_CAP = 768;
 
 const _m = new Matrix4();
 const _q = new Quaternion();
@@ -70,7 +76,8 @@ export class GroundTraffic {
   private poles: InstancedMesh | null = null;
   private heads: InstancedMesh | null = null;
   private headRec: Head[] = [];
-  private headMats: Matrix4[] = [];
+  /** Head indices by the same 500 m bin as the street graph. Only the near bins are submitted. */
+  private headBins = new Map<string, number[]>();
   private lampAttr: InstancedBufferAttribute | null = null;
   private pools: InstancedMesh;
   private poolAttr: InstancedBufferAttribute;
@@ -131,12 +138,14 @@ export class GroundTraffic {
   }
 
   private buildSignals(scene: import('three/webgpu').Scene): void {
+    this.headBins.clear();
     const g = streetGraph(this.query.layout);
     const layout = this.query.layout;
     const rec: Head[] = [];
-    const matrices: Matrix4[] = [];
     for (let i = 0; i < g.nodes.length; i++) {
       if (!g.signal[i]) continue;
+      const node = g.nodes[i];
+      if (!node) continue;
       const seen = new Set<number>();
       for (const link of g.links[i]!) {
         if (seen.has(link.edge)) continue;
@@ -148,8 +157,11 @@ export class GroundTraffic {
         const t = inbound > 0 ? 1 - back / e.length : back / e.length;
         const pose = poseOn(g, e.index, t, inbound, e.lane + 1.45);
         const y = layout.heightAt(pose.x, pose.z) + e.deck;
-        matrices.push(new Matrix4().setPosition(pose.x, y, pose.z));
-        rec.push({ node: i, axis: e.axis });
+        rec.push({ node: i, axis: e.axis, x: pose.x, y, z: pose.z });
+        const key = graphBinKey(node.x, node.z);
+        const bin = this.headBins.get(key);
+        if (bin) bin.push(rec.length - 1);
+        else this.headBins.set(key, [rec.length - 1]);
       }
     }
     if (!rec.length) return;
@@ -157,11 +169,11 @@ export class GroundTraffic {
     poleMat.roughnessNode = T.mix(T.float(0.86), T.float(0.34), U.wetness);
     poleMat.metalness = 0.08;
     const poleGeo = new BoxGeometry(0.16, 5.45, 0.16).translate(0, 2.72, 0);
-    this.poles = new InstancedMesh(poleGeo, poleMat, rec.length);
+    this.poles = new InstancedMesh(poleGeo, poleMat, HEAD_CAP);
     this.poles.name = 'traffic-poles';
     this.poles.frustumCulled = false;
     const headGeo = new BoxGeometry(0.34, 0.46, 0.26).translate(0, 5.52, 0);
-    const colors = new Float32Array(rec.length * 3);
+    const colors = new Float32Array(HEAD_CAP * 3);
     this.lampAttr = new InstancedBufferAttribute(colors, 3);
     this.lampAttr.setUsage(DynamicDrawUsage);
     headGeo.setAttribute('iLamp', this.lampAttr);
@@ -171,19 +183,17 @@ export class GroundTraffic {
     const dist = T.length(T.positionWorld.sub(T.cameraPosition));
     const fade = T.smoothstep(T.float(520), T.float(70), dist);
     headMat.colorNode = lamp.mul(T.mix(T.float(0.4), T.float(1.65), U.night)).mul(fade);
-    this.heads = new InstancedMesh(headGeo, headMat, rec.length);
+    this.heads = new InstancedMesh(headGeo, headMat, HEAD_CAP);
     this.heads.name = 'traffic-heads';
     this.heads.frustumCulled = false;
     this.heads.renderOrder = 3;
     this.poles.instanceMatrix.setUsage(DynamicDrawUsage);
     this.heads.instanceMatrix.setUsage(DynamicDrawUsage);
-    // The whole basin's heads would be one mesh. Draw only the ones near the camera.
     this.poles.count = 0;
     this.heads.count = 0;
     this.poles.visible = false;
     this.heads.visible = false;
     this.headRec = rec;
-    this.headMats = matrices;
     scene.add(this.poles, this.heads);
   }
 
@@ -223,6 +233,8 @@ export class GroundTraffic {
       mesh = r < 0.62 ? 'box' : r < 0.9 ? 'hauler' : 'van';
     } else if (e.district === 'westside') {
       mesh = rng.chance(0.18) ? 'van' : 'car';
+    } else if (e.district === 'basin-sprawl') {
+      mesh = rng.chance(0.12) ? 'van' : 'car';
     } else {
       const r = rng.next();
       mesh = r < 0.62 ? 'car' : r < 0.82 ? 'van' : r < 0.94 ? 'box' : 'hauler';
@@ -316,18 +328,8 @@ export class GroundTraffic {
   }
 
   private collect(g: StreetGraph, x: number, z: number): void {
-    this.streetPick.length = 0;
-    this.freewayPick.length = 0;
-    const rs = STREET_R * STREET_R;
-    const rf = FREEWAY_R * FREEWAY_R;
-    for (const e of g.edges) {
-      const a = g.nodes[e.a]!, b = g.nodes[e.b]!;
-      const dx = (a.x + b.x) / 2 - x;
-      const dz = (a.z + b.z) / 2 - z;
-      const d2 = dx * dx + dz * dz;
-      if (e.kind === 'freeway') { if (d2 < rf) this.freewayPick.push(e.index); }
-      else if (d2 < rs) this.streetPick.push(e.index);
-    }
+    this.streetPick = edgeIdsNear(g, x, z, STREET_R, 'street');
+    this.freewayPick = edgeIdsNear(g, x, z, FREEWAY_R, 'freeway');
   }
 
   private fill(list: Agent[], want: number, freeway: boolean, g: StreetGraph, x: number, z: number): void {
@@ -416,23 +418,41 @@ export class GroundTraffic {
     if (!this.heads || !this.poles || !this.lampAttr) return;
     const rgb = this.lampAttr.array as Float32Array;
     const reach = 500 * 500;
+    const near: number[] = [];
+    visitBins(cam.x, cam.z, 500, (key) => {
+      const bin = this.headBins.get(key);
+      if (!bin) return;
+      for (const i of bin) {
+        const h = this.headRec[i];
+        if (!h) continue;
+        const node = g.nodes[h.node];
+        if (!node) continue;
+        const d = (node.x - cam.x) ** 2 + (node.z - cam.z) ** 2;
+        if (d > reach) continue;
+        near.push(i);
+      }
+    });
+    if (near.length > HEAD_CAP) {
+      near.sort((a, b) => {
+        const ha = this.headRec[a]!;
+        const hb = this.headRec[b]!;
+        const da = (ha.x - cam.x) ** 2 + (ha.z - cam.z) ** 2;
+        const db = (hb.x - cam.x) ** 2 + (hb.z - cam.z) ** 2;
+        return da - db;
+      });
+      near.length = HEAD_CAP;
+    }
     let n = 0;
-    for (let i = 0; i < this.headRec.length; i++) {
+    for (const i of near) {
       const h = this.headRec[i]!;
-      const node = g.nodes[h.node];
-      if (!node) continue;
-      const d = (node.x - cam.x) ** 2 + (node.z - cam.z) ** 2;
-      if (d > reach) continue;
       const lamp = axisLamp(h.node, h.axis, time);
       const c = LAMP_RGB[lamp];
       rgb[n * 3] = c[0];
       rgb[n * 3 + 1] = c[1];
       rgb[n * 3 + 2] = c[2];
-      const mat = this.headMats[i];
-      if (mat) {
-        this.poles.setMatrixAt(n, mat);
-        this.heads.setMatrixAt(n, mat);
-      }
+      _m.setPosition(h.x, h.y, h.z);
+      this.poles.setMatrixAt(n, _m);
+      this.heads.setMatrixAt(n, _m);
       n++;
     }
     this.poles.count = n;
@@ -449,12 +469,15 @@ export class GroundTraffic {
     const cam = camera.position;
     let best = -1;
     let bd = 80 * 80;
-    for (let i = 0; i < g.nodes.length; i++) {
-      if (!g.signal[i]) continue;
-      const n = g.nodes[i]!;
-      const d2 = (n.x - cam.x) ** 2 + (n.z - cam.z) ** 2;
-      if (d2 < bd) { bd = d2; best = i; }
-    }
+    visitBins(cam.x, cam.z, 80, (key) => {
+      const bin = g.signalBins.get(key);
+      if (!bin) return;
+      for (const i of bin) {
+        const n = g.nodes[i]!;
+        const d2 = (n.x - cam.x) ** 2 + (n.z - cam.z) ** 2;
+        if (d2 < bd) { bd = d2; best = i; }
+      }
+    });
     if (best < 0) return 'none';
     const e = camera.matrixWorld.elements;
     const fx = -e[8]!, fz = -e[10]!;

@@ -50,6 +50,9 @@ export interface GraphLink {
   dir: 1 | -1;
 }
 
+/** Metres per spatial bin. Queries visit the bins that touch the search square. */
+export const GRAPH_BIN = 500;
+
 export interface StreetGraph {
   nodes: GraphNode[];
   edges: GraphEdge[];
@@ -57,6 +60,24 @@ export interface StreetGraph {
   links: GraphLink[][];
   /** 1 when the node has both street axes and should show a signal. */
   signal: Uint8Array;
+  /** Edge indices keyed by the midpoint bin. A basin lattice must not scan every edge each frame. */
+  bins: Map<string, number[]>;
+  /** Signal node indices, same key as `bins`. */
+  signalBins: Map<string, number[]>;
+}
+
+export function graphBinKey(x: number, z: number): string {
+  return `${Math.floor(x / GRAPH_BIN)},${Math.floor(z / GRAPH_BIN)}`;
+}
+
+export function visitBins(x: number, z: number, radius: number, fn: (key: string) => void): void {
+  const i0 = Math.floor((x - radius) / GRAPH_BIN);
+  const i1 = Math.floor((x + radius) / GRAPH_BIN);
+  const j0 = Math.floor((z - radius) / GRAPH_BIN);
+  const j1 = Math.floor((z + radius) / GRAPH_BIN);
+  for (let i = i0; i <= i1; i++) {
+    for (let j = j0; j <= j1; j++) fn(`${i},${j}`);
+  }
 }
 
 export interface GraphPose {
@@ -208,7 +229,25 @@ export function streetGraph(layout: CityLayout): StreetGraph {
     }
     if (a0 && a1) signal[i] = 1;
   }
-  const graph = { nodes, edges, links, signal };
+  const bins = new Map<string, number[]>();
+  for (let n = 0; n < edges.length; n++) {
+    const e = edges[n]!;
+    const a = nodes[e.a]!, b = nodes[e.b]!;
+    const key = graphBinKey((a.x + b.x) / 2, (a.z + b.z) / 2);
+    const list = bins.get(key);
+    if (list) list.push(n);
+    else bins.set(key, [n]);
+  }
+  const signalBins = new Map<string, number[]>();
+  for (let n = 0; n < nodes.length; n++) {
+    if (!signal[n]) continue;
+    const node = nodes[n]!;
+    const key = graphBinKey(node.x, node.z);
+    const list = signalBins.get(key);
+    if (list) list.push(n);
+    else signalBins.set(key, [n]);
+  }
+  const graph = { nodes, edges, links, signal, bins, signalBins };
   cache = { layout, rev, graph };
   return graph;
 }
@@ -216,25 +255,57 @@ export function streetGraph(layout: CityLayout): StreetGraph {
 /** Previous name. Spinners and older calls use this. It is the same graph. */
 export const downtownGraph = streetGraph;
 
+/** Longest street spacing is 205 m. A segment hit can sit this far from the midpoint bin. */
+const EDGE_PAD = 130;
+
+function kindOk(e: GraphEdge, kind?: 'street' | 'freeway'): boolean {
+  if (kind === 'freeway') return e.kind === 'freeway';
+  if (kind === 'street') return e.kind !== 'freeway';
+  return true;
+}
+
+/** Edge indices whose midpoint is inside `radius`. */
+export function edgeIdsNear(g: StreetGraph, x: number, z: number, radius: number, kind?: 'street' | 'freeway'): number[] {
+  const r2 = radius * radius;
+  const out: number[] = [];
+  visitBins(x, z, radius, (key) => {
+    const list = g.bins.get(key);
+    if (!list) return;
+    for (const idx of list) {
+      const e = g.edges[idx]!;
+      if (!kindOk(e, kind)) continue;
+      const a = g.nodes[e.a]!, b = g.nodes[e.b]!;
+      const dx = (a.x + b.x) / 2 - x;
+      const dz = (a.z + b.z) / 2 - z;
+      if (dx * dx + dz * dz < r2) out.push(idx);
+    }
+  });
+  return out;
+}
+
 /** Closest point on an edge, if it falls inside `maxDist`. `kind` skips the other family. */
 export function edgeNear(
   g: StreetGraph, x: number, z: number, maxDist: number, kind?: 'street' | 'freeway',
 ): { edge: number; t: number; dist: number } | null {
   let best: { edge: number; t: number; dist: number } | null = null;
   const max2 = maxDist * maxDist;
-  for (const e of g.edges) {
-    if (kind === 'freeway' && e.kind !== 'freeway') continue;
-    if (kind === 'street' && e.kind === 'freeway') continue;
-    const a = g.nodes[e.a]!, b = g.nodes[e.b]!;
-    const dx = b.x - a.x, dz = b.z - a.z;
-    const L2 = dx * dx + dz * dz || 1;
-    let t = ((x - a.x) * dx + (z - a.z) * dz) / L2;
-    t = Math.max(0, Math.min(1, t));
-    const px = a.x + dx * t, pz = a.z + dz * t;
-    const d2 = (px - x) ** 2 + (pz - z) ** 2;
-    if (d2 > max2) continue;
-    if (!best || d2 < best.dist * best.dist) best = { edge: e.index, t, dist: Math.sqrt(d2) };
-  }
+  visitBins(x, z, maxDist + EDGE_PAD, (key) => {
+    const list = g.bins.get(key);
+    if (!list) return;
+    for (const idx of list) {
+      const e = g.edges[idx]!;
+      if (!kindOk(e, kind)) continue;
+      const a = g.nodes[e.a]!, b = g.nodes[e.b]!;
+      const dx = b.x - a.x, dz = b.z - a.z;
+      const L2 = dx * dx + dz * dz || 1;
+      let t = ((x - a.x) * dx + (z - a.z) * dz) / L2;
+      t = Math.max(0, Math.min(1, t));
+      const px = a.x + dx * t, pz = a.z + dz * t;
+      const d2 = (px - x) ** 2 + (pz - z) ** 2;
+      if (d2 > max2) continue;
+      if (!best || d2 < best.dist * best.dist) best = { edge: e.index, t, dist: Math.sqrt(d2) };
+    }
+  });
   return best;
 }
 
@@ -242,18 +313,11 @@ export function edgeNear(
 export function edgeAround(
   g: StreetGraph, x: number, z: number, radius: number, rng: { next(): number },
 ): { edge: number; t: number } | null {
-  const n = g.edges.length;
-  if (!n) return null;
-  let best = -1;
-  let bd = radius;
-  for (let k = 0; k < 18; k++) {
-    const i = Math.floor(rng.next() * n) % n;
-    const e = g.edges[i]!;
-    const a = g.nodes[e.a]!, b = g.nodes[e.b]!;
-    const d = Math.hypot((a.x + b.x) / 2 - x, (a.z + b.z) / 2 - z);
-    if (d < bd) { bd = d; best = i; }
+  const ids = edgeIdsNear(g, x, z, radius);
+  if (ids.length) {
+    const i = ids[Math.floor(rng.next() * ids.length) % ids.length]!;
+    return { edge: i, t: 0.12 + rng.next() * 0.76 };
   }
-  if (best >= 0) return { edge: best, t: 0.12 + rng.next() * 0.76 };
   const near = edgeNear(g, x, z, radius);
   return near ? { edge: near.edge, t: near.t } : null;
 }

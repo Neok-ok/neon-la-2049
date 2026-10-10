@@ -238,22 +238,6 @@ registerArchetype('sprawl-dense', (ctx) => {
   });
 });
 
-registerArchetype('basin-sprawl', (ctx) => {
-  const r = ctx.rng;
-  if (r.chance(0.035)) {
-    // isolated megablock rising from the low-rise sea (the film's Mexico City plate + megastructure look)
-    const H = r.range(80, 145);
-    topHeavy(ctx, 0, 0, ctx.block.lb * 0.8, ctx.block.la * 0.6, H, Style.Megablock, r.range(0.25, 0.5), r.range(0.7, 1.0));
-    return;
-  }
-  lotLoop(ctx, ctx.lots(12, 36, 1), (l) => {
-    if (r.chance(0.05)) return;
-    const H = r.skew(4, 18, 1.4);
-    ctx.box(l.s, l.t, l.lb, l.la, H, { style: Style.Sprawl, lit: r.range(0.15, 0.45), tint: r.range(0.7, 1.25) });
-    if (r.chance(0.04)) signsOn(ctx, l.s, l.t, l.lb, l.la, H, 0.6, PAL_SPRAWL, 0);
-  });
-});
-
 registerArchetype('coastal-grey', (ctx) => {
   const r = ctx.rng;
   lotLoop(ctx, ctx.lots(18, 60, 4), (l) => {

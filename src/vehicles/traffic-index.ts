@@ -5,3 +5,4 @@ import '../districts/lakewood-megablocks/lanes';
 import '../districts/south-la-megablocks/lanes';
 import '../districts/arts-district/lanes';
 import '../districts/westside/lanes';
+import '../districts/basin-sprawl/lanes';

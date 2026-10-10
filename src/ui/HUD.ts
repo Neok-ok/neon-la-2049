@@ -7,6 +7,7 @@ export class HUD {
   private worst = 0;
   fps = 60;
   frameMs = 16;
+  worstMs = 16;
 
   constructor(visible: boolean) {
     this.el = document.createElement('div');
@@ -29,7 +30,8 @@ export class HUD {
     if (this.acc < 0.25) return;
     this.fps = this.frames / this.acc;
     this.frameMs = (this.acc / this.frames) * 1000;
-    const worst = this.worst * 1000;
+    this.worstMs = this.worst * 1000;
+    const worst = this.worstMs;
     this.frames = 0;
     this.acc = 0;
     this.worst = 0;

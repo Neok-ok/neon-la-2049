@@ -215,6 +215,29 @@ const shots = [
   { name: 'westside-towers-medium', ctx: desktop, q: `mode=walk&at=westside-yard&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.westsideView('towers'), near: true, settle: true },
   { name: 'westside-ultra', ctx: desktop, q: `mode=walk&at=westside-yard&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.westsideView('street'), near: true, settle: true },
   { name: 'westside-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=westside-yard&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.westsideView('street'), near: true, settle: true },
+  // Stage 14 — Basin sprawl, the default district. Cameras come from __nla.basinView.
+  // Seam URLs match the before frames. `once` waits for idle on that pose, then the view only flips the cockpit.
+  { name: 'basin-seam-west-dusk', ctx: desktop, q: `mode=fly&x=-16260.5&y=1000&z=7390.7&yaw=0&pitch=-36.9&time=18.4&weather=drizzle&${common}`, after: () => window.__nla.basinView('seam-west'), once: true },
+  { name: 'basin-seam-west-night', ctx: desktop, q: `mode=fly&x=-16260.5&y=1000&z=7390.7&yaw=0&pitch=-36.9&time=22.5&weather=drizzle&${common}`, after: () => window.__nla.basinView('seam-west'), once: true },
+  { name: 'basin-seam-south-dusk', ctx: desktop, q: `mode=fly&x=-9782&y=1000&z=7983.4&yaw=90&pitch=-36.9&time=18.4&weather=drizzle&${common}`, after: () => window.__nla.basinView('seam-south'), once: true },
+  { name: 'basin-seam-south-night', ctx: desktop, q: `mode=fly&x=-9782&y=1000&z=7983.4&yaw=90&pitch=-36.9&time=22.5&weather=drizzle&${common}`, after: () => window.__nla.basinView('seam-south'), once: true },
+  { name: 'basin-seam-lake-dusk', ctx: desktop, q: `mode=fly&x=16766.8&y=1000&z=21252.3&yaw=-90&pitch=-41.6&time=18.4&weather=drizzle&${common}`, after: () => window.__nla.basinView('seam-lake'), once: true },
+  { name: 'basin-seam-lake-night', ctx: desktop, q: `mode=fly&x=16766.8&y=1000&z=21252.3&yaw=-90&pitch=-41.6&time=22.5&weather=drizzle&${common}`, after: () => window.__nla.basinView('seam-lake'), once: true },
+  { name: 'basin-seam-arts-dusk', ctx: desktop, q: `mode=fly&x=894.6&y=1000&z=3188.4&yaw=0&pitch=-41.6&time=18.4&weather=drizzle&${common}`, after: () => window.__nla.basinView('seam-arts'), once: true },
+  { name: 'basin-seam-arts-night', ctx: desktop, q: `mode=fly&x=894.6&y=1000&z=3188.4&yaw=0&pitch=-41.6&time=22.5&weather=drizzle&${common}`, after: () => window.__nla.basinView('seam-arts'), once: true },
+  { name: 'basin-seam-dtla-dusk', ctx: desktop, q: `mode=fly&x=-581.1&y=1000&z=-2137.9&yaw=180&pitch=-39.1&time=18.4&weather=drizzle&${common}`, after: () => window.__nla.basinView('seam-dtla'), once: true },
+  { name: 'basin-seam-dtla-night', ctx: desktop, q: `mode=fly&x=-581.1&y=1000&z=-2137.9&yaw=180&pitch=-39.1&time=22.5&weather=drizzle&${common}`, after: () => window.__nla.basinView('seam-dtla'), once: true },
+  { name: 'basin-aerial-dusk', ctx: desktop, q: `mode=fly&x=-10250&y=1000&z=13080&yaw=8&pitch=-37.3&time=18.4&weather=drizzle&${common}`, after: () => window.__nla.basinView('aerial'), once: true },
+  { name: 'basin-aerial-night', ctx: desktop, q: `mode=fly&x=-10250&y=1000&z=13080&yaw=8&pitch=-37.3&time=22.5&weather=drizzle&${common}`, after: () => window.__nla.basinView('aerial'), once: true },
+  { name: 'basin-street', ctx: desktop, q: `mode=walk&at=basin-strip&time=22.5&weather=drizzle&${common}`, after: () => window.__nla.basinView('street'), near: true, settle: true },
+  { name: 'basin-strip', ctx: desktop, q: `mode=walk&at=basin-strip&time=22.5&weather=drizzle&${common}`, after: () => window.__nla.basinView('strip'), near: true, settle: true },
+  { name: 'basin-roof', ctx: desktop, q: `mode=fly&at=basin-strip&time=22&weather=drizzle&${common}`, after: () => window.__nla.basinView('roof'), near: true, settle: true },
+  { name: 'basin-low', ctx: desktop, q: `mode=walk&at=basin-strip&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=low${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.basinView('street'), near: true, settle: true },
+  { name: 'basin-medium', ctx: desktop, q: `mode=walk&at=basin-strip&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.basinView('street'), near: true, settle: true },
+  { name: 'basin-high', ctx: desktop, q: `mode=walk&at=basin-strip&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=high${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.basinView('street'), near: true, settle: true },
+  { name: 'basin-ultra', ctx: desktop, q: `mode=walk&at=basin-strip&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.basinView('street'), near: true, settle: true },
+  { name: 'basin-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=basin-strip&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.basinView('street'), near: true, settle: true },
+  { name: 'basin-flyover', ctx: desktop, q: `mode=fly&at=basin-strip&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.basinView('aerial'), near: true, settle: true, flyover: true },
 ];
 
 const args = GPU
@@ -246,7 +269,7 @@ for (const s of shots) {
   if (s.after) {
     await page.evaluate(s.after);
     await page.waitForTimeout(market ? 2500 : 1500);
-    if (!market) await page.waitForFunction(() => window.__nla.isIdle(), null, { timeout: 120_000, polling: 1000 }).catch(() => {});
+    if (!market && !s.once) await page.waitForFunction(() => window.__nla.isIdle(), null, { timeout: 120_000, polling: 1000 }).catch(() => {});
     // camera presets are idempotent; set it again in case a slow first frame swallowed the first call
     await page.evaluate(s.after);
     await page.waitForTimeout(1500);
@@ -262,7 +285,9 @@ for (const s of shots) {
       // The preset can land kilometres from `at=`. Wait until that neighbourhood is dressed.
       await page.waitForFunction(() => {
         const st = window.__nla?.stats?.();
-        return st && st.lod0 >= 6 && st.inFlight === 0 && st.readyQueue === 0 && st.fps > 0;
+        // A kilometre-up seam never enters the lod0 radius. Settled draws are enough there.
+        const dressed = st && (st.lod0 >= 6 || (st.drawCalls > 40 && st.lod0 === 0));
+        return dressed && st.inFlight === 0 && st.readyQueue === 0 && st.fps > 0;
       }, null, { timeout: 120_000, polling: 500 }).catch(() => console.warn(`${s.name}: area still streaming`));
       await page.evaluate(s.after);
       await page.waitForTimeout(1800);
@@ -294,6 +319,27 @@ for (const s of shots) {
   }
   if (s.coast && s.q.includes('weather=downpour') && !s.q.includes('quality=low')) {
     await page.waitForFunction(() => (window.__nla?.stats?.().coastImpact ?? 0) > 0.55, null, { timeout: 12_000, polling: 40 }).catch(() => {});
+  }
+  if (s.flyover) {
+    const samples = [];
+    const x0 = -10070;
+    const z0 = 11880;
+    const y = 160;
+    for (let i = 0; i <= 32; i++) {
+      const x = x0 + i * 250;
+      await page.evaluate(({ x, y, z }) => window.__nla.setPose(x, y, z, 90, -8), { x, y, z: z0 });
+      await page.waitForTimeout(450);
+      const st = await page.evaluate(() => {
+        const s = window.__nla.stats();
+        return { frameMs: s.frameMs, worstMs: s.worstMs, fps: s.fps, draws: s.drawCalls, tris: s.triangles, lod0: s.lod0 };
+      });
+      samples.push({ x: Math.round(x), ...st });
+    }
+    const ms = samples.map((s) => s.frameMs);
+    const worst = samples.map((s) => s.worstMs);
+    const avg = ms.reduce((a, b) => a + b, 0) / ms.length;
+    console.log(`flyover avg ${avg.toFixed(1)} ms, median ${ms.slice().sort((a, b) => a - b)[Math.floor(ms.length / 2)].toFixed(1)} ms, peak worst ${Math.max(...worst).toFixed(0)} ms`);
+    console.log('flyover-samples', JSON.stringify(samples));
   }
   const stats = await page.evaluate(() => {
     const s = window.__nla?.stats?.() ?? null;

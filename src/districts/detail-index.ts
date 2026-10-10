@@ -21,3 +21,5 @@ import './arts-district/details';
 import './arts-district/crowd';
 import './westside/details';
 import './westside/crowd';
+import './basin-sprawl/details';
+import './basin-sprawl/crowd';

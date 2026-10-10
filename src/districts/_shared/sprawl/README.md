@@ -1,6 +1,6 @@
 # Sprawl helper
 
-Stage 13 (Westside) plans ordinary 10–60 m blocks here. Stage 14 (Basin Sprawl) and Stage 21 (East LA) should call the same functions with their own params. This is not the residential megablock library and it does not call `buildMegablock`.
+Stage 13 (Westside) and Stage 14 (Basin) plan ordinary blocks here. Stage 21 (East LA) should call the same functions with its own params. This is not the residential megablock library and it does not call `buildMegablock`.
 
 ```ts
 import { fillSprawlBlock } from '../_shared/sprawl/plan';
@@ -29,7 +29,7 @@ Omitted fields are the quiet Westside-sized band, not a second copy of the Stage
 | `rise` | no edge steps up |
 | `walls` | no reserved-corridor wall |
 
-Pass `storeys` to match the district row. Basin's row is 6–35 m, so Stage 14 should pass its own band rather than inherit 3–10. East LA should pass its own strips when it leaves `sprawl-dense`.
+Pass `storeys` to match the district row. Basin passes 2–10 at 3.4 m with cap 35 (6.8–34 m) rather than the omitted 3–10. East LA should pass its own strips when it leaves `sprawl-dense`.
 
 `walls: true` grows the same segmented solid wall, posts and amber lamps the residential library uses on a freeway probe, plus a 10.2 m step. It does not import that library. The probe is `street * 0.42 + 6` metres outside the building line, and `ctx.box` still drops anything whose centre is reserved.
 
