@@ -16,7 +16,12 @@ const T = TSL as any;
 /** A lane ≥ 5 must not park spinners at 74 m or 112 m. Those bands sit inside the slabs and the stacks. */
 function overRoofs(id: string): boolean {
   return id === 'lakewood-megablocks' || id === 'south-la-megablocks' || id === 'arts-district'
-    || id === 'southeast-industrial' || id === 'hollywood';
+    || id === 'southeast-industrial' || id === 'hollywood' || id === 'lax-spaceport';
+}
+
+/** Gantries are 420 m, so the 158–420 m roof skip would still fly through the shafts. */
+function overGantry(id: string): boolean {
+  return id === 'lax-spaceport';
 }
 
 interface Car {
@@ -148,6 +153,8 @@ export class SpinnerTraffic {
     // Lakewood and South LA fabric is 45–130 m, Arts District stacks reach about 136 m,
     // Southeast flare stacks reach 140 m, and Hollywood roofs reach about 119 m,
     // so spinners stay off those lattices (158–210 m or 240–420 m, and a lift under ground + 155).
+    // LAX gantries are 420 m, so that band is not high enough: spawns are 480–640 m or 720–920 m,
+    // and a free flier under ground + 460 m is lifted. The shuttle lane is a separate polyline.
     if (!canyon && downtown && layer < 0.78) {
       if (this.onGraph(car, cam.x, cam.z, layer < 0.4)) return car;
     } else if (!canyon && !downtown && !lakewood && layer < 0.22 && this.onGraph(car, cam.x, cam.z, layer < 0.1)) {
@@ -165,6 +172,7 @@ export class SpinnerTraffic {
     const ground = this.query.groundHeight(car.p.x, car.p.z);
     if (downtown) car.p.y = ground + r.range(340, 520);
     else if (canyon) car.p.y = ground + r.range(148, 260);
+    else if (overGantry(district.id)) car.p.y = ground + (layer < 0.58 ? r.range(480, 640) : r.range(720, 920));
     else if (lakewood) car.p.y = ground + (layer < 0.72 ? r.range(158, 210) : r.range(240, 420));
     else car.p.y = ground + (layer < 0.12 ? r.range(55, 90) : layer < 0.82 ? r.range(175, 260) : r.range(320, 520));
     car.speed = r.range(35, 85);
@@ -194,7 +202,11 @@ export class SpinnerTraffic {
         c.p.y += Math.sin(U.time.value * 0.5 + c.phase * 20) * 0.02;
         if (this.query.insideLandmark(c.p.x, c.p.y, c.p.z, 30)) c.p.y += 120 * dt + 4;
         // A free flier that drifts in from the 55–90 m band would otherwise cut the slabs or the stacks.
-        if (overRoofs(this.query.district(c.p.x, c.p.z).id)) {
+        const hereId = this.query.district(c.p.x, c.p.z).id;
+        if (overGantry(hereId)) {
+          const floor = this.query.groundHeight(c.p.x, c.p.z) + 460;
+          if (c.p.y < floor) c.p.y = floor;
+        } else if (overRoofs(hereId)) {
           const floor = this.query.groundHeight(c.p.x, c.p.z) + 155;
           if (c.p.y < floor) c.p.y = floor;
         }

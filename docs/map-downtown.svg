@@ -60,7 +60,7 @@
 <path d="M521.2,299.0 L687.2,343.3 L650.3,498.1 L521.2,476.0 Z" fill="#8c8c9c" fill-opacity="0.55" stroke="#8c8c9c" stroke-width="1.5"/>
 <path d="M447.4,431.7 L576.5,476.0 L401.3,767.9 L259.2,723.6 Z" fill="#555" fill-opacity="0.55" stroke="#888" stroke-width="1.5"/>
 <path d="M687.2,453.8 L853.2,498.1 L834.7,940.4 L650.3,874.0 Z" fill="#7a5a3a" fill-opacity="0.55" stroke="#7a5a3a" stroke-width="1.5"/>
-<path d="M-2854.5,2643.2 L-1932.2,2643.2 L-1932.2,3151.8 L-2854.5,3151.8 Z" fill="#3a6a8a" fill-opacity="0.55" stroke="#3a6a8a" stroke-width="1.5"/>
+<path d="M-2854.5,2643.2 L-1932.2,2643.2 L-1932.2,3151.8 L-2854.5,3151.8 Z" fill="#555" fill-opacity="0.55" stroke="#888" stroke-width="1.5"/>
 <path d="M576.5,453.8 L742.5,464.9 L724.1,586.5 L576.5,575.5 Z" fill="#555" fill-opacity="0.55" stroke="#888" stroke-width="1.5"/>
 <path d="M2642.5,4611.4 L2937.6,4611.4 L2937.6,4854.7 L2642.5,4854.7 Z" fill="#8a8478" fill-opacity="0.55" stroke="#8a8478" stroke-width="1.5"/>
 <path d="M-5990.4,719.2 L-5621.5,719.2 L-4883.6,807.7 L-4422.5,1050.9 L-4108.9,1382.7 L-3813.7,1714.4 L-3592.4,2046.1 L-3371.0,2355.7 L-3223.4,2643.2 L-3002.1,3151.8 L-2799.2,3594.1 L-2540.9,4147.0 L-2319.6,4699.9 L-2153.6,5142.2 L-2153.6,5584.5 L-2245.8,5916.2 L-2485.6,6247.9 L-2743.8,6690.2 L-2485.6,7243.1 L-1932.2,7685.4 L-1378.8,7906.5 L-641.0,8017.1 L-179.8,8017.1 L281.4,7906.5 L650.3,7574.8 L1203.7,7243.1 L1664.8,7021.9 L2126.0,6867.1 L2771.6,7132.5 L3232.8,7464.2 L3970.6,8017.1 L4339.6,8459.4 L4524.0,8680.5 L4524.0,10449.7 L-7835.0,10449.7 L-7835.0,719.2 Z" fill="#0c1a26" stroke="#2a4a66" stroke-width="1"/>
@@ -208,6 +208,8 @@
 <text x="1891.0" y="1371.0" dx="5" dy="12" fill="#8fe8ff" font-size="10">Southeast pump house</text>
 <circle cx="-1209.0" cy="-608.8" r="2" fill="#29d8ff"/>
 <text x="-1209.0" y="-608.8" dx="5" dy="12" fill="#8fe8ff" font-size="10">Hollywood arcade lobby</text>
+<circle cx="-2460.0" cy="2976.8" r="2" fill="#29d8ff"/>
+<text x="-2460.0" y="2976.8" dx="5" dy="12" fill="#8fe8ff" font-size="10">LAX terminal concourse</text>
 <circle cx="746.9" cy="702.2" r="2" fill="#29d8ff"/>
 <text x="746.9" y="702.2" dx="5" dy="12" fill="#8fe8ff" font-size="10">Arts District pour hall</text>
 <circle cx="853.2" cy="697.1" r="2" fill="#29d8ff"/>

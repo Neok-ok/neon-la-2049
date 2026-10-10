@@ -249,6 +249,7 @@ registerArchetype('coastal-grey', (ctx) => {
   });
 });
 
+// Stage 17 moved lax-spaceport onto `lax-apron`. This body stays registered and unused.
 registerArchetype('spaceport', (ctx) => {
   const r = ctx.rng;
   lotLoop(ctx, ctx.lots(80, 220, 30), (l) => {

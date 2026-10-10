@@ -31,6 +31,10 @@ import { basinCamera, type BasinView } from '../districts/basin-sprawl/view';
 import { southeastCamera, type SoutheastView } from '../districts/southeast-industrial/view';
 import { hollywoodCamera, type HollywoodView } from '../districts/hollywood/view';
 import { installHollywoodHolos } from '../districts/hollywood/holos';
+import { laxCamera, laxLaunchFor, type LaxView } from '../districts/lax-spaceport/view';
+import { installLaxHolos } from '../districts/lax-spaceport/holos';
+import { launchPad, launchPhase, launchRumble, mountLaunch, requestLaunch, updateLaunch } from '../districts/lax-spaceport/launch';
+import { gantryTris } from '../districts/lax-spaceport/gantry';
 import { mountSoutheastFlares } from '../districts/southeast-industrial/field';
 import { setRefineryFlame } from '../districts/_shared/refinery/flames';
 import { installArtsHolos } from '../districts/arts-district/holos';
@@ -170,6 +174,7 @@ export class App {
     this.landmarks = new Landmarks(this.query);
     this.scene.add(this.landmarks.root);
     mountSoutheastFlares(this.scene, this.query.layout);
+    mountLaunch(this.scene, this.query.layout);
     installCoast(this.scene, this.query, this.quality.tier);
     installShowcase(this.query.layout);
     installDtlaHolos(this.query.layout);
@@ -178,6 +183,7 @@ export class App {
     installSouthLaHolos(this.query.layout);
     installArtsHolos(this.query.layout);
     installHollywoodHolos(this.query.layout);
+    installLaxHolos(this.query.layout);
     this.holos = new HologramField(this.query.layout);
     this.scene.add(this.holos.group);
     this.traffic = new SpinnerTraffic(this.scene, this.query, settingsFor('ultra').traffic);
@@ -440,10 +446,12 @@ export class App {
     }
     this.ambience.setInterior(this.interiors.blend);
     this.ambience.setHum(this.interiors.humAmount);
-    this.ambience.setMachinery(inWallace
+    updateLaunch(this.elapsed, this.quality.tier, w.windDir, w.params.wind);
+    const districtMach = inWallace
       ? Math.max(0, 1 - alt / 140) * 0.82
       : inArts ? Math.max(0, 1 - alt / 90) * 0.66
-        : inSoutheast ? Math.max(0, 1 - alt / 110) * 0.5 : 0);
+        : inSoutheast ? Math.max(0, 1 - alt / 110) * 0.5 : 0;
+    this.ambience.setMachinery(Math.min(1, districtMach + launchRumble(cam.x, cam.y, cam.z)));
     setRefineryFlame(this.quality.tier, w.windDir, w.params.wind);
     this.ambience.setTraffic(this.ground.bed);
     this.ambience.setSurf(coast.surf, coast.impact, coast.crest);
@@ -700,6 +708,33 @@ export class App {
         }
         return true;
       },
+      /** Stage 17 cameras. `downtown` and `burn` also arm a mid-ascent launch. */
+      laxView: (kind: LaxView) => {
+        const arm = laxLaunchFor(kind);
+        if (arm) requestLaunch(arm.phase, arm.pad);
+        const p = laxCamera(this.query.layout, kind);
+        if (!p) return false;
+        this.query.fabricAt(p.x, p.z);
+        this.cams.setMode(p.mode);
+        if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
+        this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
+        if (p.mode === 'walk') {
+          this.cams.walk.pitch = p.pitch;
+          this.cams.walk.heading = p.heading;
+          if (p.feet) {
+            this.cams.walk.pos.set(p.feet.x, p.feet.y, p.feet.z);
+            this.camera.position.set(p.feet.x, p.feet.y + 1.7, p.feet.z);
+            this.camera.rotation.set(p.pitch, -p.heading, 0, 'YXZ');
+            this.camera.updateMatrixWorld();
+          }
+        }
+        return true;
+      },
+      /** Ignition now, or a phase 0..1 into the current burn. Optional pad index holds that gantry. */
+      launch: (phase?: number, pad?: number) => {
+        requestLaunch(phase ?? 0, pad);
+        return { phase: phase ?? 0, pad: pad ?? launchPad() };
+      },
       /** Stage 15 cameras: the belt from a kilometre up, a flare, a tank farm, a pipe canyon, the pump door, the control room, downtown. */
       southeastView: (kind: SoutheastView) => {
         const p = southeastCamera(this.query.layout, kind);
@@ -916,6 +951,9 @@ export class App {
         trafficBed: this.ground.bed,
         landmarkLods: this.landmarks.lods.active.join('/'),
         beacons: this.landmarks.beacons.count,
+        launch: launchPhase(),
+        launchPad: launchPad(),
+        gantryTris: gantryTris.join('/'),
         querySyncs: this.query.syncCount,
         queryPending: this.query.pending,
         refl: this.wet.enabled,

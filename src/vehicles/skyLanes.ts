@@ -14,6 +14,7 @@ import { wallaceFreightRuns } from '../districts/wallace-vernon/lanes';
 import { coastPatrolRuns } from '../districts/coastal-strip/lanes';
 import { artsFreightRuns } from '../districts/arts-district/lanes';
 import { southeastFreightRuns } from '../districts/southeast-industrial/lanes';
+import { laxShuttleRuns } from '../districts/lax-spaceport/lanes';
 
 export type LaneClass = 'civilian' | 'police' | 'transport';
 
@@ -247,6 +248,13 @@ export function buildSkyLanes(q: CityQuery): SkyLane[] {
     }));
   }
   for (const run of southeastFreightRuns(L, (x, y, z) => q.insideLandmark(x, y, z, 3.5))) {
+    lanes.push(lane(run.id, run.pts.map((p) => new Vector3(p[0], p[1], p[2])), run.loop, {
+      weight: run.weight, police: run.police, transport: run.transport,
+      speed: run.speed, sep: run.sep, altBias: run.altBias, fade: run.fade,
+      platoon: run.platoon,
+    }));
+  }
+  for (const run of laxShuttleRuns(L, (x, y, z) => q.insideLandmark(x, y, z, 3.5))) {
     lanes.push(lane(run.id, run.pts.map((p) => new Vector3(p[0], p[1], p[2])), run.loop, {
       weight: run.weight, police: run.police, transport: run.transport,
       speed: run.speed, sep: run.sep, altBias: run.altBias, fade: run.fade,

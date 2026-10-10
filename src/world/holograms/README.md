@@ -116,3 +116,14 @@ Rank 0, 14 × 46 m, pink, spill 28 m. Kind-2 billboards in the canyon still prom
 | `hollywood-lease` | j = −44, 32 × 14 m, amber, spill 20 m, rank 1 | lease-loop | tower |
 
 Every quad is well over 140 m². Heritage billboards on the strip (16 × 10 m) still promote crane / coil / ribbon. The hillside wordmark is a landmark sign, kind 0, and is not a hologram.
+
+## Stage 17 placements
+
+`src/districts/lax-spaceport/holos.ts` calls `registerHologram` before the field is built. North face of the terminal door hall, yaw π so the normal faces north. No new design.
+
+| Id | Where | Design | Band |
+|---|---|---|---|
+| `lax-glyph` | 18 × 44 m, white, spill 22 m, rank 0 | glyph-loop | tower |
+| `lax-lease` | 36 × 12 m, cyan, spill 16 m, rank 1 | lease-loop | tower |
+
+Both quads are over 140 m². Terminal wayfinding stays kind 0. The gantries do not register hologram slots.

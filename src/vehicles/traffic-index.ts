@@ -8,3 +8,4 @@ import '../districts/westside/lanes';
 import '../districts/basin-sprawl/lanes';
 import '../districts/southeast-industrial/lanes';
 import '../districts/hollywood/lanes';
+import '../districts/lax-spaceport/lanes';
