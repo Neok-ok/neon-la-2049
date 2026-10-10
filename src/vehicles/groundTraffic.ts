@@ -244,6 +244,9 @@ export class GroundTraffic {
     } else if (e.district === 'lax-spaceport') {
       const r = rng.next();
       mesh = r < 0.46 ? 'van' : r < 0.78 ? 'box' : r < 0.92 ? 'hauler' : 'car';
+    } else if (e.district === 'south-bay-refineries') {
+      const r = rng.next();
+      mesh = r < 0.64 ? 'tanker' : r < 0.88 ? 'box' : 'van';
     } else {
       const r = rng.next();
       mesh = r < 0.62 ? 'car' : r < 0.82 ? 'van' : r < 0.94 ? 'box' : 'hauler';

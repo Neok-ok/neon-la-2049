@@ -127,3 +127,14 @@ Every quad is well over 140 m². Heritage billboards on the strip (16 × 10 m) s
 | `lax-lease` | 36 × 12 m, cyan, spill 16 m, rank 1 | lease-loop | tower |
 
 Both quads are over 140 m². Terminal wayfinding stays kind 0. The gantries do not register hologram slots.
+
+## Stage 18 placements
+
+`src/districts/south-bay-refineries/holos.ts` calls `registerHologram` before the field is built. South face of the control-room door, yaw 0 so the normal faces south. No new design.
+
+| Id | Where | Design | Band |
+|---|---|---|---|
+| `south-bay-hazard` | 12 × 16 m, amber, spill 14 m, rank 0 | glyph-loop | street |
+| `south-bay-share` | 16 × 10 m, cyan, spill 12 m, rank 1 | lease-loop | street |
+
+The glyphs are noise. The wedge is the existing share ad. No refinery name. Yard stencils stay kind 0.

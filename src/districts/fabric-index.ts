@@ -17,3 +17,4 @@ import './basin-sprawl/archetype';
 import './southeast-industrial/archetype';
 import './hollywood/archetype';
 import './lax-spaceport/archetype';
+import './south-bay-refineries/archetype';
