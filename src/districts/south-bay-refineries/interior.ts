@@ -20,8 +20,8 @@ function roomProps(detail: number): InteriorBox[] {
     { x: 0.1, y: 0.96, z, w: 2.8, h: 0.08, d: 0.72, color: steel, emissive: [0.18, 0.08, 0.03] },
     { x: 0.1, y: 0.48, z, w: 2.6, h: 0.88, d: 0.58, color: [0.14, 0.14, 0.15] },
     { x: -wallX + 0.06, y: 1.4, z: z + 0.2, w: 0.08, h: 1.6, d: 2.2, color: [0.1, 0.1, 0.11], emissive: [0.7, 0.28, 0.05], flick: 0.35 },
-    { x: wallX - 0.28, y: 1.2, z: z - 1.6, w: 0.4, h: 2.4, d: 0.4, color: steel, emissive: [0.16, 0.06, 0.02], detail: 1 },
-    { x: -0.6, y: 0.42, z: z + 1.6, w: 0.42, h: 0.84, d: 0.42, color: [0.18, 0.16, 0.12], detail: 1 },
+    { x: wallX - 0.28, y: 0, z: z - 1.6, w: 0.4, h: 2.4, d: 0.4, color: steel, emissive: [0.16, 0.06, 0.02], detail: 1 },
+    { x: -0.6, y: 0, z: z + 1.6, w: 0.42, h: 0.84, d: 0.42, color: [0.18, 0.16, 0.12], detail: 1 },
     { x: 1.1, y: 1.35, z: backZ, w: 1.2, h: 0.7, d: 0.08, color: [0.16, 0.16, 0.17], emissive: [0.35, 0.12, 0.04], flick: 0.8, detail: 2 },
   ];
   return boxes.filter((b) => (b.detail ?? 0) <= detail);
