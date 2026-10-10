@@ -20,7 +20,7 @@ import { marketSpots } from './spots';
 
 const T = TSL as any;
 const {
-  attribute, float, vec3, vec4, sin, cos, mix, step, positionLocal, abs, fract, asin, clamp,
+  attribute, float, vec3, vec4, sin, cos, mix, step, positionGeometry, positionLocal, abs, fract, asin, clamp,
 } = T;
 
 const MAX = 720;
@@ -119,6 +119,35 @@ function personGeometry(): BufferGeometry {
   const part: number[] = [];
   const idx: number[] = [];
   let v = 0;
+  const pushVert = (x: number, y: number, z: number, nx: number, ny: number, nz: number, p: number) => {
+    pos.push(x, y, z);
+    nor.push(nx, ny, nz);
+    part.push(p);
+    v++;
+  };
+  const wedge = (cx: number, cy: number, cz: number, w: number, h: number, d: number, p: number) => {
+    const x = w / 2, y = h / 2, z = d / 2;
+    const apex: [number, number, number] = [cx, cy + y, cz];
+    const base: Array<[number, number, number]> = [
+      [cx - x, cy - y, cz + z], [cx + x, cy - y, cz + z],
+      [cx + x, cy - y, cz - z], [cx - x, cy - y, cz - z],
+    ];
+    const tri = (a: [number, number, number], b: [number, number, number], c: [number, number, number]) => {
+      const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
+      const vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+      let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+      const len = Math.hypot(nx, ny, nz) || 1;
+      nx /= len; ny /= len; nz /= len;
+      const i0 = v;
+      pushVert(a[0], a[1], a[2], nx, ny, nz, p);
+      pushVert(b[0], b[1], b[2], nx, ny, nz, p);
+      pushVert(c[0], c[1], c[2], nx, ny, nz, p);
+      idx.push(i0, i0 + 1, i0 + 2);
+    };
+    for (let i = 0; i < 4; i++) tri(apex, base[i]!, base[(i + 1) % 4]!);
+    tri(base[0]!, base[2]!, base[1]!);
+    tri(base[0]!, base[3]!, base[2]!);
+  };
   const box = (cx: number, cy: number, cz: number, w: number, h: number, d: number, p: number) => {
     const x = w / 2, y = h / 2, z = d / 2;
     const faces: Array<[number, number, number, number[][]]> = [
@@ -148,8 +177,10 @@ function personGeometry(): BufferGeometry {
   box(0.1, 0.46, 0, 0.12, 0.88, 0.14, 3);
   box(-0.32, 1.14, 0.02, 0.09, 0.64, 0.09, 4);
   box(0.32, 1.14, 0.02, 0.09, 0.64, 0.09, 5);
-  box(0, 1.0, 0, 0.5, 1.05, 0.3, 6);
-  box(0.34, 1.86, 0.08, 1.02, 0.028, 1.02, 7);
+  // Hem sits above the knee so the calves clear the coat. A floor-length box hid the walk.
+  box(0, 1.12, 0, 0.46, 0.78, 0.26, 6);
+  // Shallow pyramid, not a flat disc: at eye height a disc is a one-pixel edge.
+  wedge(0.34, 1.78, 0.08, 0.92, 0.3, 0.92, 7);
   box(0.34, 1.33, 0.08, 0.026, 1.02, 0.026, 8);
   box(0, 1.7, -0.02, 0.3, 0.32, 0.28, 9);
   box(0, 1.78, 0, 0.34, 0.028, 0.34, 10);
@@ -168,8 +199,8 @@ function crowdMaterial(): MeshBasicNodeMaterial {
   const m = new MeshBasicNodeMaterial();
   m.name = 'Crowd';
   m.fog = true;
-  // Half the canopy pixels drop out so the shell reads as thin plastic without a transparent pass.
-  m.alphaTest = 0.4;
+  // Solid canopy. A dithered disc broke into holes at street distance, and a flat disc
+  // is edge-on at eye height, so the shell is a small pyramid in the one opaque draw.
   const part = attribute('part', 'float');
   const motion = attribute('iMotion', 'vec4');
   const style = attribute('iStyle', 'vec4');
@@ -221,7 +252,10 @@ function crowdMaterial(): MeshBasicNodeMaterial {
     const s = sin(ang);
     return vec3(pos.x, float(py).add(dy.mul(c).sub(dz.mul(s))), float(pz).add(dy.mul(s).add(dz.mul(c))));
   };
-  let pos = positionLocal;
+  // Deform the raw attribute. setupPosition assigns this BEFORE the instanced-mesh
+  // multiply. positionNode runs after that multiply, so a rotate there swings the
+  // instance position around the origin.
+  let pos = positionGeometry;
   pos = mix(pos, rotX(pos, -0.1, 0.9, 0, legL), isL);
   pos = mix(pos, rotX(pos, 0.1, 0.9, 0, legR), isR);
   pos = mix(pos, rotX(pos, -0.32, 1.46, 0, armL), isAL);
@@ -242,18 +276,20 @@ function crowdMaterial(): MeshBasicNodeMaterial {
   pos = mix(vec3(0, 1.0, 0), pos, show(float(1).sub(style.w), step(5.5, part).mul(step(part, 6.5))));
   pos = mix(vec3(0, 1.14, 0), pos, show(style.w, step(11.5, part).mul(step(part, 12.5))));
   pos = mix(vec3(0.34, 0.82, 0.08), pos, show(umbrella, isCan.add(isShaft)));
-  const dither = fract(positionLocal.x.mul(12.3).add(positionLocal.y.mul(7.1)).add(positionLocal.z.mul(19.7)));
-  const canopyA = step(0.42, dither).mul(0.95);
-  m.opacityNode = mix(float(1), canopyA, isCan);
   const skin = vec3(0.55, 0.42, 0.34);
   const shaftCol = vec3(1.0, 0.74, 0.38);
   let col = mix(coat, skin, isHead);
+  col = mix(col, coat.mul(0.62), isL.add(isR));
   col = mix(col, coat.mul(0.55), isBag);
   col = mix(col, can, isCan);
   col = mix(col, shaftCol, isShaft);
   const glow = float(0.55).add(isShaft.mul(0.85).add(isShaft.mul(U.night).mul(0.55))).add(isCan.mul(0.2));
   m.colorNode = vec4(col.mul(glow), float(1));
-  m.positionNode = pos;
+  const setup = m.setupPosition.bind(m);
+  m.setupPosition = (builder) => {
+    positionLocal.assign(pos);
+    return setup(builder);
+  };
   return m;
 }
 
