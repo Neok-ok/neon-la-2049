@@ -63,8 +63,9 @@ export function hollywoodCamera(layout: CityLayout, kind: HollywoodView): Hollyw
     return walk(feet, { x: dancer.x, y: dancerG + 24, z: dancer.z }, 0.22);
   }
   if (kind === 'holo') {
-    const feet = { x: dancer.x + 3, y: dancerG, z: dancer.z + 26 };
-    return walk(feet, { x: dancer.x, y: dancerG + 32, z: dancer.z }, 0.62);
+    // South side of the boulevard, in the intersection, looking up the figure.
+    const feet = { x: dancer.x + 4, y: dancerG, z: strip.z + 4 };
+    return walk(feet, { x: dancer.x, y: dancerG + 36, z: dancer.z }, 1.05);
   }
   if (kind === 'sign') {
     const g = layout.heightAt(signStreet.x, signStreet.z);
