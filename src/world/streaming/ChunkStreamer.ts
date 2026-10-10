@@ -74,7 +74,21 @@ export class ChunkStreamer {
   private ready: Array<{ job: Job; res: ChunkWorkerResponse }> = [];
   private layout = getLayout();
   private signGeo = new PlaneGeometry(1, 1);
-  stats = { supersFar: 0, chunksNear: 0, lod0: 0, inFlight: 0, readyQueue: 0, lastGenMs: 0, boxes: 0 };
+  stats = {
+    supersFar: 0, chunksNear: 0, lod0: 0, inFlight: 0, readyQueue: 0, lastGenMs: 0, boxes: 0,
+    /** Meshes built on the main thread this frame. */
+    uploads: 0,
+    /** Highest uploads value since resetPeaks. */
+    uploadPeak: 0,
+    /** Main-thread milliseconds spent building meshes this frame. */
+    uploadMs: 0,
+  };
+
+  resetPeaks(): void {
+    this.stats.uploadPeak = 0;
+    this.stats.uploads = 0;
+    this.stats.uploadMs = 0;
+  }
 
   constructor(scene: Scene, public quality: QualitySettings) {
     this.root.name = 'city-fabric';
@@ -255,20 +269,35 @@ export class ChunkStreamer {
     }
     this.stats.inFlight = this.jobs.size;
 
-    // integrate finished chunks (bounded per frame)
+    // integrate finished chunks (bounded per frame, and by a short time slice so a
+    // heavy LOD0 detail build does not stack a second upload in the same frame)
     this.ready.sort((a, b) => a.job.slot.dist - b.job.slot.dist);
     let budget = q.uploadsPerFrame;
-    while (budget-- > 0 && this.ready.length) {
+    let uploaded = 0;
+    let uploadMs = 0;
+    const sliceStart = performance.now();
+    while (budget > 0 && this.ready.length) {
+      if (uploaded > 0 && performance.now() - sliceStart > 8) break;
+      const t0 = performance.now();
       const { job, res } = this.ready.shift()!;
       const slot = job.slot;
       if (slot.pendingLod === job.lod) slot.pendingLod = -1;
-      if (slot.want !== job.lod) continue;
+      if (slot.want !== job.lod) {
+        uploadMs += performance.now() - t0;
+        continue;
+      }
       const g = this.buildGroup(slot, res, job.lod);
       if (slot.shown) disposeGroup(slot.shown);
       slot.shown = g;
       slot.shownLod = job.lod;
       this.root.add(g);
+      uploaded++;
+      budget--;
+      uploadMs += performance.now() - t0;
     }
+    this.stats.uploads = uploaded;
+    if (uploaded > this.stats.uploadPeak) this.stats.uploadPeak = uploaded;
+    this.stats.uploadMs = uploadMs;
     this.stats.readyQueue = this.ready.length;
   }
 
@@ -342,7 +371,11 @@ function disposeGroup(g: Object3D): void {
   g.removeFromParent();
   g.traverse((o) => {
     const m = o as Mesh;
+    // Unique chunk geometry. Shared lamp/crowd geometry stays; the mesh dispose below
+    // still drops the render object and its instance-matrix buffer.
     if (m.geometry && !o.userData.sharedGeometry) m.geometry.dispose();
-    if ((o as InstancedMesh).isInstancedMesh) (o as InstancedMesh).dispose();
+    // WebGPURenderer keeps the render object until the mesh fires dispose. geometry.dispose()
+    // alone left those objects, and their typed arrays, alive after the chunk was gone.
+    o.dispose();
   });
 }

@@ -65,6 +65,41 @@ export interface DeviceInfo {
   cores: number;
   memory?: number;
   webgpu: boolean;
+  /** `devicePixelRatio`. 1 when the probe has no window. */
+  dpr: number;
+  /** `min(screen.width, screen.height)` in CSS pixels. 0 when unknown. */
+  screenMin: number;
+}
+
+/** Wall-clock warmup before Auto may drop a tier. Streaming hitches during boot do not count. */
+export const AUTO_WARMUP_MS = 8000;
+/** Sustained time under 24 fps, in real milliseconds, before Auto drops one tier. */
+export const AUTO_DROP_MS = 3500;
+/** A frame slower than this adds to the drop timer. 24 fps. */
+export const AUTO_SLOW_FRAME_MS = 1000 / 24;
+
+export interface AutoGuardState {
+  tier: Tier;
+  choice: Tier | 'auto';
+  /** Milliseconds since the first animation frame. */
+  elapsedMs: number;
+  /** Accumulated real time spent under 24 fps since warmup. */
+  slowMs: number;
+  /** Unclamped frame time, milliseconds. */
+  frameMs: number;
+}
+
+/**
+ * One frame of the Auto safety net. Manual tiers and `?quality=` never move.
+ * A drop does not come back up, so a borderline phone cannot flap.
+ * The clock is wall time: the simulation's 100 ms dt clamp must not slow the reaction.
+ */
+export function stepAutoGuard(s: AutoGuardState): { tier: Tier; slowMs: number; dropped: boolean } {
+  if (s.choice !== 'auto' || s.tier === 'low') return { tier: s.tier, slowMs: s.slowMs, dropped: false };
+  if (s.elapsedMs < AUTO_WARMUP_MS) return { tier: s.tier, slowMs: 0, dropped: false };
+  const slow = s.frameMs > AUTO_SLOW_FRAME_MS ? s.slowMs + s.frameMs : Math.max(0, s.slowMs - s.frameMs * 2);
+  if (slow <= AUTO_DROP_MS) return { tier: s.tier, slowMs: slow, dropped: false };
+  return { tier: lowerTier(s.tier), slowMs: 0, dropped: true };
 }
 
 export function probeDevice(): DeviceInfo {
@@ -83,6 +118,8 @@ export function probeDevice(): DeviceInfo {
   } catch {
     /* ignore */
   }
+  const dpr = typeof devicePixelRatio === 'number' && devicePixelRatio > 0 ? devicePixelRatio : 1;
+  const screenMin = typeof screen !== 'undefined' ? Math.min(screen.width, screen.height) : 0;
   return {
     isIOS,
     isMobile,
@@ -90,6 +127,8 @@ export function probeDevice(): DeviceInfo {
     cores: navigator.hardwareConcurrency || 4,
     memory: (navigator as unknown as { deviceMemory?: number }).deviceMemory,
     webgpu: 'gpu' in navigator,
+    dpr,
+    screenMin,
   };
 }
 
@@ -97,7 +136,20 @@ export function autoTier(d: DeviceInfo): { tier: Tier; reason: string } {
   const g = d.gpu.toLowerCase();
   if (/swiftshader|llvmpipe|software|basic render/.test(g)) return { tier: 'low', reason: `software renderer (${d.gpu})` };
   if (d.isMobile) {
-    if (d.isIOS && d.webgpu) return { tier: 'medium', reason: 'iOS with WebGPU (recent iPhone/iPad)' };
+    if (d.isIOS) {
+      // Safari still hides deviceMemory, and it caps hardwareConcurrency, so the
+      // 8-core / 8 GB test never matches an iPhone. WebGPU is off on iOS 17–18
+      // and on by default from iOS 26. iPhone 12 and later (including the 13 mini)
+      // report DPR ≥ 3. A 390 pt short side is iPhone 12–16 and iPad class.
+      // iPhone SE (375×667 at DPR 2) stays on low. Never pick high: the medium
+      // budget is the phone target, and Auto can still drop.
+      const recent = d.webgpu || (d.dpr ?? 1) >= 2.5 || (d.screenMin ?? 0) >= 390;
+      if (recent) {
+        const why = d.webgpu ? 'WebGPU' : (d.dpr ?? 1) >= 2.5 ? `DPR ${d.dpr}` : `${d.screenMin}pt screen`;
+        return { tier: 'medium', reason: `iOS ${why} (iPhone 12 / iPad class, not high)` };
+      }
+      return { tier: 'low', reason: 'older or smaller iPhone' };
+    }
     if ((d.memory ?? 4) >= 8 && d.cores >= 8) return { tier: 'medium', reason: 'high-end mobile' };
     return { tier: 'low', reason: 'mobile device' };
   }

@@ -2,7 +2,7 @@
 // Low tier draws light streaks only. Higher tiers keep real cars near the camera and streaks farther out.
 // Signals are clocks. Cars walk the graph, stop at a red line, and leave a gap. No physics.
 import {
-  BoxGeometry, BufferGeometry, DynamicDrawUsage, InstancedBufferAttribute, InstancedMesh, Matrix4,
+  BoxGeometry, BufferGeometry, DynamicDrawUsage, Frustum, InstancedBufferAttribute, InstancedMesh, Matrix4, Sphere,
   MeshBasicNodeMaterial, MeshStandardNodeMaterial, Object3D, PlaneGeometry, Quaternion, Vector3, type Camera,
 } from 'three/webgpu';
 import * as TSL from 'three/tsl';
@@ -54,6 +54,9 @@ interface Head {
 const HEAD_CAP = 768;
 
 const _m = new Matrix4();
+const _proj = new Matrix4();
+const _frustum = new Frustum();
+const _sphere = new Sphere();
 const _q = new Quaternion();
 const _s = new Vector3();
 const _pos = new Vector3();
@@ -89,6 +92,12 @@ export class GroundTraffic {
   streetCount = 0;
   freewayCount = 0;
   streakCount = 0;
+  /** Street-streak tiles with instances (low tier). */
+  streakBins = 0;
+  /** Tiles whose bounding sphere meets the camera frustum. */
+  streakBinsDrawn = 0;
+  /** Freeway dashes plus street dashes in tiles the frustum can see. */
+  streakDrawn = 0;
   queued = 0;
   viewSignal: Lamp | 'none' = 'none';
   /** 0..1 engine and tyre bed for the ambience bus. */
@@ -107,6 +116,7 @@ export class GroundTraffic {
     this.dress = createTrafficDress(query.layout);
     if (this.dress.trench) scene.add(this.dress.trench);
     if (this.dress.streaks) scene.add(this.dress.streaks);
+    for (const bin of this.dress.streetBins) scene.add(bin.mesh);
     this.buildSignals(scene);
     const poolGeo = new PlaneGeometry(1, 1);
     poolGeo.rotateX(-Math.PI / 2);
@@ -122,6 +132,7 @@ export class GroundTraffic {
       ...MESHES.map((id) => this.bodies[id]),
       ...(this.dress.trench ? [this.dress.trench] : []),
       ...(this.dress.streaks ? [this.dress.streaks] : []),
+      ...this.dress.streetBins.map((bin) => bin.mesh),
       ...(this.poles ? [this.poles] : []),
       ...(this.heads ? [this.heads] : []),
       this.pools,
@@ -633,13 +644,44 @@ export class GroundTraffic {
     this.repaintSignals(g, cam, elapsed);
     this.paintPools(cam, tier !== 'low' && U.wetness.value > 0.22);
     const alt = cam.y - this.query.layout.heightAt(cam.x, cam.z);
-    if (this.dress.streaks) {
+    if (this.dress.streaks || this.dress.streetBins.length) {
       const low = tier === 'low';
-      this.dress.streaks.count = low ? this.dress.streakTotal : this.dress.freewayStreaks;
-      this.dress.streaks.visible = this.dress.streaks.count > 0;
+      if (this.dress.streaks) {
+        this.dress.streaks.count = this.dress.freewayStreaks;
+        this.dress.streaks.visible = this.dress.freewayStreaks > 0;
+      }
       streakNear.value = low ? -180 : alt > 16 ? 18 : 32;
-      this.streakCount = this.dress.streaks.count;
-    } else this.streakCount = 0;
+      if (low) {
+        _proj.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+        _frustum.setFromProjectionMatrix(_proj);
+      }
+      let active = this.dress.streaks?.count ?? 0;
+      let drawn = active;
+      let bins = 0;
+      let binsDrawn = 0;
+      for (const bin of this.dress.streetBins) {
+        const n = low ? bin.total : 0;
+        bin.mesh.count = n;
+        bin.mesh.visible = n > 0;
+        if (!n || !bin.mesh.boundingSphere) continue;
+        bins++;
+        active += n;
+        const sphere = _sphere.copy(bin.mesh.boundingSphere).applyMatrix4(bin.mesh.matrixWorld);
+        if (_frustum.intersectsSphere(sphere)) {
+          binsDrawn++;
+          drawn += n;
+        }
+      }
+      this.streakCount = active;
+      this.streakDrawn = drawn;
+      this.streakBins = bins;
+      this.streakBinsDrawn = binsDrawn;
+    } else {
+      this.streakCount = 0;
+      this.streakDrawn = 0;
+      this.streakBins = 0;
+      this.streakBinsDrawn = 0;
+    }
 
     let near = 0;
     let fwy = 0;

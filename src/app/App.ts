@@ -3,7 +3,7 @@ import { ACESFilmicToneMapping, MathUtils, PerspectiveCamera, RenderPipeline, Sc
 import * as TSL from 'three/tsl';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import { params } from '../core/params';
-import { autoTier, lowerTier, probeDevice, settingsFor, storedTier, storeTier, TIERS, type QualitySettings, type Tier } from '../core/quality';
+import { autoTier, probeDevice, settingsFor, stepAutoGuard, storedTier, storeTier, TIERS, type QualitySettings, type Tier } from '../core/quality';
 import { Atmosphere } from '../atmosphere/Atmosphere';
 import { Precipitation } from '../atmosphere/Precipitation';
 import { WEATHER, type WeatherId } from '../atmosphere/Weather';
@@ -132,7 +132,10 @@ export class App {
   private timer = new Timer();
   private elapsed = 0;
   private frames = 0;
-  private slowTime = 0;
+  private slowMs = 0;
+  private sessionWorstMs = 0;
+  private loopStart = 0;
+  private boot = { initMs: 0, firstFrameMs: 0, interactiveMs: 0 };
   private started = false;
   private loadingEl = document.getElementById('loading');
   private startMs = performance.now();
@@ -281,6 +284,7 @@ export class App {
     addEventListener('resize', () => this.resize());
 
     this.buildPipeline();
+    this.boot.initMs = performance.now() - this.startMs;
     this.timer.connect(document);
     r.setAnimationLoop((t) => this.frame(t));
   }
@@ -333,12 +337,13 @@ export class App {
     this.streamer.invalidateLod0();
     this.interiors.setTier(tier);
     if (had !== this.quality.bloom) this.buildPipeline();
-    this.slowTime = 0;
+    this.slowMs = 0;
   }
 
   private resize(): void {
     this.camera.aspect = innerWidth / innerHeight;
     this.camera.updateProjectionMatrix();
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio, this.quality.pixelRatio));
     this.renderer.setSize(innerWidth, innerHeight, false);
   }
 
@@ -360,19 +365,31 @@ export class App {
   }
 
   /** Automatic downgrade when the auto tier turns out too ambitious (sustained < 24 fps). */
-  private adaptQuality(dt: number): void {
-    if (this.qualityChoice !== 'auto' || this.elapsed < 12 || this.quality.tier === 'low') return;
-    this.slowTime = this.hud.fps < 24 ? this.slowTime + dt : Math.max(0, this.slowTime - dt * 2);
-    if (this.slowTime > 6) {
-      const t = lowerTier(this.quality.tier);
-      this.applyTier(t);
-      this.ui.flash(`Quality lowered to ${t} to keep things smooth`);
-    }
+  private adaptQuality(rawSec: number): void {
+    const next = stepAutoGuard({
+      tier: this.quality.tier,
+      choice: this.qualityChoice,
+      elapsedMs: this.loopStart ? performance.now() - this.loopStart : 0,
+      slowMs: this.slowMs,
+      frameMs: rawSec * 1000,
+    });
+    this.slowMs = next.slowMs;
+    if (!next.dropped) return;
+    this.applyTier(next.tier);
+    this.ui.flash(`Quality lowered to ${next.tier} to keep things smooth`);
   }
 
   private frame(time: number): void {
+    this.query.beginFrame();
     this.timer.update(time);
-    const dt = Math.min(this.timer.getDelta(), 0.1);
+    const raw = this.timer.getDelta();
+    const dt = Math.min(raw, 0.1);
+    if (this.frames === 0) {
+      this.loopStart = performance.now();
+      this.boot.firstFrameMs = this.loopStart - this.startMs;
+    } else if (this.frames > 2) {
+      this.sessionWorstMs = Math.max(this.sessionWorstMs, raw * 1000);
+    }
     this.elapsed += dt;
     this.frames++;
 
@@ -512,11 +529,12 @@ export class App {
     if (this.pipeline) this.pipeline.render();
     else this.renderer.render(this.scene, this.camera);
 
-    this.hud.tick(dt, () => this.hudLines(alt));
-    this.adaptQuality(dt);
+    this.hud.tick(raw, () => this.hudLines(alt));
+    this.adaptQuality(raw);
     this.input.endFrame();
 
     if (this.loadingEl && (this.streamer.isIdle() || performance.now() - this.startMs > 8000) && this.frames > 5) {
+      this.boot.interactiveMs = performance.now() - this.startMs;
       this.loadingEl.remove();
       this.loadingEl = null;
     }
@@ -530,7 +548,7 @@ export class App {
     const d = this.query.district(p.x, p.z);
     const a = this.atmosphere;
     return [
-      ['gpu', `${this.backend} · ${this.quality.tier}${this.qualityChoice === 'auto' ? ' (auto)' : ''} · dpr ${this.renderer.getPixelRatio().toFixed(2)}`],
+      ['gpu', `${this.backend} · ${this.quality.tier}${this.qualityChoice === 'auto' ? ' (auto)' : ''} · dpr ${this.renderer.getPixelRatio().toFixed(2)} · ${this.canvas.width}×${this.canvas.height}`],
       ['draw', `${info.drawCalls} calls · ${(info.triangles / 1e6).toFixed(2)} M tris · crowd ${this.crowd.count} · holo ${this.holos.shown} · ground ${this.ground.streetCount}+${this.ground.freewayCount}`],
       ['query', `sync ${this.query.syncCount} · pending ${this.query.pending} · cell ${this.query.lastQueryMs.toFixed(0)} ms`],
       ['chunks', `far ${s.supersFar} · near ${s.chunksNear} · lod0 ${s.lod0} · jobs ${s.inFlight} · queue ${s.readyQueue} · gen ${s.lastGenMs.toFixed(0)} ms`],
@@ -557,6 +575,10 @@ export class App {
     return {
       app: this,
       isIdle: () => this.frames > 10 && this.streamer.isIdle(),
+      resetPeaks: () => {
+        this.sessionWorstMs = 0;
+        this.streamer.resetPeaks();
+      },
       setMode: (m: ModeId) => this.cams.setMode(m),
       setPose: (x: number, y: number, z: number, yawDeg = 0, pitchDeg = 0) =>
         this.cams.setPose({ position: new Vector3(x, y, z), heading: yawDeg * DEG, pitch: pitchDeg * DEG }),
@@ -1074,7 +1096,25 @@ export class App {
         launchPad: launchPad(),
         gantryTris: gantryTris.join('/'),
         querySyncs: this.query.syncCount,
+        queryUnpacks: this.query.unpackCount,
+        queryUnpackMs: this.query.lastUnpackMs,
         queryPending: this.query.pending,
+        pixelRatio: this.renderer.getPixelRatio(),
+        canvasWidth: this.canvas.width,
+        canvasHeight: this.canvas.height,
+        canvasPixels: this.canvas.width * this.canvas.height,
+        gpuGeomBytes: geometryBytes(this.scene),
+        jsHeap: (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize ?? null,
+        sessionWorstMs: this.sessionWorstMs,
+        qualityChoice: this.qualityChoice,
+        autoTier: this.autoTier,
+        autoReason: this.autoReason,
+        initMs: this.boot.initMs,
+        firstFrameMs: this.boot.firstFrameMs,
+        interactiveMs: this.boot.interactiveMs,
+        streakBins: this.ground.streakBins,
+        streakBinsDrawn: this.ground.streakBinsDrawn,
+        streakDrawn: this.ground.streakDrawn,
         refl: this.wet.enabled,
         ...this.interiors.stats,
         faceSectors: wallaceFaceSectorCount(),
@@ -1083,4 +1123,29 @@ export class App {
       }),
     };
   }
+}
+
+/** Geometry buffers plus instanced matrix buffers. Not the framebuffer, not textures. */
+function geometryBytes(root: { traverse(cb: (o: object) => void): void }): number {
+  const seen = new Set<object>();
+  let bytes = 0;
+  const add = (array: ArrayBufferView | undefined, key: object) => {
+    if (!array || seen.has(key)) return;
+    seen.add(key);
+    bytes += array.byteLength;
+  };
+  root.traverse((o) => {
+    const mesh = o as {
+      geometry?: { attributes: Record<string, { array?: ArrayBufferView }>; index?: { array?: ArrayBufferView } | null };
+      instanceMatrix?: { array?: ArrayBufferView };
+    };
+    const g = mesh.geometry;
+    if (g && !seen.has(g)) {
+      seen.add(g);
+      for (const attr of Object.values(g.attributes)) add(attr?.array, attr);
+      if (g.index) add(g.index.array, g.index);
+    }
+    if (mesh.instanceMatrix) add(mesh.instanceMatrix.array, mesh.instanceMatrix);
+  });
+  return bytes;
 }

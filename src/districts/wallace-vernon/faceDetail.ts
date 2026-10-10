@@ -179,6 +179,7 @@ export function updateWallaceFaces(cam: Vector3, tier: string): void {
       if (keep.has(key)) continue;
       s.group.remove(sec.mesh);
       sec.mesh.geometry.dispose();
+      sec.mesh.dispose();
       s.sectors.delete(key);
       removed = true;
       break;

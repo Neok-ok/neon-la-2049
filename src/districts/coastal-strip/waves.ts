@@ -192,6 +192,7 @@ function ensureRibbon(nx: number, nz: number): void {
   if (ribbon) {
     ribbon.geometry.dispose();
     ribbon.removeFromParent();
+    ribbon.dispose();
   }
   const half = 18 + nx * 0.55;
   const depth = 16 + nz * 0.7;
@@ -204,6 +205,7 @@ function ensureRibbon(nx: number, nz: number): void {
   if (spray) {
     spray.geometry.dispose();
     spray.removeFromParent();
+    spray.dispose();
     spray = null;
   }
 }
@@ -217,6 +219,7 @@ function ensureSpray(n: number): void {
   if (spray) {
     spray.geometry.dispose();
     spray.removeFromParent();
+    spray.dispose();
   }
   sprayLocal.length = 0;
   const geo = crossedCards();
@@ -240,6 +243,7 @@ function moveWet(frame: WallFrame, y: number, along: number, across: number, acr
     if (wet) {
       wet.geometry.dispose();
       wet.removeFromParent();
+      wet.dispose();
     }
     wet = new Mesh(sheetGeo(along, across), sheetMat);
     wet.name = 'wet-terrace';

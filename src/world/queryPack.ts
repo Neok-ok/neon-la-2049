@@ -3,7 +3,9 @@
 import type { Box, FabricOutput } from './fabric/types';
 
 export const COLLIDER_STRIDE = 8;
-export const QUERY_BLOCK_STRIDE = 10;
+export const QUERY_BLOCK_STRIDE = 15;
+/** x, z, w, d, h, yaw, y0, style, seed, detail, lit, tint. Signs stay out; fabricAt callers do not read them. */
+export const BOX_STRIDE = 12;
 
 /** Thin walls and counters count; clutter (detail 2) and tiny props do not. */
 export function acceptsCollider(w: number, d: number, detail: number): boolean {
@@ -16,6 +18,7 @@ export function acceptsCollider(w: number, d: number, detail: number): boolean {
 export interface PackedQuery {
   colliders: Float32Array;
   blocks: Float32Array;
+  boxes: Float32Array;
 }
 
 export function packQuery(fab: FabricOutput): PackedQuery {
@@ -42,8 +45,30 @@ export function packQuery(fab: FabricOutput): PackedQuery {
     blocks[o + 7] = b.district.index;
     blocks[o + 8] = b.seed;
     blocks[o + 9] = b.ground;
+    blocks[o + 10] = b.i;
+    blocks[o + 11] = b.j;
+    blocks[o + 12] = b.bx;
+    blocks[o + 13] = b.bz;
+    blocks[o + 14] = b.yaw;
   }
-  return { colliders, blocks };
+  const boxes = new Float32Array(fab.boxes.length * BOX_STRIDE);
+  for (let i = 0; i < fab.boxes.length; i++) {
+    const b = fab.boxes[i];
+    const o = i * BOX_STRIDE;
+    boxes[o] = b.x;
+    boxes[o + 1] = b.z;
+    boxes[o + 2] = b.w;
+    boxes[o + 3] = b.d;
+    boxes[o + 4] = b.h;
+    boxes[o + 5] = b.yaw;
+    boxes[o + 6] = b.y0;
+    boxes[o + 7] = b.style;
+    boxes[o + 8] = b.seed;
+    boxes[o + 9] = b.detail;
+    boxes[o + 10] = b.lit;
+    boxes[o + 11] = b.tint;
+  }
+  return { colliders, blocks, boxes };
 }
 
 function writeCollider(out: Float32Array, i: number, b: Box): void {
