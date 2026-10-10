@@ -94,7 +94,7 @@ export function westsideCamera(layout: CityLayout, kind: WestsideView): WestPose
   if (kind === 'aerial') {
     const [x, z] = geoToLocal(34.05, -118.37);
     const g = layout.heightAt(x, z);
-    return fly({ x, y: g + 1100, z: z + 480 }, { x, y: g + 24, z }, true);
+    return fly({ x: x - 220, y: g + 920, z: z + 1500 }, { x, y: g + 28, z: z - 180 }, true);
   }
   if (kind === 'freeway') {
     const g = streetGraph(layout);
@@ -163,19 +163,21 @@ export function westsideCamera(layout: CityLayout, kind: WestsideView): WestPose
     const hit = list.find((f) => !f.plan.hub && !f.plan.edge && f.plan.stalls.length >= 3);
     const stall = hit?.plan.stalls[1] ?? hit?.plan.stalls[0];
     if (!hit || !stall) return null;
-    const out = outward(stall.face, 6.5);
-    const feet = worldAt(hit.block, stall.s + out.s, stall.t + out.t, 0.04);
+    const out = outward(stall.face, 16);
+    const slide = stall.face[0] === 'a' ? 7 : 0;
+    const slideS = stall.face[0] === 'b' ? 7 : 0;
+    const feet = worldAt(hit.block, stall.s + out.s + slideS, stall.t + out.t + slide, 0.04);
     if (!openStreet(layout, feet.x, feet.z)) return null;
-    const look = worldAt(hit.block, stall.s, stall.t, 2.4);
-    return walk(feet, look, 0.14);
+    const look = worldAt(hit.block, stall.s, stall.t, 3.6);
+    return walk(feet, look, 0.16);
   }
   if (kind === 'roof') {
     const hit = list.find((f) => f.plan.roof && !f.plan.hub && !f.plan.edge)
       ?? list.find((f) => f.plan.roof && !f.plan.hub);
     const roof = hit?.plan.roof;
     if (!hit || !roof) return null;
-    const eye = worldAt(hit.block, roof.s - 16, roof.t + 10, roof.h + 9);
-    const look = worldAt(hit.block, roof.s, roof.t, roof.h + 1.4);
+    const eye = worldAt(hit.block, roof.s - 11, roof.t + 8, roof.h + 2.6);
+    const look = worldAt(hit.block, roof.s + 3, roof.t - 1, roof.h + 3.4);
     return fly(eye, look, true);
   }
   const hit = list.find((f) => !f.plan.hub && !f.plan.strip && !f.plan.edge && !f.plan.tower && f.plan.boxes.length);

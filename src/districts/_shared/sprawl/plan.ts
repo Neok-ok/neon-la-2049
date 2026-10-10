@@ -280,8 +280,8 @@ function clutter(
   ) => push(boxes, layout, b, cap, s + ds, t + dt, w, d, ch, o);
   put(la * 0.22, lb * 0.18, 3.2, 2.4, 2.6, { style: Style.Solid, detail: 2, lit: 0.04, tint: 0.55, base: h });
   put(-la * 0.18, lb * 0.12, 1.5, 1.15, 1.05, { style: Style.Industrial, detail: 2, lit: 0.06, tint: 0.48, base: h });
-  put(-la * 0.18, lb * 0.12, 0.45, 0.4, 0.22, {
-    style: Style.Glow, detail: 2, lit: 0.16, tint: 1.05, base: h + 0.85,
+  put(-la * 0.18, lb * 0.12, 0.7, 0.55, 0.45, {
+    style: Style.Glow, detail: 2, lit: 0.55, tint: 1.05, base: h + 1.05,
   });
   if (rng.chance(0.55)) {
     put(la * 0.05, -lb * 0.2, 1.35, 1.05, 0.9, { style: Style.Industrial, detail: 2, lit: 0.05, tint: 0.5, base: h });
