@@ -314,6 +314,7 @@ export function updateWall(layout: CityLayout, x: number, z: number, tier: Coast
     if (mesh) {
       mesh.geometry.dispose();
       mesh.removeFromParent();
+      mesh.dispose();
     }
     built.delete(victim);
     return;

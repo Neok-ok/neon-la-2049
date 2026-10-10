@@ -327,6 +327,7 @@ export class InteriorSystem {
     if (run.rain) {
       run.rain.geometry.dispose();
       run.group.remove(run.rain);
+      run.rain.dispose();
       run.rain = null;
     }
     const n = RAIN_COUNT[this.detail];

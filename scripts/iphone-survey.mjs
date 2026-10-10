@@ -14,8 +14,8 @@ mkdirSync(OUT, { recursive: true });
 
 const webgl = GPU ? '' : '&webgl=1';
 const args = GPU
-  ? ['--enable-unsafe-webgpu', '--ignore-gpu-blocklist']
-  : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
+  ? ['--enable-unsafe-webgpu', '--ignore-gpu-blocklist', '--js-flags=--expose-gc']
+  : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--js-flags=--expose-gc'];
 
 const iphone = {
   viewport: { width: 390, height: 844 },
@@ -37,6 +37,7 @@ function pick(s) {
     worstMs: s.worstMs,
     sessionWorstMs: s.sessionWorstMs ?? null,
     streaks: s.streaks,
+    streakDrawn: s.streakDrawn ?? null,
     streakBins: s.streakBins ?? null,
     streakBinsDrawn: s.streakBinsDrawn ?? null,
     canvas: s.canvasPixels ?? null,
@@ -54,17 +55,97 @@ function pick(s) {
     district: s.district ?? null,
     lod0: s.lod0,
     readyQueue: s.readyQueue,
+    inFlight: s.inFlight ?? null,
   };
 }
 
-async function waitDressed(page, timeout = 120_000) {
-  await page.waitForFunction(() => {
-    const st = window.__nla?.stats?.();
-    if (!st) return false;
+async function arm(page) {
+  await page.evaluate(() => {
+    if (!window.__x6raf) {
+      const state = { worst: 0, last: performance.now() };
+      const loop = (t) => {
+        state.worst = Math.max(state.worst, t - state.last);
+        state.last = t;
+        requestAnimationFrame(loop);
+      };
+      requestAnimationFrame(loop);
+      window.__x6raf = state;
+    }
+    window.__x6raf.worst = 0;
+    window.__x6raf.last = performance.now();
+    window.__nla.resetPeaks?.();
+  });
+}
+
+async function shrink(page) {
+  await page.evaluate(() => {
+    const r = window.__nla.app.renderer;
+    r.setPixelRatio(0.2);
+    r.setSize(innerWidth, innerHeight, false);
+  });
+}
+
+async function restore(page) {
+  await page.evaluate(() => {
+    const app = window.__nla.app;
+    const r = app.renderer;
+    r.setPixelRatio(Math.min(devicePixelRatio, app.quality.pixelRatio));
+    r.setSize(innerWidth, innerHeight, false);
+    window.__nla.resetPeaks?.();
+    if (window.__x6raf) {
+      window.__x6raf.worst = 0;
+      window.__x6raf.last = performance.now();
+    }
+  });
+}
+
+/** Teleport already happened. Stream at a tiny backing store (SwiftShader fill-rate),
+ * then restore the tier pixel ratio and sample a few full-size frames. */
+async function settle(page, timeout = 90_000) {
+  const hitch = await page.evaluate(() => window.__x6raf?.worst ?? 0);
+  await shrink(page);
+  const t0 = Date.now();
+  let st = null;
+  let uploadPeak = 0;
+  let peakDraws = 0;
+  let peakTris = 0;
+  let hidden = null;
+  let stable = 0;
+  let settled = false;
+  while (Date.now() - t0 < timeout) {
+    const snap = await page.evaluate(() => {
+      const s = window.__nla.stats();
+      return { s, hidden: document.hidden };
+    });
+    st = snap.s;
+    hidden = snap.hidden;
+    uploadPeak = Math.max(uploadPeak, st.uploadPeak ?? 0);
+    peakDraws = Math.max(peakDraws, st.drawCalls ?? 0);
+    peakTris = Math.max(peakTris, st.triangles ?? 0);
     const dressed = st.lod0 >= 4 || (st.drawCalls > 40 && st.lod0 === 0);
-    return dressed && st.inFlight === 0 && st.readyQueue === 0 && st.fps > 0;
-  }, null, { timeout, polling: 500 }).catch(() => {});
-  await page.waitForTimeout(600);
+    const idle = dressed && st.inFlight === 0 && st.readyQueue === 0 && st.fps > 0;
+    if (idle) {
+      stable++;
+      if (stable >= 2) { settled = true; break; }
+    } else stable = 0;
+    await page.waitForTimeout(200);
+  }
+  await restore(page);
+  await page.evaluate(() => { if (typeof window.gc === 'function') window.gc(); }).catch(() => {});
+  const t1 = Date.now();
+  let worst = hitch;
+  while (Date.now() - t1 < 2500) {
+    const snap = await page.evaluate(() => {
+      const s = window.__nla.stats();
+      return { s, rafWorst: window.__x6raf?.worst ?? 0 };
+    });
+    st = snap.s;
+    worst = Math.max(worst, snap.rafWorst, st.sessionWorstMs ?? 0, st.worstMs ?? 0);
+    peakDraws = Math.max(peakDraws, st.drawCalls ?? 0);
+    peakTris = Math.max(peakTris, st.triangles ?? 0);
+    await page.waitForTimeout(300);
+  }
+  return { st, worst, uploadPeak, peakDraws, peakTris, hidden, settled };
 }
 
 async function boot(page, url) {
@@ -101,12 +182,16 @@ if (PART.has('load')) {
     await page.goto(`${BASE}?mode=fly&quality=medium&freeze=1&ui=0&hud=1${webgl}`, { waitUntil: 'commit' });
     await page.waitForFunction(() => window.__nla?.stats, null, { timeout: 180_000 });
     const statsAtApi = Date.now() - t0;
-    const bootStats = await page.evaluate(() => window.__nla.stats());
     await page.waitForFunction(() => {
       const st = window.__nla?.stats?.();
       return st && st.drawCalls > 10 && st.fps > 0;
     }, null, { timeout: 180_000 }).catch(() => {});
     const litMs = Date.now() - t0;
+    await page.waitForFunction(() => {
+      const st = window.__nla?.stats?.();
+      return st && st.interactiveMs > 0;
+    }, null, { timeout: 20_000 }).catch(() => {});
+    const bootStats = await page.evaluate(() => window.__nla.stats());
     const resources = await page.evaluate(() => performance.getEntriesByType('resource').map((r) => ({
       name: r.name.split('/').slice(-1)[0],
       transfer: r.transferSize,
@@ -142,23 +227,32 @@ if (PART.has('spots')) {
     ['east-la-market', () => window.__nla.eastLaView('market')],
   ];
   const rows = [];
+  const want = new Set((process.env.TIERS ?? 'low,medium,high,ultra,iphone').split(',').map((s) => s.trim()).filter(Boolean));
   const jobs = [
     ...['low', 'medium', 'high', 'ultra'].map((tier) => ({ tier, ctx: desktop, label: tier })),
     { tier: 'medium', ctx: iphone, label: 'iphone-390x844-dpr3-medium' },
-  ];
+  ].filter((j) => want.has(j.label) || want.has(j.tier) && j.label === j.tier || (want.has('iphone') && j.label.startsWith('iphone')));
   for (const job of jobs) {
     const ctx = await browser.newContext(job.ctx);
     const page = await ctx.newPage();
     const booted = await boot(page, `${BASE}?mode=fly&quality=${job.tier}&freeze=1&ui=0&hud=1&time=22.5&weather=rain${webgl}`);
     for (const [name, after] of spots) {
+      await arm(page);
       await page.evaluate(after);
-      await waitDressed(page);
-      await page.evaluate(after);
-      await page.waitForTimeout(800);
-      if (page.evaluate) await page.evaluate(() => window.__nla.resetPeaks?.());
-      await page.waitForTimeout(1200);
-      const st = await page.evaluate(() => window.__nla.stats());
-      const row = { spot: name, job: job.label, errors: booted.errors.slice(0, 4), ...pick(st) };
+      const sampled = await settle(page, 90_000);
+      const st = sampled.st;
+      const row = {
+        spot: name,
+        job: job.label,
+        errors: booted.errors.slice(0, 4),
+        settled: sampled.settled,
+        hidden: sampled.hidden,
+        peakDraws: sampled.peakDraws,
+        peakTris: Math.round(sampled.peakTris),
+        ...pick(st),
+        worstMs: Math.round(sampled.worst),
+        uploadPeak: sampled.uploadPeak,
+      };
       rows.push(row);
       console.log('SPOT', JSON.stringify(row));
     }
@@ -171,7 +265,9 @@ if (PART.has('flyover')) {
   const ctx = await browser.newContext(iphone);
   const page = await ctx.newPage();
   const booted = await boot(page, `${BASE}?mode=fly&quality=medium&freeze=1&ui=0&hud=1&time=22&weather=drizzle${webgl}`);
-  await waitDressed(page, 180_000);
+  await arm(page);
+  const opened = await settle(page, 180_000);
+  await page.evaluate(() => { if (typeof window.gc === 'function') window.gc(); }).catch(() => {});
   const start = await page.evaluate(() => window.__nla.stats());
   const places = await page.evaluate(() => {
     const layout = window.__nla.app.query.layout;
@@ -187,18 +283,29 @@ if (PART.has('flyover')) {
   let uploadPeak = 0;
   let worst = 0;
   for (const p of places) {
-    await page.evaluate(() => window.__nla.resetPeaks?.());
+    await arm(page);
     await page.evaluate(({ x, z }) => window.__nla.setPose(x, 180, z, 40, -18), p);
-    await page.waitForTimeout(700);
+    await page.waitForTimeout(400);
     await page.evaluate(({ x, z }) => window.__nla.setPose(x, 42, z, 20, -6), p);
-    await waitDressed(page, 90_000);
-    const st = await page.evaluate(() => window.__nla.stats());
-    const row = { id: p.id, stage: p.stage, ...pick(st) };
+    const sampled = await settle(page, 90_000);
+    const st = sampled.st;
+    const row = {
+      id: p.id,
+      stage: p.stage,
+      settled: sampled.settled,
+      hidden: sampled.hidden,
+      peakDraws: sampled.peakDraws,
+      peakTris: Math.round(sampled.peakTris),
+      ...pick(st),
+      worstMs: Math.round(sampled.worst),
+      uploadPeak: sampled.uploadPeak,
+    };
     samples.push(row);
-    uploadPeak = Math.max(uploadPeak, st.uploadPeak ?? 0, st.readyQueue ?? 0);
-    worst = Math.max(worst, st.sessionWorstMs ?? st.worstMs ?? 0);
+    uploadPeak = Math.max(uploadPeak, sampled.uploadPeak, st?.uploadPeak ?? 0);
+    worst = Math.max(worst, sampled.worst);
     console.log('FLY', JSON.stringify(row));
   }
+  await page.evaluate(() => { if (typeof window.gc === 'function') window.gc(); }).catch(() => {});
   const end = await page.evaluate(() => window.__nla.stats());
   report.parts.flyover = {
     errors: booted.errors.slice(0, 6),

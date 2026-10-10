@@ -371,7 +371,11 @@ function disposeGroup(g: Object3D): void {
   g.removeFromParent();
   g.traverse((o) => {
     const m = o as Mesh;
+    // Unique chunk geometry. Shared lamp/crowd geometry stays; the mesh dispose below
+    // still drops the render object and its instance-matrix buffer.
     if (m.geometry && !o.userData.sharedGeometry) m.geometry.dispose();
-    if ((o as InstancedMesh).isInstancedMesh) (o as InstancedMesh).dispose();
+    // WebGPURenderer keeps the render object until the mesh fires dispose. geometry.dispose()
+    // alone left those objects, and their typed arrays, alive after the chunk was gone.
+    o.dispose();
   });
 }
