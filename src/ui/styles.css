@@ -108,3 +108,70 @@ canvas#view { position: fixed; inset: 0; width: 100vw; height: 100dvh; display: 
   .toolbar .more { display: none; width: 100%; gap: 4px; flex-wrap: wrap; justify-content: center; }
   .toolbar.open .more { display: flex; }
 }
+
+/* photo mode — the game HUD is hidden; this bar is the only chrome */
+body.photo-on .toolbar,
+body.photo-on .hud,
+body.photo-on .touch-ui,
+body.photo-on .letterbox,
+body.photo-on .fade,
+body.photo-on .title-card { visibility: hidden; pointer-events: none; }
+.photo-ui { position: fixed; inset: 0; z-index: 24; pointer-events: none; }
+.photo-bar {
+  position: absolute; left: 50%; top: max(8px, env(safe-area-inset-top)); transform: translateX(-50%);
+  display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; pointer-events: auto;
+  max-width: 96vw; padding: 6px; background: var(--panel); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;
+}
+.photo-bar button {
+  font: 600 12px/1 inherit; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text); background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 6px; padding: 10px 12px; cursor: pointer; min-height: 36px;
+}
+.photo-bar button.on { border-color: var(--cyan); color: #fff; }
+.photo-bar button:last-child { border-color: rgba(255,154,46,0.7); color: var(--amber); }
+.photo-readout {
+  position: absolute; left: 50%; bottom: max(10px, env(safe-area-inset-bottom)); transform: translateX(-50%);
+  pointer-events: none; font: 11px/1.4 ui-monospace, Menlo, Consolas, monospace; color: #f3ece0;
+  background: rgba(0,0,0,0.45); padding: 6px 10px; border-radius: 6px; white-space: nowrap;
+}
+.photo-sheet {
+  position: absolute; top: calc(52px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+  width: min(420px, 94vw); max-height: min(62dvh, 520px); overflow: auto; pointer-events: auto;
+  background: var(--panel); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 8px 10px 12px;
+}
+.photo-sheet[hidden] { display: none; }
+.photo-slider { display: grid; grid-template-columns: 72px 1fr 64px; gap: 6px; align-items: center; font-size: 11px; margin: 4px 0; }
+.photo-slider input { width: 100%; accent-color: var(--amber); }
+.photo-slider .v { text-align: right; font-variant-numeric: tabular-nums; opacity: 0.85; }
+.photo-picks { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.photo-picks select {
+  font: 12px/1.2 inherit; color: var(--text); background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.14); border-radius: 6px; padding: 6px;
+}
+.photo-bars { position: absolute; inset: 0; pointer-events: none; }
+.photo-bars .bar { position: absolute; background: #000; }
+.photo-bars .t { top: 0; left: 0; right: 0; }
+.photo-bars .b { bottom: 0; left: 0; right: 0; }
+.photo-bars .l { top: 0; bottom: 0; left: 0; }
+.photo-bars .r { top: 0; bottom: 0; right: 0; }
+.photo-guide { position: absolute; pointer-events: none; overflow: visible; }
+.photo-veil {
+  display: none; position: absolute; inset: 0; z-index: 5; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.35); color: var(--amber); letter-spacing: 0.35em; font-size: 12px; text-transform: uppercase;
+}
+body.photo-busy .photo-bar,
+body.photo-busy .photo-sheet,
+body.photo-busy .photo-readout,
+body.photo-busy .photo-guide { visibility: hidden; }
+body.photo-busy .photo-veil { display: flex; }
+.photo-save {
+  position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; padding: 16px; background: rgba(0,0,0,0.88); pointer-events: auto;
+}
+.photo-save img { max-width: 100%; max-height: 72dvh; object-fit: contain; }
+.photo-save p { margin: 0; font-size: 14px; text-align: center; }
+.photo-save button {
+  font: 600 13px/1 inherit; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text); background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px; padding: 12px 16px;
+}

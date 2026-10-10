@@ -1,0 +1,133 @@
+// One-tap compositions. Poses come from the district view cameras the cinematic stills already use.
+import { Vector3 } from 'three/webgpu';
+import { forwardOf } from '../camera/types';
+import type { CityLayout } from '../world/layout';
+import type { CityQuery } from '../world/CityQuery';
+import { wallaceCamera } from '../districts/wallace-vernon/view';
+import { broadwayCamera } from '../districts/historic-core/view';
+import { marketCamera } from '../districts/little-tokyo-market/view';
+import { laxCamera } from '../districts/lax-spaceport/view';
+import { coastCamera } from '../districts/coastal-strip/view';
+import { harborCamera } from '../districts/harbor/view';
+import type { GradeId, LetterboxId } from './types';
+
+export interface PhotoPose {
+  x: number;
+  y: number;
+  z: number;
+  heading: number;
+  pitch: number;
+}
+
+export interface Postcard {
+  id: string;
+  name: string;
+  focal: number;
+  focus: number;
+  aperture: number;
+  roll: number;
+  grade: GradeId;
+  grain: number;
+  vignette: number;
+  bloom: number;
+  exposure: number;
+  letterbox: LetterboxId;
+  rain: number;
+  fog: number;
+  snow: number;
+  hours: number;
+  pose: (layout: CityLayout, query: CityQuery) => PhotoPose | null;
+}
+
+interface RawPose {
+  x: number;
+  y: number;
+  z: number;
+  heading: number;
+  pitch: number;
+  mode: 'walk' | 'fly';
+  feet?: { x: number; y: number; z: number };
+}
+
+/** Walk cameras store the feet. The lens sits 1.7 m above them, the same as walk mode. */
+function eyeOf(p: RawPose | null): PhotoPose | null {
+  if (!p) return null;
+  if (p.mode === 'walk' && p.feet) {
+    return { x: p.feet.x, y: p.feet.y + 1.7, z: p.feet.z, heading: p.heading, pitch: p.pitch };
+  }
+  return { x: p.x, y: p.y, z: p.z, heading: p.heading, pitch: p.pitch };
+}
+
+const back = new Vector3();
+
+/** Step back along the street so a long lens still frames the canyon instead of the near wall. */
+function pullBack(pose: PhotoPose, meters: number, lift: number, query: CityQuery): PhotoPose {
+  forwardOf(pose.heading, 0, back);
+  const x = pose.x - back.x * meters;
+  const z = pose.z - back.z * meters;
+  const y = pose.y + lift;
+  if (query.insideSolid(x, y, z, 0.5, true)) return pose;
+  return { ...pose, x, y, z };
+}
+
+export const POSTCARDS: readonly Postcard[] = [
+  {
+    id: 'wallace-dusk',
+    name: 'Pyramid dusk',
+    focal: 40, focus: 220, aperture: 0.18, roll: 0,
+    grade: 'sodium', grain: 0.22, vignette: 0.42, bloom: 0.46, exposure: 1.06,
+    letterbox: '2.39', rain: 0, fog: 0.0024, snow: 0, hours: 18.6,
+    pose: (layout) => {
+      // The fly controller puts the cockpit 1.22 m above the stored spinner pose.
+      const eye = eyeOf(wallaceCamera(layout, 'approach'));
+      return eye ? { ...eye, y: eye.y + 1.22 } : null;
+    },
+  },
+  {
+    id: 'broadway-rain',
+    name: 'Canyon rain',
+    focal: 120, focus: 32, aperture: 0.48, roll: 0,
+    grade: 'neon', grain: 0.28, vignette: 0.5, bloom: 0.55, exposure: 0.94,
+    letterbox: '2.39', rain: 0.92, fog: 0.0021, snow: 0, hours: 22.2,
+    pose: (layout, query) => {
+      const eye = eyeOf(broadwayCamera(layout, 'street'));
+      return eye ? pullBack(eye, 26, 6, query) : null;
+    },
+  },
+  {
+    id: 'market-stall',
+    name: 'Market stall',
+    focal: 50, focus: 4.2, aperture: 0.84, roll: 0,
+    grade: 'neon', grain: 0.2, vignette: 0.36, bloom: 0.4, exposure: 1,
+    letterbox: '16:9', rain: 0.66, fog: 0.0018, snow: 0, hours: 22.4,
+    pose: (layout) => eyeOf(marketCamera(layout, 'crowd')),
+  },
+  {
+    id: 'lax-gantry',
+    name: 'Gantry dusk',
+    focal: 35, focus: 55, aperture: 0.26, roll: 0,
+    grade: 'sodium', grain: 0.16, vignette: 0.32, bloom: 0.5, exposure: 1.08,
+    letterbox: '16:9', rain: 0.12, fog: 0.0014, snow: 0, hours: 19.1,
+    pose: (layout) => eyeOf(laxCamera(layout, 'gantry')),
+  },
+  {
+    id: 'sea-wall',
+    name: 'Sea wall',
+    focal: 28, focus: 70, aperture: 0.2, roll: 0,
+    grade: 'harbor', grain: 0.18, vignette: 0.44, bloom: 0.28, exposure: 0.9,
+    letterbox: '2.39', rain: 0.4, fog: 0.0036, snow: 0, hours: 16.8,
+    pose: (layout) => eyeOf(coastCamera(layout, 'crest')),
+  },
+  {
+    id: 'harbor-cranes',
+    name: 'Harbor cranes',
+    focal: 70, focus: 18, aperture: 0.4, roll: 0,
+    grade: 'harbor', grain: 0.2, vignette: 0.38, bloom: 0.34, exposure: 0.96,
+    letterbox: '16:9', rain: 0.22, fog: 0.0028, snow: 0, hours: 21.4,
+    pose: (layout) => eyeOf(harborCamera(layout, 'stacks')),
+  },
+];
+
+export function postcardById(id: string): Postcard | undefined {
+  return POSTCARDS.find((p) => p.id === id);
+}

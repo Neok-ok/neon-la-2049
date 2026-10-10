@@ -14,6 +14,7 @@ export interface UICallbacks {
   setTime(h: number): void;
   nextShot(): void;
   start(m: ModeId): void;
+  photo(): void;
 }
 
 export class UI {
@@ -43,6 +44,9 @@ export class UI {
       this.modeBtns.set(id, b);
       this.bar.appendChild(b);
     }
+    const photoBtn = button('Photo', () => cb.photo());
+    photoBtn.title = 'Photo mode (P)';
+    this.bar.appendChild(photoBtn);
     this.nextBtn = button('Next shot ▸', () => cb.nextShot());
     this.bar.appendChild(this.nextBtn);
     // secondary controls collapse behind a toggle on phones / narrow screens
@@ -136,7 +140,7 @@ export class UI {
   showHelp(): void {
     this.flash(
       'Fly: WASD thrust · mouse/arrow keys steer · Space/E up · C/Q down · Shift boost · V cockpit<br/>' +
-        'Walk: WASD · mouse look · Shift run · E sit at a stall<br/>1 Fly · 2 Walk · 3 Cinematic · F toggle fly/walk · N next shot · H HUD · M mute · volume slider remembers · [ ] time −/+1 h · B next weather',
+        'Walk: WASD · mouse look · Shift run · E sit at a stall<br/>1 Fly · 2 Walk · 3 Cinematic · F toggle fly/walk · N next shot · P photo mode · H HUD · M mute · volume slider remembers · [ ] time −/+1 h · B next weather<br/>Photo: one finger looks, two fingers move and pinch the lens, tap focuses, Z/X roll, R level, Esc exits',
       7000,
     );
   }
