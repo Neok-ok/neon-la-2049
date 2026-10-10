@@ -58,6 +58,9 @@ function pick(s) {
     crowdStatic: s.crowdStatic ?? null,
     crowdIdle: s.crowdIdle ?? null,
     crowdTris: s.crowdTris ?? null,
+    voices: s.voices ?? null,
+    voiceCap: s.voiceCap ?? null,
+    audioDistrict: s.audioDistrict ?? null,
     lod0: s.lod0,
     readyQueue: s.readyQueue,
     inFlight: s.inFlight ?? null,
@@ -162,6 +165,7 @@ async function boot(page, url) {
   const t0 = Date.now();
   await page.goto(url, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => window.__nla?.stats, null, { timeout: 120_000 });
+  await page.mouse.click(200, 420).catch(() => {});
   const first = Date.now() - t0;
   return { errors, firstMs: first };
 }
@@ -233,6 +237,7 @@ if (PART.has('spots')) {
     ['long-beach', () => window.__nla.longBeachView('canyon')],
     ['east-la-interchange', () => window.__nla.eastLaView('interchange')],
     ['east-la-market', () => window.__nla.eastLaView('market')],
+    ['harbor', () => window.__nla.harborView('street')],
   ];
   const rows = [];
   const want = new Set((process.env.TIERS ?? 'low,medium,high,ultra,iphone').split(',').map((s) => s.trim()).filter(Boolean));

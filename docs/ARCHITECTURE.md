@@ -38,7 +38,7 @@ src/
   vehicles/                spinner + transport models, sky lanes, and one ground graph (streets, trenches, signals)
   camera/                  fly / walk / cinematic controllers + CameraSystem (mode switching)
   input/                   keyboard/mouse/pointer-lock + touch joysticks
-  audio/                   procedural rain/city/wind ambience (WebAudio, no samples, no music)
+  audio/                   procedural city sound: rain/city bed, district bus, street pool, PA (no samples, no music)
   ui/                      toolbar, title card, HUD, letterbox/fade, CSS
 scripts/                   gen-map.mjs (docs/map*.svg), screenshots.mjs (headless captures)
 ```
@@ -257,6 +257,27 @@ Shares, unchanged: market 1, DTLA 0.4, financial megatowers 0.4, civic 0.22, Bro
 
 `stats()` keeps `crowd` and adds `crowdAnimated`, `crowdStatic`, `crowdIdle` and `crowdTris`. `crowd` is the instance count, including the two parked cooks. `crowdIdle` counts standing figures that are actually placed, not the parked cooks.
 
+## City sound
+
+Procedural Web Audio only. No samples, no music, no film audio, no spoken brands. The graph is created on the first tap (iOS needs the `AudioContext` inside a gesture) and the frame loop only moves gains.
+
+`Ambience` is still the master bed: rain hiss, surface patter, city drone, wind, the 74 Hz interior hum, the 41 Hz machinery tone, surf, and the tyre/rumble bed from `setTraffic`. Mute and the interior low-pass sit on that master, so every layer under it follows. A quiet room bed (brown noise, low-passed at 220 Hz, gain `interior * 0.02`) comes up with the interior blend. `localStorage['nla.audio']` stores `{ muted, volume }`. The toolbar Sound button and `M` toggle mute. The Vol slider sets the master (0.8 is the old fixed level). A later `pointerdown`, `touchend` or `keydown`, and a `visibilitychange` back to visible, call `resume()` if iOS suspended the context.
+
+Districts do not edit `App.ts`. `registerDistrictAudio(id, bed)` in `src/audio/registry.ts` stores a drone, a murmur level, PA, an industrial air texture, canyon delay, stall/neon/steam amounts, a foghorn amount and a babble recipe (0–3). The current beds are `src/audio/beds.ts`. `CitySound`, owned by `MarketAudio`, is ticked by the `marketAudio.update` call that was already in the frame loop. Crossing a boundary eases the two beds over about 1.35 s. Murmur follows D1: `crowdShareOf(id)` times the live count divided by that district's want. An empty sidewalk goes quiet. The drone ducks a little when `setTraffic` is up, so the existing freeway rumble stays the rumble. Spinner whooshes stay the one panner fed by `nearestTo` on the sky lanes and the street spinners. Skips, bands and vehicle budgets are unchanged. `setMachinery` and `setSurf` are unchanged.
+
+Street sources are a pool, not a node per stall. Queues and awnings come from the crowd life spots D1 already builds. A street-band hologram within about 10 m is a neon buzz. Each slot is one noise source, one filter and one equal-power panner, retargeted to the nearest unused source of its kind (1.45× hysteresis). Slots above the tier cap are disconnected.
+
+| Tier | Positional pool | What the pool holds first |
+|---|---|---|
+| low | 2 | sizzle, murmur |
+| medium | 4 | plus neon, steam |
+| high | 6 | plus clatter, a second sizzle |
+| ultra | 8 | plus a second murmur and a second neon |
+
+PA is four short looping babble buffers (syllable-shaped noise through two invented formant pairs, no words). One delay, about 0.11–0.21 s, with a low-passed feedback, is the canyon. Broadway is the wet one. The harbor horn is a 52 Hz sine plus a little noise, a few seconds every 41 s, at night, fading by about 180 m up. The coast and the South Bay carry a quieter horn. Rain still drives the rain bed; awning patter rises under a life-spot awning and in the market.
+
+`stats()` adds `voices` (sounding layers, including the shared bed), `voiceCap` (the pool size above) and `audioDistrict`. Buffers are built once, on the tap that starts the context, not per frame. There are no audio files to lazy-load.
+
 ## URL parameters and debug API
 
 `?mode=fly|walk|cine &at=<landmark|poi id> &x= &y= &z= &yaw=° &pitch=° &time=0–24 &weather=<id> &quality=low|medium|high|ultra
@@ -264,10 +285,10 @@ Shares, unchanged: market 1, DTLA 0.4, financial megatowers 0.4, civic 0.22, Bro
 
 `window.__nla` (console and automation): `isIdle()`, `setMode(m)`, `setPose(x,y,z,yaw°,pitch°)`, `streetView(idOrX, z?, along?)`,
 `marketView('street'|'interior'|'crowd'|'roof'|'bibi')`, `holoView('street'|'aerial'|'cine')`, `megaView('approach'|'skyline'|'street'|'lanes'|'crown')`, `dtlaView('street'|'walkway'|'roof'|'lanes'|'plaza')`, `civicView('approach'|'steps'|'hall'|'lobby'|'plaza')`, `broadwayView('street'|'bridge'|'bradbury'|'spinner'|'atrium')`, `interiorView('court'|'stair'|'door'|'service')`, `kView('street'|'market'|'lobby'|'corridor'|'apartment'|'roof'|'aerial')`, `lakewoodView('street'|'courtyard'|'market'|'laundry'|'traffic'|'k-edge'|'river'|'aerial'|'shop'|'hub')`, `southLaView('street'|'courtyard'|'market'|'spine'|'hub'|'traffic'|'trench'|'wallace'|'aerial'|'seam'|'room')`, `westsideView('aerial'|'street'|'strip'|'roof'|'freeway'|'interior'|'hub'|'towers')`, `basinView('aerial'|'street'|'strip'|'roof'|'seam-west'|'seam-south'|'seam-lake'|'seam-arts'|'seam-dtla')`, `southeastView('aerial'|'flare'|'tanks'|'pipes'|'street'|'interior'|'downtown')`, `hollywoodView('aerial'|'street'|'holo'|'sign'|'interior'|'hills')`, `laxView('aerial'|'downtown'|'gantry'|'terminal'|'burn'|'interior')`, `launch(phase?, pad?)`, `southBayView('aerial'|'lax'|'tanks'|'spheres'|'wall'|'flare'|'street'|'interior'|'downtown')`, `harborView('aerial'|'wall'|'stacks'|'ship'|'street'|'interior'|'lax')`, `longBeachView('aerial'|'wall'|'canyon'|'lakewood'|'interior'|'lanes')`, `eastLaView('aerial'|'interchange'|'market'|'river'|'interior'|'street'|'deck')`, `wallaceView('approach'|'plaza'|'face'|'satellite'|'factories'|'convoy'|'oldpyramids'|'atrium')`, `coastView('crest'|'terraces'|'apron'|'spray'|'piers'|'blocks'|'aerial')`, `trafficView('intersection'|'freeway'|'canyon'|'aerial-night'|'rain')`, `holoSpec(id)`, `setTime(h)`, `setWeather(id)`, `cut()`, `holdShot(on)`, `stats()`,
-`geoToLocal(lat,lon)`, `app`, `resetPeaks()`. `stats()` includes draw calls, triangles, crowd count plus `crowdAnimated`, `crowdStatic`, `crowdIdle` and `crowdTris`, hologram panel count, query-worker counters (`querySyncs`, `queryUnpacks`, `queryUnpackMs`), lane cars and lanes, ground cars, freeway cars, streak count plus `streakDrawn` / `streakBins` / `streakBinsDrawn`, the nearest signal (`viewSignal`), queued cars, the traffic bed, landmark LOD levels, the beacon count, frame time (`frameMs`, `worstMs`, `sessionWorstMs` — unclamped; the simulation step is still clamped at 100 ms), canvas size (`pixelRatio`, `canvasWidth`, `canvasHeight`, `canvasPixels`), a geometry-buffer estimate (`gpuGeomBytes`, not the framebuffer), `jsHeap` when the browser exposes it, chunk upload counters (`uploads`, `uploadPeak`, `uploadMs`), boot timestamps (`initMs`, `firstFrameMs`, `interactiveMs`), and the interior fields (`interior`, `interiorOccluded`, `interiorMuffle`, `interiorTris`, `interiorMeshes`, `interiorMounted`). `scripts/iphone-survey.mjs` re-runs the spot table, the district flyover and the first-load timing.
+`geoToLocal(lat,lon)`, `app`, `resetPeaks()`. `stats()` includes draw calls, triangles, crowd count plus `crowdAnimated`, `crowdStatic`, `crowdIdle` and `crowdTris`, hologram panel count, query-worker counters (`querySyncs`, `queryUnpacks`, `queryUnpackMs`), lane cars and lanes, ground cars, freeway cars, streak count plus `streakDrawn` / `streakBins` / `streakBinsDrawn`, the nearest signal (`viewSignal`), queued cars, the traffic bed, landmark LOD levels, the beacon count, frame time (`frameMs`, `worstMs`, `sessionWorstMs` — unclamped; the simulation step is still clamped at 100 ms), canvas size (`pixelRatio`, `canvasWidth`, `canvasHeight`, `canvasPixels`), a geometry-buffer estimate (`gpuGeomBytes`, not the framebuffer), `jsHeap` when the browser exposes it, chunk upload counters (`uploads`, `uploadPeak`, `uploadMs`), boot timestamps (`initMs`, `firstFrameMs`, `interactiveMs`), and the interior fields (`interior`, `interiorOccluded`, `interiorMuffle`, `interiorTris`, `interiorMeshes`, `interiorMounted`), plus `voices`, `voiceCap` and `audioDistrict`. `window.__nlaAudio.capture()` renders four short procedural scenes (market, Broadway, harbor, interior) to WAV. `scripts/iphone-survey.mjs` re-runs the spot table, the district flyover and the first-load timing.
 
 Keys: `1/2/3` fly/walk/cinematic, `F` toggle fly↔walk, `V` cockpit, `E` sit / stand at a market stool (walk mode; in fly mode `E` is still up),
-`N` next shot, `H` HUD, `M` mute, `[ ]` time −/+ 1 h, `B` next weather. The iPhone joystick has no sit button.
+`N` next shot, `H` HUD, `M` mute, the toolbar Vol slider (remembered with mute), `[ ]` time −/+ 1 h, `B` next weather. The iPhone joystick has no sit button. On a phone the Sound button and the slider sit in the `⋯` group with the other secondary controls.
 
 ## Testing
 
@@ -284,4 +305,5 @@ Keys: `1/2/3` fly/walk/cinematic, `F` toggle fly↔walk, `V` cockpit, `E` sit / 
 * No shadows (night-first look). Daytime sun shadows would need cascaded shadow maps on high/ultra only, and were left out of the X6 pass so medium and low stay as they are.
 * Full GPU occlusion culling is not implemented. Off-screen street-streak tiles are frustum-culled; chunk meshes already were. Interior mapping for ordinary windows is still the debt above.
 * Unloading a mesh has to call `object.dispose()` as well as `geometry.dispose()`. The WebGPU renderer keeps the render object, and the typed arrays behind it, until the mesh fires dispose. Chunks, coast pieces, Wallace face sectors and interior rain now do both. A 20-district medium flyover on this VM, after a forced GC, started at 239 MB JS heap and ended at 207 MB. `renderer.info.memory.geometries` can still climb across that flight; judge a leak with `jsHeap` and `gpuGeomBytes`, not that counter.
+* City-sound buffers are built on the tap that starts the audio context, not per frame. A district that wants a new babble recipe adds a formant pair in `tongueBuffer`. Do not load a sample to get a voice.
 * The WebGL2 fallback has no reversed-Z (it breaks the MSAA depth blit), so the near plane adapts to altitude instead.
