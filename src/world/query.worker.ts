@@ -18,6 +18,7 @@ export interface QueryWorkerResponse {
   iz: number;
   colliders: Float32Array;
   blocks: Float32Array;
+  boxes: Float32Array;
   ms: number;
 }
 
@@ -28,5 +29,5 @@ self.onmessage = (e: MessageEvent<QueryWorkerRequest>) => {
   const { id, x0, z0, ix, iz } = e.data;
   const packed = packQuery(generateFabric(layout, x0, z0, 500));
   const res: QueryWorkerResponse = { id, ix, iz, ...packed, ms: performance.now() - t0 };
-  (self as unknown as DedicatedWorkerGlobalScope).postMessage(res, [packed.colliders.buffer, packed.blocks.buffer]);
+  (self as unknown as DedicatedWorkerGlobalScope).postMessage(res, [packed.colliders.buffer, packed.blocks.buffer, packed.boxes.buffer]);
 };

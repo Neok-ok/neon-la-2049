@@ -1,12 +1,13 @@
 // Spatial queries against the deterministic fabric (collision, spawn points, district lookup).
 // Hot paths (walk / fly, every frame) read an LRU of 500 m cells filled by a worker.
 // A miss does not generate on the main thread — the cell is queued and that frame has no
-// fabric collision there. fabricAt, findStreetSpot and cinematic checks still generate
-// synchronously, because they need a correct answer once rather than every frame.
+// fabric collision there. findStreetSpot and a cold cinematic check can still generate
+// one cell synchronously. A cell the worker already filled keeps its boxes, so fabricAt
+// unpacks them instead of running generateFabric again.
 import { generateFabric } from './fabric/generator';
-import type { FabricOutput } from './fabric/types';
+import type { Box, Detail, FabricOutput, StyleId } from './fabric/types';
 import { getLayout, type CityLayout, type District } from './layout';
-import { COLLIDER_STRIDE, QUERY_BLOCK_STRIDE, packQuery } from './queryPack';
+import { BOX_STRIDE, COLLIDER_STRIDE, QUERY_BLOCK_STRIDE, packQuery } from './queryPack';
 import type { QueryWorkerRequest, QueryWorkerResponse } from './query.worker';
 
 export const QUERY_CELL = 500;
@@ -35,6 +36,11 @@ export interface PackedBlock {
   districtIndex: number;
   seed: number;
   ground: number;
+  i: number;
+  j: number;
+  bx: number;
+  bz: number;
+  yaw: number;
 }
 
 interface Cell {
@@ -42,6 +48,8 @@ interface Cell {
   buckets: Map<number, Collider[]>;
   blocks: PackedBlock[];
   fab?: FabricOutput;
+  /** Worker-owned box buffer. Dropped once fabricAt has unpacked it. */
+  boxBuf?: Float32Array;
 }
 
 function local(cl: Collider, x: number, z: number): [number, number] {
@@ -71,6 +79,7 @@ function blocksFrom(buf: Float32Array): PackedBlock[] {
       cx: buf[o], cz: buf[o + 1], ax: buf[o + 2], az: buf[o + 3],
       la: buf[o + 4], lb: buf[o + 5], street: buf[o + 6],
       districtIndex: buf[o + 7], seed: buf[o + 8], ground: buf[o + 9],
+      i: buf[o + 10], j: buf[o + 11], bx: buf[o + 12], bz: buf[o + 13], yaw: buf[o + 14],
     };
   }
   return out;
@@ -108,8 +117,22 @@ export class CityQuery {
   private waiters = new Map<string, Array<() => void>>();
   /** Main-thread generateFabric calls (cold path). The frame loop should stay at zero. */
   syncCount = 0;
+  /** fabricAt calls satisfied by unpacking a worker cell, without generateFabric. */
+  unpackCount = 0;
+  /** Last unpack, ms. */
+  lastUnpackMs = 0;
   /** Last worker cell time, ms. */
   lastQueryMs = 0;
+  /**
+   * New main-thread generates allowed this frame. The cinematic planner lowers this
+   * so one cut cannot generate dozens of cold cells. Infinity elsewhere.
+   */
+  syncLimit = Number.POSITIVE_INFINITY;
+  /** Generates already performed since beginFrame. */
+  frameSyncs = 0;
+  /** When set, a refused sync counts as solid so a shot is rejected instead of flying into a building. */
+  failClosed = false;
+  private blocked = false;
 
   constructor() {
     try {
@@ -125,6 +148,32 @@ export class CityQuery {
 
   get pending(): number {
     return this.order.length + (this.busy ? 1 : 0);
+  }
+
+  /** Call once at the start of each animation frame. */
+  beginFrame(): void {
+    this.frameSyncs = 0;
+    this.blocked = false;
+  }
+
+  /**
+   * True when every cell `near()` would touch is already cached, or there is still
+   * room in this frame's sync budget to generate the misses.
+   */
+  canAfford(x: number, z: number, pad = 1): boolean {
+    const reach = pad + 300;
+    const i0 = Math.floor((x - reach) / QUERY_CELL), i1 = Math.floor((x + reach) / QUERY_CELL);
+    const j0 = Math.floor((z - reach) / QUERY_CELL), j1 = Math.floor((z + reach) / QUERY_CELL);
+    let need = 0;
+    for (let i = i0; i <= i1; i++)
+      for (let j = j0; j <= j1; j++)
+        if (!this.cells.has(this.key(i, j))) need++;
+    return this.frameSyncs + need <= this.syncLimit;
+  }
+
+  /** Queue the cell under (x, z) without generating it on the main thread. */
+  enqueueAt(x: number, z: number): void {
+    this.enqueue(Math.floor(x / QUERY_CELL), Math.floor(z / QUERY_CELL));
   }
 
   /** Landmarks register their own coarse colliders (boxes) here. */
@@ -215,15 +264,13 @@ export class CityQuery {
     return out;
   }
 
-  /** Fabric for the 500 m cell containing (x, z). Synchronous — cinematic and debug only. */
+  /** Fabric for the 500 m cell containing (x, z). Synchronous only when the worker has not filled it. */
   fabricAt(x: number, z: number): FabricOutput {
     const ix = Math.floor(x / QUERY_CELL), iz = Math.floor(z / QUERY_CELL);
     const cell = this.cellSync(ix, iz);
-    if (!cell.fab) {
-      this.syncCount++;
-      cell.fab = generateFabric(this.layout, ix * QUERY_CELL, iz * QUERY_CELL, QUERY_CELL);
-    }
-    return cell.fab;
+    if (!cell) return { boxes: [], signs: [], blocks: [] };
+    if (!cell.fab) this.materialize(cell, ix, iz);
+    return cell.fab!;
   }
 
   /** Cheap test against landmark colliders only (no fabric generation). */
@@ -271,12 +318,14 @@ export class CityQuery {
   }
 
   insideSolid(x: number, y: number, z: number, pad = 0, sync = false): boolean {
+    this.blocked = false;
     let hit = false;
     this.near(x, z, pad + 0.5, (cl) => {
       if (hit || y < cl.y0 - pad || y > cl.top + pad) return;
       const [lx, lz] = local(cl, x, z);
       if (Math.abs(lx) <= cl.hw + pad && Math.abs(lz) <= cl.hd + pad) hit = true;
     }, sync);
+    if (sync && this.failClosed && this.blocked) return true;
     return hit;
   }
 
@@ -340,12 +389,13 @@ export class CityQuery {
     return cell;
   }
 
-  private store(ix: number, iz: number, colliders: Collider[], blocks: PackedBlock[], fab?: FabricOutput): Cell {
+  private store(ix: number, iz: number, colliders: Collider[], blocks: PackedBlock[], fab?: FabricOutput, boxBuf?: Float32Array): Cell {
     const key = this.key(ix, iz);
     const prev = this.cells.get(key);
     const cell: Cell = {
       colliders, buckets: buildBuckets(colliders), blocks,
       fab: fab ?? prev?.fab,
+      boxBuf: boxBuf ?? prev?.boxBuf,
     };
     this.touch(key, cell);
     while (this.cells.size > this.maxCells) this.cells.delete(this.cells.keys().next().value!);
@@ -358,14 +408,35 @@ export class CityQuery {
     return cell;
   }
 
-  private cellSync(ix: number, iz: number): Cell {
+  private cellSync(ix: number, iz: number): Cell | null {
     const key = this.key(ix, iz);
     const hit = this.cells.get(key);
     if (hit) return this.touch(key, hit);
+    if (this.frameSyncs >= this.syncLimit) {
+      this.enqueue(ix, iz);
+      this.blocked = true;
+      return null;
+    }
+    this.frameSyncs++;
     this.syncCount++;
     const fab = generateFabric(this.layout, ix * QUERY_CELL, iz * QUERY_CELL, QUERY_CELL);
     const packed = packQuery(fab);
     return this.store(ix, iz, collidersFrom(packed.colliders), blocksFrom(packed.blocks), fab);
+  }
+
+  /** Build FabricOutput from the worker's box buffer. Falls back to one main-thread generate. */
+  private materialize(cell: Cell, ix: number, iz: number): void {
+    if (cell.boxBuf) {
+      const t0 = performance.now();
+      cell.fab = fabFromPacked(this.layout, cell.blocks, cell.boxBuf);
+      cell.boxBuf = undefined;
+      this.unpackCount++;
+      this.lastUnpackMs = performance.now() - t0;
+      return;
+    }
+    this.frameSyncs++;
+    this.syncCount++;
+    cell.fab = generateFabric(this.layout, ix * QUERY_CELL, iz * QUERY_CELL, QUERY_CELL);
   }
 
   private cellPeek(ix: number, iz: number): Cell | null {
@@ -408,7 +479,7 @@ export class CityQuery {
     this.lastQueryMs = res.ms;
     this.queued.delete(this.key(res.ix, res.iz));
     if (!this.cells.has(this.key(res.ix, res.iz))) {
-      this.store(res.ix, res.iz, collidersFrom(res.colliders), blocksFrom(res.blocks));
+      this.store(res.ix, res.iz, collidersFrom(res.colliders), blocksFrom(res.blocks), undefined, res.boxes);
     } else {
       const wait = this.waiters.get(this.key(res.ix, res.iz));
       if (wait) {
@@ -461,4 +532,53 @@ export class CityQuery {
       if (Math.abs(cl.x - x) < rr && Math.abs(cl.z - z) < rr) cb(cl);
     });
   }
+}
+
+function districtByIndex(layout: CityLayout, index: number): District {
+  if (index <= 0) return layout.defaultDistrict;
+  return layout.districts[index - 1] ?? layout.defaultDistrict;
+}
+
+function fabFromPacked(layout: CityLayout, packed: PackedBlock[], boxBuf: Float32Array): FabricOutput {
+  const blocks = packed.map((b) => {
+    const district = districtByIndex(layout, b.districtIndex);
+    return {
+      district,
+      archetype: district.archetype,
+      i: b.i,
+      j: b.j,
+      cx: b.cx,
+      cz: b.cz,
+      ax: b.ax,
+      az: b.az,
+      bx: b.bx,
+      bz: b.bz,
+      la: b.la,
+      lb: b.lb,
+      street: b.street,
+      yaw: b.yaw,
+      seed: b.seed,
+      ground: b.ground,
+    };
+  });
+  const n = boxBuf.length / BOX_STRIDE;
+  const boxes: Box[] = new Array(n);
+  for (let i = 0; i < n; i++) {
+    const o = i * BOX_STRIDE;
+    boxes[i] = {
+      x: boxBuf[o],
+      z: boxBuf[o + 1],
+      w: boxBuf[o + 2],
+      d: boxBuf[o + 3],
+      h: boxBuf[o + 4],
+      yaw: boxBuf[o + 5],
+      y0: boxBuf[o + 6],
+      style: boxBuf[o + 7] as StyleId,
+      seed: boxBuf[o + 8],
+      detail: boxBuf[o + 9] as Detail,
+      lit: boxBuf[o + 10],
+      tint: boxBuf[o + 11],
+    };
+  }
+  return { boxes, signs: [], blocks };
 }

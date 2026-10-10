@@ -148,6 +148,20 @@ export class CinematicDirector implements Controller {
 
   // ------------------------------------------------------------------ planning
   private plan(): Shot {
+    // One cut may generate a handful of cold cells. Further misses are queued on the
+    // worker and the shot is rejected, so a planner pass cannot stall for a second.
+    this.query.failClosed = true;
+    const prevLimit = this.query.syncLimit;
+    this.query.syncLimit = this.query.frameSyncs + 6;
+    try {
+      return this.planAttempts();
+    } finally {
+      this.query.failClosed = false;
+      this.query.syncLimit = prevLimit;
+    }
+  }
+
+  private planAttempts(): Shot {
     for (let attempt = 0; attempt < 40; attempt++) {
       const type = this.pickType();
       const shot = this.build(type);

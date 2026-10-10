@@ -1,6 +1,6 @@
 // Sunken decks for the 110, the 101 and the 10, plus instanced headlight streaks on every freeway.
-// Street streaks are appended after the freeway ones so a higher tier can draw only the freeway range.
-// Quads lie on the deck. They are the far LOD. Near cars are real meshes.
+// Freeway dashes stay one mesh (medium and up draw only those). Street dashes are tiled so a low-tier
+// camera does not submit the whole basin. Quads lie on the deck. Near cars are real meshes.
 import {
   AdditiveBlending, BufferAttribute, BufferGeometry, DoubleSide, InstancedBufferAttribute, InstancedMesh,
   Matrix4, Mesh, MeshBasicNodeMaterial, MeshStandardNodeMaterial, PlaneGeometry, Quaternion, StaticDrawUsage, Vector3,
@@ -259,17 +259,21 @@ function streetStreaks(layout: CityLayout, g: StreetGraph, out: StreakSlot[]): v
   for (const edges of extra.values()) routeStreaks(layout, g, edges, out);
 }
 
-function fillStreaks(slots: StreakSlot[]): InstancedMesh {
+const STREET_BIN = 2400;
+
+function fillStreaks(slots: StreakSlot[], material: MeshBasicNodeMaterial, name: string, cull: boolean): InstancedMesh {
   const geo = new PlaneGeometry(1.6, 14);
   geo.rotateX(-Math.PI / 2);
   geo.translate(0, 0, -7);
   const data = new Float32Array(slots.length * 4);
-  const mesh = new InstancedMesh(geo, streakMaterial(), slots.length);
-  mesh.name = 'traffic-streaks';
+  const mesh = new InstancedMesh(geo, material, slots.length);
+  mesh.name = name;
   mesh.frustumCulled = false;
   mesh.renderOrder = 2;
+  let span = 0;
   for (let i = 0; i < slots.length; i++) {
     const s = slots[i]!;
+    span = Math.max(span, s.span);
     _fwd.set(s.fx, 0, s.fz);
     if (_fwd.lengthSq() < 1e-6) _fwd.set(0, 0, -1);
     _q.setFromUnitVectors(_f, _fwd);
@@ -280,12 +284,25 @@ function fillStreaks(slots: StreakSlot[]): InstancedMesh {
   geo.setAttribute('iStreak', new InstancedBufferAttribute(data, 4));
   mesh.instanceMatrix.setUsage(StaticDrawUsage);
   mesh.count = slots.length;
+  if (cull) {
+    mesh.computeBoundingSphere();
+    if (mesh.boundingSphere) mesh.boundingSphere.radius += span + 4;
+    mesh.frustumCulled = true;
+  }
   return mesh;
+}
+
+export interface StreakBin {
+  mesh: InstancedMesh;
+  total: number;
 }
 
 export interface TrafficDress {
   trench: Mesh | null;
+  /** Freeway dashes, one mesh. Medium and up draw only these. */
   streaks: InstancedMesh | null;
+  /** Street dashes split into tiles so off-screen ones are not submitted. Low tier only. */
+  streetBins: StreakBin[];
   /** Instances that are freeway slots. Higher tiers draw only these. */
   freewayStreaks: number;
   streakTotal: number;
@@ -315,6 +332,22 @@ export function createTrafficDress(layout: CityLayout): TrafficDress {
     trench.name = 'traffic-trench';
     trench.frustumCulled = false;
   }
-  const streaks = slots.length ? fillStreaks(slots) : null;
-  return { trench, streaks, freewayStreaks: freewaySlots.length, streakTotal: slots.length };
+  const material = streakMaterial();
+  const streaks = freewaySlots.length ? fillStreaks(freewaySlots, material, 'traffic-streaks', false) : null;
+  const groups = new Map<string, StreakSlot[]>();
+  for (const s of streetSlots) {
+    const key = `${Math.floor(s.x / STREET_BIN)},${Math.floor(s.z / STREET_BIN)}`;
+    const list = groups.get(key);
+    if (list) list.push(s);
+    else groups.set(key, [s]);
+  }
+  const streetBins: StreakBin[] = [];
+  for (const list of groups.values()) {
+    const mesh = fillStreaks(list, material, 'traffic-streaks-street', true);
+    // Hidden until the low tier turns the tile on. The sphere was computed at full count.
+    mesh.count = 0;
+    mesh.visible = false;
+    streetBins.push({ mesh, total: list.length });
+  }
+  return { trench, streaks, streetBins, freewayStreaks: freewaySlots.length, streakTotal: slots.length };
 }
