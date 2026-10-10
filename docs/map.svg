@@ -54,7 +54,7 @@
 <ellipse cx="493.5" cy="973.5" rx="124" ry="92" transform="rotate(0 493.5 973.5)" fill="#2a2a1e" stroke="#3a3a28"/>
 <ellipse cx="862.4" cy="885.1" rx="18" ry="16" transform="rotate(0 862.4 885.1)" fill="#2a2a1e" stroke="#3a3a28"/>
 <ellipse cx="973.1" cy="398.5" rx="48" ry="30" transform="rotate(0 973.1 398.5)" fill="#2a2a1e" stroke="#3a3a28"/>
-<path d="M825.5,387.5 L945.4,409.6 L945.4,564.4 L825.5,564.4 Z" fill="#6a4a2a" fill-opacity="0.55" stroke="#6a4a2a" stroke-width="1.5"/>
+<path d="M825.5,387.5 L945.4,409.6 L945.4,564.4 L825.5,564.4 Z" fill="#8a3a1c" fill-opacity="0.55" stroke="#8a3a1c" stroke-width="1.5"/>
 <path d="M539.6,391.9 L724.1,398.5 L761.0,630.8 L539.6,630.8 Z" fill="#4a463f" fill-opacity="0.55" stroke="#4a463f" stroke-width="1.5"/>
 <path d="M761.0,630.8 L1037.7,630.8 L1037.7,896.1 L761.0,896.1 Z" fill="#6a6860" fill-opacity="0.55" stroke="#6a6860" stroke-width="1.5"/>
 <path d="M299.8,254.8 L668.7,276.9 L657.7,365.4 L539.6,391.9 L373.6,476.0 L281.4,387.5 Z" fill="#4a4a4a" fill-opacity="0.55" stroke="#4a4a4a" stroke-width="1.5"/>
@@ -196,6 +196,7 @@
 <circle cx="635.5" cy="422.9" r="2" fill="#29d8ff"/>
 <circle cx="389.3" cy="357.9" r="2" fill="#29d8ff"/>
 <circle cx="515.8" cy="576.0" r="2" fill="#29d8ff"/>
+<circle cx="848.1" cy="430.6" r="2" fill="#29d8ff"/>
 <circle cx="733.7" cy="363.7" r="2" fill="#29d8ff"/>
 <circle cx="744.4" cy="363.2" r="2" fill="#29d8ff"/>
 <circle cx="797.9" cy="396.3" r="2" fill="#29d8ff"/>

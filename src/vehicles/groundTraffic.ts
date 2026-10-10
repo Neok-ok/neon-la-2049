@@ -19,7 +19,7 @@ import { LAMP_RGB, STOP_LINE, axisLamp, lampHeld, type Lamp } from './trafficSig
 
 const T = TSL as any;
 
-const MESHES: MeshId[] = ['car', 'van', 'box', 'hauler'];
+const MESHES: MeshId[] = ['car', 'van', 'box', 'hauler', 'tanker'];
 const STREET_R = 400;
 const FREEWAY_R = 640;
 
@@ -101,6 +101,7 @@ export class GroundTraffic {
       van: this.mesh(scene, 'van', vehicleGeometry('van'), material, cap),
       box: this.mesh(scene, 'box', vehicleGeometry('box'), material, cap),
       hauler: this.mesh(scene, 'hauler', vehicleGeometry('hauler'), material, cap),
+      tanker: this.mesh(scene, 'tanker', vehicleGeometry('tanker'), material, cap),
     };
     this.dress = createTrafficDress(query.layout);
     if (this.dress.trench) scene.add(this.dress.trench);
@@ -235,14 +236,16 @@ export class GroundTraffic {
       mesh = rng.chance(0.18) ? 'van' : 'car';
     } else if (e.district === 'basin-sprawl') {
       mesh = rng.chance(0.12) ? 'van' : 'car';
+    } else if (e.district === 'southeast-industrial') {
+      mesh = rng.chance(0.58) ? 'box' : 'tanker';
     } else {
       const r = rng.next();
       mesh = r < 0.62 ? 'car' : r < 0.82 ? 'van' : r < 0.94 ? 'box' : 'hauler';
     }
-    if ((mesh === 'box' || mesh === 'hauler') && e.length < 40) mesh = 'van';
+    if ((mesh === 'box' || mesh === 'hauler' || mesh === 'tanker') && e.length < 40) mesh = 'van';
     let speed: number;
-    if (freeway) speed = mesh === 'hauler' ? rng.range(16, 26) : mesh === 'box' ? rng.range(18, 28) : rng.range(22, 34);
-    else if (mesh === 'hauler') speed = rng.range(7, 11);
+    if (freeway) speed = mesh === 'hauler' || mesh === 'tanker' ? rng.range(16, 26) : mesh === 'box' ? rng.range(18, 28) : rng.range(22, 34);
+    else if (mesh === 'hauler' || mesh === 'tanker') speed = rng.range(7, 11);
     else if (mesh === 'box') speed = rng.range(7, 12);
     else if (mesh === 'van') speed = rng.range(8, 14);
     else speed = rng.range(8, 16);
@@ -563,7 +566,7 @@ export class GroundTraffic {
     this.separate(this.street, g, elapsed, false);
     this.separate(this.freeway, g, elapsed, true);
 
-    const buckets: Record<MeshId, number> = { car: 0, van: 0, box: 0, hauler: 0 };
+    const buckets: Record<MeshId, number> = { car: 0, van: 0, box: 0, hauler: 0, tanker: 0 };
     let streetLive = 0;
     let freewayLive = 0;
     const draw = (list: Agent[], freeway: boolean) => {

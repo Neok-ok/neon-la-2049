@@ -53,6 +53,9 @@ const SPRAWL_LIGHTS: Record<string, number> = {
   industrial: 0.35,
   'wallace-vernon': 0,
   'industrial-dense': 0.22,
+  // Sodium carpet for the refinery belt. Above the basin (0.52), under Westside (1).
+  // The hue stays warmC. The fire points are the flare sprites, not this value.
+  'southeast-refinery': 0.9,
   port: 0.4,
   spaceport: 0.3,
   'hills-sparse': 0.15,
@@ -83,6 +86,8 @@ const STREET_NEON: Record<string, number> = {
   // No market-neon carpet. Rain in the precinct stays a dark amber haze.
   'wallace-vernon': 0,
   'industrial-dense': 0.1,
+  // A little wet amber. Under Westside 0.35. Fades by ~520 m, so a 1 km aerial is the carpet.
+  'southeast-refinery': 0.18,
   port: 0.1,
   spaceport: 0.15,
   'hills-sparse': 0.05,

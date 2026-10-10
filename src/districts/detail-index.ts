@@ -23,3 +23,5 @@ import './westside/details';
 import './westside/crowd';
 import './basin-sprawl/details';
 import './basin-sprawl/crowd';
+import './southeast-industrial/details';
+import './southeast-industrial/crowd';

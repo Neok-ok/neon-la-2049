@@ -28,6 +28,9 @@ import { installSouthLaHolos } from '../districts/south-la-megablocks/holos';
 import { artsCamera, type ArtsView } from '../districts/arts-district/view';
 import { westsideCamera, type WestsideView } from '../districts/westside/view';
 import { basinCamera, type BasinView } from '../districts/basin-sprawl/view';
+import { southeastCamera, type SoutheastView } from '../districts/southeast-industrial/view';
+import { mountSoutheastFlares } from '../districts/southeast-industrial/field';
+import { setRefineryFlame } from '../districts/_shared/refinery/flames';
 import { installArtsHolos } from '../districts/arts-district/holos';
 import { artsRiverBoost } from '../districts/arts-district/plan';
 import { eastDistance } from '../districts/south-la-megablocks/spec';
@@ -164,6 +167,7 @@ export class App {
     this.streamer = new ChunkStreamer(this.scene, this.quality);
     this.landmarks = new Landmarks(this.query);
     this.scene.add(this.landmarks.root);
+    mountSoutheastFlares(this.scene, this.query.layout);
     installCoast(this.scene, this.query, this.quality.tier);
     installShowcase(this.query.layout);
     installDtlaHolos(this.query.layout);
@@ -357,6 +361,7 @@ export class App {
     const inLake = districtNow.id === 'lakewood-megablocks';
     const inSouth = districtNow.id === 'south-la-megablocks';
     const inArts = districtNow.id === 'arts-district';
+    const inSoutheast = districtNow.id === 'southeast-industrial';
     const southAmber = inSouth ? Math.max(0, 1 - eastDistance(cam.x, cam.z) / 1500) : 0;
     const walLm = this.query.layout.landmarkById('wallace-pyramid');
     const inWallace = districtNow.id === 'wallace-vernon'
@@ -434,7 +439,9 @@ export class App {
     this.ambience.setHum(this.interiors.humAmount);
     this.ambience.setMachinery(inWallace
       ? Math.max(0, 1 - alt / 140) * 0.82
-      : inArts ? Math.max(0, 1 - alt / 90) * 0.66 : 0);
+      : inArts ? Math.max(0, 1 - alt / 90) * 0.66
+        : inSoutheast ? Math.max(0, 1 - alt / 110) * 0.5 : 0);
+    setRefineryFlame(this.quality.tier, w.windDir, w.params.wind);
     this.ambience.setTraffic(this.ground.bed);
     this.ambience.setSurf(coast.surf, coast.impact, coast.crest);
     this.ambience.update(w.params.rain, w.params.snow, w.params.wind, alt);
@@ -653,6 +660,26 @@ export class App {
       /** Stage 9 cameras: the works from the air, a stack, the pour door, a pipe rack, the river bank, a truck street, the foundry bay. */
       artsView: (kind: ArtsView) => {
         const p = artsCamera(this.query.layout, kind);
+        if (!p) return false;
+        this.query.fabricAt(p.x, p.z);
+        this.cams.setMode(p.mode);
+        if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
+        this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
+        if (p.mode === 'walk') {
+          this.cams.walk.pitch = p.pitch;
+          this.cams.walk.heading = p.heading;
+          if (p.feet) {
+            this.cams.walk.pos.set(p.feet.x, p.feet.y, p.feet.z);
+            this.camera.position.set(p.feet.x, p.feet.y + 1.7, p.feet.z);
+            this.camera.rotation.set(p.pitch, -p.heading, 0, 'YXZ');
+            this.camera.updateMatrixWorld();
+          }
+        }
+        return true;
+      },
+      /** Stage 15 cameras: the belt from a kilometre up, a flare, a tank farm, a pipe canyon, the pump door, the control room, downtown. */
+      southeastView: (kind: SoutheastView) => {
+        const p = southeastCamera(this.query.layout, kind);
         if (!p) return false;
         this.query.fabricAt(p.x, p.z);
         this.cams.setMode(p.mode);

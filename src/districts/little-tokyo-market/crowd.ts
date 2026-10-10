@@ -247,7 +247,8 @@ export class CrowdField {
                   : district.id === 'arts-district' ? 0.06
                     : district.id === 'westside' ? 0.14
                       : district.id === 'basin-sprawl' ? 0.07
-                        : 0;
+                        : district.id === 'southeast-industrial' ? 0.04
+                          : 0;
     const want = Math.round(quality.crowd * share);
     const radius = quality.crowdRadius;
     if (want <= 0) {

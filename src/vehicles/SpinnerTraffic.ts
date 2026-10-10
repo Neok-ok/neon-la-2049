@@ -15,7 +15,8 @@ const T = TSL as any;
 
 /** A lane ≥ 5 must not park spinners at 74 m or 112 m. Those bands sit inside the slabs and the stacks. */
 function overRoofs(id: string): boolean {
-  return id === 'lakewood-megablocks' || id === 'south-la-megablocks' || id === 'arts-district';
+  return id === 'lakewood-megablocks' || id === 'south-la-megablocks' || id === 'arts-district'
+    || id === 'southeast-industrial';
 }
 
 interface Car {
@@ -144,8 +145,9 @@ export class SpinnerTraffic {
     car.phase = r.next();
     // Over downtown the 175–260 m band belongs to the avenue sky lanes, so free fliers stay above the fabric ceiling.
     // The historic canyon is not that graph: roofs are 40–110 m and the streets are 18 m, so spinners stay free at 148–260 m.
-    // Lakewood and South LA fabric is 45–130 m, and Arts District stacks reach about 136 m,
-    // so spinners stay off those lattices (158–210 m or 240–420 m, and a lift under ground + 155).
+    // Lakewood and South LA fabric is 45–130 m, Arts District stacks reach about 136 m,
+    // and Southeast flare stacks reach 140 m, so spinners stay off those lattices
+    // (158–210 m or 240–420 m, and a lift under ground + 155).
     if (!canyon && downtown && layer < 0.78) {
       if (this.onGraph(car, cam.x, cam.z, layer < 0.4)) return car;
     } else if (!canyon && !downtown && !lakewood && layer < 0.22 && this.onGraph(car, cam.x, cam.z, layer < 0.1)) {
