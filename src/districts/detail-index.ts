@@ -34,3 +34,5 @@ import './harbor/details';
 import './harbor/crowd';
 import './long-beach/details';
 import './long-beach/crowd';
+import './east-la/details';
+import './east-la/crowd';

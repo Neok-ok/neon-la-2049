@@ -1,5 +1,5 @@
 // Basin sprawl, the default district. One call into the shared helper.
-// The Stage 1 blockout for this id is gone. East LA stays on sprawl-dense.
+// The Stage 1 blockout for this id is gone.
 import { registerArchetype } from '../../world/fabric/registry';
 import { fillSprawlBlock } from '../_shared/sprawl/plan';
 import { BASIN_PARAMS } from './spec';

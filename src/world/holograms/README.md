@@ -160,3 +160,14 @@ The glyphs are noise. The figure is the existing Ash Line courier. No port or ca
 | `long-beach-lease` | 16 × 12 m, cyan, spill 16 m, rank 1 | lease-loop | tower |
 
 The glyphs are noise. The wedge is the existing share ad. No agency or building name. Kit billboards stay kind 0 until the field promotes a panel at or over 140 m².
+
+## Stage 21 placements
+
+`src/districts/east-la/holos.ts` calls `registerHologram` before the field is built. South of the market door, yaw 0 so the normal faces south into the yard. No new design. Both panels are under 140 m². They are holograms because they were registered, not because a kind-2 sign was promoted.
+
+| Id | Where | Design | Band |
+|---|---|---|---|
+| `east-la-coil` | 8 × 12 m, amber, spill 12 m, rank 0 | coil-vendor | street |
+| `east-la-glyph` | 9 × 11 m, amber, spill 10 m, rank 1 | glyph-loop | street |
+
+The rings are the market mark. The glyphs are noise. No tenant name. Strip signs stay kind 0.

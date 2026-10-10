@@ -39,6 +39,8 @@ const SPRAWL_LIGHTS: Record<string, number> = {
   // Dimmer than Westside (1) and just under South LA (0.62), still a carpet above the hills (0.15).
   'basin-sprawl': 0.52,
   'sprawl-dense': 1,
+  // Denser amber than the basin (0.52), under Westside and Hollywood (1) and under the belt (0.9).
+  'east-la-sprawl': 0.78,
   // Same pair as sprawl-dense. Stage 14 retunes basin-sprawl; leave this key alone.
   'westside-sprawl': 1,
   'megablock-residential': 0.8,
@@ -87,6 +89,8 @@ const STREET_NEON: Record<string, number> = {
   'financial-megatowers': 0.55,
   'megatower-core': 0.5,
   'sprawl-dense': 0.35,
+  // Wet amber above the basin (0.16), a step above Westside (0.35), well under Hollywood (0.86).
+  'east-la-sprawl': 0.38,
   // Copies sprawl-dense so the amber carpet does not change. Stage 14 owns basin-sprawl.
   'westside-sprawl': 0.35,
   // Faint amber sheen: under Westside 0.35, a small step above South LA 0.10. Fades by ~520 m.

@@ -311,6 +311,18 @@ const shots = [
   { name: 'lb-ultra', ctx: desktop, q: `mode=walk&at=long-beach-concourse&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.longBeachView('canyon'), near: true, settle: true },
   { name: 'lb-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=long-beach-concourse&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.longBeachView('canyon'), near: true, settle: true },
   { name: 'lb-flyover', ctx: desktop, q: `mode=fly&at=long-beach-concourse&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.longBeachView('aerial'), near: true, settle: true, flyover: true, hop: { x0: 10080, z0: 30970, y: 48, yaw: 90, pitch: -6, dx: 160, dz: 0, n: 28 } },
+  // Stage 21 — East LA. Cameras come from __nla.eastLaView.
+  { name: 'ela-aerial-night', ctx: desktop, q: `mode=fly&at=east-la-market&time=22&weather=clear&freeze=1&ui=0&quality=low${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.eastLaView('aerial'), near: true, settle: true },
+  { name: 'ela-interchange', ctx: desktop, q: `mode=walk&at=east-la-market&time=22&weather=drizzle&freeze=1&ui=0&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.eastLaView('interchange'), near: true, settle: true },
+  { name: 'ela-market-rain', ctx: desktop, q: `mode=walk&at=east-la-market&time=22.5&weather=rain&freeze=1&ui=0&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.eastLaView('market'), near: true, settle: true },
+  { name: 'ela-river', ctx: desktop, q: `mode=walk&at=east-la-market&time=22&weather=drizzle&freeze=1&ui=0&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.eastLaView('river'), near: true, settle: true },
+  { name: 'interior-east-la', ctx: desktop, q: `mode=walk&at=east-la-market&time=22.5&weather=rain&freeze=1&ui=0&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.eastLaView('interior'), near: true, settle: true },
+  { name: 'ela-low', ctx: desktop, q: `mode=walk&at=east-la-market&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=low${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.eastLaView('interchange'), near: true, settle: true },
+  { name: 'ela-medium', ctx: desktop, q: `mode=walk&at=east-la-market&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.eastLaView('interchange'), near: true, settle: true },
+  { name: 'ela-market-medium', ctx: desktop, q: `mode=walk&at=east-la-market&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.eastLaView('market'), near: true, settle: true },
+  { name: 'ela-ultra', ctx: desktop, q: `mode=walk&at=east-la-market&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.eastLaView('interchange'), near: true, settle: true },
+  { name: 'ela-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=east-la-market&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.eastLaView('market'), near: true, settle: true },
+  { name: 'ela-flyover', ctx: desktop, q: `mode=fly&at=east-la-market&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.eastLaView('aerial'), near: true, settle: true, flyover: true, hop: { x0: 2200, z0: 765, y: 80, yaw: 90, pitch: -6, dx: 180, dz: 0, n: 24 } },
 ];
 
 const args = GPU

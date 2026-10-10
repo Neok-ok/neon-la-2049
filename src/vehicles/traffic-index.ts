@@ -12,3 +12,4 @@ import '../districts/lax-spaceport/lanes';
 import '../districts/south-bay-refineries/lanes';
 import '../districts/harbor/lanes';
 import '../districts/long-beach/lanes';
+import '../districts/east-la/lanes';
