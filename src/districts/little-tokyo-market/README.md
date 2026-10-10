@@ -9,7 +9,7 @@ The reference district. Read [docs/BIBLE.md](../../../docs/BIBLE.md) §7.1 befor
 | `dress.ts` | worker and main thread | One block: collision boxes, signs, kit props, steam points, neon pools, the noodle bar and Bibi's. Pure. No `three`, no DOM, no `Math.random`. |
 | `archetype.ts` | worker and `CityQuery` | Registers `little-tokyo-market` and emits `dressBlock().boxes/signs`. |
 | `details.ts` | main thread, LOD0 | Merges props, instances steam and pools. Caps by tier. |
-| `crowd.ts` | main thread, one mesh for the whole city | Sidewalk loops from `pedestrianLoops`, avoidance, umbrellas. |
+| `crowd.ts` | main thread, one mesh for the whole city | Sidewalk loops from `pedestrianLoops`, a vertex-shader walk, umbrellas in the hand, district shares. |
 | `spots.ts` | main thread, once | Finds the noodle bar and Bibi's by dressing the blocks that own those POIs. |
 | `view.ts` | debug / screenshots | `marketCamera()` → `__nla.marketView`. |
 
@@ -53,4 +53,4 @@ The lane holograms (Coil Vendor, glyph loop, Bibi's lantern) are not built here.
 
 ## Left for a polish pass
 
-Sign atlas contrast and the flip of tall blades, pipe and cable silhouettes, the crowd cycle (feet slide), the planar mirror on a real GPU (SwiftShader screenshots do not show it), a cook who moves, how the stair feels under the capsule, and the plastic sheets. Bowls, the soffit and the menu panels are in; they are still flat kit pieces.
+Sign atlas contrast and the flip of tall blades, pipe and cable silhouettes, the planar mirror on a real GPU (SwiftShader screenshots do not show it), how the stair feels under the capsule, and the plastic sheets. The crowd walks, the umbrella is in the hand, and the cook sways an arm. Bowls, the soffit and the menu panels are in; they are still flat kit pieces.

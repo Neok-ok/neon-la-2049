@@ -197,7 +197,7 @@ Piece `y` is the centre. `ctx.box` wants the bottom, so pass `base: y - h / 2`. 
 
 Stage 5 (`src/districts/civic-center/`) is the landmark-heavy district. The fabric is a quiet compact-megablock field; LAPD and City Hall are `registerLandmarkType` builders with their own LODs, and a registration replaces the Stage-1 blockout of that type (`lapd-hq`, `heritage-tower`). Police pad traffic is not a new mesh and not a street-graph edge: the graph is flat, and `isReserved` drops anything through the footprint. `civic-center/lanes.ts` builds open polylines in landmark-local metres; `buildSkyLanes` appends them after `hold-lapd`. Open lanes take `altBias` and `fade` (see ARCHITECTURE, *Sky lanes*) so a short roof approach is not lifted 7 m and does not fade out before the pad.
 
-A dressed district that wants pedestrians calls `registerCrowdSource(districtId, fn)` from `little-tokyo-market/crowd.ts`. The mesh and the shader stay there. Return loops of `[x, z]` points. Hide nothing at the origin: the field already parks vendor slots that have no cook.
+A dressed district that wants pedestrians calls `registerCrowdSource(districtId, fn, share)` from `little-tokyo-market/crowd.ts`. The mesh and the shader stay there. App does not grow a branch. `share` is the fraction of the tier count (market is 1, and the previous district shares stay the starting values). Return loops of `[x, z]` points, or `{ loops, extra, life }`. `extra` is a minority path, so the original loops stay the main ones. `life` is `lifeSpot(...)` anchors at counters and awnings that already exist. Do not add a second mesh: interiors hide the one named `crowd`. Hide nothing at the origin: the field already parks the two cook slots when this district has no counter.
 
 ## 6. Holograms
 
