@@ -8,3 +8,4 @@ import './civic-center/hall';
 import './historic-core/bradbury';
 import './historic-core/bridge';
 import './k-megablock/slab';
+import './hollywood/sign';

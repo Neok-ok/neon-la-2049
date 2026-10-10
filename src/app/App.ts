@@ -29,6 +29,8 @@ import { artsCamera, type ArtsView } from '../districts/arts-district/view';
 import { westsideCamera, type WestsideView } from '../districts/westside/view';
 import { basinCamera, type BasinView } from '../districts/basin-sprawl/view';
 import { southeastCamera, type SoutheastView } from '../districts/southeast-industrial/view';
+import { hollywoodCamera, type HollywoodView } from '../districts/hollywood/view';
+import { installHollywoodHolos } from '../districts/hollywood/holos';
 import { mountSoutheastFlares } from '../districts/southeast-industrial/field';
 import { setRefineryFlame } from '../districts/_shared/refinery/flames';
 import { installArtsHolos } from '../districts/arts-district/holos';
@@ -175,6 +177,7 @@ export class App {
     installLakewoodHolos(this.query.layout);
     installSouthLaHolos(this.query.layout);
     installArtsHolos(this.query.layout);
+    installHollywoodHolos(this.query.layout);
     this.holos = new HologramField(this.query.layout);
     this.scene.add(this.holos.group);
     this.traffic = new SpinnerTraffic(this.scene, this.query, settingsFor('ultra').traffic);
@@ -660,6 +663,26 @@ export class App {
       /** Stage 9 cameras: the works from the air, a stack, the pour door, a pipe rack, the river bank, a truck street, the foundry bay. */
       artsView: (kind: ArtsView) => {
         const p = artsCamera(this.query.layout, kind);
+        if (!p) return false;
+        this.query.fabricAt(p.x, p.z);
+        this.cams.setMode(p.mode);
+        if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
+        this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
+        if (p.mode === 'walk') {
+          this.cams.walk.pitch = p.pitch;
+          this.cams.walk.heading = p.heading;
+          if (p.feet) {
+            this.cams.walk.pos.set(p.feet.x, p.feet.y, p.feet.z);
+            this.camera.position.set(p.feet.x, p.feet.y + 1.7, p.feet.z);
+            this.camera.rotation.set(p.pitch, -p.heading, 0, 'YXZ');
+            this.camera.updateMatrixWorld();
+          }
+        }
+        return true;
+      },
+      /** Stage 16 cameras: the strip from a kilometre up, the boulevard, a giant figure, the hillside wordmark, the arcade lobby. */
+      hollywoodView: (kind: HollywoodView) => {
+        const p = hollywoodCamera(this.query.layout, kind);
         if (!p) return false;
         this.query.fabricAt(p.x, p.z);
         this.cams.setMode(p.mode);

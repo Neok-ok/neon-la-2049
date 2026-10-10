@@ -193,7 +193,7 @@ The downtown grid (bearing 38°, 205 × 125 m) is shared with the Financial Dist
 | `skin` | Skip mass, cap, jackets and tanks. A landmark atrium calls this so the ornament sits on a volume the kit does not own. |
 | `compact` | Fewer pilasters. Fabric passes `true`. |
 
-Piece `y` is the centre. `ctx.box` wants the bottom, so pass `base: y - h / 2`. A pure fabric chunk on Broadway measured about 8–9 k triangles. Hollywood (Stage 16) should call `buildHeritage` rather than grow a second theatre front.
+Piece `y` is the centre. `ctx.box` wants the bottom, so pass `base: y - h / 2`. A pure fabric chunk on Broadway measured about 8–9 k triangles. Hollywood calls `buildHeritage` on the boulevard faces. A later theatre front should call it too.
 
 Stage 5 (`src/districts/civic-center/`) is the landmark-heavy district. The fabric is a quiet compact-megablock field; LAPD and City Hall are `registerLandmarkType` builders with their own LODs, and a registration replaces the Stage-1 blockout of that type (`lapd-hq`, `heritage-tower`). Police pad traffic is not a new mesh and not a street-graph edge: the graph is flat, and `isReserved` drops anything through the footprint. `civic-center/lanes.ts` builds open polylines in landmark-local metres; `buildSkyLanes` appends them after `hold-lapd`. Open lanes take `altBias` and `fade` (see ARCHITECTURE, *Sky lanes*) so a short roof approach is not lifted 7 m and does not fade out before the pad.
 

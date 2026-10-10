@@ -153,6 +153,7 @@ registerArchetype('street-market', (ctx) => {
 // historic-core (Broadway) is registered by src/districts/historic-core/archetype.ts.
 // The Stage 1 neon-canyon blockout lived here. Do not put it back.
 
+// Hollywood moved to `hollywood-strip`. This body is unused. Do not point the polygon back here.
 registerArchetype('entertainment', (ctx) => {
   const r = ctx.rng;
   lotLoop(ctx, ctx.lots(14, 45, 1), (l) => {

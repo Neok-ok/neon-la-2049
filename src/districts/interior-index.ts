@@ -7,6 +7,7 @@ import { installSouthLaInterior } from './south-la-megablocks/interior';
 import { installArtsInterior } from './arts-district/interior';
 import { installWestsideInterior } from './westside/interior';
 import { installSoutheastInterior } from './southeast-industrial/interior';
+import { installHollywoodInterior } from './hollywood/interior';
 
 export function installInteriors(): void {
   installBradburyInteriors();
@@ -17,4 +18,5 @@ export function installInteriors(): void {
   installArtsInterior();
   installWestsideInterior();
   installSoutheastInterior();
+  installHollywoodInterior();
 }

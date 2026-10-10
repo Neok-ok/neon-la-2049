@@ -165,7 +165,7 @@
       "traffic": 0.42,
       "name": "Hollywood Entertainment Strip",
       "loreSector": "Sector 1 - Entertainment District",
-      "archetype": "entertainment",
+      "archetype": "hollywood-strip",
       "priority": 2,
       "grid": { "bearingDeg": 0, "block": [160, 90], "street": 22 },
       "stage": 16,
@@ -421,6 +421,15 @@
       "bearingDeg": 0, "height": 140, "baseWidth": 1600, "baseDepth": 1100,
       "reserveRadius": 0,
       "confidence": "real refinery site; homage to the 1982 'Hades' opening"
+    },
+    {
+      "id": "veil-mark",
+      "name": "Veil Mark (hillside wordmark)",
+      "type": "veil-mark",
+      "lat": 34.109356, "lon": -118.369091,
+      "bearingDeg": 0, "height": 52, "baseWidth": 64, "baseDepth": 8,
+      "reserveRadius": 34,
+      "confidence": "invented. Original five-panel wordmark on the northwest slope inside the Hollywood polygon. Atlas copy only (KASAI, MIDORI, OPEN LATE, NIGHT MARKET, 2049). No famous hillside sign. Reserve 34 m keeps hills-sparse boxes out of the pylons and stays off the street centre lines."
     }
   ],
   "pois": [
@@ -434,6 +443,7 @@
     { "id": "westside-yard", "name": "Westside market yard", "lat": 34.0434, "lon": -118.4215, "kind": "market", "stage": 13 },
     { "id": "basin-strip", "name": "Basin strip corner", "lat": 33.944761, "lon": -118.352882, "kind": "street", "stage": 14 },
     { "id": "southeast-pump", "name": "Southeast pump house", "lat": 34.010527, "lon": -118.172738, "kind": "interior", "stage": 15 },
+    { "id": "hollywood-lobby", "name": "Hollywood arcade lobby", "lat": 34.100050, "lon": -118.340792, "kind": "interior", "stage": 16 },
     { "id": "arts-foundry", "name": "Arts District pour hall", "lat": 34.04077, "lon": -118.23476, "kind": "interior", "stage": 9 },
     { "id": "arts-river", "name": "LA River at the works", "lat": 34.0410, "lon": -118.2290, "kind": "street", "stage": 9 },
     { "id": "wallace-approach", "name": "Wallace causeway (north apron)", "lat": 34.02602, "lon": -118.2000, "kind": "street", "stage": 7 },
