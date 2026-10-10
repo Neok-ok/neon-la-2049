@@ -72,15 +72,17 @@ export function longBeachCamera(layout: CityLayout, kind: LongBeachView): LongBe
     let crane = cranes[0];
     for (const c of cranes) if (!crane || c.x > crane.x) crane = c;
     if (!crane) return null;
-    const dx = crane.x - hero.x;
-    const dz = crane.z - hero.z;
+    const dx = hero.x - crane.x;
+    const dz = hero.z - crane.z;
     const len = Math.hypot(dx, dz) || 1;
+    // Seaward of the eastern crane and beside the boom, low enough that the 80 m
+    // house stays in frame, high enough to clear the container tops.
     const eye = {
-      x: crane.x + (dx / len) * 220,
-      y: 32,
-      z: crane.z + (dz / len) * 220,
+      x: crane.x - (dx / len) * 170 - crane.tz * 46,
+      y: 64,
+      z: crane.z - (dz / len) * 170 + crane.tx * 46,
     };
-    return fly(eye, { x: hero.x, y: hero.ground + 80, z: hero.z });
+    return fly(eye, { x: hero.x, y: hero.ground + 120, z: hero.z });
   }
   if (kind === 'canyon') {
     const feet = { x: door.x + 6, y: door.y + 0.02, z: door.z + 14 };
@@ -88,9 +90,10 @@ export function longBeachCamera(layout: CityLayout, kind: LongBeachView): LongBe
     return walk(feet, look);
   }
   if (kind === 'lakewood') {
+    // Above the Lakewood roofs, just north of lat 33.800, looking south into the core.
     return fly(
-      { x: hero.x + 80, y: hero.ground + 48, z: 27440 },
-      { x: hero.x, y: hero.ground + 90, z: hero.z },
+      { x: hero.x + 40, y: hero.ground + 168, z: 27580 },
+      { x: hero.x - 20, y: hero.ground + 50, z: 29200 },
     );
   }
   if (kind === 'interior') {
