@@ -11,9 +11,10 @@ const GPU = process.env.GPU === '1';
 const FRAMES = Number(process.env.FRAMES ?? 6);
 mkdirSync(OUT, { recursive: true });
 
+const land = process.env.LAND === '1';
 const iphone = {
-  viewport: { width: 390, height: 844 },
-  deviceScaleFactor: 3,
+  viewport: land ? { width: 844, height: 390 } : { width: 390, height: 844 },
+  deviceScaleFactor: 1,
   isMobile: true,
   hasTouch: true,
   userAgent:
@@ -37,17 +38,27 @@ page.on('console', (m) => {
   if (m.type() === 'error') errors.push(m.text());
 });
 
-const q = `mode=walk&at=noodle-bar&time=22.5&weather=rain&freeze=0&ui=0&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`;
+const view = process.env.VIEW ?? 'street';
+const q = `mode=walk&at=noodle-bar&time=22.5&weather=rain&freeze=0&ui=0&quality=medium${GPU ? '' : '&webgl=1'}`;
 await page.goto(`${BASE}?${q}`);
 await page.waitForFunction(() => {
   const st = window.__nla?.stats?.();
   return st && st.lod0 >= 6 && st.queryPending === 0 && st.drawCalls > 40;
 }, null, { timeout: 120_000, polling: 500 });
-await page.evaluate(() => window.__nla.marketView('crowd'));
+await page.evaluate((view) => window.__nla.marketView(view), view);
 await page.waitForTimeout(2500);
-await page.evaluate(() => window.__nla.marketView('crowd'));
+await page.evaluate((view) => window.__nla.marketView(view), view);
 await page.waitForFunction(() => (window.__nla?.stats?.().crowd ?? 0) > 8, null, { timeout: 30_000 }).catch(() => {});
-await page.waitForTimeout(800);
+// The street preset looks along the lane. Turn toward the sidewalk so a walker fills the frame.
+const aim = Number(process.env.AIM ?? 110);
+const pitch = Number(process.env.PITCH ?? -12);
+await page.evaluate(({ aim, pitch }) => {
+  const w = window.__nla.app.cams.walk;
+  const yaw = (w.heading * 180) / Math.PI + aim;
+  window.__nla.setPose(w.pos.x, w.pos.y + 1.7, w.pos.z, yaw, pitch);
+  document.querySelectorAll('.stick').forEach((el) => { el.style.display = 'none'; });
+}, { aim, pitch });
+await page.waitForTimeout(600);
 
 for (let i = 0; i < FRAMES; i++) {
   const file = join(OUT, `walk-${i}.png`);
