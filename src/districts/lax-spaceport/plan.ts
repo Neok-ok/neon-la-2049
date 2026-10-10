@@ -84,8 +84,6 @@ export interface LaxPlan {
   signs: LaxSign[];
   props: LaxProp[];
   pools: LaxPool[];
-  /** Terminal curb only. One loop, so the concourse is not empty. */
-  loop: Array<[number, number]> | null;
 }
 
 /** SECTOR 5, 2049, OPEN LATE, VENDING. Atlas cells only. */
@@ -191,14 +189,5 @@ export function planLax(b: LaxBlock): LaxPlan {
     }
   }
 
-  let loop: Array<[number, number]> | null = null;
-  if (terminal && b.j === -59) {
-    const a = at(b, HALL_S + HALL_A / 2 + 8, -28);
-    const c = at(b, HALL_S + HALL_A / 2 + 8, 28);
-    const d = at(b, HALL_S + HALL_A / 2 + 14, 28);
-    const e = at(b, HALL_S + HALL_A / 2 + 14, -28);
-    loop = [[a.x, a.z], [c.x, c.z], [d.x, d.z], [e.x, e.z]];
-  }
-
-  return { boxes, signs, props, pools, loop };
+  return { boxes, signs, props, pools };
 }

@@ -14,7 +14,7 @@ Invented heights are in the Bible. Anything past 320 m is the gantry landmark, n
 
 ## Gantries
 
-`gantry.ts` replaces the Stage 1 `spaceport` landmark builder. Three towers, megatower kit, one mesh per LOD. The published 420 m includes a 30 m mast; the core stops at 390 m (78 × 5.0 m). The pad deck is 0.40 m, under the step-up. A 55 m standby stack (11 × 5.0 m) stays on the pad. The shafts sit on the block centres nearest the Stage 1 offsets, so the 60 m streets miss the colliders. Reserve radius stays 0. LOD switches are 2.4 km and 9 km from a 960 m hull. Beacons are the existing billboards (strobe, red, warm). No scene lights. Triangle counts are `gantryTris` on `__nla.stats()` after the landmark builds (LOD0 / LOD1 / proxy).
+`gantry.ts` replaces the Stage 1 `spaceport` landmark builder. Three towers, megatower kit, one mesh per LOD. The published 420 m includes a 30 m mast; the core stops at 390 m (78 × 5.0 m). The pad deck is 0.40 m, under the step-up. A 55 m standby stack (11 × 5.0 m) stays on the pad. The shafts sit on the block centres nearest the Stage 1 offsets, so the 60 m streets miss the colliders. Reserve radius stays 0. LOD switches are 2.4 km and 9 km from a 960 m hull. Beacons are the existing billboards (strobe, red, warm). No scene lights. Triangle counts from the built meshes are **2,070 / 510 / 120** (LOD0 / LOD1 / proxy), also on `__nla.stats().gantryTris`.
 
 ## Launch
 
@@ -28,7 +28,7 @@ The rumble is `Ambience.setMachinery`, added to the district bed and clamped to 
 
 `lax-concourse` is one `buildCorridorRoom` on that door (33.937916 N, 118.408611 W). Warmth 0.16, corridor 4.2 × 3.2 × 3.4 m, room 8.4 × 7.2 × 3.6 m, yaw π, no window, no rides, stream radius 48 m, muffle 0.75, hum 0. POI `lax-concourse` is that threshold, so `at=lax-concourse` lands on it. `at=lax-spaceport-towers` lands on the pin.
 
-Crowd share is 0.05, one loop on the door curb. Shared sodium lamps stay off.
+There is no crowd. A curb sits about 180 m from a block centre, past the crowd query. Shared sodium lamps stay off.
 
 ## Traffic
 
