@@ -60,6 +60,8 @@ const SPRAWL_LIGHTS: Record<string, number> = {
   'southeast-refinery': 0.9,
   // Sodium carpet for the coast. Under the belt (0.9), above the basin (0.52) and unused industrial (0.35).
   'south-bay-refinery': 0.72,
+  // Sodium work-light carpet. Under the South Bay (0.72), above unused `port` (0.4).
+  'harbor-port': 0.64,
   port: 0.4,
   spaceport: 0.3,
   // Flood carpet for the apron. The old spaceport key is unused. Under the basin (0.52), above industrial (0.35).
@@ -98,6 +100,8 @@ const STREET_NEON: Record<string, number> = {
   'southeast-refinery': 0.18,
   // Wet amber under the belt (0.18) and above unused industrial (0.1). Fades by ~520 m.
   'south-bay-refinery': 0.12,
+  // Wet sodium under the South Bay (0.12) and above unused `port` (0.1).
+  'harbor-port': 0.11,
   port: 0.1,
   spaceport: 0.15,
   // Sparse wayfinding. Under industrial (0.1). Fades by ~520 m, so a 1 km aerial is the carpet.

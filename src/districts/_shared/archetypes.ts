@@ -259,6 +259,7 @@ registerArchetype('spaceport', (ctx) => {
   });
 });
 
+// Unused. Harbor moved to `harbor-port` in Stage 19. This body stays registered.
 registerArchetype('port', (ctx) => {
   const r = ctx.rng;
   lotLoop(ctx, ctx.lots(40, 100, 10), (l) => {

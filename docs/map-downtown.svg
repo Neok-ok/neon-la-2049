@@ -212,6 +212,8 @@
 <text x="-2460.0" y="2976.8" dx="5" dy="12" fill="#8fe8ff" font-size="10">LAX terminal concourse</text>
 <circle cx="-625.0" cy="3763.0" r="2" fill="#29d8ff"/>
 <text x="-625.0" y="3763.0" dx="5" dy="12" fill="#8fe8ff" font-size="10">South Bay control room</text>
+<circle cx="1454.7" cy="6999.5" r="2" fill="#29d8ff"/>
+<text x="1454.7" y="6999.5" dx="5" dy="12" fill="#8fe8ff" font-size="10">Harbor control room</text>
 <circle cx="746.9" cy="702.2" r="2" fill="#29d8ff"/>
 <text x="746.9" y="702.2" dx="5" dy="12" fill="#8fe8ff" font-size="10">Arts District pour hall</text>
 <circle cx="853.2" cy="697.1" r="2" fill="#29d8ff"/>

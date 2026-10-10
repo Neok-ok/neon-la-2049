@@ -82,3 +82,7 @@ Fly mode still cannot enter a volume. `walkHandoff` is the exception for an exte
 ## Stage 8
 
 K's lobby, corridor, apartment, roof head-house and three lift cars call `registerInterior` and start from `buildCorridorRoom`. The apartment keeps the window. The halls pass `window: false` and use `backDoor` or `sideDoors`. The lift cars are `buildLift` plus `rides`. Do not copy the Bradbury stair, and do not add scene lights. The Bradbury back wing (`bradbury-service`) is still the template instance, not the apartment.
+
+## Stage 19
+
+`harbor-control` calls `registerInterior` and starts from `buildCorridorRoom` with `window: false`. The door faces north (yaw π). No rides and no scene lights.
