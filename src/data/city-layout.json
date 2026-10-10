@@ -184,10 +184,10 @@
     },
     {
       "id": "lax-spaceport",
-      "traffic": 0.08,
+      "traffic": 0.28,
       "name": "LAX Off-World Spaceport",
       "loreSector": "Sector 12 - LAX Spaceport",
-      "archetype": "spaceport",
+      "archetype": "lax-apron",
       "priority": 3,
       "grid": { "bearingDeg": 0, "block": [420, 260], "street": 60 },
       "stage": 17,
@@ -411,7 +411,7 @@
       "lat": 33.9416, "lon": -118.4085,
       "bearingDeg": 0, "height": 420, "baseWidth": 2600, "baseDepth": 1300,
       "reserveRadius": 0,
-      "confidence": "lore: LAX became the off-world spaceport (Luv heads to LAX). Structures invented."
+      "confidence": "lore: LAX became the off-world spaceport (Luv heads to LAX). Stage 17 rebuilds the three gantries in the megatower kit at the block centres nearest the Stage 1 offsets. Height 420 m includes a 30 m mast. Structures invented."
     },
     {
       "id": "el-segundo-refinery",
@@ -444,6 +444,7 @@
     { "id": "basin-strip", "name": "Basin strip corner", "lat": 33.944761, "lon": -118.352882, "kind": "street", "stage": 14 },
     { "id": "southeast-pump", "name": "Southeast pump house", "lat": 34.010527, "lon": -118.172738, "kind": "interior", "stage": 15 },
     { "id": "hollywood-lobby", "name": "Hollywood arcade lobby", "lat": 34.100050, "lon": -118.340792, "kind": "interior", "stage": 16 },
+    { "id": "lax-concourse", "name": "LAX terminal concourse", "lat": 33.937916, "lon": -118.408611, "kind": "interior", "stage": 17 },
     { "id": "arts-foundry", "name": "Arts District pour hall", "lat": 34.04077, "lon": -118.23476, "kind": "interior", "stage": 9 },
     { "id": "arts-river", "name": "LA River at the works", "lat": 34.0410, "lon": -118.2290, "kind": "street", "stage": 9 },
     { "id": "wallace-approach", "name": "Wallace causeway (north apron)", "lat": 34.02602, "lon": -118.2000, "kind": "street", "stage": 7 },

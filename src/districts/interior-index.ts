@@ -8,6 +8,7 @@ import { installArtsInterior } from './arts-district/interior';
 import { installWestsideInterior } from './westside/interior';
 import { installSoutheastInterior } from './southeast-industrial/interior';
 import { installHollywoodInterior } from './hollywood/interior';
+import { installLaxInterior } from './lax-spaceport/interior';
 
 export function installInteriors(): void {
   installBradburyInteriors();
@@ -19,4 +20,5 @@ export function installInteriors(): void {
   installWestsideInterior();
   installSoutheastInterior();
   installHollywoodInterior();
+  installLaxInterior();
 }

@@ -241,6 +241,9 @@ export class GroundTraffic {
     } else if (e.district === 'hollywood') {
       const r = rng.next();
       mesh = r < 0.72 ? 'car' : r < 0.94 ? 'van' : 'box';
+    } else if (e.district === 'lax-spaceport') {
+      const r = rng.next();
+      mesh = r < 0.46 ? 'van' : r < 0.78 ? 'box' : r < 0.92 ? 'hauler' : 'car';
     } else {
       const r = rng.next();
       mesh = r < 0.62 ? 'car' : r < 0.82 ? 'van' : r < 0.94 ? 'box' : 'hauler';

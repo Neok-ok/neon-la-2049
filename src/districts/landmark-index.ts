@@ -9,3 +9,4 @@ import './historic-core/bradbury';
 import './historic-core/bridge';
 import './k-megablock/slab';
 import './hollywood/sign';
+import './lax-spaceport/gantry';

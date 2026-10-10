@@ -261,6 +261,16 @@ const shots = [
   { name: 'hw-ultra', ctx: desktop, q: `mode=walk&at=hollywood-lobby&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.hollywoodView('street'), near: true, settle: true },
   { name: 'hw-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=hollywood-lobby&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.hollywoodView('street'), near: true, settle: true },
   { name: 'hw-flyover', ctx: desktop, q: `mode=fly&at=hollywood-lobby&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.hollywoodView('aerial'), near: true, settle: true, flyover: true, hop: { x0: -11000, z0: -5280, y: 160, yaw: 90, pitch: -8, dx: 210, dz: 0, n: 32 } },
+  // Stage 17 — LAX Off-World Spaceport. Cameras come from __nla.laxView. downtown and burn arm a launch.
+  { name: 'lax-aerial-night', ctx: desktop, q: `mode=fly&at=lax-concourse&time=22&weather=drizzle&${common}`, after: () => window.__nla.laxView('aerial'), near: true, settle: true },
+  { name: 'lax-launch-downtown', ctx: desktop, q: `mode=fly&at=lax-spaceport-towers&time=22&weather=drizzle&${common}`, after: () => window.__nla.laxView('downtown'), near: true, settle: true },
+  { name: 'lax-gantry-rain', ctx: desktop, q: `mode=walk&at=lax-concourse&time=22.5&weather=rain&${common}`, after: () => window.__nla.laxView('gantry'), near: true, settle: true },
+  { name: 'lax-terminal', ctx: desktop, q: `mode=walk&at=lax-concourse&time=22.5&weather=rain&${common}`, after: () => window.__nla.laxView('terminal'), near: true, settle: true },
+  { name: 'lax-low', ctx: desktop, q: `mode=walk&at=lax-concourse&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=low${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.laxView('burn'), near: true, settle: true },
+  { name: 'lax-medium', ctx: desktop, q: `mode=walk&at=lax-concourse&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.laxView('burn'), near: true, settle: true },
+  { name: 'lax-ultra', ctx: desktop, q: `mode=walk&at=lax-concourse&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.laxView('burn'), near: true, settle: true },
+  { name: 'lax-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=lax-concourse&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.laxView('terminal'), near: true, settle: true },
+  { name: 'lax-flyover', ctx: desktop, q: `mode=fly&at=lax-concourse&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.laxView('aerial'), near: true, settle: true, flyover: true, hop: { x0: -16800, z0: 12400, y: 180, yaw: 90, pitch: -12, dx: 130, dz: 0, n: 32 } },
 ];
 
 const args = GPU
