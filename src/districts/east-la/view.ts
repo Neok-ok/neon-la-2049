@@ -1,10 +1,9 @@
 // Screenshot and debug cameras for Stage 21 (`__nla.eastLaView`).
 import type { CityLayout } from '../../world/layout';
-import { geoToLocal } from '../../world/geo';
 import type { FaceDir } from '../../world/fabric/types';
 import { eastLaCrossings, type Crossing } from './crossings';
 import { counterOrigin, searchSprawl, worldAt, type Found } from './locate';
-import { BLOCK_A, BLOCK_B, DECK_TOP, DISTRICT, HUB } from './spec';
+import { DECK_TOP, DISTRICT, HUB } from './spec';
 
 export type EastLaView =
   | 'aerial'
@@ -94,83 +93,40 @@ function mainCrossing(layout: CityLayout): Crossing | null {
   return list.find((c) => c.id === 'el-10-710') ?? list[0] ?? null;
 }
 
-function lipStand(layout: CityLayout, c: Crossing): { x: number; z: number } | null {
-  // Both corridors are 70 m wide, so a point just off the 10 can still sit on the 5 or the 710.
-  // The nearest open street centreline is the close-up.
-  const j0 = Math.round(c.x / BLOCK_B);
-  const i0 = Math.round(-c.z / BLOCK_A);
-  let bestX = 0;
-  let bestZ = 0;
-  let bestD = Infinity;
-  const consider = (x: number, z: number) => {
-    const d = Math.hypot(x - c.x, z - c.z);
-    if (d < 36 || d > 160 || d >= bestD) return;
-    if (!openStreet(layout, x, z)) return;
-    if (layout.heightAt(x, z) > 45) return;
-    bestX = x;
-    bestZ = z;
-    bestD = d;
-  };
-  for (let di = -3; di <= 3; di++) {
-    for (let dj = -3; dj <= 3; dj++) {
-      const xLine = (j0 + dj) * BLOCK_B;
-      const zLine = -(i0 + di) * BLOCK_A;
-      consider(xLine, zLine);
-      consider(xLine, c.z);
-      consider(c.x, zLine);
-      for (const k of [-48, -24, 24, 48]) {
-        consider(xLine, c.z + k);
-        consider(c.x + k, zLine);
-      }
-    }
-  }
-  return bestD < Infinity ? { x: bestX, z: bestZ } : null;
-}
-
-function lipWalk(layout: CityLayout, c: Crossing): EastPose | null {
-  const g = layout.heightAt(c.x, c.z);
-  const look = { x: c.x, y: g + DECK_TOP + 3.2, z: c.z };
-  const stand = lipStand(layout, c);
-  if (!stand) {
-    return fly({ x: c.x - 90, y: g + 36, z: c.z + 90 }, { x: c.x, y: g + DECK_TOP + 2, z: c.z }, true);
-  }
-  const ground = layout.heightAt(stand.x, stand.z);
-  return walk({ x: stand.x, y: ground, z: stand.z }, look, 0.1);
-}
-
 export function eastLaCamera(layout: CityLayout, kind: EastLaView): EastPose | null {
   const cross = mainCrossing(layout);
   if (kind === 'aerial' && cross) {
     const g = layout.heightAt(cross.x, cross.z);
+    // About a kilometre up, far enough south that the junction sits in the far-LOD band.
     return fly(
-      { x: cross.x - 420, y: g + 1000, z: cross.z + 1280 },
-      { x: cross.x + 40, y: g + 16, z: cross.z - 160 },
+      { x: cross.x - 260, y: g + 1050, z: cross.z + 1680 },
+      { x: cross.x + 20, y: g + 24, z: cross.z - 80 },
       true,
     );
   }
   if ((kind === 'interchange' || kind === 'deck') && cross) {
-    if (kind === 'deck') {
-      const g = layout.heightAt(cross.x, cross.z);
-      const eye = {
-        x: cross.x + cross.tx * 70 + cross.rx * 28,
-        y: g + 22,
-        z: cross.z + cross.tz * 70 + cross.rz * 28,
-      };
-      return fly(eye, { x: cross.x, y: g + DECK_TOP + 1, z: cross.z }, true);
-    }
-    return lipWalk(layout, cross);
+    const g = layout.heightAt(cross.x, cross.z);
+    const along = kind === 'deck' ? 70 : 46;
+    const side = kind === 'deck' ? 28 : 22;
+    const eye = {
+      x: cross.x + cross.tx * along + cross.rx * side,
+      y: g + (kind === 'deck' ? 22 : 16),
+      z: cross.z + cross.tz * along + cross.rz * side,
+    };
+    return fly(eye, { x: cross.x, y: g + DECK_TOP + 1.4, z: cross.z }, true);
   }
 
   if (kind === 'river') {
-    const [x0, z0] = geoToLocal(34.062, -118.218);
-    const [lx, lz] = geoToLocal(34.048, -118.25);
-    for (let step = 0; step < 14; step++) {
-      const x = x0 + step * 10;
-      const z = z0 + step * 4;
-      if (!openStreet(layout, x, z)) continue;
+    // Street i = 0 sits on z = 0, the same latitude as megatower 1. A stance further
+    // east lets that crown clear the west-bank roofs; closer in, those roofs fill the slot.
+    const z = 0;
+    const tower = layout.landmarkById('megatower-1');
+    const look = { x: tower?.x ?? -1134, y: 0, z: tower?.z ?? 22 };
+    for (let x = 2140; x <= 2600; x += 8) {
+      if (!openStreet(layout, x, z) || !openStreet(layout, x - 24, z)) continue;
       const ground = layout.heightAt(x, z);
-      const look = { x: lx, y: ground + 80, z: lz };
-      return walk({ x, y: ground, z }, look, 0.06);
+      look.y = ground + 520;
+      return walk({ x, y: ground, z }, look, 0.16);
     }
     return null;
   }
@@ -189,7 +145,7 @@ export function eastLaCamera(layout: CityLayout, kind: EastLaView): EastPose | n
       ?? list.find((f) => f.plan.stalls.length >= 3);
     const stall = hit?.plan.stalls[1] ?? hit?.plan.stalls[0];
     if (!hit || !stall) return null;
-    const out = outward(stall.face, 14);
+    const out = outward(stall.face, 7);
     const slide = stall.face[0] === 'a' ? 6 : 0;
     const slideS = stall.face[0] === 'b' ? 6 : 0;
     const feet = worldAt(hit.block, stall.s + out.s + slideS, stall.t + out.t + slide, 0.04);
