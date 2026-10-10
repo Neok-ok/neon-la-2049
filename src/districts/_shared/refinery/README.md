@@ -35,10 +35,12 @@ Ground above 45 m returns empty. That is the global `hills-sparse` swap.
 
 ## What a block is
 
-Tank farms are instanced cylinders (the kit cylinder has no caps), a 1.5 m berm, and a catwalk ring. Cracking yards are three columns on an 8.4 m skirt. Pipe racks sit on the owned north edge at 7.4 m, the same deck as the Arts District works, with a second tier the works do not have. The works keep their own racks. Do not point this kit at `arts-district`.
+Tank farms are instanced drums (12-side shell plus a roof; the open `cyl` template stays for rings and hatches), a 1.5 m berm, and a catwalk ring. Cracking yards are three columns on an 8.4 m skirt. Pipe racks sit on the owned north edge at 7.4 m, the same deck as the Arts District works, with a second tier the works do not have. The works keep their own racks. Do not point this kit at `arts-district`.
 
 Flare stacks are fabric columns so the far mesh still has the needle. The flame is the mounted sprite: flicker, wind shear, brighter on high and ultra (`setRefineryFlame`). A rank-0 additive quad under the stack is the spill. It is not a scene light.
 
 `pump: true` builds one 10.2 m control room (three storeys at 3.4 m) with a south door. Set it on one block, not on the whole district.
+
+The chunk worker stores `seed` in a Float32Array. Values past 2^24 round, and the detail plan then picks a different yard than the fabric. Rebuild the seed with `hash2i(i + 100000, j + 100000, districtIndex * 7919 + 13)` from the block centre before calling `planRefinery`. Stage 18's detail module has to do that too. The archetype runs in the worker and already has the integer.
 
 Signage is an occasional atlas stencil (`BLACK OIL`, `STEAM`, `2049`). No company names.

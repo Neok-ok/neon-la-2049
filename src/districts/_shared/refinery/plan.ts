@@ -51,7 +51,7 @@ export interface RefinerySign {
   seed: number;
 }
 
-export type PropTemplate = 'box' | 'cyl' | 'quadY' | 'quadZ';
+export type PropTemplate = 'box' | 'cyl' | 'drum' | 'quadY' | 'quadZ';
 
 export interface RefineryProp {
   template: PropTemplate;
@@ -94,7 +94,7 @@ export interface RefineryPlan {
 type RGB = [number, number, number];
 
 const STEEL: RGB = [0.28, 0.30, 0.32];
-const TANK: RGB = [0.20, 0.22, 0.24];
+const TANK: RGB = [0.50, 0.52, 0.54];
 const RUST: RGB = [0.46, 0.24, 0.13];
 const CONC: RGB = [0.34, 0.32, 0.30];
 const DARK: RGB = [0.07, 0.065, 0.06];
@@ -237,9 +237,9 @@ function tankFarm(put: Emit, prop: PropFn, r: Rng, block: RefineryBlock): void {
     const h = r.range(12, 20);
     const ts = s + (col - 1) * 16;
     const tt = t + (row - 0.5) * 15;
-    // Cylinder template radius is 0.5, so sx = diameter. No caps: the wall is the tank.
-    prop(ts, tt, h / 2, 'cyl', dia, h, dia, 0, TANK, [0.04, 0.035, 0.03], 0.72, 0);
-    prop(ts, tt, h + 0.15, 'cyl', dia * 0.55, 0.7, dia * 0.55, 0, STEEL, NONE, 0.6, 1);
+    // Drum radius is 0.5, so sx = diameter. The roof is in the template. A small hatch sits on it.
+    prop(ts, tt, h / 2, 'drum', dia, h, dia, 0, TANK, [0.09, 0.055, 0.03], 0.55, 0);
+    prop(ts, tt, h + 0.2, 'cyl', dia * 0.28, 0.55, dia * 0.28, 0, STEEL, NONE, 0.6, 1);
     // Catwalk ring: the same open cylinder, wider and thin, sitting on the shoulder.
     const ringY = h * 0.78;
     prop(ts, tt, ringY, 'cyl', dia + 1.5, 0.22, dia + 1.5, 0, STEEL, NONE, 0.65, 1);

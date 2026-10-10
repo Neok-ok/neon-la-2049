@@ -84,7 +84,7 @@ export function makeCanopy(): KitTemplate {
   return b.done();
 }
 
-/** Vertical cylinder, radius 0.5, centred, 6 sides. */
+/** Vertical cylinder, radius 0.5, centred, 6 sides. Open ends. */
 export function makeCylinder(sides = 6): KitTemplate {
   const b = new Bld();
   const y = 0.5;
@@ -96,6 +96,27 @@ export function makeCylinder(sides = 6): KitTemplate {
     b.quad(
       [[c0 * 0.5, -y, s0 * 0.5], [c1 * 0.5, -y, s1 * 0.5], [c1 * 0.5, y, s1 * 0.5], [c0 * 0.5, y, s0 * 0.5]],
       nx, 0, nz,
+    );
+  }
+  return b.done();
+}
+
+/** Storage tank: 12-side wall plus a roof. Radius 0.5, height 1, centred. Same scale as `cyl` (sx = diameter). */
+export function makeDrum(sides = 12): KitTemplate {
+  const b = new Bld();
+  const y = 0.5;
+  for (let i = 0; i < sides; i++) {
+    const a0 = (i / sides) * Math.PI * 2;
+    const a1 = ((i + 1) / sides) * Math.PI * 2;
+    const c0 = Math.cos(a0), s0 = Math.sin(a0), c1 = Math.cos(a1), s1 = Math.sin(a1);
+    const nx = (c0 + c1) * 0.5, nz = (s0 + s1) * 0.5;
+    b.quad(
+      [[c0 * 0.5, -y, s0 * 0.5], [c1 * 0.5, -y, s1 * 0.5], [c1 * 0.5, y, s1 * 0.5], [c0 * 0.5, y, s0 * 0.5]],
+      nx, 0, nz,
+    );
+    b.quad(
+      [[0, y, 0], [c0 * 0.5, y, s0 * 0.5], [c1 * 0.5, y, s1 * 0.5], [c1 * 0.5, y, s1 * 0.5]],
+      0, 1, 0,
     );
   }
   return b.done();
@@ -143,7 +164,7 @@ export function makeCross(): KitTemplate {
   return b.done();
 }
 
-export type TemplateId = 'box' | 'awning' | 'canopy' | 'cyl' | 'quadY' | 'quadZ' | 'stool';
+export type TemplateId = 'box' | 'awning' | 'canopy' | 'cyl' | 'drum' | 'quadY' | 'quadZ' | 'stool';
 
 const cache = new Map<TemplateId, KitTemplate>();
 
@@ -154,6 +175,7 @@ export function getTemplate(id: TemplateId): KitTemplate {
     else if (id === 'awning') t = makeAwning();
     else if (id === 'canopy') t = makeCanopy();
     else if (id === 'cyl') t = makeCylinder();
+    else if (id === 'drum') t = makeDrum();
     else if (id === 'quadY') t = makeQuadY();
     else if (id === 'quadZ') t = makeQuadZ();
     else t = makeStool();

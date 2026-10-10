@@ -10,6 +10,8 @@ The polygon, the bearing 0 grid, the 260 × 170 m blocks and the 26 m streets ar
 
 The Arts District keeps its own pipe racks. This kit does not edit that plan.
 
+`details.ts` rebuilds the block seed. The worker ships it as a float32, and the rounded value changes the yard kind, so the cylinders would not sit on the berm. Stage 18's detail module has to recompute the same `hash2i` before it calls the kit.
+
 A block is a tank farm (share 0.40), a cracking yard (0.22), a pipe canyon (0.20), or a shed. About one tank farm or pipe block in five also grows a flare. Cracking yards always do. Edge racks sit on the owned north edge of other blocks (chance 0.62).
 
 Invented heights, recorded in the Bible: flare stacks 84–140 m, cracking columns 32–58 m, tanks 14–22 m across and 12–20 m tall, a catwalk ring at 0.78 of the tank height, a 1.5 m berm, pipe decks at 7.4 m with extra tiers 0.62 m apart. The pump house is 10.2 m, three storeys of the 3.4 m module. Yard signs are existing atlas cells only (`BLACK OIL`, hanzi `STEAM`, `2049`, kana `STEAM`), about one block in twelve. No company names.

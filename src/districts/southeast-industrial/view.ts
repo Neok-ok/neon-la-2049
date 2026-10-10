@@ -123,10 +123,15 @@ export function southeastCamera(layout: CityLayout, kind: SoutheastView): Southe
     for (const b of blocks(layout)) {
       const plan = planSoutheast(b, layout);
       if (plan.kind !== 'tank') continue;
-      const feet = at(b, -(b.la / 2 + 6), -8, 0.02);
-      const look = at(b, 0, 4, 8);
+      const cyl = plan.props.find((p) => (p.template === 'drum' || p.template === 'cyl') && p.sy > 8);
+      if (!cyl) continue;
+      // South of the shell, in the yard, looking across the row so the cylinder fills the frame.
+      const feet = { x: cyl.x - 6, y: b.ground + 0.02, z: cyl.z + cyl.sx * 0.5 + 16 };
+      const look = { x: cyl.x + 4, y: b.ground + cyl.sy * 0.42, z: cyl.z - 6 };
       if (!owned(layout, feet.x, feet.z)) continue;
-      return walk(feet, look, -0.06);
+      const dist = Math.hypot(look.x - feet.x, look.z - feet.z) || 1;
+      const pitch = Math.atan2(look.y - (feet.y + 1.7), dist);
+      return walk(feet, look, pitch);
     }
     return null;
   }
@@ -136,10 +141,11 @@ export function southeastCamera(layout: CityLayout, kind: SoutheastView): Southe
       if (plan.kind !== 'pipes') continue;
       const pipe = plan.boxes.find((box) => box.base > 6 && box.h < 0.5 && box.lb > 20);
       if (!pipe) continue;
-      const feet = at(b, b.la / 2 + 8, -10, 0.02);
-      const look = at(b, pipe.s, 18, pipe.base + 0.4);
+      // In the yard, south of the north rack, clear of the lamp line and the posts.
+      const feet = at(b, pipe.s - 22, -8, 0.02);
+      const look = at(b, pipe.s, 16, pipe.base + 0.3);
       if (!owned(layout, feet.x, feet.z)) continue;
-      return walk(feet, look, -0.2);
+      return walk(feet, look, 0.16);
     }
     return null;
   }

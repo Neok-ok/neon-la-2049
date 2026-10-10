@@ -1,10 +1,12 @@
 // LOD0 kit. Flames are the city-wide mesh, not this chunk. Spill quads stay here.
 import { Group } from 'three/webgpu';
-import { registerDetail, type ChunkBlock, type DetailContext } from '../../world/detail/registry';
+import { hash2i } from '../../core/rng';
+import { registerDetail, type ChunkBlock } from '../../world/detail/registry';
 import type { QualitySettings } from '../../core/quality';
 import { buildKitMeshes, type KitInstance } from '../_shared/kit/batch';
 import { planSoutheast } from './plan';
 import type { RefineryBlock, RefineryProp } from '../_shared/refinery/plan';
+import { BLOCK_A, BLOCK_B } from './spec';
 
 const CAP: Record<QualitySettings['tier'], number> = {
   low: 220,
@@ -27,15 +29,16 @@ function keepRank(rank: number, scale: number): boolean {
   return scale >= 0.95;
 }
 
-function idOf(b: ChunkBlock, ctx: DetailContext): string {
-  const d = b.districtIndex === 0 ? ctx.layout.defaultDistrict : ctx.layout.districts[b.districtIndex - 1];
-  return d?.id ?? '';
-}
-
-function asBlock(b: ChunkBlock): RefineryBlock {
+function asBlock(b: ChunkBlock, index: number): RefineryBlock {
+  // The worker ships `seed` in a Float32Array. Past 2^24 it rounds, the yard
+  // kind changes, and the cylinders no longer sit on the fabric berm.
+  const i = Math.round(-b.cz / BLOCK_A - 0.5);
+  const j = Math.round(b.cx / BLOCK_B - 0.5);
   return {
     cx: b.cx, cz: b.cz, ax: b.ax, az: b.az, bx: -b.az, bz: b.ax,
-    la: b.la, lb: b.lb, street: b.street, seed: b.seed, ground: b.ground,
+    la: b.la, lb: b.lb, street: b.street,
+    seed: hash2i(i + 100000, j + 100000, index * 7919 + 13),
+    ground: b.ground,
   };
 }
 
@@ -53,9 +56,10 @@ registerDetail('southeast-street', ['southeast-industrial'], (ctx) => {
   const props: RefineryProp[] = [];
   let any = false;
   for (const b of ctx.blocks) {
-    if (idOf(b, ctx) !== 'southeast-industrial') continue;
+    const district = b.districtIndex === 0 ? ctx.layout.defaultDistrict : ctx.layout.districts[b.districtIndex - 1];
+    if (district?.id !== 'southeast-industrial') continue;
     any = true;
-    const plan = planSoutheast(asBlock(b), ctx.layout);
+    const plan = planSoutheast(asBlock(b, district.index), ctx.layout);
     for (const p of plan.props) if (keepRank(p.rank, scale)) props.push(p);
   }
   if (!any || !props.length) return null;
