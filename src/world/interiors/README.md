@@ -75,7 +75,7 @@ The doorway shows a procedural card (one draw) while the city is hidden. It is n
 
 `rides` on a spec is a fade, not a moving mesh and not a portal chain. Stand in the named door (feet inside the box, so the box has to include y = 0) for `dwell` seconds (default 0.8). The bed muffles for 0.4 s, then `consumeRide()` returns a pose just inside `to`, facing that car's `out` door. The app moves the walker. Each stop is its own interior.
 
-`hum` (0..1) is one shared 74 Hz sine under the muffled bed while that interior is occluded. Specs that omit it stay silent. The oscillator lives on the ambience bus.
+`hum` (0..1) is one shared 74 Hz sine under the muffled bed while that interior is occluded. Specs that omit it stay silent. The oscillator lives on the ambience bus. D2 also raises a quiet room-noise bed with the interior blend and ducks the street pool. The low-pass on the ambience master is unchanged.
 
 Fly mode still cannot enter a volume. `walkHandoff` is the exception for an exterior door whose sill is above 12 m: if the flyer is within 28 m horizontally and 16 m vertically, walk mode starts on that threshold instead of the street. Street doors do not use it.
 
