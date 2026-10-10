@@ -90,3 +90,7 @@ K's lobby, corridor, apartment, roof head-house and three lift cars call `regist
 ## Stage 20
 
 `long-beach-concourse` calls `registerInterior` and starts from `buildCorridorRoom` with `window: false`. The door faces south (yaw 0). No rides and no scene lights.
+
+## Stage 21
+
+`east-la-counter` calls `registerInterior` and starts from `buildCorridorRoom` with `window: false`. The door faces south (yaw 0) into the market yard. Corridor 2.6 × 1.7 × 2.55 m, room 5.6 × 4.4 × 2.6 m, warmth 0.96, hum 0, muffle 0.8, stream radius 42 m. Extras are a tile counter, a steel top, an amber pot and four stools. No rides and no scene lights. The name stays off the signs.

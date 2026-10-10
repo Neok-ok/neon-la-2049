@@ -230,6 +230,7 @@ registerArchetype('megablock-market', (ctx) => {
   stallsAlongEdges(ctx, 0.6, PAL_MARKET);
 });
 
+// Stage 21 moved east-la onto `east-la-sprawl`. This body stays registered and unused.
 registerArchetype('sprawl-dense', (ctx) => {
   const r = ctx.rng;
   lotLoop(ctx, ctx.lots(10, 32, 0.5), (l) => {

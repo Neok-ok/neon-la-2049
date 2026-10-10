@@ -1,6 +1,6 @@
 # Sprawl helper
 
-Stage 13 (Westside) and Stage 14 (Basin) plan ordinary blocks here. Stage 21 (East LA) should call the same functions with its own params. This is not the residential megablock library and it does not call `buildMegablock`.
+Stage 13 (Westside), Stage 14 (Basin) and Stage 21 (East LA) plan ordinary blocks here. Each district passes its own params. This is not the residential megablock library and it does not call `buildMegablock`.
 
 ```ts
 import { fillSprawlBlock } from '../_shared/sprawl/plan';
@@ -29,7 +29,7 @@ Omitted fields are the quiet Westside-sized band, not a second copy of the Stage
 | `rise` | no edge steps up |
 | `walls` | no reserved-corridor wall |
 
-Pass `storeys` to match the district row. Basin passes 2–10 at 3.4 m with cap 35 (6.8–34 m) rather than the omitted 3–10. East LA should pass its own strips when it leaves `sprawl-dense`.
+Pass `storeys` to match the district row. Basin passes 2–10 at 3.4 m with cap 35 (6.8–34 m) rather than the omitted 3–10. East LA passes 3–12 with cap 60, strips on six snapped arterials, towers on those lines plus one cluster, a hub, a west rise and `walls: true`. Omitting those fields still leaves Westside and the basin unchanged. `sprawl-dense` stays registered and unused.
 
 `walls: true` grows the same segmented solid wall, posts and amber lamps the residential library uses on a freeway probe, plus a 10.2 m step. It does not import that library. The probe is `street * 0.42 + 6` metres outside the building line, and `ctx.box` still drops anything whose centre is reserved.
 
@@ -43,4 +43,4 @@ Lots are plain `Style.Sprawl` boxes snapped to `module`. A strip face, when `str
 
 ## Traffic
 
-This folder does not register a lattice. The district does, with its own prefix and a `lane` that fits its street. `lane` below 5 m is rickshaws. Westside's roofs stay under 66 m, so a 74 m graph park does not enter a tower and this district does not need a `SpinnerTraffic` skip. A later stage that grows past about 70 m does.
+This folder does not register a lattice. The district does, with its own prefix and a `lane` that fits its street. `lane` below 5 m is rickshaws. Westside's roofs stay under 66 m, and East LA's roofs stay under 60 m with a mast under 66 m, so a 74 m graph park does not enter a tower and neither district needs a `SpinnerTraffic` skip. A later stage that grows past about 70 m does.

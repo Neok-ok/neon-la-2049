@@ -50,7 +50,7 @@
 <path d="M-3592.4,-386.5 L96.9,-165.4 L-13.8,719.2 L-1194.4,984.6 L-2854.5,1825.0 L-3776.8,940.4 Z" fill="#4a4a4a" fill-opacity="0.55" stroke="#4a4a4a" stroke-width="1.5"/>
 <path d="M-2485.6,3151.8 L1019.2,3373.0 L1019.2,6026.8 L-1747.7,5805.6 L-2116.7,4257.6 Z" fill="#c45a22" fill-opacity="0.55" stroke="#c45a22" stroke-width="1.5"/>
 <path d="M1388.1,6026.8 L3417.2,6026.8 L3417.2,7243.1 L1388.1,7021.9 Z" fill="#3e4a62" fill-opacity="0.55" stroke="#3e4a62" stroke-width="1.5"/>
-<path d="M871.6,-165.4 L2679.4,276.9 L2679.4,1161.5 L853.2,940.4 Z" fill="#4a4a4a" fill-opacity="0.55" stroke="#4a4a4a" stroke-width="1.5"/>
+<path d="M871.6,-165.4 L2679.4,276.9 L2679.4,1161.5 L853.2,940.4 Z" fill="#6a5340" fill-opacity="0.55" stroke="#6a5340" stroke-width="1.5"/>
 <path d="M613.4,100.0 L871.6,232.7 L853.2,829.8 L465.8,984.6 L-13.8,785.6 L96.9,365.4 Z" fill="#4a5a78" fill-opacity="0.55" stroke="#4a5a78" stroke-width="1.5"/>
 <path d="M650.3,1095.2 L1664.8,1161.5 L1664.8,1935.5 L650.3,1935.5 Z" fill="#3e3834" fill-opacity="0.55" stroke="#3e3834" stroke-width="1.5"/>
 <path d="M-1747.7,-828.8 L-87.6,-718.2 L96.9,-165.4 L-1932.2,-276.0 Z" fill="#555" fill-opacity="0.55" stroke="#888" stroke-width="1.5"/>
@@ -216,6 +216,8 @@
 <text x="1454.7" y="6999.5" dx="5" dy="12" fill="#8fe8ff" font-size="10">Harbor control room</text>
 <circle cx="2874.0" cy="6640.0" r="2" fill="#29d8ff"/>
 <text x="2874.0" y="6640.0" dx="5" dy="12" fill="#8fe8ff" font-size="10">Secondary core concourse</text>
+<circle cx="1522.5" cy="592.2" r="2" fill="#29d8ff"/>
+<text x="1522.5" y="592.2" dx="5" dy="12" fill="#8fe8ff" font-size="10">East LA market hall</text>
 <circle cx="746.9" cy="702.2" r="2" fill="#29d8ff"/>
 <text x="746.9" y="702.2" dx="5" dy="12" fill="#8fe8ff" font-size="10">Arts District pour hall</text>
 <circle cx="853.2" cy="697.1" r="2" fill="#29d8ff"/>

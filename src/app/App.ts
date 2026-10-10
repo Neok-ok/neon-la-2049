@@ -43,6 +43,11 @@ import { harborCamera, type HarborView } from '../districts/harbor/view';
 import { installHarborHolos } from '../districts/harbor/holos';
 import { longBeachCamera, type LongBeachView } from '../districts/long-beach/view';
 import { installLongBeachHolos } from '../districts/long-beach/holos';
+import { eastLaCamera, type EastLaView } from '../districts/east-la/view';
+import { installEastLaHolos } from '../districts/east-la/holos';
+import { mountEastLaInterchanges } from '../districts/east-la/interchange';
+import { eastLaMachinery } from '../districts/east-la/crossings';
+import { marketPin } from '../districts/east-la/locate';
 import { harborHum, mountHarbor, updateHarbor } from '../districts/harbor/field';
 import { setRefineryFlame } from '../districts/_shared/refinery/flames';
 import { installArtsHolos } from '../districts/arts-district/holos';
@@ -197,6 +202,9 @@ export class App {
     installSouthBayHolos(this.query.layout);
     installHarborHolos(this.query.layout);
     installLongBeachHolos(this.query.layout);
+    installEastLaHolos(this.query.layout);
+    const eastDeck = mountEastLaInterchanges(this.query.layout);
+    if (eastDeck) this.scene.add(eastDeck);
     this.holos = new HologramField(this.query.layout);
     this.scene.add(this.holos.group);
     this.traffic = new SpinnerTraffic(this.scene, this.query, settingsFor('ultra').traffic);
@@ -387,6 +395,7 @@ export class App {
     const inSouthBay = districtNow.id === 'south-bay-refineries';
     const inHarbor = districtNow.id === 'harbor';
     const inLong = districtNow.id === 'long-beach';
+    const inEast = districtNow.id === 'east-la';
     const southAmber = inSouth ? Math.max(0, 1 - eastDistance(cam.x, cam.z) / 1500) : 0;
     const walLm = this.query.layout.landmarkById('wallace-pyramid');
     const inWallace = districtNow.id === 'wallace-vernon'
@@ -401,7 +410,8 @@ export class App {
             : inSouth && alt < 46 ? 0.42 + southAmber * 0.14
               : inLake && alt < 46 ? 0.38
                 : inLong && alt < 72 ? 0.46
-                  : inArts && alt < 50 ? 0.26
+                  : inEast && alt < 40 ? 0.4
+                    : inArts && alt < 50 ? 0.26
                     : inSouthBay && alt < 60 ? 0.16
                       : inHarbor && alt < 55 ? 0.14
                         : inCoast ? 0.06
@@ -477,7 +487,7 @@ export class App {
       ? Math.max(0, 1 - alt / 140) * 0.82
       : inArts ? Math.max(0, 1 - alt / 90) * 0.66
         : inSoutheast ? Math.max(0, 1 - alt / 110) * 0.5 : 0;
-    this.ambience.setMachinery(Math.min(1, districtMach + launchRumble(cam.x, cam.y, cam.z) + southBayHum(cam.x, cam.y, cam.z, this.query.layout) + harborHum(cam.x, cam.y, cam.z, this.query.layout)));
+    this.ambience.setMachinery(Math.min(1, districtMach + launchRumble(cam.x, cam.y, cam.z) + southBayHum(cam.x, cam.y, cam.z, this.query.layout) + harborHum(cam.x, cam.y, cam.z, this.query.layout) + eastLaMachinery(cam.x, cam.y, cam.z, this.query.layout)));
     updateHarbor(this.elapsed, cam.x, cam.y, cam.z);
     setRefineryFlame(this.quality.tier, w.windDir, w.params.wind);
     this.ambience.setTraffic(this.ground.bed);
@@ -486,14 +496,16 @@ export class App {
     this.camera.updateMatrixWorld();
     const e = this.camera.matrixWorld.elements;
     const cook = marketSpots(this.query.layout).noodle?.cook ?? null;
+    const hall = marketPin(this.query.layout);
+    const nearHall = !!hall && inEast && alt < 28 && Math.hypot(cam.x - hall.x, cam.z - hall.z) < 48;
     this.marketAudio.update(
       cam,
       { x: -e[8], y: -e[9], z: -e[10] },
       { x: e[4], y: e[5], z: e[6] },
       w.params.rain,
-      inMarket,
+      inMarket || nearHall,
       alt,
-      cook,
+      inMarket ? cook : nearHall ? hall : null,
       this.nearestSpinner(cam),
     );
 
@@ -761,6 +773,26 @@ export class App {
       launch: (phase?: number, pad?: number) => {
         requestLaunch(phase ?? 0, pad);
         return { phase: phase ?? 0, pad: pad ?? launchPad() };
+      },
+      /** Stage 21 cameras: the carpet from a kilometre up, a junction, a market street, the river, the counter, a side street, the deck. */
+      eastLaView: (kind: EastLaView) => {
+        const p = eastLaCamera(this.query.layout, kind);
+        if (!p) return false;
+        this.query.fabricAt(p.x, p.z);
+        this.cams.setMode(p.mode);
+        if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
+        this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
+        if (p.mode === 'walk') {
+          this.cams.walk.pitch = p.pitch;
+          this.cams.walk.heading = p.heading;
+          if (p.feet) {
+            this.cams.walk.pos.set(p.feet.x, p.feet.y, p.feet.z);
+            this.camera.position.set(p.feet.x, p.feet.y + 1.7, p.feet.z);
+            this.camera.rotation.set(p.pitch, -p.heading, 0, 'YXZ');
+            this.camera.updateMatrixWorld();
+          }
+        }
+        return true;
       },
       /** Stage 20 cameras: the core from a kilometre up, the skyline from the harbor wall, the canyon, the Lakewood edge, the concourse, the freight lane. */
       longBeachView: (kind: LongBeachView) => {

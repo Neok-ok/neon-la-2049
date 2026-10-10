@@ -13,7 +13,10 @@ import { advanceGraph, downtownGraph, edgeAround, poseOn } from './streetGraph';
 
 const T = TSL as any;
 
-/** A lane ≥ 5 must not park spinners at 74 m or 112 m. Those bands sit inside the slabs and the stacks. */
+/**
+ * A lane ≥ 5 must not park spinners at 74 m or 112 m. Those bands sit inside the slabs and the stacks.
+ * East LA is not in this list: roofs stay under 60 m and masts stop under 66 m, so 74 / 112 m clears them.
+ */
 function overRoofs(id: string): boolean {
   return id === 'lakewood-megablocks' || id === 'south-la-megablocks' || id === 'arts-district'
     || id === 'southeast-industrial' || id === 'hollywood' || id === 'lax-spaceport'

@@ -15,6 +15,7 @@ import { advanceGraph, edgeIdsNear, edgeNear, graphBinKey, poseOn, streetGraph, 
 import { MESH_LEN, vehicleGeometry, vehicleMaterial, type MeshId } from './vehicleModels';
 import { createTrafficDress, streakNear, type TrafficDress } from './freewayDress';
 import { SPINE_B } from '../districts/south-la-megablocks/spec';
+import { STRIP_A, STRIP_B } from '../districts/east-la/spec';
 import { LAMP_RGB, STOP_LINE, axisLamp, lampHeld, type Lamp } from './trafficSignals';
 
 const T = TSL as any;
@@ -253,6 +254,13 @@ export class GroundTraffic {
     } else if (e.district === 'long-beach') {
       const r = rng.next();
       mesh = r < 0.70 ? 'car' : r < 0.92 ? 'van' : 'box';
+    } else if (e.district === 'east-la') {
+      const node = g?.nodes[e.a];
+      const spine = !!node && e.length >= 80 && (
+        (e.axis === 0 && (STRIP_B as readonly number[]).includes(node.j))
+        || (e.axis === 1 && (STRIP_A as readonly number[]).includes(node.i))
+      );
+      mesh = spine && rng.chance(0.1) ? 'box' : rng.chance(0.2) ? 'van' : 'car';
     } else {
       const r = rng.next();
       mesh = r < 0.62 ? 'car' : r < 0.82 ? 'van' : r < 0.94 ? 'box' : 'hauler';
