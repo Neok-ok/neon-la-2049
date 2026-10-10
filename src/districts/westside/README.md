@@ -45,7 +45,7 @@ POI `westside-yard` is the pin, not the block centre. The yard is fabric: north 
 
 ## Air
 
-No new fog, light or audio path. Below the district match, `App.ts` keeps neon wetness 0.22 and street fog 0. Far-LOD `westside-sprawl` copies the existing `sprawl-dense` pair (lights 1, neon 0.35) so the amber carpet (`warmC`) does not change. Stage 14 retunes `basin-sprawl` only. Up close the amber is the shared sodium lamps, the awning lips and `Style.Sprawl` warmth 0.8.
+No new fog, light or audio path. Below the district match, `App.ts` keeps neon wetness 0.22 and street fog 0. Far-LOD `westside-sprawl` copies the existing `sprawl-dense` pair (lights 1, neon 0.35) so the amber carpet (`warmC`) does not change. Basin is 0.52 / 0.16. Up close the amber is the shared sodium lamps, the awning lips and `Style.Sprawl` warmth 0.8.
 
 Ground above 45 m (the Baldwin Hills overlap) stays `hills-sparse`. The planner, the dresser and the camera search return empty there.
 

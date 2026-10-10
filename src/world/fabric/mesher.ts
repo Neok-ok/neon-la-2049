@@ -36,7 +36,8 @@ export function lodRules(lod: number): LodRules {
 }
 
 const SPRAWL_LIGHTS: Record<string, number> = {
-  'basin-sprawl': 1,
+  // Dimmer than Westside (1) and just under South LA (0.62), still a carpet above the hills (0.15).
+  'basin-sprawl': 0.52,
   'sprawl-dense': 1,
   // Same pair as sprawl-dense. Stage 14 retunes basin-sprawl; leave this key alone.
   'westside-sprawl': 1,
@@ -71,7 +72,8 @@ const STREET_NEON: Record<string, number> = {
   'sprawl-dense': 0.35,
   // Copies sprawl-dense so the amber carpet does not change. Stage 14 owns basin-sprawl.
   'westside-sprawl': 0.35,
-  'basin-sprawl': 0.25,
+  // Faint amber sheen: under Westside 0.35, a small step above South LA 0.10. Fades by ~520 m.
+  'basin-sprawl': 0.16,
   'megablock-residential': 0.3,
   'lakewood-megablocks': 0.08,
   'south-la-megablocks': 0.1,
