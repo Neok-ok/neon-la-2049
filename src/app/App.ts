@@ -26,6 +26,7 @@ import { installLakewoodHolos } from '../districts/lakewood-megablocks/holos';
 import { southLaCamera, type SouthLaView } from '../districts/south-la-megablocks/view';
 import { installSouthLaHolos } from '../districts/south-la-megablocks/holos';
 import { artsCamera, type ArtsView } from '../districts/arts-district/view';
+import { westsideCamera, type WestsideView } from '../districts/westside/view';
 import { installArtsHolos } from '../districts/arts-district/holos';
 import { artsRiverBoost } from '../districts/arts-district/plan';
 import { eastDistance } from '../districts/south-la-megablocks/spec';
@@ -651,6 +652,26 @@ export class App {
       /** Stage 9 cameras: the works from the air, a stack, the pour door, a pipe rack, the river bank, a truck street, the foundry bay. */
       artsView: (kind: ArtsView) => {
         const p = artsCamera(this.query.layout, kind);
+        if (!p) return false;
+        this.query.fabricAt(p.x, p.z);
+        this.cams.setMode(p.mode);
+        if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
+        this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
+        if (p.mode === 'walk') {
+          this.cams.walk.pitch = p.pitch;
+          this.cams.walk.heading = p.heading;
+          if (p.feet) {
+            this.cams.walk.pos.set(p.feet.x, p.feet.y, p.feet.z);
+            this.camera.position.set(p.feet.x, p.feet.y + 1.7, p.feet.z);
+            this.camera.rotation.set(p.pitch, -p.heading, 0, 'YXZ');
+            this.camera.updateMatrixWorld();
+          }
+        }
+        return true;
+      },
+      /** Stage 13 cameras: the sector from a kilometre up, a quiet street, a strip, a roof, the 10, the yard, the diner, a Wilshire-side tower. */
+      westsideView: (kind: WestsideView) => {
+        const p = westsideCamera(this.query.layout, kind);
         if (!p) return false;
         this.query.fabricAt(p.x, p.z);
         this.cams.setMode(p.mode);
