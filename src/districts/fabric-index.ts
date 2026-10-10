@@ -19,3 +19,4 @@ import './hollywood/archetype';
 import './lax-spaceport/archetype';
 import './south-bay-refineries/archetype';
 import './harbor/archetype';
+import './long-beach/archetype';

@@ -250,6 +250,9 @@ export class GroundTraffic {
     } else if (e.district === 'harbor') {
       const r = rng.next();
       mesh = r < 0.74 ? 'hauler' : 'box';
+    } else if (e.district === 'long-beach') {
+      const r = rng.next();
+      mesh = r < 0.70 ? 'car' : r < 0.92 ? 'van' : 'box';
     } else {
       const r = rng.next();
       mesh = r < 0.62 ? 'car' : r < 0.82 ? 'van' : r < 0.94 ? 'box' : 'hauler';

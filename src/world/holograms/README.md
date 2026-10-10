@@ -149,3 +149,14 @@ The glyphs are noise. The wedge is the existing share ad. No refinery name. Yard
 | `harbor-courier` | 14 × 20 m, cyan, spill 18 m, rank 1 | ash-crane | tower |
 
 The glyphs are noise. The figure is the existing Ash Line courier. No port or carrier name. Yard stencils stay kind 0.
+
+## Stage 20 placements
+
+`src/districts/long-beach/holos.ts` calls `registerHologram` before the field is built. South of the concourse door, yaw 0 so the normal faces south. No new design.
+
+| Id | Where | Design | Band |
+|---|---|---|---|
+| `long-beach-glyph` | 12 × 16 m, amber, spill 14 m, rank 0 | glyph-loop | street |
+| `long-beach-lease` | 16 × 12 m, cyan, spill 16 m, rank 1 | lease-loop | tower |
+
+The glyphs are noise. The wedge is the existing share ad. No agency or building name. Kit billboards stay kind 0 until the field promotes a panel at or over 140 m².

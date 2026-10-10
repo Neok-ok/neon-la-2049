@@ -32,3 +32,5 @@ import './south-bay-refineries/details';
 import './south-bay-refineries/crowd';
 import './harbor/details';
 import './harbor/crowd';
+import './long-beach/details';
+import './long-beach/crowd';

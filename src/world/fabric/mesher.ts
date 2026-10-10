@@ -62,6 +62,8 @@ const SPRAWL_LIGHTS: Record<string, number> = {
   'south-bay-refinery': 0.72,
   // Sodium work-light carpet. Under the South Bay (0.72), above unused `port` (0.4).
   'harbor-port': 0.64,
+  // Concrete core. Under the implicit downtown carpet (0.6) and the harbor (0.64), above Lakewood (0.5).
+  'long-beach-core': 0.55,
   port: 0.4,
   spaceport: 0.3,
   // Flood carpet for the apron. The old spaceport key is unused. Under the basin (0.52), above industrial (0.35).
@@ -80,6 +82,8 @@ const STREET_NEON: Record<string, number> = {
   'hollywood-strip': 0.86,
   'megablock-market': 0.8,
   'megablock-downtown': 0.72,
+  // Wet sodium and neon. Under downtown (0.72), above the basin (0.16) and Lakewood (0.08).
+  'long-beach-core': 0.28,
   'financial-megatowers': 0.55,
   'megatower-core': 0.5,
   'sprawl-dense': 0.35,

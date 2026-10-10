@@ -40,4 +40,4 @@ Audio reuses `Ambience.setMachinery`: 0.46 below 110 m inside the polygon, and o
 
 `__nla.harborView('aerial'|'wall'|'stacks'|'ship'|'street'|'interior'|'lax')`.
 
-Crowd share is 0.02, loops beside a quay block. The LA River is not recut. The 605 and the 91 are still absent from the JSON. `long-beach`, `coastal-strip`, `south-bay-refineries` and `lax-spaceport` are not dressed.
+Crowd share is 0.02, loops beside a quay block. The LA River is not recut. The 605 and the 91 are still absent from the JSON. `long-beach` is Stage 20. This stage does not dress `coastal-strip`, `south-bay-refineries` or `lax-spaceport`.

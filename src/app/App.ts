@@ -41,6 +41,8 @@ import { installSouthBayHolos } from '../districts/south-bay-refineries/holos';
 import { mountSouthBayFlares, southBayHum } from '../districts/south-bay-refineries/field';
 import { harborCamera, type HarborView } from '../districts/harbor/view';
 import { installHarborHolos } from '../districts/harbor/holos';
+import { longBeachCamera, type LongBeachView } from '../districts/long-beach/view';
+import { installLongBeachHolos } from '../districts/long-beach/holos';
 import { harborHum, mountHarbor, updateHarbor } from '../districts/harbor/field';
 import { setRefineryFlame } from '../districts/_shared/refinery/flames';
 import { installArtsHolos } from '../districts/arts-district/holos';
@@ -194,6 +196,7 @@ export class App {
     installLaxHolos(this.query.layout);
     installSouthBayHolos(this.query.layout);
     installHarborHolos(this.query.layout);
+    installLongBeachHolos(this.query.layout);
     this.holos = new HologramField(this.query.layout);
     this.scene.add(this.holos.group);
     this.traffic = new SpinnerTraffic(this.scene, this.query, settingsFor('ultra').traffic);
@@ -383,6 +386,7 @@ export class App {
     const inSoutheast = districtNow.id === 'southeast-industrial';
     const inSouthBay = districtNow.id === 'south-bay-refineries';
     const inHarbor = districtNow.id === 'harbor';
+    const inLong = districtNow.id === 'long-beach';
     const southAmber = inSouth ? Math.max(0, 1 - eastDistance(cam.x, cam.z) / 1500) : 0;
     const walLm = this.query.layout.landmarkById('wallace-pyramid');
     const inWallace = districtNow.id === 'wallace-vernon'
@@ -396,11 +400,12 @@ export class App {
           : inK && alt < 48 ? 0.5
             : inSouth && alt < 46 ? 0.42 + southAmber * 0.14
               : inLake && alt < 46 ? 0.38
-                : inArts && alt < 50 ? 0.26
-                  : inSouthBay && alt < 60 ? 0.16
-                    : inHarbor && alt < 55 ? 0.14
-                      : inCoast ? 0.06
-                        : 0.22;
+                : inLong && alt < 72 ? 0.46
+                  : inArts && alt < 50 ? 0.26
+                    : inSouthBay && alt < 60 ? 0.16
+                      : inHarbor && alt < 55 ? 0.14
+                        : inCoast ? 0.06
+                          : 0.22;
     const districtFog = inMarket ? Math.max(0, Math.min(1, 1 - alt / 70)) * 0.8
       : inHistoric && alt < 90 ? 0.42 * (1 - alt / 90)
         : inDtla && alt < 80 ? 0.28 * (1 - alt / 80)
@@ -422,7 +427,8 @@ export class App {
           : 1;
     const sbFog = inSouthBay && alt < 80 ? 0.4 * (1 - alt / 80) * sbFogK : 0;
     const harborFog = inHarbor && alt < 90 ? 0.46 * (1 - alt / 90) * sbFogK : 0;
-    U.streetFog.value = Math.max(districtFog, coast.fog, artsFog, sbFog, harborFog);
+    const longFog = inLong && alt < 70 ? 0.22 * (1 - alt / 70) * sbFogK : 0;
+    U.streetFog.value = Math.max(districtFog, coast.fog, artsFog, sbFog, harborFog, longFog);
     const dtSafe = Math.max(dt, 1e-4);
     this.query.warm(cam.x, cam.z, cam.x + ((cam.x - this.lastCam.x) / dtSafe) * 0.45, cam.z + ((cam.z - this.lastCam.z) / dtSafe) * 0.45);
     this.lastCam.copy(cam);
@@ -755,6 +761,26 @@ export class App {
       launch: (phase?: number, pad?: number) => {
         requestLaunch(phase ?? 0, pad);
         return { phase: phase ?? 0, pad: pad ?? launchPad() };
+      },
+      /** Stage 20 cameras: the core from a kilometre up, the skyline from the harbor wall, the canyon, the Lakewood edge, the concourse, the freight lane. */
+      longBeachView: (kind: LongBeachView) => {
+        const p = longBeachCamera(this.query.layout, kind);
+        if (!p) return false;
+        this.query.fabricAt(p.x, p.z);
+        this.cams.setMode(p.mode);
+        if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
+        this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
+        if (p.mode === 'walk') {
+          this.cams.walk.pitch = p.pitch;
+          this.cams.walk.heading = p.heading;
+          if (p.feet) {
+            this.cams.walk.pos.set(p.feet.x, p.feet.y, p.feet.z);
+            this.camera.position.set(p.feet.x, p.feet.y + 1.7, p.feet.z);
+            this.camera.rotation.set(p.pitch, -p.heading, 0, 'YXZ');
+            this.camera.updateMatrixWorld();
+          }
+        }
+        return true;
       },
       /** Stage 19 cameras: the quay from a kilometre up, cranes over the harbor wall, stacks, a hull, the street, the control room, the port from LAX. */
       harborView: (kind: HarborView) => {

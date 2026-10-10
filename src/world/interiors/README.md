@@ -86,3 +86,7 @@ K's lobby, corridor, apartment, roof head-house and three lift cars call `regist
 ## Stage 19
 
 `harbor-control` calls `registerInterior` and starts from `buildCorridorRoom` with `window: false`. The door faces north (yaw π). No rides and no scene lights.
+
+## Stage 20
+
+`long-beach-concourse` calls `registerInterior` and starts from `buildCorridorRoom` with `window: false`. The door faces south (yaw 0). No rides and no scene lights.

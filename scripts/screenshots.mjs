@@ -299,6 +299,18 @@ const shots = [
   { name: 'harbor-ultra', ctx: desktop, q: `mode=walk&at=harbor-control&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.harborView('stacks'), near: true, settle: true },
   { name: 'harbor-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=harbor-control&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.harborView('stacks'), near: true, settle: true },
   { name: 'harbor-flyover', ctx: desktop, q: `mode=fly&at=harbor-control&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.harborView('aerial'), near: true, settle: true, flyover: true, hop: { x0: 2200, z0: 33400, y: 140, yaw: 80, pitch: -8, dx: 160, dz: -30, n: 28 } },
+  // Stage 20 — Long Beach. Cameras come from __nla.longBeachView.
+  { name: 'lb-aerial-night', ctx: desktop, q: `mode=fly&at=long-beach-concourse&time=22&weather=drizzle&${common}`, after: () => window.__nla.longBeachView('aerial'), near: true, settle: true },
+  { name: 'lb-wall-rain', ctx: desktop, q: `mode=fly&at=long-beach-concourse&time=22.5&weather=rain&${common}`, after: () => window.__nla.longBeachView('wall'), near: true, settle: true },
+  { name: 'lb-canyon-rain', ctx: desktop, q: `mode=walk&at=long-beach-concourse&time=22.5&weather=rain&${common}`, after: () => window.__nla.longBeachView('canyon'), near: true, settle: true },
+  { name: 'lb-lakewood', ctx: desktop, q: `mode=fly&at=long-beach-concourse&time=22&weather=drizzle&${common}`, after: () => window.__nla.longBeachView('lakewood'), near: true, settle: true },
+  { name: 'interior-long-beach', ctx: desktop, q: `mode=walk&at=long-beach-concourse&time=22.5&weather=rain&${common}`, after: () => window.__nla.longBeachView('interior'), near: true, settle: true },
+  { name: 'lb-lanes', ctx: desktop, q: `mode=fly&at=long-beach-concourse&time=22&weather=drizzle&${common}`, after: () => window.__nla.longBeachView('lanes'), near: true, settle: true },
+  { name: 'lb-low', ctx: desktop, q: `mode=walk&at=long-beach-concourse&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=low${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.longBeachView('canyon'), near: true, settle: true },
+  { name: 'lb-medium', ctx: desktop, q: `mode=walk&at=long-beach-concourse&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.longBeachView('canyon'), near: true, settle: true },
+  { name: 'lb-ultra', ctx: desktop, q: `mode=walk&at=long-beach-concourse&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=ultra${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.longBeachView('canyon'), near: true, settle: true },
+  { name: 'lb-iphone', ctx: { ...iphone, deviceScaleFactor: 1 }, q: `mode=walk&at=long-beach-concourse&time=22.5&weather=rain&freeze=1&ui=0&hud=1&quality=medium&touch=1${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.longBeachView('canyon'), near: true, settle: true },
+  { name: 'lb-flyover', ctx: desktop, q: `mode=fly&at=long-beach-concourse&time=22.5&weather=drizzle&freeze=1&ui=0&hud=1&quality=medium${GPU ? '' : '&webgl=1'}`, after: () => window.__nla.longBeachView('aerial'), near: true, settle: true, flyover: true, hop: { x0: 10080, z0: 30970, y: 48, yaw: 90, pitch: -6, dx: 160, dz: 0, n: 28 } },
 ];
 
 const args = GPU
