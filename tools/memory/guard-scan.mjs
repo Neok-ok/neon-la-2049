@@ -21,6 +21,7 @@ const FILES = [
   'src/photo/lensNode.ts',
   'src/photo/pipeline.ts',
   'src/photo/playLens.ts',
+  'src/vehicles/vehicleModels.ts',
 ];
 
 const CONSTRUCT = /new\s+(BufferGeometry|DataTexture|CanvasTexture|CompressedTexture|WebGLRenderTarget|RenderTarget|MeshStandardNodeMaterial|MeshBasicNodeMaterial)\b/;

@@ -9,6 +9,7 @@ const SRC = process.env.SRC ?? 'legacy';
 const TITLE = process.env.TITLE ?? SRC;
 const MODE = process.env.MODE ?? 'sheet';
 const OUT = process.env.OUT ?? 'screenshots-tmp/turntable.png';
+const PAGE = process.env.PAGE ?? 'tools/model-harness/turntable/index.html';
 const CHROME = process.env.CHROME
   || (existsSync('/usr/bin/google-chrome') ? '/usr/bin/google-chrome' : '/usr/local/bin/google-chrome');
 
@@ -26,7 +27,7 @@ page.on('console', (m) => {
   if (m.type() === 'error') errors.push(m.text());
 });
 
-const url = new URL('tools/model-harness/turntable/index.html', BASE);
+const url = new URL(PAGE, BASE);
 url.searchParams.set('src', SRC);
 url.searchParams.set('title', TITLE);
 url.searchParams.set('mode', MODE);

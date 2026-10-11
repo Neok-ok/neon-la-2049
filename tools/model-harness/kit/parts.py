@@ -24,16 +24,47 @@ def _finish(bm, name, mat, collection):
     obj = bpy.data.objects.new(name, mesh)
     if mat is not None:
         obj.data.materials.append(mat)
+    _link(obj, collection)
     _shade(obj, math.radians(45))
-    return _link(obj, collection)
+    return obj
 
 
 def _shade(obj, angle):
+    """Smooth by angle. Blender 4.1 dropped `use_auto_smooth`; the operator is the replacement."""
     mesh = obj.data
-    mesh.use_auto_smooth = True
-    mesh.auto_smooth_angle = angle
-    for poly in mesh.polygons:
-        poly.use_smooth = True
+    if hasattr(mesh, 'use_auto_smooth'):
+        mesh.use_auto_smooth = True
+        mesh.auto_smooth_angle = angle
+        for poly in mesh.polygons:
+            poly.use_smooth = True
+        return
+    if obj.name not in bpy.context.view_layer.objects:
+        for poly in mesh.polygons:
+            poly.use_smooth = False
+        return
+    view = bpy.context.view_layer.objects
+    prev_active = view.active
+    prev_sel = [o for o in view if o.select_get()]
+    try:
+        if bpy.context.mode != 'OBJECT':
+            bpy.ops.object.mode_set(mode='OBJECT')
+        bpy.ops.object.select_all(action='DESELECT')
+        obj.select_set(True)
+        view.active = obj
+        bpy.ops.object.shade_smooth_by_angle(angle=angle)
+    except (RuntimeError, AttributeError, TypeError):
+        for poly in mesh.polygons:
+            poly.use_smooth = True
+    finally:
+        try:
+            bpy.ops.object.select_all(action='DESELECT')
+        except RuntimeError:
+            pass
+        for other in prev_sel:
+            if other.name in view:
+                other.select_set(True)
+        if prev_active and prev_active.name in view:
+            view.active = prev_active
 
 
 def _box(name, lo, hi, mat, collection):

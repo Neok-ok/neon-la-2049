@@ -1,8 +1,10 @@
 // Final-apron layout at the toe nearest POI `sea-wall-fight`.
 // The published pin stays inland. This plan does not move it.
-// Treads rise ≤ 0.40 m and step inland, so walk mode can climb them
-// and a stacked column cannot auto-climb the whole flight.
+// Each flight uses planFlight: rise 0.15–0.18 m, going 0.28–0.32 m.
+// The across-span is shorter than that run, so the flights switch back
+// along the wall inside the existing stair column.
 import type { CityLayout } from '../../world/layout';
+import { planFlight, RAIL_H } from '../../world/architecture/scale';
 import {
   SEA_Y,
   STAIR_ALONG,
@@ -41,6 +43,8 @@ export interface ApronPlan {
 }
 
 const DECK_Y = SEA_Y + 1.05;
+/** Overlap so a tread nose covers the riser below it. Going is `w` minus this. */
+export const STEP_NOSING = 0.02;
 
 function dryOuter(layout: CityLayout, frame: WallFrame, along: number, lo: number): number {
   const ocean = (a: number) => {
@@ -75,39 +79,93 @@ function addFlight(
   width: number,
 ): void {
   const rise = y1 - y0;
-  const n = Math.max(2, Math.round(rise / 0.39));
-  const riser = rise / n;
-  const run = acrossBottom - acrossTop;
-  const da = run / n;
-  for (let i = 0; i < n; i++) {
-    const top = y0 + riser * (i + 1);
-    const across = acrossBottom - da * (i + 0.5);
-    solids.push({
-      role: 'step',
-      across,
-      along,
-      y0: top - riser,
-      w: width,
-      d: da + 0.08,
-      h: riser,
-      yawExtra: 0,
-      block: true,
-    });
-    if (i % 4 === 0) {
-      for (const side of [-1, 1]) {
-        solids.push({
-          role: 'post',
-          across,
-          along: along + side * (width / 2 + 0.2),
-          y0: top - riser,
-          w: 0.22,
-          d: 0.22,
-          h: 1.12,
-          yawExtra: 0,
-          block: true,
-        });
+  const span = acrossBottom - acrossTop;
+  if (rise < 0.2 || span < 0.4 || width < 0.8) return;
+  const flight = planFlight(rise);
+  const tread = flight.tread;
+  const usable = Math.max(tread * 2, width - 0.25);
+  const perMax = Math.max(2, Math.floor(usable / tread));
+  let flights = Math.max(1, Math.ceil(span / 1.7));
+  while (
+    flights < flight.risers
+    && span / flights > 2.05
+    && Math.ceil(flight.risers / (flights + 1)) <= perMax
+  ) {
+    flights += 1;
+  }
+  while (flights * perMax < flight.risers && flights < flight.risers) flights += 1;
+  const flightW = span / flights;
+  const base = Math.floor(flight.risers / flights);
+  let extra = flight.risers - base * flights;
+  const inner0 = along - width / 2 + 0.12;
+  const inner1 = along + width / 2 - 0.12;
+  let y = y0;
+  for (let f = 0; f < flights; f++) {
+    const n = base + (extra > 0 ? 1 : 0);
+    if (extra > 0) extra -= 1;
+    if (n < 1) continue;
+    const dir = f % 2 === 0 ? 1 : -1;
+    const across = acrossBottom - flightW * (f + 0.5);
+    const stepD = flightW;
+    for (let i = 0; i < n; i++) {
+      const alongPos = dir > 0
+        ? inner0 + tread * (i + 0.5)
+        : inner1 - tread * (i + 0.5);
+      solids.push({
+        role: 'step',
+        across,
+        along: alongPos,
+        y0: y + flight.rise * i,
+        w: tread + STEP_NOSING,
+        d: stepD,
+        h: flight.rise,
+        yawExtra: 0,
+        block: true,
+      });
+    }
+    const top = y + flight.rise * n;
+    if (flightW >= 1.1) {
+      const ends = [
+        {
+          along: dir > 0 ? inner0 + tread * 0.5 : inner1 - tread * 0.5,
+          y0: y,
+        },
+        {
+          along: dir > 0 ? inner0 + tread * (n - 0.5) : inner1 - tread * (n - 0.5),
+          y0: y + flight.rise * (n - 1),
+        },
+      ];
+      for (const end of ends) {
+        for (const side of [-1, 1]) {
+          solids.push({
+            role: 'post',
+            across: across + side * (flightW / 2 - 0.1),
+            along: end.along,
+            y0: end.y0,
+            w: 0.08,
+            d: 0.08,
+            h: RAIL_H + flight.rise,
+            yawExtra: 0,
+            block: true,
+          });
+        }
       }
     }
+    if (f < flights - 1) {
+      const nextAcross = acrossBottom - flightW * (f + 1.5);
+      solids.push({
+        role: 'deck',
+        across: (across + nextAcross) / 2,
+        along: dir > 0 ? inner1 - tread * 0.5 : inner0 + tread * 0.5,
+        y0: top - 0.18,
+        w: tread + STEP_NOSING,
+        d: flightW,
+        h: 0.18,
+        yawExtra: 0,
+        block: true,
+      });
+    }
+    y = top;
   }
 }
 

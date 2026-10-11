@@ -4,6 +4,9 @@ import { Rng } from '../../core/rng';
 import type { CityLayout } from '../../world/layout';
 import { BROADWAY_J, worldToGrid } from './spec';
 
+/** Body height. The kit box is centered, so the prop sits at ground + half this. */
+const RICKSHAW_H = 1.45;
+
 export interface CanyonBlock {
   cx: number;
   cz: number;
@@ -144,12 +147,12 @@ export function dressBlock(b: CanyonBlock, layout: CityLayout): {
       const [x, z] = world(b, s, t);
       if (!layout.isReserved(x, z, 2)) {
         props.push({
-          template: 'box', x, y: b.ground, z, yaw: edge.yaw,
-          sx: 0.95, sy: 1.45, sz: 2.15,
+          template: 'box', x, y: b.ground + RICKSHAW_H / 2, z, yaw: edge.yaw,
+          sx: 0.95, sy: RICKSHAW_H, sz: 2.15,
           color: [0.12, 0.11, 0.13], emissive: [0.15, 0.04, 0.06], metal: 0.6, rank: 1,
         });
         props.push({
-          template: 'box', x, y: b.ground + 1.15, z, yaw: edge.yaw,
+          template: 'box', x, y: b.ground + RICKSHAW_H + 0.06, z, yaw: edge.yaw,
           sx: 0.18, sy: 0.12, sz: 0.08,
           color: [0.2, 0.05, 0.08], emissive: PINK, metal: 0.1, rank: 2,
         });

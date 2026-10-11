@@ -149,3 +149,18 @@ kit.place(part, location=(1, 2, 3), normal=(0, 1, 0), lift=0.002)
 | `place(part, location, normal=None, rotation=None, scale=None, lift=0.0)` | Parents the part to an empty and aims it |
 
 Materials the game keys off: `body`, `satin`, `drum`, `recess`, `glass`, `livery`, `light-white`, `light-red`, `light-blue`, `light-amber`, `light-strobe-red`, `light-strobe-blue`, `light-underglow`, `light-nozzle`. Body, satin, drum, recess, and livery keep base color, normal, roughness, and metalness maps when the glTF has them.
+
+## Ground traffic
+
+`tools/model-harness/blender/build_traffic.py` is the source for `public/models/traffic/{car,hauler}-{high,medium,low}.glb`. Ultra and high share the high file. Medium is the lighter dress. Low is the shell. The game bakes each glTF to one geometry on the shared wet material, so traffic is still one instanced draw per class. K's spinner is a different file and this script does not write it.
+
+Reference silhouettes (side, top, front) are written under `tools/model-harness/reference/` and stay out of git. The bar is `traffic-look-target.md`.
+
+```bash
+PAGE=tools/model-harness/turntable/vehicle.html \
+  SRC=/models/traffic/car-high.glb TITLE="ground car" \
+  OUT=tools/model-harness/reviews/car-high.png \
+  npm run turntable
+```
+
+The vehicle sheet is a front three-quarter, a side, a rear three-quarter and a top view, in rim-lit night and in studio. A 1.80 m figure, a 3.60 m lane and a 2.20 × 1.00 m door stand next to the mesh.

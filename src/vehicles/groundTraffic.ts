@@ -12,7 +12,7 @@ import { Rng, trueRandomSeed } from '../core/rng';
 import { U } from '../atmosphere/uniforms';
 import { getPoolMaterial } from '../districts/_shared/kit/materials';
 import { advanceGraph, edgeIdsNear, edgeNear, graphBinKey, poseOn, streetGraph, visitBins, type GraphEdge, type StreetGraph } from './streetGraph';
-import { MESH_LEN, vehicleGeometry, vehicleMaterial, type MeshId } from './vehicleModels';
+import { MESH_LEN, setVehicleLod, vehicleGeometry, vehicleMaterial, type MeshId } from './vehicleModels';
 import { createTrafficDress, streakNear, type TrafficDress } from './freewayDress';
 import { SPINE_B } from '../districts/south-la-megablocks/spec';
 import { STRIP_A, STRIP_B } from '../districts/east-la/spec';
@@ -222,7 +222,7 @@ export class GroundTraffic {
     const rng = this.rng;
     if (!freeway && (e.kind === 'canyon' || e.lane < 5)) {
       if (rng.chance(0.28)) {
-        return { mesh: 'car', sx: 0.5, sy: 1.22, sz: 0.7, len: MESH_LEN.car * 0.7, speed: rng.range(6, 11) };
+        return { mesh: 'car', sx: 0.62, sy: 1.05, sz: 0.59, len: MESH_LEN.car * 0.59, speed: rng.range(6, 11) };
       }
       if (rng.chance(0.2)) {
         return { mesh: 'car', sx: 1.12, sy: 1.42, sz: 1.28, len: MESH_LEN.car * 1.28, speed: rng.range(8, 14) };
@@ -571,6 +571,12 @@ export class GroundTraffic {
   }
 
   update(dt: number, camera: Camera, streetBudget: number, freewayBudget: number, tier: Tier, elapsed: number): void {
+    setVehicleLod(tier);
+    for (const id of ['car', 'hauler'] as const) {
+      const next = vehicleGeometry(id);
+      const body = this.bodies[id];
+      if (body.geometry !== next) body.geometry = next;
+    }
     const g = streetGraph(this.query.layout);
     const cam = camera.position;
     const step = Math.min(Math.max(dt, 0), 0.05);
