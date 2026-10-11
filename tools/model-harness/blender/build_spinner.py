@@ -16,6 +16,7 @@
 #   7  flat covered drum faces, and a split nose with an open center channel
 #   8  front-only nose slot, filled roof, door grooves, louver deck, worn gunmetal
 #   9  dark panel gaps, louver field, calm gunmetal, clearcoat, no rim speckle
+#  10  shallow smoked glass, inset louver fins, panel seams, worn paint, flat normal
 import math
 import os
 import shutil
@@ -127,16 +128,27 @@ def hull_section(y, hw, belly, top, flare=False):
     return pts
 
 
-def canopy_section(y, hw, base, top):
+def canopy_section(y, hw, base, top, shallow=False):
     rise = max(top - base, 1e-4)
-    pts = [
-        (0.0, y, top),
-        (hw * 0.62, y, top - rise * 0.02),
-        (hw * 0.92, y, base + rise * 0.55),
-        (hw, y, base + rise * 0.16),
-        (hw * 0.46, y, base),
-        (0.0, y, base),
-    ]
+    if shallow:
+        # Flat crown. The old section was a dome and read as a bubble.
+        pts = [
+            (0.0, y, top),
+            (hw * 0.80, y, top - rise * 0.02),
+            (hw * 0.98, y, base + rise * 0.28),
+            (hw, y, base + rise * 0.08),
+            (hw * 0.34, y, base),
+            (0.0, y, base),
+        ]
+    else:
+        pts = [
+            (0.0, y, top),
+            (hw * 0.62, y, top - rise * 0.02),
+            (hw * 0.92, y, base + rise * 0.55),
+            (hw, y, base + rise * 0.16),
+            (hw * 0.46, y, base),
+            (0.0, y, base),
+        ]
     for i in (4, 3, 2, 1):
         x, yy, z = pts[i]
         pts.append((-x, yy, z))
@@ -347,9 +359,10 @@ def export_glb(path):
         export_draco_mesh_compression_enable=False,
         export_image_format='AUTO',
     )
+    # Float UVs. Quantized UVs made gltfpack emit a 15x texture transform, and the paint tiled into grain.
     subprocess.check_call([
         gltfpack_bin(), '-i', raw, '-o', path,
-        '-cc', '-km', '-kn', '-vp', '14', '-vn', '10', '-vt', '12',
+        '-cc', '-km', '-kn', '-vp', '14', '-vn', '10', '-vt', '12', '-vtf',
     ])
     os.remove(raw)
     print('WROTE', path, os.path.getsize(path))
@@ -449,10 +462,10 @@ def cut_ribbon(hull, name, location, euler, half):
     bpy.data.objects.remove(cutter, do_unlink=True)
 
 
-def place_wheel(kit, name, sign, y, radius, width, segments, slots, x=0.78, pressed=False, covered=False):
+def place_wheel(kit, name, sign, y, radius, width, segments, slots, x=0.78, pressed=False, covered=False, panel=False):
     part = kit.wheel_housing(
         name, radius=radius, width=width, segments=segments, slots=0 if covered else slots,
-        pressed=pressed, covered=covered,
+        pressed=pressed, covered=covered, panel=panel,
     )
     # local +Z out the cover, +Y up, +X toward the nose. Left side is a mirror; normals are fixed later.
     frame(part, (sign * x, y, radius + 0.02), (0, 1, 0), (0, 0, 1), (sign, 0, 0))
@@ -754,7 +767,82 @@ def ao_normal_image(ao_img, size):
     return _byte_image('body-normal', buf, size, 'Non-Color')
 
 
-def _grade(ao_img, size, tuned, loud=False, worn=False):
+def flat_normal_image(size):
+    """No cavity bump. The AO relief read as a wavy fingerprint in the close-ups."""
+    buf = array.array('f', [0.5, 0.5, 1.0, 1.0]) * (size * size)
+    return _byte_image('body-normal', buf, size, 'Non-Color')
+
+
+def _surface_tone(co, normal):
+    """Broad panels, belly grime, a few chips. Repeating tracks read as wood grain."""
+    z = co.z
+    x = abs(co.x)
+    y = co.y
+    panel = 0.90 + 0.12 * _hash(int(math.floor(y * 0.5)), int(math.floor(z * 1.1 + x)))
+    mul = panel
+    if z < 0.36:
+        mul *= 0.70 + 0.30 * max(0.0, z) / 0.36
+    cell = _hash(
+        int(math.floor(x * 3.2)),
+        int(math.floor(y * 3.2)) + int(math.floor(z * 3.2)),
+    )
+    if cell > 0.982 and z > 0.58 and abs(normal.z) < 0.75:
+        return 2.05
+    return mul
+
+
+def stamp_surface(obj, img):
+    """Darken bellies and rain tracks, and lift a few edge chips, in the albedo."""
+    size = img.size[0]
+    raw = _image_floats(img)
+    ch = max(int(img.channels), 1)
+    mesh = obj.data
+    uvdata = mesh.uv_layers.active.data
+    loops = mesh.loops
+    verts = mesh.vertices
+    painted = 0
+    for poly in mesh.polygons:
+        if poly.area < 0.004 or len(poly.loop_indices) < 3:
+            continue
+        ids = poly.loop_indices
+        normal = poly.normal
+        for i in range(1, len(ids) - 1):
+            tri = (ids[0], ids[i], ids[i + 1])
+            us = []
+            vs = []
+            cos = []
+            for li in tri:
+                uv = uvdata[li].uv
+                us.append(uv.x * size)
+                vs.append(uv.y * size)
+                cos.append(verts[loops[li].vertex_index].co)
+            minx = max(0, int(min(us)))
+            maxx = min(size - 1, int(max(us)) + 1)
+            miny = max(0, int(min(vs)))
+            maxy = min(size - 1, int(max(vs)) + 1)
+            den = (vs[1] - vs[2]) * (us[0] - us[2]) + (us[2] - us[1]) * (vs[0] - vs[2])
+            if abs(den) < 1e-4:
+                continue
+            for py in range(miny, maxy + 1):
+                for px in range(minx, maxx + 1):
+                    sx = px + 0.5
+                    sy = py + 0.5
+                    w0 = ((vs[1] - vs[2]) * (sx - us[2]) + (us[2] - us[1]) * (sy - vs[2])) / den
+                    w1 = ((vs[2] - vs[0]) * (sx - us[2]) + (us[0] - us[2]) * (sy - vs[2])) / den
+                    w2 = 1.0 - w0 - w1
+                    if w0 < -0.002 or w1 < -0.002 or w2 < -0.002:
+                        continue
+                    co = cos[0] * w0 + cos[1] * w1 + cos[2] * w2
+                    mul = _surface_tone(co, normal)
+                    o = (py * size + px) * ch
+                    for c in range(min(3, ch)):
+                        raw[o + c] = min(1.0, max(0.0, raw[o + c] * mul))
+                    painted += 1
+    img.pixels.foreach_set(raw)
+    print('surface stamped', painted)
+
+
+def _grade(ao_img, size, tuned, loud=False, worn=False, flat=False):
     raw = _image_floats(ao_img)
     step = max(int(ao_img.channels), 1)
     aos = array.array('f', raw[0::step])
@@ -787,14 +875,18 @@ def _grade(ao_img, size, tuned, loud=False, worn=False):
         ao_n = min(1.0, ao / hi)
         blur_n = min(1.0, blur[i] / hi)
         wide_n = min(1.0, wide[i] / hi)
-        shade = (0.62 + 0.38 * ao_n) if worn else ((0.48 + 0.52 * ao_n) if loud else (0.62 + 0.38 * ao_n))
+        if flat:
+            # Smooth curvature in the AO was painting wood grain. Only real cavities go dark.
+            shade = 0.55 + 0.45 * (ao_n / 0.35) if ao_n < 0.35 else 1.0
+        else:
+            shade = (0.62 + 0.38 * ao_n) if worn else ((0.48 + 0.52 * ao_n) if loud else (0.62 + 0.38 * ao_n))
         # Soft exposed-edge lift. A one-pixel neighbour test sparkled under the rim.
         edge = (ao_n - wide_n) if worn else (ao_n - blur_n)
         edge_lift = 0.08 if worn else (0.12 if loud else 0.22)
         edge_cut = 0.08 if worn else 0.035
-        if tuned and edge > edge_cut:
+        if tuned and not flat and edge > edge_cut:
             shade *= 1.0 + min(edge_lift, (edge - edge_cut) * (1.1 if worn else (1.4 if loud else 2.4)))
-        if ao_n < 0.5:
+        if ao_n < 0.5 and not flat:
             if worn:
                 shade *= 0.20 + 0.50 * (ao_n / 0.5)
             else:
@@ -802,7 +894,7 @@ def _grade(ao_img, size, tuned, loud=False, worn=False):
         tone = 1.0
         chip = 0.0
         grit = 0.0
-        if worn:
+        if worn and not flat:
             x, y = i % size, i // size
             tone = 0.97 + 0.05 * _hash(x // cell, y // cell)
             # Grime sits in cavities, not as a checker on an open panel.
@@ -815,7 +907,7 @@ def _grade(ao_img, size, tuned, loud=False, worn=False):
         cr = min(1.0, paint[0] * shade * tone)
         cg = min(1.0, paint[1] * shade * tone)
         cb = min(1.0, paint[2] * shade * tone)
-        if worn and edge > 0.08:
+        if worn and not flat and edge > 0.08:
             wear = min(0.32, (edge - 0.08) * 1.3)
             cr = cr * (1.0 - wear) + 0.34 * wear
             cg = cg * (1.0 - wear) + 0.35 * wear
@@ -913,15 +1005,18 @@ def pack_uv_trim(obj):
             uv[li].uv = (0.01 + (u % 1) * 0.07, 0.92 + (v % 1) * 0.07)
 
 
-def bake_body(obj, size, tuned, loud=False, worn=False):
+def bake_body(obj, size, tuned, loud=False, worn=False, seamed=False):
     if bpy.context.scene.world is None:
         bpy.context.scene.world = bpy.data.worlds.new('World')
     smart_uv(obj)
     pack_uv_trim(obj)
     # The selected-to-active bevel bake came back as a fingerprint and speckled under the rim.
-    # Worn rounds use a blurred AO cavity instead.
+    # Worn rounds use a blurred AO cavity instead. Seamed rounds leave the normal flat.
     ao = bake_ao(obj, size)
-    if worn:
+    if seamed:
+        normal = flat_normal_image(size)
+        print('normal flat')
+    elif worn:
         normal = ao_normal_image(ao, size)
         print('normal from AO cavity')
     else:
@@ -933,8 +1028,29 @@ def bake_body(obj, size, tuned, loud=False, worn=False):
             normal = ao_normal_image(ao, size)
         else:
             normal = _as_byte(normal, 'body-normal', 'Non-Color')
-    albedo, rough, metal = _grade(ao, size, tuned, loud=loud, worn=worn)
+    albedo, rough, metal = _grade(ao, size, tuned, loud=loud, worn=worn, flat=seamed)
+    if seamed:
+        stamp_surface(obj, albedo)
+        # The AO roughness draws contour lines. Paint is one roughness; the albedo carries the wear.
+        _flatten_maps(rough, metal, size)
     connect_pbr(obj, albedo, rough, metal, normal, worn=worn)
+
+
+def _flatten_maps(rough, metal, size):
+    raw_r = _image_floats(rough)
+    raw_m = _image_floats(metal)
+    ch_r = max(int(rough.channels), 1)
+    ch_m = max(int(metal.channels), 1)
+    n = size * size
+    for i in range(n):
+        o = i * ch_r
+        for c in range(min(3, ch_r)):
+            raw_r[o + c] = 0.46
+        o = i * ch_m
+        for c in range(min(3, ch_m)):
+            raw_m[o + c] = 0.40
+    rough.pixels.foreach_set(raw_r)
+    metal.pixels.foreach_set(raw_m)
 
 
 def build(round_n, lod, out_path):
@@ -953,7 +1069,8 @@ def build(round_n, lod, out_path):
     loud = round_n >= 6
     split = round_n >= 7
     filled = round_n >= 8
-    print(f'BUILD round {round_n} lod {lod} detail {detail} rich {rich} bake {bake} faired {faired} loud {loud} split {split} filled {filled}')
+    seamed = round_n >= 10
+    print(f'BUILD round {round_n} lod {lod} detail {detail} rich {rich} bake {bake} faired {faired} loud {loud} split {split} filled {filled} seamed {seamed}')
 
     stations = list(HULL)
     if split:
@@ -990,8 +1107,12 @@ def build(round_n, lod, out_path):
     canopy_rows = CANOPY
     if filled:
         # Same rake and peak, narrower in plan, so the roof around the glass stays body.
+        # The outline stays. Round 10 only changes the glass colour, so the cabin stops reading as a cyan dome.
         canopy_rows = tuple((y, hw * 0.78, base, top) for y, hw, base, top in CANOPY)
-    canopy = loft([canopy_section(*row) for row in canopy_rows], 'canopy', kit.glass, set(), 0.0, math.radians(35))
+    canopy = loft(
+        [canopy_section(*row, shallow=False) for row in canopy_rows],
+        'canopy', kit.glass, set(), 0.0, math.radians(35),
+    )
     solid = canopy.modifiers.new('Solidify', 'SOLIDIFY')
     solid.thickness = 0.012
     solid.offset = 0.0
@@ -1013,6 +1134,7 @@ def build(round_n, lod, out_path):
         place_wheel(
             kit, f'drum-{sign:+d}-{y:+.2f}', sign, y, radius, width, seg,
             slots if y > 0 or detail else 0, x=drum_x, pressed=loud and not split, covered=split,
+            panel=seamed,
         )
     if faired:
         place_skirt(kit, 1, x=0.60, width=0.20, height=0.12, z=0.07)
@@ -1021,6 +1143,10 @@ def build(round_n, lod, out_path):
         place_skirt(kit, 1)
         place_skirt(kit, -1)
     place_bar(kit, canopy, 1.05 if loud else 0.84, 0.058 if loud else 0.046)
+    if seamed:
+        red = bpy.data.materials.get('light-red')
+        if red is not None:
+            red.node_tree.nodes['Principled BSDF'].inputs['Emission Strength'].default_value = 2.2
 
     head_h = 0.05 if loud else 0.028
     tail_len = 1.45 if loud else 1.05
@@ -1043,7 +1169,18 @@ def build(round_n, lod, out_path):
         )
     if detail:
         if faired:
-            if filled:
+            if seamed:
+                deck_n = 16 if lod == 'high' else (9 if lod == 'medium' else 5)
+                tail_n = 10 if lod == 'high' else (6 if lod == 'medium' else 4)
+                stick(
+                    kit, kit.vent('louver-deck', 1.70, 1.08, 0.07, deck_n, inset=True),
+                    hull, (0, -1.70, 0.84), (0, -0.2, 1), lift=0.0,
+                )
+                stick(
+                    kit, kit.vent('louver-tail', 1.22, 0.32, 0.05, tail_n, inset=True),
+                    hull, (0, -2.42, 0.52), (0, -1, 0.2), lift=0.0,
+                )
+            elif filled:
                 banks = ((-1.32, 1.62, 0.56, 7), (-1.98, 1.42, 0.50, 6))
                 for i, (y, width, height, slats) in enumerate(banks):
                     stick(
@@ -1085,6 +1222,12 @@ def build(round_n, lod, out_path):
                     frame(belt, (sign * 1.00, 0.08, 0.36), (0, 1, 0), (0, 0, 1), (sign, 0, 0))
                     jamb = kit.seam(f'door-jamb-{sign:+d}', 0.46, 0.032, 0.016)
                     frame(jamb, (sign * 1.00, 0.98, 0.52), (0, 0, 1), (0, 1, 0), (sign, 0, 0))
+                    if seamed:
+                        # Panels the nose and pod cameras can see. A second slash sat off the hull and cut the side score.
+                        cheek = kit.panel_inset(f'cheek-{sign:+d}', 0.48, 0.18, rim=0.018)
+                        stick(kit, cheek, hull, (sign * 0.82, 1.55, 0.50), (sign, 0.15, 0.45))
+                        quarter = kit.panel_inset(f'quarter-{sign:+d}', 0.36, 0.14, rim=0.014)
+                        stick(kit, quarter, hull, (sign * 0.95, -1.05, 0.62), (sign, -0.1, 0.35))
                 else:
                     part = kit.panel_slash(f'door-{sign:+d}', 1.9, 0.48, 0.055 if loud else 0.018)
                     frame(part, (sign * 1.04, -0.05, 0.72), (0, 1, 0), (0, 0, 1), (sign, 0, 0))
@@ -1102,6 +1245,17 @@ def build(round_n, lod, out_path):
             box('hood-satin', (-0.28, 1.20, 0.70), (0.28, 1.85, 0.732), kit.satin)
         if filled:
             stick(kit, kit.seam('cowl-seam', 1.15, 0.022, 0.014), hull, (0, 1.28, 0.80), (0, 0, 1), lift=0.002)
+            if seamed:
+                for i, guess in enumerate((
+                    (0.98, 0.35, 0.82),
+                    (-0.96, -0.15, 0.86),
+                    (0.72, 1.35, 0.58),
+                    (-1.02, -1.35, 0.70),
+                    (0.58, -0.55, 0.98),
+                    (-0.64, 0.7, 0.92),
+                )):
+                    flake = kit.chip_flake(f'chip-{i}', 0.055, 0.016)
+                    stick(kit, flake, hull, guess, (guess[0], 0.0, 0.35))
             for sign in (1, -1):
                 # Gasket on the glass shoulder. Kept under the roof line so the side outline stays.
                 box(
@@ -1157,7 +1311,7 @@ def build(round_n, lod, out_path):
     if bake:
         body = bpy.data.objects.get('body')
         if body:
-            bake_body(body, TEX[lod], tuned, loud=loud, worn=filled)
+            bake_body(body, TEX[lod], tuned, loud=loud, worn=filled, seamed=seamed)
         # Livery UVs were authored on the card. smart_project would put the word on the edge.
     objs = meshes()
     ok = sit_and_scale(objs)

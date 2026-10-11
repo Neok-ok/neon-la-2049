@@ -22,7 +22,7 @@ Blender 4.0 or newer, and [gltfpack 1.1](https://github.com/zeux/meshoptimizer/r
 
 ```bash
 blender --background --python tools/model-harness/blender/build_spinner.py -- \
-  --round 9 --lod all --out public/models/spinner
+  --round 10 --lod all --out public/models/spinner
 ```
 
 `--lod high` (or `medium` / `low`) with `--out` a file path writes one glTF. `--round` is the critic cut:
@@ -37,7 +37,8 @@ blender --background --python tools/model-harness/blender/build_spinner.py -- \
 | 6 | Door cut and louver field thick enough to read on the sheet, pressed drum ring, larger tail and amber lamps, lighter charcoal grade |
 | 7 | Flat covered drum faces (no ring, no slots) and a split nose with an open center channel |
 | 8 | Front-only nose slot with a filled roof, door grooves, a louver deck, worn gunmetal |
-| 9 | Wider gullwing gap, louver field, recessed nose slot, flat gunmetal roughness, clearcoat. This is the shipping cut |
+| 9 | Wider gullwing gap, louver field, recessed nose slot, flat gunmetal roughness, clearcoat |
+| 10 | Flat smoked canopy, inset louver fins, panel seams on the nose and drums, worn paint, no cavity bump. This is the shipping cut |
 
 The script is the source of truth. Blender is Z-up with the nose on +Y; the glTF is Y-up with the nose on -Z, origin on the ground-contact centre. The M2 box is 5.45 × 2.32 × 1.36 m. The bar is `spinner-look-target.md`.
 

@@ -1,0 +1,240 @@
+{
+  "done": true,
+  "error": null,
+  "size": {
+    "x": 2.319984118496,
+    "y": 1.359921863552,
+    "z": 5.449999973232
+  },
+  "tris": 6854,
+  "mode": "sheet",
+  "tiles": [
+    {
+      "label": "night · 0°",
+      "light": "night",
+      "angle": "0"
+    },
+    {
+      "label": "night · 45°",
+      "light": "night",
+      "angle": "45"
+    },
+    {
+      "label": "night · 90°",
+      "light": "night",
+      "angle": "90"
+    },
+    {
+      "label": "night · 135°",
+      "light": "night",
+      "angle": "135"
+    },
+    {
+      "label": "night · 180°",
+      "light": "night",
+      "angle": "180"
+    },
+    {
+      "label": "night · 225°",
+      "light": "night",
+      "angle": "225"
+    },
+    {
+      "label": "night · 270°",
+      "light": "night",
+      "angle": "270"
+    },
+    {
+      "label": "night · 315°",
+      "light": "night",
+      "angle": "315"
+    },
+    {
+      "label": "night · nose",
+      "light": "night",
+      "angle": "nose"
+    },
+    {
+      "label": "night · pod",
+      "light": "night",
+      "angle": "pod"
+    },
+    {
+      "label": "night · top",
+      "light": "night",
+      "angle": "top"
+    },
+    {
+      "label": "night · top 3/4",
+      "light": "night",
+      "angle": "top34"
+    },
+    {
+      "label": "night · channel",
+      "light": "night",
+      "angle": "channel"
+    },
+    {
+      "label": "night · flight",
+      "light": "night",
+      "angle": "flight"
+    },
+    {
+      "label": "night · roof",
+      "light": "night",
+      "angle": "roof"
+    },
+    {
+      "label": "rim · 0°",
+      "light": "rim",
+      "angle": "0"
+    },
+    {
+      "label": "rim · 45°",
+      "light": "rim",
+      "angle": "45"
+    },
+    {
+      "label": "rim · 90°",
+      "light": "rim",
+      "angle": "90"
+    },
+    {
+      "label": "rim · 135°",
+      "light": "rim",
+      "angle": "135"
+    },
+    {
+      "label": "rim · 180°",
+      "light": "rim",
+      "angle": "180"
+    },
+    {
+      "label": "rim · 225°",
+      "light": "rim",
+      "angle": "225"
+    },
+    {
+      "label": "rim · 270°",
+      "light": "rim",
+      "angle": "270"
+    },
+    {
+      "label": "rim · 315°",
+      "light": "rim",
+      "angle": "315"
+    },
+    {
+      "label": "rim · nose",
+      "light": "rim",
+      "angle": "nose"
+    },
+    {
+      "label": "rim · pod",
+      "light": "rim",
+      "angle": "pod"
+    },
+    {
+      "label": "rim · top",
+      "light": "rim",
+      "angle": "top"
+    },
+    {
+      "label": "rim · top 3/4",
+      "light": "rim",
+      "angle": "top34"
+    },
+    {
+      "label": "rim · channel",
+      "light": "rim",
+      "angle": "channel"
+    },
+    {
+      "label": "rim · flight",
+      "light": "rim",
+      "angle": "flight"
+    },
+    {
+      "label": "rim · roof",
+      "light": "rim",
+      "angle": "roof"
+    },
+    {
+      "label": "studio · 0°",
+      "light": "studio",
+      "angle": "0"
+    },
+    {
+      "label": "studio · 45°",
+      "light": "studio",
+      "angle": "45"
+    },
+    {
+      "label": "studio · 90°",
+      "light": "studio",
+      "angle": "90"
+    },
+    {
+      "label": "studio · 135°",
+      "light": "studio",
+      "angle": "135"
+    },
+    {
+      "label": "studio · 180°",
+      "light": "studio",
+      "angle": "180"
+    },
+    {
+      "label": "studio · 225°",
+      "light": "studio",
+      "angle": "225"
+    },
+    {
+      "label": "studio · 270°",
+      "light": "studio",
+      "angle": "270"
+    },
+    {
+      "label": "studio · 315°",
+      "light": "studio",
+      "angle": "315"
+    },
+    {
+      "label": "studio · nose",
+      "light": "studio",
+      "angle": "nose"
+    },
+    {
+      "label": "studio · pod",
+      "light": "studio",
+      "angle": "pod"
+    },
+    {
+      "label": "studio · top",
+      "light": "studio",
+      "angle": "top"
+    },
+    {
+      "label": "studio · top 3/4",
+      "light": "studio",
+      "angle": "top34"
+    },
+    {
+      "label": "studio · channel",
+      "light": "studio",
+      "angle": "channel"
+    },
+    {
+      "label": "studio · flight",
+      "light": "studio",
+      "angle": "flight"
+    },
+    {
+      "label": "studio · roof",
+      "light": "studio",
+      "angle": "roof"
+    }
+  ],
+  "panels": [],
+  "scale": null
+}

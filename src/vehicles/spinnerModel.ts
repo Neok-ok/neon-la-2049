@@ -143,6 +143,8 @@ function kindOf(name: string): string {
   if (n.includes('drum')) return 'drum';
   if (n.includes('satin')) return 'satin';
   if (n.includes('recess')) return 'recess';
+  if (n.includes('chip')) return 'chip';
+  if (n.includes('fin')) return 'fin';
   return 'body';
 }
 
@@ -192,8 +194,10 @@ function dressMaterial(src: Material): Material {
       livery: { color: 0xe4e0d8, metalness: 0.04, roughness: 0.52, wet: 0.18 },
       drum: { color: 0x3a3e44, metalness: 0.18, roughness: 0.8, wet: 0.2 },
       rubber: { color: 0x101113, metalness: 0.0, roughness: 0.94, wet: 0.22 },
+      chip: { color: 0x8d9298, metalness: 0.62, roughness: 0.36, wet: 0.1 },
+      fin: { color: 0x141618, metalness: 0.28, roughness: 0.66, wet: 0.18 },
     }[kind];
-    const coated = kind === 'body' || kind === 'satin';
+    const coated = kind === 'body' || kind === 'satin' || kind === 'chip';
     const m = coated
       ? new MeshPhysicalNodeMaterial({
         color: tex.map ? 0xffffff : paint.color,
@@ -244,20 +248,20 @@ function dressMaterial(src: Material): Material {
   }
   if (kind === 'glass') {
     const m = new MeshPhysicalNodeMaterial({
-      color: 0x14343c,
-      metalness: 0.12,
-      roughness: 0.05,
+      color: 0x141618,
+      metalness: 0.78,
+      roughness: 0.2,
       name: src.name,
       transparent: true,
-      opacity: 0.9,
+      opacity: 0.96,
     });
-    m.clearcoat = 1;
-    m.clearcoatRoughness = 0.06;
+    m.clearcoat = 0.35;
+    m.clearcoatRoughness = 0.22;
     m.ior = 1.5;
-    m.thickness = 0.05;
-    m.transmission = 0.12;
-    m.attenuationColor = new Color(0x082028);
-    m.attenuationDistance = 0.4;
+    m.thickness = 0.04;
+    m.transmission = 0.02;
+    m.attenuationColor = new Color(0x101214);
+    m.attenuationDistance = 0.35;
     return m;
   }
   const basic = new MeshBasicNodeMaterial({ name: src.name });

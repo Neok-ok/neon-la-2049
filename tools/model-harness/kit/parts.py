@@ -160,10 +160,13 @@ class Kit:
         # Linear colours. Dark blue-black metal, not a mid grey, so night shots stay black.
         self.body = _principled('body', (0.012, 0.013, 0.016), 0.72, 0.40)
         self.recess = _principled('recess', (0.004, 0.004, 0.005), 0.25, 0.72)
-        # Blue-charcoal, reflective. Transmission would read as a hole from above.
-        self.glass = _principled('glass', (0.015, 0.026, 0.032), 0.55, 0.08)
+        # Smoked metal. A cyan base with a sharp coat read as a glowing bubble.
+        self.glass = _principled('glass', (0.010, 0.011, 0.012), 0.78, 0.20)
         self.rubber = _principled('rubber', (0.008, 0.008, 0.009), 0.0, 0.94)
         self.satin = _principled('satin', (0.018, 0.019, 0.022), 0.82, 0.22)
+        # Dark fin. Satin slats caught the rim and turned into white slabs.
+        self.fin = _principled('fin', (0.028, 0.029, 0.031), 0.28, 0.66)
+        self.chip = _principled('chip', (0.46, 0.47, 0.49), 0.62, 0.36)
         self.livery = _principled('livery', (0.62, 0.60, 0.56), 0.08, 0.55)
         # Matte cover. A shiny drum face mirrors the night practicals into a turbine ring.
         self.drum = _principled('drum', (0.010, 0.011, 0.013), 0.22, 0.78)
@@ -202,32 +205,41 @@ class Kit:
             root.scale = Vector(scale)
         return part
 
-    def vent(self, name, width, height, depth=0.02, slats=5, contrast=False):
+    def vent(self, name, width, height, depth=0.02, slats=5, contrast=False, inset=False):
         col = self.collection
         meshes = []
-        meshes.append(_box(f'{name}-cavity', (-width / 2, -height / 2, 0.0), (width / 2, height / 2, depth * 0.45), self.recess, col))
-        rim = max(0.008, min(width, height) * 0.12)
-        z0, z1 = depth * 0.35, depth
+        # Inset keeps the fins inside a black cavity. Proud satin bars read as white slabs.
+        cavity_z = depth * (0.85 if inset else 0.45)
+        meshes.append(_box(f'{name}-cavity', (-width / 2, -height / 2, 0.0), (width / 2, height / 2, cavity_z), self.recess, col))
+        rim = max(0.005 if inset else 0.008, min(width, height) * (0.045 if inset else 0.12))
+        z0, z1 = (depth * 0.55, depth * 0.78) if inset else (depth * 0.35, depth)
         frames = [
             ((-width / 2, -height / 2, z0), (width / 2, -height / 2 + rim, z1)),
             ((-width / 2, height / 2 - rim, z0), (width / 2, height / 2, z1)),
             ((-width / 2, -height / 2, z0), (-width / 2 + rim, height / 2, z1)),
             ((width / 2 - rim, -height / 2, z0), (width / 2, height / 2, z1)),
         ]
+        frame_mat = self.recess if inset else self.body
         for i, (lo, hi) in enumerate(frames):
-            meshes.append(_box(f'{name}-rim-{i}', lo, hi, self.body, col))
+            meshes.append(_box(f'{name}-rim-{i}', lo, hi, frame_mat, col))
         inner_w = width - rim * 2
         inner_h = height - rim * 2
         if slats > 0 and inner_h > 0.01:
             gap = inner_h / slats
-            slat_t = min(gap * (0.62 if contrast else 0.42), 0.046 if contrast else 0.012)
-            slat_mat = self.satin if contrast else self.body
+            if inset:
+                slat_t = min(gap * 0.22, 0.010)
+                slat_mat = self.fin
+                z_a, z_b = depth * 0.22, depth * 0.58
+            else:
+                slat_t = min(gap * (0.62 if contrast else 0.42), 0.046 if contrast else 0.012)
+                slat_mat = self.satin if contrast else self.body
+                z_a, z_b = depth * 0.55, depth * 1.05
             for i in range(slats):
                 y = -inner_h / 2 + gap * (i + 0.5)
                 meshes.append(_box(
                     f'{name}-slat-{i}',
-                    (-inner_w / 2, y - slat_t / 2, depth * 0.55),
-                    (inner_w / 2, y + slat_t / 2, depth * 1.05),
+                    (-inner_w / 2, y - slat_t / 2, z_a),
+                    (inner_w / 2, y + slat_t / 2, z_b),
                     slat_mat, col,
                 ))
         return self._root(name, meshes)
@@ -485,10 +497,11 @@ class Kit:
             ))
         return self._root(name, meshes)
 
-    def wheel_housing(self, name, radius=0.36, width=0.34, segments=24, slots=3, pressed=False, covered=False):
+    def wheel_housing(self, name, radius=0.36, width=0.34, segments=24, slots=3, pressed=False, covered=False, panel=False):
         """Enclosed drum. Local +Z is out of the cover, circle in XY.
 
         covered: one flat body-coloured disc. No lip, no hub, no slots.
+        panel: the same cover, with the centre set back so the close-up has a seam.
         Otherwise the face is a cap with an optional pressed ring and intake slots.
         """
         col = self.collection
@@ -499,9 +512,23 @@ class Kit:
             meshes.append(_cylinder(
                 name + '-drum', radius * 0.98, width * 0.70, segments, self.body, col, (0, 0, width * 0.30),
             ))
-            meshes.append(_cylinder(
-                name + '-face', radius * 1.02, width * 0.10, segments, self.body, col, (0, 0, width * 0.90),
-            ))
+            if panel:
+                # Flush cover, a thin dark ring, centre almost level. A deep cap read as an open bore.
+                meshes.append(_annulus(
+                    name + '-face', radius * 0.98, radius * 0.64,
+                    width * 0.90, width * 0.98, segments, self.body, col,
+                ))
+                meshes.append(_annulus(
+                    name + '-step', radius * 0.66, radius * 0.58,
+                    width * 0.86, width * 0.92, max(12, segments // 2), self.recess, col,
+                ))
+                meshes.append(_cylinder(
+                    name + '-cap', radius * 0.60, width * 0.035, segments, self.body, col, (0, 0, width * 0.885),
+                ))
+            else:
+                meshes.append(_cylinder(
+                    name + '-face', radius * 1.02, width * 0.10, segments, self.body, col, (0, 0, width * 0.90),
+                ))
             return self._root(name, meshes)
         lip_mat = self.satin if pressed else self.drum
         slot_half = 0.016 if pressed else 0.007
@@ -644,6 +671,13 @@ class Kit:
             _box(name + '-rear', (-length / 2 - gap / 2, -height / 2, 0.001), (-length / 2 + gap / 2, height / 2, d), self.recess, col),
         ]
         return self._root(name, meshes)
+
+    def chip_flake(self, name, length=0.05, width=0.014):
+        mesh = _box(
+            name, (-length / 2, -width / 2, 0.0), (length / 2, width / 2, 0.003),
+            self.chip, self.collection,
+        )
+        return self._root(name, [mesh])
 
     def livery_decal(self, name, width=0.92, height=0.15):
         """Flat decal card. Local +X reads the word, +Y up, +Z out."""

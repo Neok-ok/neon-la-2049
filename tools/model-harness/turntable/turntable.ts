@@ -164,8 +164,8 @@ function buildLights(camera: PerspectiveCamera): { night: Group; rim: Group; stu
   dir(night, 0xd5dde8, 12, new Vector3(0.3, 1.4, 1.6), new Vector3(0, 0.35, -3));
   dir(night, 0xb7c4d6, 5, new Vector3(2.0, 0.7, 0.5), new Vector3(0, 0.2, -1));
   // Off the body. A practical sitting on the drum paints a turbine ring that is not on the mesh.
-  night.add(new PointLight(0xff2eb8, 70, 0, 2).translateX(-3.6).translateY(1.6).translateZ(0.4));
-  night.add(new PointLight(0x3dfff0, 60, 0, 2).translateX(3.6).translateY(1.5).translateZ(0.2));
+  night.add(new PointLight(0xff2eb8, 16, 0, 2).translateX(-3.6).translateY(1.6).translateZ(0.4));
+  night.add(new PointLight(0x3dfff0, 14, 0, 2).translateX(3.6).translateY(1.5).translateZ(0.2));
   night.add(new PointLight(0xff8a32, 28, 0, 2).translateY(0.4).translateZ(2.4));
   // Camera looks down its -Z. Lights past the subject (more negative Z) rim the far edges.
   // Hot enough to rim the wedge, dim enough that the paint stays paint.
