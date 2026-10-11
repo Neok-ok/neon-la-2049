@@ -139,7 +139,7 @@ export function createLensRig(
     // background first so the focused signs stay readable while the canyon melts.
     const farther = T.smoothstep(T.float(0), T.float(0.02), distM.sub(focusM));
     const nearFall = T.smoothstep(T.float(0.32), T.float(1.05), rel);
-    const farFall = T.smoothstep(T.float(0.08), T.float(0.4), rel);
+    const farFall = T.smoothstep(T.float(0.06), T.float(0.28), rel);
     const falloff = T.mix(nearFall, farFall, farther);
     const stop = T.smoothstep(T.float(11), T.float(2), nStop);
     const focalW = T.smoothstep(T.float(32), T.float(58), f);
@@ -276,7 +276,7 @@ export function createLensRig(
     const safe = T.smoothstep(T.float(0.0001), T.float(0.02), wsum);
     const blurred = T.mix(own, acc.div(T.max(wsum, T.float(0.0001))), safe);
     // A short crossover, so a half-mix does not leave a second copy of the sign in the disc.
-    const amt = T.smoothstep(T.float(0.55), T.float(1.45), centerCoc);
+    const amt = T.smoothstep(T.float(0.35), T.float(1.15), centerCoc);
     let rgb = T.mix(sharp, blurred, amt);
 
     if (cap.caPx > 0) {
@@ -315,8 +315,8 @@ export function createLensRig(
         const l = sample.dot(T.vec3(0.2126, 0.7152, 0.0722));
         glow = glow.add(sample.mul(T.smoothstep(T.float(0.55), T.float(1.6), l)));
       }
-      const defocus = T.smoothstep(T.float(0.4), T.float(8), centerCoc);
-      rgb = rgb.add(glow.mul(uBloom.mul(0.04).mul(T.mix(T.float(0.35), T.float(1), defocus))));
+      const defocus = T.smoothstep(T.float(1.5), T.float(8), centerCoc);
+      rgb = rgb.add(glow.mul(uBloom.mul(0.05).mul(defocus)));
     }
     return T.vec4(rgb, 1);
   })();
@@ -518,8 +518,9 @@ function softDisc(): Array<[number, number, number]> {
   const pts: Array<[number, number, number]> = [[0, 0, 1]];
   const rings: Array<{ r: number; n: number; w: number }> = [
     { r: 8, n: 8, w: 0.7 },
-    { r: 16, n: 10, w: 0.42 },
-    { r: 24, n: 12, w: 0.2 },
+    { r: 16, n: 10, w: 0.45 },
+    { r: 26, n: 12, w: 0.24 },
+    { r: 36, n: 14, w: 0.12 },
   ];
   for (const ring of rings) {
     for (let i = 0; i < ring.n; i++) {

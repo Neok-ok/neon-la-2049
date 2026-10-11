@@ -344,7 +344,7 @@ export class PhotoMode {
     this.cam.focus = card.focus;
     this.cam.roll = card.roll;
     this.setAperture(card.aperture);
-    this.state.anamorphic = card.letterbox === '2.39' ? 0.35 : 0;
+    this.state.anamorphic = card.letterbox === '2.39' ? 0.16 : 0;
     this.state.motion = 0;
     this.state.autofocus = false;
     this.state.grade = card.grade;
