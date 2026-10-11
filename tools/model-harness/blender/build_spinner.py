@@ -1,19 +1,25 @@
 # Headless spinner build. Source of truth for public/models/spinner/spinner-{high,medium,low}.glb.
 #
 # Blender is Z-up, nose +Y. glTF export (y-up) maps that to three.js: nose -Z, height +Y,
-# origin stays on the ground-contact centre. Metres.
+# origin on the ground-contact centre. Metres.
 #
 #   blender --background --python tools/model-harness/blender/build_spinner.py -- \
-#       --round 3 --lod all --out public/models/spinner
+#       --round 4 --lod all --out public/models/spinner
 #
-# Rounds (same script, so the critic loop is a parameter change, not a hidden blend file):
-#   1  lofted hull, faceted canopy, plain pods, skids, light strips
-#   2  bevel, panels, vents, intakes, nozzles, canopy frame, spine  (low stays round-1)
-#   3  high: subdiv + bolts + cables + greebles + 1024 AO bake
-#      medium: greebles + 512 bake, no subdiv / bolts / cables
-#      low: the simple shell
+# Rounds:
+#   1  wedge hull, canopy, enclosed drums, skirt, light strips, low light bar
+#   2  louvers, gullwing cuts, panels, POLICE decal, underglow
+#   3  bevel normal, AO, roughness/metal maps, subdivision on the high hull
+#   4  tuned grade on the round-3 mesh (the first bake sparkled; sheet is that pass)
+#   5  drums faired into a wider shoulder, diagonal door cut, clean PBR grade
+#   6  thicker door cut, louver field, pressed drum ring, lamps that read at sheet size
+#   7  flat covered drum faces, and a split nose with an open center channel
+#   8  front-only nose slot, filled roof, door grooves, louver deck, worn gunmetal
+#   9  dark panel gaps, louver field, calm gunmetal, clearcoat, no rim speckle
+#  10  shallow smoked glass, inset louver fins, panel seams, worn paint, flat normal
 import math
 import os
+import shutil
 import subprocess
 import sys
 import array
@@ -28,41 +34,32 @@ if HARNESS not in sys.path:
 
 from kit.parts import Kit  # noqa: E402
 
-# y (nose +), half-width, belly z, top z. Roof width is a fraction of half-width.
-# Haunches sit under the rear pods. The tail is a face, not a needle.
+TARGET = (5.45, 2.32, 1.36)  # length (Y), width (X), height (Z)
+
+# y (nose +), half-width, belly z, top z.
 HULL = (
-    (2.50, 0.05, 0.44, 0.52),
-    (2.05, 0.42, 0.28, 0.62),
-    (1.45, 0.78, 0.15, 0.76),
-    (0.70, 1.00, 0.09, 0.90),
-    (0.00, 1.06, 0.08, 0.96),
-    (-0.55, 1.08, 0.08, 0.88),
-    (-1.20, 1.00, 0.10, 0.74),
-    (-1.85, 0.62, 0.18, 0.58),
-    (-2.45, 0.28, 0.30, 0.48),
+    (2.55, 0.38, 0.34, 0.50),
+    (2.05, 0.66, 0.24, 0.66),
+    (1.45, 0.86, 0.18, 0.80),
+    (0.75, 0.98, 0.17, 0.94),
+    (0.05, 1.02, 0.18, 1.00),
+    (-0.75, 1.00, 0.18, 1.02),
+    (-1.45, 0.96, 0.18, 1.06),
+    (-2.05, 0.96, 0.22, 0.86),
+    (-2.58, 0.94, 0.28, 0.74),
 )
 CANOPY = (
-    (1.05, 0.20, 0.86, 1.00),
-    (0.55, 0.48, 0.90, 1.18),
-    (0.05, 0.52, 0.92, 1.36),
-    (-0.45, 0.42, 0.86, 1.14),
-    (-0.85, 0.14, 0.76, 0.92),
+    (1.20, 0.20, 0.74, 0.90),
+    (0.60, 0.60, 0.86, 1.14),
+    (0.05, 0.76, 0.94, 1.28),
+    (-0.50, 0.74, 0.98, 1.33),
+    (-1.05, 0.58, 0.90, 1.26),
+    (-1.55, 0.36, 0.82, 1.10),
+    (-1.95, 0.14, 0.72, 0.92),
 )
-# Longitudinal corners that should stay crisp under bevel and subdivision.
-SHARP = {2, 3, 4, 8, 9, 10}
-SEG = {'high': 16, 'medium': 10, 'low': 6}
-NOZZLE_VANES = {'high': 8, 'medium': 4, 'low': 0}
-SLATS = {'high': 5, 'medium': 3, 'low': 0}
-
-
-def roof_for(y):
-    if y > 1.7:
-        return 0.75
-    if y > 0.5:
-        return 0.48
-    if y > -0.8:
-        return 0.58
-    return 0.42
+SHARP = {2, 3, 5, 6, 10, 11, 13, 14}
+SEG = {'high': 28, 'medium': 16, 'low': 10}
+TEX = {'high': 1024, 'medium': 512, 'low': 256}
 
 
 def link(obj):
@@ -96,53 +93,63 @@ def box(name, lo, hi, mat):
     return link(obj)
 
 
-def cylinder_y(name, radius, length, segments, mat, center):
-    bm = bmesh.new()
-    bmesh.ops.create_cone(
-        bm, cap_ends=True, cap_tris=False, segments=segments,
-        radius1=radius, radius2=radius, depth=length,
-    )
-    rot = Matrix.Rotation(math.radians(90), 4, 'X')
-    bmesh.ops.rotate(bm, verts=bm.verts, cent=(0, 0, 0), matrix=rot)
-    bmesh.ops.translate(bm, verts=bm.verts, vec=center)
-    bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
-    mesh = bpy.data.meshes.new(name)
-    bm.to_mesh(mesh)
-    bm.free()
-    obj = bpy.data.objects.new(name, mesh)
-    obj.data.materials.append(mat)
-    smooth(obj, math.radians(35))
-    return link(obj)
-
-
-def hull_section(y, hw, belly, top):
+def hull_section(y, hw, belly, top, flare=False):
     rise = max(top - belly, 1e-4)
-    roof = roof_for(y)
-    pts = [
-        (0.0, y, top),
-        (hw * roof, y, top - rise * 0.04),
-        (hw * 0.86, y, belly + rise * 0.62),
-        (hw, y, belly + rise * 0.38),
-        (hw * 0.90, y, belly + rise * 0.16),
-        (hw * 0.48, y, belly + rise * 0.05),
-        (0.0, y, belly),
-    ]
-    for i in (5, 4, 3, 2, 1):
+    belt = belly + rise * 0.58
+    # Flare keeps the roof narrow and pushes the shoulder out toward the drum.
+    # The lower belt is still the widest point, so the plan view stays drum-led.
+    if flare:
+        pts = [
+            (0.0, y, top),
+            (hw * 0.40, y, top),
+            (hw * 0.78, y, top - rise * 0.10),
+            (hw * 0.94, y, belly + rise * 0.46),
+            (hw * 0.99, y, belly + rise * 0.28),
+            (hw, y, belly + rise * 0.16),
+            (hw * 0.90, y, belly + rise * 0.05),
+            (hw * 0.40, y, belly),
+            (0.0, y, belly),
+        ]
+    else:
+        pts = [
+            (0.0, y, top),
+            (hw * 0.34, y, top),
+            (hw * 0.52, y, top - rise * 0.05),
+            (hw * 0.60, y, belt),
+            (hw * 0.78, y, belly + rise * 0.34),
+            (hw, y, belly + rise * 0.20),
+            (hw * 0.94, y, belly + rise * 0.06),
+            (hw * 0.42, y, belly),
+            (0.0, y, belly),
+        ]
+    for i in (7, 6, 5, 4, 3, 2, 1):
         x, yy, z = pts[i]
         pts.append((-x, yy, z))
     return pts
 
 
-def canopy_section(y, hw, base, top):
+def canopy_section(y, hw, base, top, shallow=False):
     rise = max(top - base, 1e-4)
-    pts = [
-        (0.0, y, top),
-        (hw * 0.42, y, base + rise * 0.78),
-        (hw, y, base + rise * 0.46),
-        (hw * 0.78, y, base + rise * 0.06),
-        (0.0, y, base),
-    ]
-    for i in (3, 2, 1):
+    if shallow:
+        # Flat crown. The old section was a dome and read as a bubble.
+        pts = [
+            (0.0, y, top),
+            (hw * 0.80, y, top - rise * 0.02),
+            (hw * 0.98, y, base + rise * 0.28),
+            (hw, y, base + rise * 0.08),
+            (hw * 0.34, y, base),
+            (0.0, y, base),
+        ]
+    else:
+        pts = [
+            (0.0, y, top),
+            (hw * 0.62, y, top - rise * 0.02),
+            (hw * 0.92, y, base + rise * 0.55),
+            (hw, y, base + rise * 0.16),
+            (hw * 0.46, y, base),
+            (0.0, y, base),
+        ]
+    for i in (4, 3, 2, 1):
         x, yy, z = pts[i]
         pts.append((-x, yy, z))
     return pts
@@ -208,7 +215,7 @@ def apply_mods(obj, angle):
 def add_bevel(obj, segments, width):
     mod = obj.modifiers.new('Bevel', 'BEVEL')
     mod.limit_method = 'ANGLE'
-    mod.angle_limit = math.radians(36)
+    mod.angle_limit = math.radians(38)
     mod.width = width
     mod.segments = segments
     mod.harden_normals = True
@@ -225,6 +232,19 @@ def add_subdiv(obj):
 def add_weighted(obj):
     mod = obj.modifiers.new('Weighted', 'WEIGHTED_NORMAL')
     mod.keep_sharp = True
+
+
+def frame(part, location, x_axis, y_axis, z_axis):
+    """Columns are the images of local +X, +Y, +Z. A mirrored frame is corrected in bake_world."""
+    x = Vector(x_axis).normalized()
+    y = Vector(y_axis).normalized()
+    z = Vector(z_axis).normalized()
+    part.root.matrix_world = Matrix((
+        (x.x, y.x, z.x, location[0]),
+        (x.y, y.y, z.y, location[1]),
+        (x.z, y.z, z.z, location[2]),
+        (0, 0, 0, 1),
+    ))
 
 
 def stick(kit, part, target, guess, normal, lift=0.002):
@@ -251,16 +271,6 @@ def stick(kit, part, target, guess, normal, lift=0.002):
     return Vector(loc)
 
 
-def stick_euler(kit, part, target, guess, normal, euler, lift=0.002):
-    loc = stick(kit, part, target, guess, normal, lift)
-    # stick() aimed +Z along the surface. Override with a fixed yaw so a blade
-    # antenna runs along the centreline instead of across it.
-    part.root.rotation_mode = 'XYZ'
-    part.root.rotation_euler = euler
-    part.root.location = loc + Vector(normal).normalized() * lift
-    return loc
-
-
 def bake_world(obj):
     select_only(obj)
     if obj.parent:
@@ -268,6 +278,11 @@ def bake_world(obj):
     apply_mods(obj, obj.data.auto_smooth_angle or math.radians(45))
     select_only(obj)
     bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    select_only(obj)
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.select_all(action='SELECT')
+    bpy.ops.mesh.normals_make_consistent(inside=False)
+    bpy.ops.object.mode_set(mode='OBJECT')
 
 
 def meshes():
@@ -312,217 +327,19 @@ def smart_uv(obj):
     bpy.ops.object.mode_set(mode='EDIT')
     bpy.ops.mesh.select_all(action='SELECT')
     try:
-        bpy.ops.uv.smart_project(angle_limit=1.15, island_margin=0.03)
+        bpy.ops.uv.smart_project(angle_limit=1.15, island_margin=0.02)
     except RuntimeError as exc:
         print('smart_project failed', exc)
         bpy.ops.uv.lightmap_pack(PREF_MARGIN_DIV=512)
     bpy.ops.object.mode_set(mode='OBJECT')
 
 
-def _ensure_world():
-    if bpy.context.scene.world is None:
-        bpy.context.scene.world = bpy.data.worlds.new('World')
-
-
-def _bake_image(obj, size, bake_type):
-    img = bpy.data.images.new('ao-bake', width=size, height=size, alpha=False, float_buffer=True)
-    img.colorspace_settings.name = 'Non-Color'
-    mat = obj.data.materials[0]
-    mat.use_nodes = True
-    nodes = mat.node_tree.nodes
-    tex = nodes.new('ShaderNodeTexImage')
-    tex.image = img
-    nodes.active = tex
-    for node in nodes:
-        node.select = False
-    tex.select = True
-    scene = bpy.context.scene
-    scene.render.engine = 'CYCLES'
-    scene.cycles.device = 'CPU'
-    scene.cycles.samples = 8
-    scene.cycles.use_denoising = False
-    scene.render.bake.margin = 16
-    scene.render.bake.use_clear = True
-    select_only(obj)
-    bpy.ops.object.bake(type=bake_type)
-    return img
-
-
-def _ao_variance(img):
-    step = max(1, (img.size[0] * img.size[1]) // 8000)
-    acc = 0.0
-    acc2 = 0.0
-    n = 0
-    px = img.pixels
-    for i in range(0, img.size[0] * img.size[1], step):
-        v = px[i * 4]
-        acc += v
-        acc2 += v * v
-        n += 1
-    mean = acc / max(n, 1)
-    var = acc2 / max(n, 1) - mean * mean
-    return mean, var
-
-
-def _grade(src, size):
-    px = array.array('f', src.pixels)
-    w = h = size
-    aos = array.array('f', (px[i] for i in range(0, len(px), 4)))
-    out = array.array('f', [0.0]) * (w * h * 4)
-    # Close to the untextured 0x1a body when a face is fully exposed, so the studio
-    # highlight survives. Cavities only drop part way.
-    base = (0.012, 0.013, 0.016)
-
-    def hsh(gx, gy):
-        n = (int(gx) * 374761393 + int(gy) * 668265263) & 0xFFFFFFFF
-        n = (n ^ (n >> 13)) * 1274126177 & 0xFFFFFFFF
-        return (n & 0xFFFF) / 65535.0
-
-    grid = 8
-    cells = [hsh(gx, gy) for gy in range(grid + 1) for gx in range(grid + 1)]
-
-    def grit(x, y):
-        fx = x / w * grid
-        fy = y / h * grid
-        x0 = min(grid - 1, int(fx))
-        y0 = min(grid - 1, int(fy))
-        tx = fx - x0
-        ty = fy - y0
-        tx = tx * tx * (3 - 2 * tx)
-        ty = ty * ty * (3 - 2 * ty)
-
-        def at(ix, iy):
-            return cells[iy * (grid + 1) + ix]
-
-        v = (
-            at(x0, y0) * (1 - tx) * (1 - ty)
-            + at(x0 + 1, y0) * tx * (1 - ty)
-            + at(x0, y0 + 1) * (1 - tx) * ty
-            + at(x0 + 1, y0 + 1) * tx * ty
-        )
-        return 0.94 + 0.06 * v
-
-    for y in range(h):
-        row = y * w
-        for x in range(w):
-            i = row + x
-            ao = min(1.0, aos[i] * 2.4)
-            shade = 0.55 + 0.45 * ao
-            wear = 1.0
-            if ao > 0.55 and x > 0 and y > 0:
-                neighbor = min(aos[i - 1], aos[i - w])
-                if neighbor < ao - 0.12:
-                    wear = 1.45
-            k = shade * grit(x, y) * wear
-            o = i * 4
-            out[o] = min(1.0, base[0] * k)
-            out[o + 1] = min(1.0, base[1] * k)
-            out[o + 2] = min(1.0, base[2] * k)
-            out[o + 3] = 1.0
-    img = bpy.data.images.new('body-albedo', width=size, height=size, alpha=True, float_buffer=True)
-    img.colorspace_settings.name = 'sRGB'
-    img.pixels.foreach_set(out)
-    img.pack()
-    try:
-        img.filepath_raw = '/tmp/m1-albedo.png'
-        img.file_format = 'PNG'
-        img.save()
-    except RuntimeError as exc:
-        print('albedo save failed', exc)
-    return img
-
-
-def _connect_albedo(obj, img):
-    mat = obj.data.materials[0]
-    nodes = mat.node_tree.nodes
-    links = mat.node_tree.links
-    bsdf = nodes.get('Principled BSDF')
-    for node in list(nodes):
-        if node.type == 'TEX_IMAGE' and node.image and node.image.name == 'ao-bake':
-            nodes.remove(node)
-    tex = nodes.new('ShaderNodeTexImage')
-    tex.image = img
-    tex.location = (-300, 300)
-    links.new(tex.outputs['Color'], bsdf.inputs['Base Color'])
-    bsdf.inputs['Metallic'].default_value = 0.72
-    bsdf.inputs['Roughness'].default_value = 0.40
-
-
-def bake_body(obj, size):
-    _ensure_world()
-    smart_uv(obj)
-    img = None
-    try:
-        img = _bake_image(obj, size, 'AO')
-        mean, var = _ao_variance(img)
-        print(f'AO bake mean {mean:.4f} var {var:.6f}')
-    except RuntimeError as exc:
-        print('AO bake failed', exc)
-        mean, var = 0.0, 0.0
-    if img is None or var < 1e-5:
-        print('AO flat or missing; baking an AO shader as emission')
-        mat = obj.data.materials[0]
-        nodes = mat.node_tree.nodes
-        links = mat.node_tree.links
-        ao = nodes.new('ShaderNodeAmbientOcclusion')
-        ao.inputs['Distance'].default_value = 0.22
-        emit = nodes.new('ShaderNodeEmission')
-        out = nodes.get('Material Output')
-        links.new(ao.outputs['Color'], emit.inputs['Color'])
-        links.new(emit.outputs['Emission'], out.inputs['Surface'])
-        try:
-            img = _bake_image(obj, size, 'EMIT')
-            mean, var = _ao_variance(img)
-            print(f'EMIT-AO mean {mean:.4f} var {var:.6f}')
-        except RuntimeError as exc:
-            print('EMIT bake failed', exc)
-            img = bpy.data.images.new('ao-bake', width=size, height=size, alpha=False, float_buffer=True)
-            img.pixels.foreach_set(array.array('f', [1, 1, 1, 1] * (size * size)))
-            print('grade will be noise only')
-        # Put the principled surface back before connecting the albedo.
-        bsdf = nodes.get('Principled BSDF')
-        links.new(bsdf.outputs['BSDF'], out.inputs['Surface'])
-    graded = _grade(img, size)
-    _connect_albedo(obj, graded)
-
-
-def sit_and_scale(objs):
-    mn, mx = bounds_of(objs)
-    dx = -(mn.x + mx.x) * 0.5
-    dy = -(mn.y + mx.y) * 0.5
-    dz = -mn.z
-    for obj in objs:
-        inv = obj.matrix_world.inverted()
-        for vert in obj.data.vertices:
-            p = obj.matrix_world @ vert.co
-            p.x += dx
-            p.y += dy
-            p.z += dz
-            vert.co = inv @ p
-        obj.data.update()
-    mn, mx = bounds_of(objs)
-    length = mx.y - mn.y
-    width = mx.x - mn.x
-    height = mx.z - mn.z
-    print(f'BEFORE scale L {length:.3f} W {width:.3f} H {height:.3f}')
-    sx = 2.30 / width if width > 1e-4 else 1
-    sy = 5.00 / length if length > 1e-4 else 1
-    sz = 1.45 / height if height > 1e-4 else 1
-    if all(0.82 < s < 1.18 for s in (sx, sy, sz)):
-        for obj in objs:
-            for vert in obj.data.vertices:
-                vert.co.x *= sx
-                vert.co.y *= sy
-                vert.co.z *= sz
-            obj.data.update()
-        print(f'scaled by {sx:.4f} {sy:.4f} {sz:.4f}')
-    else:
-        print(f'scale skipped ({sx:.3f} {sy:.3f} {sz:.3f}); stations are off')
-    mn, mx = bounds_of(objs)
-    length, width, height = mx.y - mn.y, mx.x - mn.x, mx.z - mn.z
-    print(f'BOUNDS L(Y) {length:.3f} W(X) {width:.3f} H(Z) {height:.3f} tris {tri_count(objs)}')
-    ok = 4.6 <= length <= 5.4 and 2.0 <= width <= 2.7 and 1.2 <= height <= 1.6
-    return ok
+def gltfpack_bin():
+    for cand in ('gltfpack', '/tmp/tools/gltfpack', '/usr/local/bin/gltfpack'):
+        found = shutil.which(cand) if os.sep not in cand else cand
+        if found and os.path.isfile(found) and os.access(found, os.X_OK):
+            return found
+    raise SystemExit('gltfpack 1.1 not on PATH')
 
 
 def export_glb(path):
@@ -542,104 +359,698 @@ def export_glb(path):
         export_draco_mesh_compression_enable=False,
         export_image_format='AUTO',
     )
+    # Float UVs. Quantized UVs made gltfpack emit a 15x texture transform, and the paint tiled into grain.
     subprocess.check_call([
-        'gltfpack', '-i', raw, '-o', path,
-        '-cc', '-km', '-kn', '-vp', '14', '-vn', '10', '-vt', '12',
+        gltfpack_bin(), '-i', raw, '-o', path,
+        '-cc', '-km', '-kn', '-vp', '14', '-vn', '10', '-vt', '12', '-vtf',
     ])
     os.remove(raw)
     print('WROTE', path, os.path.getsize(path))
 
 
-def make_skids(body, recess):
-    for sx in (-0.42, 0.42):
-        box(f'skid-{sx:+.2f}', (sx - 0.05, -1.25, 0.0), (sx + 0.05, 0.75, 0.06), recess)
-        box(f'strut-a-{sx:+.2f}', (sx - 0.025, -0.8, 0.04), (sx + 0.025, -0.58, 0.14), body)
-        box(f'strut-b-{sx:+.2f}', (sx - 0.025, 0.2, 0.04), (sx + 0.025, 0.42, 0.14), body)
+def sit_and_scale(objs):
+    mn, mx = bounds_of(objs)
+    dx = -(mn.x + mx.x) * 0.5
+    dy = -(mn.y + mx.y) * 0.5
+    dz = -mn.z
+    for obj in objs:
+        inv = obj.matrix_world.inverted()
+        for vert in obj.data.vertices:
+            p = obj.matrix_world @ vert.co
+            p.x += dx
+            p.y += dy
+            p.z += dz
+            vert.co = inv @ p
+        obj.data.update()
+    mn, mx = bounds_of(objs)
+    length, width, height = mx.y - mn.y, mx.x - mn.x, mx.z - mn.z
+    print(f'BEFORE scale L {length:.3f} W {width:.3f} H {height:.3f}')
+    sx = TARGET[1] / width if width > 1e-4 else 1
+    sy = TARGET[0] / length if length > 1e-4 else 1
+    sz = TARGET[2] / height if height > 1e-4 else 1
+    already = 5.30 <= length <= 5.60 and 2.20 <= width <= 2.40 and 1.30 <= height <= 1.40
+    if already:
+        print('scale skipped; already in range')
+    elif all(0.82 < s < 1.22 for s in (sx, sy, sz)):
+        for obj in objs:
+            for vert in obj.data.vertices:
+                vert.co.x *= sx
+                vert.co.y *= sy
+                vert.co.z *= sz
+            obj.data.update()
+        print(f'scaled by {sx:.4f} {sy:.4f} {sz:.4f}')
+    else:
+        print(f'scale skipped ({sx:.3f} {sy:.3f} {sz:.3f}); stations are off')
+    mn, mx = bounds_of(objs)
+    length, width, height = mx.y - mn.y, mx.x - mn.x, mx.z - mn.z
+    print(f'BOUNDS L(Y) {length:.3f} W(X) {width:.3f} H(Z) {height:.3f} tris {tri_count(objs)}')
+    ok = 5.30 <= length <= 5.60 and 2.20 <= width <= 2.40 and 1.30 <= height <= 1.40
+    return ok
 
 
-def place_lights(kit, hull, canopy):
-    stick(kit, kit.light_strip('head', 0.62, 0.034, 0.02, 'white'), hull, (0, 2.05, 0.55), (0, 1, 0.25))
-    stick(kit, kit.light_strip('tail', 0.55, 0.04, 0.02, 'red'), hull, (0, -2.2, 0.40), (0, -1, 0.15))
-    stick(kit, kit.light_strip('side-l', 0.55, 0.036, 0.016, 'amber'), hull, (-1.02, -0.15, 0.42), (-1, 0, 0.15))
-    stick(kit, kit.light_strip('side-r', 0.55, 0.036, 0.016, 'amber'), hull, (1.02, -0.15, 0.42), (1, 0, 0.15))
-    stick(kit, kit.light_strip('strobe-l', 0.34, 0.04, 0.04, 'strobe-red'), canopy, (-0.16, 0.02, 1.36), (0, 0, 1))
-    stick(kit, kit.light_strip('strobe-r', 0.34, 0.04, 0.04, 'strobe-blue'), canopy, (0.16, 0.02, 1.36), (0, 0, 1))
+def cut_nose_channel(hull, filled=False):
+    """Open the hood. The cutter runs out past the nose and down through the slab,
+    so the top and front silhouettes show two cheeks and a gap, not a solid panel.
+
+    filled keeps the slot in the nose only. The deck behind it stays a roof.
+    """
+    if filled:
+        lo, hi = (-0.52, 1.78, 0.10), (0.52, 2.98, 0.92)
+    else:
+        lo, hi = (-0.58, 1.48, 0.08), (0.58, 2.95, 1.05)
+    cutter = box('nose-channel', lo, hi, hull.data.materials[0])
+    mod = hull.modifiers.new('Channel', 'BOOLEAN')
+    mod.operation = 'DIFFERENCE'
+    mod.object = cutter
+    mod.solver = 'EXACT'
+    select_only(hull)
+    bpy.ops.object.modifier_apply(modifier=mod.name)
+    bpy.data.objects.remove(cutter, do_unlink=True)
 
 
-def place_dress(kit, hull, pods, lod, rich):
-    slats = SLATS[lod]
-    vanes = 3 if lod == 'high' else 2
-    bolts = rich
-    panels = (
-        ('hood', (0.0, 1.25, 0.78), (0, 0.25, 1), 0.34, 0.20),
-        ('deck', (0.0, -0.7, 0.80), (0, -0.1, 1), 0.32, 0.18),
-        ('flank-l', (-1.00, 0.05, 0.46), (-1, 0, 0.08), 0.42, 0.16),
-        ('flank-r', (1.00, 0.05, 0.46), (1, 0, 0.08), 0.42, 0.16),
-        ('sill-l', (-0.88, 0.35, 0.18), (-0.25, 0.05, -1), 0.30, 0.08),
-        ('sill-r', (0.88, 0.35, 0.18), (0.25, 0.05, -1), 0.30, 0.08),
+def darken_channel(hull):
+    """The slot interior is a recess, not the noisy body bake."""
+    rec = bpy.data.materials.get('recess')
+    if rec is None:
+        return
+    mesh = hull.data
+    if rec.name not in [m.name for m in mesh.materials]:
+        mesh.materials.append(rec)
+    idx = mesh.materials.find('recess')
+    n = 0
+    for poly in mesh.polygons:
+        c = poly.center
+        if -0.50 <= c.x <= 0.50 and 1.76 <= c.y <= 3.05 and c.z <= 0.94:
+            poly.material_index = idx
+            n += 1
+    print('channel faces recessed', n)
+
+
+def cut_ribbon(hull, name, location, euler, half):
+    """Boolean a slot into the hull. half is (x, y, z) before rotation."""
+    hx, hy, hz = half
+    cutter = box(name, (-hx, -hy, -hz), (hx, hy, hz), hull.data.materials[0])
+    cutter.location = Vector(location)
+    cutter.rotation_euler = euler
+    bpy.context.view_layer.update()
+    mod = hull.modifiers.new(name, 'BOOLEAN')
+    mod.operation = 'DIFFERENCE'
+    mod.object = cutter
+    mod.solver = 'EXACT'
+    select_only(hull)
+    bpy.ops.object.modifier_apply(modifier=mod.name)
+    bpy.data.objects.remove(cutter, do_unlink=True)
+
+
+def place_wheel(kit, name, sign, y, radius, width, segments, slots, x=0.78, pressed=False, covered=False, panel=False):
+    part = kit.wheel_housing(
+        name, radius=radius, width=width, segments=segments, slots=0 if covered else slots,
+        pressed=pressed, covered=covered, panel=panel,
     )
-    for name, guess, normal, w, h in panels:
-        part = kit.panel_inset(name, w, h, bolts=bolts)
-        stick(kit, part, hull, guess, normal)
-        part.root.scale.z = 0.45
-    for name, guess, normal in (
-        ('intake-l', (-0.92, 0.15, 0.70), (-0.45, 0.05, 0.9)),
-        ('intake-r', (0.92, 0.15, 0.70), (0.45, 0.05, 0.9)),
-    ):
-        stick(kit, kit.intake(name, 0.46, 0.22, 0.055, vanes), hull, guess, normal)
-    stick(kit, kit.vent('deck-vent', 0.18, 0.08, 0.02, slats), hull, (0.0, -0.35, 0.90), (0, 0, 1))
-    for y in (1.55, -1.35):
-        stick(kit, kit.seam(f'spine-{y:+.2f}', 0.32, 0.008, 0.005), hull, (0, y, 0.9), (0, 0, 1))
-    # Canopy sill: a dark seam where the glass meets the roof, both sides and the windshield header.
-    for name, guess, normal, length in (
-        ('frame-l', (-0.42, 0.15, 0.95), (-0.7, 0, 0.7), 0.7),
-        ('frame-r', (0.42, 0.15, 0.95), (0.7, 0, 0.7), 0.7),
-        ('frame-front', (0.0, 0.85, 0.95), (0, 0.6, 0.8), 0.4),
-    ):
-        stick(kit, kit.seam(name, length, 0.012, 0.008), hull, guess, normal)
-    segments = SEG[lod]
-    nvanes = NOZZLE_VANES[lod]
-    rear_l, rear_r, front_l, front_r = pods
-    for pod, sign in ((rear_l, -1), (rear_r, 1)):
-        stick(
-            kit, kit.thruster_nozzle(f'nozzle-rear-{sign:+d}', 0.18, 0.08, nvanes, segments),
-            pod, (sign * 0.86, -1.75, 0.36), (sign * 0.22, -1, 0.08),
-        )
-    for pod, sign in ((front_l, -1), (front_r, 1)):
-        stick(
-            kit, kit.thruster_nozzle(f'nozzle-front-{sign:+d}', 0.11, 0.05, max(0, nvanes // 2), segments),
-            pod, (sign * 0.68, 1.22, 0.10), (0, 0.15, -1),
-        )
-        stick(kit, kit.vent(f'pod-vent-{sign:+d}', 0.16, 0.08, 0.02, max(2, slats // 2)), pod, (sign * 0.68, 1.22, 0.55), (0, 0.1, 1))
+    # local +Z out the cover, +Y up, +X toward the nose. Left side is a mirror; normals are fixed later.
+    frame(part, (sign * x, y, radius + 0.02), (0, 1, 0), (0, 0, 1), (sign, 0, 0))
+    return part
 
 
-def place_greebles(kit, hull, count):
-    spots = (
-        ((-0.72, -1.45, 0.48), (-0.6, -0.3, 0.7), 0.16, 0.12, 11),
-        ((0.72, -1.45, 0.48), (0.6, -0.3, 0.7), 0.16, 0.12, 12),
-        ((-0.95, 0.1, 0.55), (-1, 0, 0.2), 0.14, 0.10, 13),
-        ((0.95, 0.1, 0.55), (1, 0, 0.2), 0.14, 0.10, 14),
-        ((0.0, 1.15, 0.82), (0, 0.2, 1), 0.12, 0.08, 15),
-        ((0.0, -0.55, 0.84), (0, 0, 1), 0.12, 0.08, 16),
+def place_skirt(kit, sign, x=0.78, width=0.30, height=0.20, z=0.16):
+    # Bridge the drums. Nose taper is local +X, so both sides point that axis at the nose.
+    part = kit.side_pod(f'skirt-{sign:+d}', length=2.55, width=width, height=height, nose=0.48, tail=0.32)
+    frame(part, (sign * x, -0.22, z), (0, 1, 0), (0, 0, 1), (sign, 0, 0))
+    return part
+
+
+def place_bar(kit, canopy, length=0.84, height=0.046):
+    part = kit.light_bar('light-bar', length, 0.14, height)
+    loc = stick(kit, part, canopy, (0.0, -0.35, 1.34), (0, 0, 1), lift=0.0)
+    # local +X is the long axis and runs across the roof. +Z up. A few centimetres, not a fin.
+    frame(part, (loc.x, loc.y, loc.z + 0.004), (1, 0, 0), (0, 1, 0), (0, 0, 1))
+    return part
+
+
+def place_decal(kit, sign, x=1.02, width=1.28, height=0.22):
+    part = kit.livery_decal(f'police-{sign:+d}', width, height)
+    # Standing outside the flank, left-to-right reads with local +X.
+    if sign > 0:
+        frame(part, (x, -0.15, 0.52), (0, 1, 0), (0, 0, 1), (1, 0, 0))
+    else:
+        frame(part, (-x, -0.15, 0.52), (0, -1, 0), (0, 0, 1), (-1, 0, 0))
+    return part
+
+
+LETTERS = {
+    'P': ['####', '#  #', '#  #', '####', '#   ', '#   '],
+    'O': ['####', '#  #', '#  #', '#  #', '#  #', '####'],
+    'L': ['#   ', '#   ', '#   ', '#   ', '#   ', '####'],
+    'I': ['### ', ' #  ', ' #  ', ' #  ', ' #  ', '### '],
+    'C': ['####', '#   ', '#   ', '#   ', '#   ', '####'],
+    'E': ['####', '#   ', '### ', '#   ', '#   ', '####'],
+}
+
+
+def paint_livery(path):
+    w, h = 512, 128
+    img = bpy.data.images.new('livery-police', width=w, height=h, alpha=True, float_buffer=False)
+    img.colorspace_settings.name = 'sRGB'
+    px = array.array('f', [0.045, 0.048, 0.052, 1.0] * (w * h))
+    word = 'POLICE'
+    cols, rows = 4, 6
+    cell = 16
+    gap = 6
+    word_w = len(word) * (cols * cell + gap) - gap
+    x0 = (w - word_w) // 2
+    y0 = (h - rows * cell) // 2
+    ink = (0.86, 0.84, 0.78, 1.0)
+    rule = (0.55, 0.53, 0.48, 1.0)
+    for y in (y0 - 8, y0 + rows * cell + 4):
+        for x in range(x0, x0 + word_w):
+            if 0 <= x < w and 0 <= y < h:
+                i = (y * w + x) * 4
+                px[i:i + 4] = array.array('f', rule)
+    for li, ch in enumerate(word):
+        grid = LETTERS[ch]
+        ox = x0 + li * (cols * cell + gap)
+        for ry, row in enumerate(grid):
+            for cx, bit in enumerate(row[:cols]):
+                if bit != '#':
+                    continue
+                for yy in range(cell - 2):
+                    for xx in range(cell - 2):
+                        x = ox + cx * cell + xx
+                        # Blender pixels are bottom-up.
+                        y = y0 + (rows - 1 - ry) * cell + yy
+                        if 0 <= x < w and 0 <= y < h:
+                            i = (y * w + x) * 4
+                            px[i:i + 4] = array.array('f', ink)
+    img.pixels.foreach_set(px)
+    img.pack()
+    os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
+    img.filepath_raw = path
+    img.file_format = 'PNG'
+    img.save()
+    print('livery', path)
+    return img
+
+
+def assign_decal_uvs():
+    """The outward local +Z face carries the word. Other faces get a corner so they stay dark."""
+    for obj in meshes():
+        if not obj.data.materials or obj.data.materials[0].name != 'livery':
+            continue
+        mesh = obj.data
+        if not mesh.uv_layers:
+            mesh.uv_layers.new(name='UVMap')
+        uv = mesh.uv_layers.active.data
+        for poly in mesh.polygons:
+            loops = list(poly.loop_indices)
+            if poly.normal.z < 0.9:
+                for li in loops:
+                    uv[li].uv = (0.0, 0.0)
+                continue
+            coords = [mesh.vertices[mesh.loops[li].vertex_index].co for li in loops]
+            min_x = min(c.x for c in coords)
+            max_x = max(c.x for c in coords)
+            min_y = min(c.y for c in coords)
+            max_y = max(c.y for c in coords)
+            span_x = max(max_x - min_x, 1e-6)
+            span_y = max(max_y - min_y, 1e-6)
+            for li, co in zip(loops, coords):
+                uv[li].uv = ((co.x - min_x) / span_x, (co.y - min_y) / span_y)
+
+
+def assign_livery(mat, image):
+    mat.use_nodes = True
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
+    bsdf = nodes.get('Principled BSDF')
+    bsdf.inputs['Base Color'].default_value = (1, 1, 1, 1)
+    bsdf.inputs['Metallic'].default_value = 0.05
+    bsdf.inputs['Roughness'].default_value = 0.58
+    tex = nodes.new('ShaderNodeTexImage')
+    tex.image = image
+    tex.location = (-300, 200)
+    links.new(tex.outputs['Color'], bsdf.inputs['Base Color'])
+
+
+def _active_image(obj, name, size, colorspace):
+    img = bpy.data.images.new(name, width=size, height=size, alpha=False, float_buffer=True)
+    img.colorspace_settings.name = colorspace
+    mat = obj.data.materials[0]
+    mat.use_nodes = True
+    nodes = mat.node_tree.nodes
+    tex = nodes.new('ShaderNodeTexImage')
+    tex.image = img
+    nodes.active = tex
+    for node in nodes:
+        node.select = False
+    tex.select = True
+    return img
+
+
+def _bake(obj, kind, extra=None):
+    scene = bpy.context.scene
+    scene.render.engine = 'CYCLES'
+    scene.cycles.device = 'CPU'
+    scene.cycles.samples = 1 if kind == 'NORMAL' else 8
+    scene.cycles.use_denoising = False
+    scene.render.threads_mode = 'FIXED'
+    scene.render.threads = os.cpu_count() or 4
+    scene.render.bake.margin = 8
+    scene.render.bake.use_clear = True
+    select_only(obj)
+    if extra is not None:
+        extra.select_set(True)
+        bpy.context.view_layer.objects.active = obj
+    print('BAKE', kind, 'threads', scene.render.threads, 'samples', scene.cycles.samples, flush=True)
+    bpy.ops.object.bake(type=kind)
+    print('BAKE done', kind, flush=True)
+
+
+def bake_normal(obj, size):
+    select_only(obj)
+    bpy.ops.object.duplicate()
+    high = bpy.context.view_layer.objects.active
+    high.name = 'body-high'
+    bev = high.modifiers.new('Bevel', 'BEVEL')
+    bev.limit_method = 'ANGLE'
+    bev.angle_limit = math.radians(42)
+    bev.width = 0.012
+    bev.segments = 2
+    apply_mods(high, math.radians(30))
+    img = _active_image(obj, 'normal-bake', size, 'Non-Color')
+    scene = bpy.context.scene
+    scene.render.bake.use_selected_to_active = True
+    scene.render.bake.cage_extrusion = 0.03
+    scene.render.bake.normal_space = 'TANGENT'
+    try:
+        _bake(obj, 'NORMAL', extra=high)
+        print('normal bake ok')
+    except RuntimeError as exc:
+        print('normal bake failed', exc)
+        img.pixels.foreach_set(array.array('f', [0.5, 0.5, 1.0, 1.0] * (size * size)))
+    scene.render.bake.use_selected_to_active = False
+    bpy.data.objects.remove(high, do_unlink=True)
+    return img
+
+
+def bake_ao(obj, size):
+    img = _active_image(obj, 'ao-bake', size, 'Non-Color')
+    try:
+        _bake(obj, 'AO')
+        print('ao bake ok')
+    except RuntimeError as exc:
+        print('ao bake failed', exc)
+        img.pixels.foreach_set(array.array('f', [1, 1, 1, 1] * (size * size)))
+    return img
+
+
+def _image_floats(img):
+    buf = array.array('f', [0.0]) * (img.size[0] * img.size[1] * img.channels)
+    img.pixels.foreach_get(buf)
+    return buf
+
+
+def _box_blur(src, size, radius):
+    """Separable box blur. Edge samples clamp. A flat field stays flat."""
+    tmp = array.array('f', [0.0]) * (size * size)
+    inv = 1.0 / (radius * 2 + 1)
+    for y in range(size):
+        row = y * size
+        acc = 0.0
+        for k in range(-radius, radius + 1):
+            acc += src[row + min(size - 1, max(0, k))]
+        for x in range(size):
+            tmp[row + x] = acc * inv
+            acc += src[row + min(size - 1, x + radius + 1)]
+            acc -= src[row + max(0, x - radius)]
+    out = array.array('f', [0.0]) * (size * size)
+    for x in range(size):
+        acc = 0.0
+        for k in range(-radius, radius + 1):
+            acc += tmp[min(size - 1, max(0, k)) * size + x]
+        for y in range(size):
+            out[y * size + x] = acc * inv
+            acc += tmp[min(size - 1, y + radius + 1) * size + x]
+            acc -= tmp[max(0, y - radius) * size + x]
+    return out
+
+
+def _hash(ix, iy):
+    n = (int(ix) * 374761393 + int(iy) * 668265263) & 0xFFFFFFFF
+    n = (n ^ (n >> 13)) * 1274126177 & 0xFFFFFFFF
+    return ((n >> 8) & 0xFFFFFF) / float(0xFFFFFF)
+
+
+def _channel_mean(img, ch):
+    buf = _image_floats(img)
+    step = max(int(img.channels), 1)
+    n = img.size[0] * img.size[1]
+    acc = 0.0
+    count = 0
+    for i in range(0, n, 8):
+        acc += buf[i * step + min(ch, step - 1)]
+        count += 1
+    return acc / max(count, 1)
+
+
+def _byte_image(name, buf, size, space):
+    img = bpy.data.images.new(name, width=size, height=size, alpha=True, float_buffer=False)
+    img.colorspace_settings.name = space
+    img.pixels.foreach_set(buf)
+    img.pack()
+    return img
+
+
+def _as_byte(img, name, space):
+    """Float bakes export as a black PNG. Copy into an 8-bit image first."""
+    w, h = img.size
+    raw = _image_floats(img)
+    step = max(int(img.channels), 1)
+    n = w * h
+    buf = array.array('f', [0.0]) * (n * 4)
+    for i in range(n):
+        base = i * step
+        if step >= 3:
+            buf[i * 4] = raw[base]
+            buf[i * 4 + 1] = raw[base + 1]
+            buf[i * 4 + 2] = raw[base + 2]
+            buf[i * 4 + 3] = raw[base + 3] if step >= 4 else 1.0
+        else:
+            buf[i * 4] = buf[i * 4 + 1] = buf[i * 4 + 2] = raw[base]
+            buf[i * 4 + 3] = 1.0
+    return _byte_image(name, buf, w, space)
+
+
+def ao_normal_image(ao_img, size):
+    """Seam relief from a blurred AO. A missed Cycles bake was a black map, and that speckled under the rim."""
+    raw = _image_floats(ao_img)
+    step = max(int(ao_img.channels), 1)
+    aos = array.array('f', raw[0::step])
+    blur = _box_blur(aos, size, 8)
+    buf = array.array('f', [0.0]) * (size * size * 4)
+    strength = 1.5
+    for y in range(size):
+        row = y * size
+        for x in range(size):
+            left = blur[row + max(0, x - 1)]
+            right = blur[row + min(size - 1, x + 1)]
+            down = blur[max(0, y - 1) * size + x]
+            up = blur[min(size - 1, y + 1) * size + x]
+            nx = (left - right) * strength
+            ny = (down - up) * strength
+            nz = 1.0
+            inv = 1.0 / math.sqrt(nx * nx + ny * ny + nz * nz)
+            o = (row + x) * 4
+            buf[o] = nx * inv * 0.5 + 0.5
+            buf[o + 1] = ny * inv * 0.5 + 0.5
+            buf[o + 2] = nz * inv * 0.5 + 0.5
+            buf[o + 3] = 1.0
+    return _byte_image('body-normal', buf, size, 'Non-Color')
+
+
+def flat_normal_image(size):
+    """No cavity bump. The AO relief read as a wavy fingerprint in the close-ups."""
+    buf = array.array('f', [0.5, 0.5, 1.0, 1.0]) * (size * size)
+    return _byte_image('body-normal', buf, size, 'Non-Color')
+
+
+def _surface_tone(co, normal):
+    """Broad panels, belly grime, a few chips. Repeating tracks read as wood grain."""
+    z = co.z
+    x = abs(co.x)
+    y = co.y
+    panel = 0.90 + 0.12 * _hash(int(math.floor(y * 0.5)), int(math.floor(z * 1.1 + x)))
+    mul = panel
+    if z < 0.36:
+        mul *= 0.70 + 0.30 * max(0.0, z) / 0.36
+    cell = _hash(
+        int(math.floor(x * 3.2)),
+        int(math.floor(y * 3.2)) + int(math.floor(z * 3.2)),
     )
-    for i, (guess, normal, w, h, seed) in enumerate(spots[:count]):
-        stick(kit, kit.greeble_cluster(f'greeble-{i}', w, h, 0.018, 3, seed), hull, guess, normal)
+    if cell > 0.982 and z > 0.58 and abs(normal.z) < 0.75:
+        return 2.05
+    return mul
 
 
-def place_rich(kit, hull):
-    stick_euler(
-        kit, kit.antenna('blade', 0.22, 'blade'), hull,
-        (0.0, -1.05, 0.8), (0, 0, 1), (0, 0, math.pi / 2),
+def stamp_surface(obj, img):
+    """Darken bellies and rain tracks, and lift a few edge chips, in the albedo."""
+    size = img.size[0]
+    raw = _image_floats(img)
+    ch = max(int(img.channels), 1)
+    mesh = obj.data
+    uvdata = mesh.uv_layers.active.data
+    loops = mesh.loops
+    verts = mesh.vertices
+    painted = 0
+    for poly in mesh.polygons:
+        if poly.area < 0.004 or len(poly.loop_indices) < 3:
+            continue
+        ids = poly.loop_indices
+        normal = poly.normal
+        for i in range(1, len(ids) - 1):
+            tri = (ids[0], ids[i], ids[i + 1])
+            us = []
+            vs = []
+            cos = []
+            for li in tri:
+                uv = uvdata[li].uv
+                us.append(uv.x * size)
+                vs.append(uv.y * size)
+                cos.append(verts[loops[li].vertex_index].co)
+            minx = max(0, int(min(us)))
+            maxx = min(size - 1, int(max(us)) + 1)
+            miny = max(0, int(min(vs)))
+            maxy = min(size - 1, int(max(vs)) + 1)
+            den = (vs[1] - vs[2]) * (us[0] - us[2]) + (us[2] - us[1]) * (vs[0] - vs[2])
+            if abs(den) < 1e-4:
+                continue
+            for py in range(miny, maxy + 1):
+                for px in range(minx, maxx + 1):
+                    sx = px + 0.5
+                    sy = py + 0.5
+                    w0 = ((vs[1] - vs[2]) * (sx - us[2]) + (us[2] - us[1]) * (sy - vs[2])) / den
+                    w1 = ((vs[2] - vs[0]) * (sx - us[2]) + (us[0] - us[2]) * (sy - vs[2])) / den
+                    w2 = 1.0 - w0 - w1
+                    if w0 < -0.002 or w1 < -0.002 or w2 < -0.002:
+                        continue
+                    co = cos[0] * w0 + cos[1] * w1 + cos[2] * w2
+                    mul = _surface_tone(co, normal)
+                    o = (py * size + px) * ch
+                    for c in range(min(3, ch)):
+                        raw[o + c] = min(1.0, max(0.0, raw[o + c] * mul))
+                    painted += 1
+    img.pixels.foreach_set(raw)
+    print('surface stamped', painted)
+
+
+def _grade(ao_img, size, tuned, loud=False, worn=False, flat=False):
+    raw = _image_floats(ao_img)
+    step = max(int(ao_img.channels), 1)
+    aos = array.array('f', raw[0::step])
+    # Eight AO samples are grainy. Blur before the worn grade or the rim turns the grain into sparkles.
+    if worn:
+        aos = _box_blur(aos, size, 4)
+    # Open panels are the bright end of the bake. Scale to that, or a dim AO
+    # paints the whole car as a crevice.
+    hi = sorted(aos)[int((len(aos) - 1) * 0.92)]
+    hi = max(hi, 1e-4)
+    blur = _box_blur(aos, size, 2)
+    wide = _box_blur(aos, size, 14) if worn else blur
+    base = array.array('f', [0.0]) * (size * size * 4)
+    rough = array.array('f', [0.0]) * (size * size * 4)
+    metal = array.array('f', [0.0]) * (size * size * 4)
+    # Charcoal that still shows a panel in studio. Near-black (0.01) read as empty.
+    # Loud is a step lighter so the studio row is not a black hole, with a wider cavity.
+    # Worn is gunmetal: lighter, more metal, with panel-sized tone and a few chips.
+    if worn:
+        paint = (0.18, 0.185, 0.195)
+    elif loud:
+        paint = (0.14, 0.145, 0.155)
+    elif tuned:
+        paint = (0.062, 0.064, 0.070)
+    else:
+        paint = (0.045, 0.047, 0.050)
+    cell = 160 if size >= 1024 else (80 if size >= 512 else 40)
+    chip_cell = 64 if size >= 1024 else 32
+    for i, ao in enumerate(aos):
+        ao_n = min(1.0, ao / hi)
+        blur_n = min(1.0, blur[i] / hi)
+        wide_n = min(1.0, wide[i] / hi)
+        if flat:
+            # Smooth curvature in the AO was painting wood grain. Only real cavities go dark.
+            shade = 0.55 + 0.45 * (ao_n / 0.35) if ao_n < 0.35 else 1.0
+        else:
+            shade = (0.62 + 0.38 * ao_n) if worn else ((0.48 + 0.52 * ao_n) if loud else (0.62 + 0.38 * ao_n))
+        # Soft exposed-edge lift. A one-pixel neighbour test sparkled under the rim.
+        edge = (ao_n - wide_n) if worn else (ao_n - blur_n)
+        edge_lift = 0.08 if worn else (0.12 if loud else 0.22)
+        edge_cut = 0.08 if worn else 0.035
+        if tuned and not flat and edge > edge_cut:
+            shade *= 1.0 + min(edge_lift, (edge - edge_cut) * (1.1 if worn else (1.4 if loud else 2.4)))
+        if ao_n < 0.5 and not flat:
+            if worn:
+                shade *= 0.20 + 0.50 * (ao_n / 0.5)
+            else:
+                shade *= 0.55 + 0.45 * (ao_n / 0.5) if loud else 0.7 + 0.3 * (ao_n / 0.5)
+        tone = 1.0
+        chip = 0.0
+        grit = 0.0
+        if worn and not flat:
+            x, y = i % size, i // size
+            tone = 0.97 + 0.05 * _hash(x // cell, y // cell)
+            # Grime sits in cavities, not as a checker on an open panel.
+            if ao_n < 0.55 and _hash(x // cell + 5, y // cell + 11) > 0.78:
+                grit = 1.0
+                tone *= 0.84
+            if _hash(x // chip_cell + 17, y // chip_cell + 3) > 0.994 and edge > 0.10:
+                chip = 1.0
+        o = i * 4
+        cr = min(1.0, paint[0] * shade * tone)
+        cg = min(1.0, paint[1] * shade * tone)
+        cb = min(1.0, paint[2] * shade * tone)
+        if worn and not flat and edge > 0.08:
+            wear = min(0.32, (edge - 0.08) * 1.3)
+            cr = cr * (1.0 - wear) + 0.34 * wear
+            cg = cg * (1.0 - wear) + 0.35 * wear
+            cb = cb * (1.0 - wear) + 0.37 * wear
+        if chip:
+            cr, cg, cb = 0.46, 0.47, 0.50
+        base[o] = cr
+        base[o + 1] = cg
+        base[o + 2] = cb
+        base[o + 3] = 1.0
+        if worn:
+            # Paint, not chrome. The coat carries the shine.
+            r = 0.50 + 0.16 * (1.0 - ao_n)
+            m = 0.34 + 0.14 * ao_n
+            if grit:
+                r = min(0.92, r + 0.24)
+                m = max(0.08, m - 0.20)
+            if edge > 0.08:
+                r = max(0.30, r - 0.06)
+                m = min(0.62, m + 0.05)
+            if chip:
+                r = 0.34
+                m = 0.62
+        elif loud:
+            r = 0.58 + 0.22 * (1.0 - ao_n)
+            m = 0.18 + 0.16 * ao_n
+        else:
+            r = 0.46 + 0.28 * (1.0 - ao_n)
+            if tuned and edge > 0.035:
+                r = max(0.34, r - 0.08)
+            m = 0.28 + 0.30 * ao_n
+            if tuned and edge > 0.035:
+                m = min(0.72, m + 0.08)
+        rough[o:o + 4] = array.array('f', (r, r, r, 1))
+        metal[o:o + 4] = array.array('f', (m, m, m, 1))
+    def finish(name, buf, space):
+        img = bpy.data.images.new(name, width=size, height=size, alpha=True, float_buffer=False)
+        img.colorspace_settings.name = space
+        img.pixels.foreach_set(buf)
+        img.pack()
+        return img
+    return (
+        finish('body-albedo', base, 'sRGB'),
+        finish('body-rough', rough, 'Non-Color'),
+        finish('body-metal', metal, 'Non-Color'),
     )
-    stick(kit, kit.antenna('whip', 0.16, 'whip'), hull, (0.08, -1.22, 0.75), (0, 0, 1))
-    stick(kit, kit.bolt_cluster('bolts-intake-l', 0.08, 0.05, 4, 3), hull, (-0.7, 0.42, 0.7), (-0.4, 0.1, 1))
-    stick(kit, kit.bolt_cluster('bolts-intake-r', 0.08, 0.05, 4, 4), hull, (0.7, 0.42, 0.7), (0.4, 0.1, 1))
-    for sign, seed in ((-1, 21), (1, 22)):
-        kit.place(kit.cable(
-            f'pod-cable-{sign:+d}',
-            ((0, 0, 0), (sign * 0.08, 0.06, 0.04), (sign * 0.16, 0.14, 0.02)),
-            radius=0.012,
-        ), (sign * 0.72, -1.25, 0.46))
+
+
+def connect_pbr(obj, albedo, rough, metal, normal, worn=False):
+    mat = obj.data.materials[0]
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
+    bsdf = nodes.get('Principled BSDF')
+    for node in list(nodes):
+        if node.type == 'TEX_IMAGE' and node.image and node.image.name.endswith('-bake'):
+            nodes.remove(node)
+
+    def tex_node(image, x):
+        tex = nodes.new('ShaderNodeTexImage')
+        tex.image = image
+        tex.location = (x, 300)
+        return tex
+
+    links.new(tex_node(albedo, -420).outputs['Color'], bsdf.inputs['Base Color'])
+    links.new(tex_node(rough, -420).outputs['Color'], bsdf.inputs['Roughness'])
+    links.new(tex_node(metal, -640).outputs['Color'], bsdf.inputs['Metallic'])
+    nmap = nodes.new('ShaderNodeNormalMap')
+    nmap.location = (-200, -120)
+    nt = tex_node(normal, -640)
+    nt.image.colorspace_settings.name = 'Non-Color'
+    links.new(nt.outputs['Color'], nmap.inputs['Color'])
+    links.new(nmap.outputs['Normal'], bsdf.inputs['Normal'])
+    bsdf.inputs['Metallic'].default_value = 1.0
+    bsdf.inputs['Roughness'].default_value = 1.0
+    if worn and 'Coat Weight' in bsdf.inputs:
+        bsdf.inputs['Coat Weight'].default_value = 0.62
+        bsdf.inputs['Coat Roughness'].default_value = 0.32
+
+
+def pack_uv_trim(obj):
+    """Pull repeated kit islands off the unique paint region so a corner stays a shared trim cell."""
+    mesh = obj.data
+    if not mesh.uv_layers:
+        return
+    uv = mesh.uv_layers.active.data
+    # Bolts and slat faces are small. Leave them; the grade is unique per island.
+    # The shared trim cell is the top-left 8% : any loop whose island is tiny gets moved there.
+    # Counting per polygon.
+    polys = mesh.polygons
+    for poly in polys:
+        if poly.area > 0.004:
+            continue
+        for li in poly.loop_indices:
+            u, v = uv[li].uv
+            uv[li].uv = (0.01 + (u % 1) * 0.07, 0.92 + (v % 1) * 0.07)
+
+
+def bake_body(obj, size, tuned, loud=False, worn=False, seamed=False):
+    if bpy.context.scene.world is None:
+        bpy.context.scene.world = bpy.data.worlds.new('World')
+    smart_uv(obj)
+    pack_uv_trim(obj)
+    # The selected-to-active bevel bake came back as a fingerprint and speckled under the rim.
+    # Worn rounds use a blurred AO cavity instead. Seamed rounds leave the normal flat.
+    ao = bake_ao(obj, size)
+    if seamed:
+        normal = flat_normal_image(size)
+        print('normal flat')
+    elif worn:
+        normal = ao_normal_image(ao, size)
+        print('normal from AO cavity')
+    else:
+        normal = bake_normal(obj, size)
+        mean_b = _channel_mean(normal, 2)
+        print(f'normal mean B {mean_b:.3f}')
+        if mean_b < 0.25:
+            print('normal bake empty; seams from AO')
+            normal = ao_normal_image(ao, size)
+        else:
+            normal = _as_byte(normal, 'body-normal', 'Non-Color')
+    albedo, rough, metal = _grade(ao, size, tuned, loud=loud, worn=worn, flat=seamed)
+    if seamed:
+        stamp_surface(obj, albedo)
+        # The AO roughness draws contour lines. Paint is one roughness; the albedo carries the wear.
+        _flatten_maps(rough, metal, size)
+    connect_pbr(obj, albedo, rough, metal, normal, worn=worn)
+
+
+def _flatten_maps(rough, metal, size):
+    raw_r = _image_floats(rough)
+    raw_m = _image_floats(metal)
+    ch_r = max(int(rough.channels), 1)
+    ch_m = max(int(metal.channels), 1)
+    n = size * size
+    for i in range(n):
+        o = i * ch_r
+        for c in range(min(3, ch_r)):
+            raw_r[o + c] = 0.46
+        o = i * ch_m
+        for c in range(min(3, ch_m)):
+            raw_m[o + c] = 0.40
+    rough.pixels.foreach_set(raw_r)
+    metal.pixels.foreach_set(raw_m)
 
 
 def build(round_n, lod, out_path):
@@ -651,44 +1062,244 @@ def build(round_n, lod, out_path):
     kit = Kit()
     detail = lod != 'low' and round_n >= 2
     rich = lod == 'high' and round_n >= 3
-    greeble = lod != 'low' and round_n >= 3
-    print(f'BUILD round {round_n} lod {lod} detail {detail} rich {rich}')
+    bake = round_n >= 3
+    tuned = round_n >= 4
+    dressed = round_n >= 2
+    faired = round_n >= 5
+    loud = round_n >= 6
+    split = round_n >= 7
+    filled = round_n >= 8
+    seamed = round_n >= 10
+    print(f'BUILD round {round_n} lod {lod} detail {detail} rich {rich} bake {bake} faired {faired} loud {loud} split {split} filled {filled} seamed {seamed}')
 
-    sections = [hull_section(*row) for row in HULL]
-    hull = loft(sections, 'hull', kit.body, SHARP, 0.85 if rich else 0.0, math.radians(50))
+    stations = list(HULL)
+    if split:
+        # Wider cheeks so the open channel has two sides, without moving the side profile.
+        # Same heights as the round-6 stations, so the side profile stays put.
+        # The cheeks are wider in plan so the channel can be a real gap.
+        stations[0] = (2.55, 1.02, 0.34, 0.50)
+        stations[1] = (2.05, 1.06, 0.24, 0.66)
+        stations[2] = (1.45, 1.00, 0.18, 0.80)
+    hull = loft(
+        [hull_section(*row, flare=faired) for row in stations],
+        'hull', kit.body, SHARP, 0.9 if rich else 0.0, math.radians(50),
+    )
     if detail:
-        add_bevel(hull, 2 if lod == 'high' else 1, 0.008)
+        add_bevel(hull, 2 if lod == 'high' else 1, 0.006)
     if rich:
         add_subdiv(hull)
         add_weighted(hull)
     apply_mods(hull, math.radians(32 if detail else 50))
+    if split:
+        cut_nose_channel(hull, filled=filled)
+        if filled:
+            darken_channel(hull)
+    if filled and detail:
+        # Thin diagonal slot. The dark gap mesh sits in it; a wide shallow bite just speckled.
+        for sign in (1, -1):
+            cut_ribbon(
+                hull, f'door-groove-{sign:+d}',
+                (sign * 0.98, 0.02, 0.60),
+                (math.radians(18), 0.0, 0.0),
+                (0.08, 1.08, 0.055),
+            )
 
+    canopy_rows = CANOPY
+    if filled:
+        # Same rake and peak, narrower in plan, so the roof around the glass stays body.
+        # The outline stays. Round 10 only changes the glass colour, so the cabin stops reading as a cyan dome.
+        canopy_rows = tuple((y, hw * 0.78, base, top) for y, hw, base, top in CANOPY)
     canopy = loft(
-        [canopy_section(*row) for row in CANOPY],
+        [canopy_section(*row, shallow=False) for row in canopy_rows],
         'canopy', kit.glass, set(), 0.0, math.radians(35),
     )
     solid = canopy.modifiers.new('Solidify', 'SOLIDIFY')
-    solid.thickness = 0.014
+    solid.thickness = 0.012
     solid.offset = 0.0
     if detail:
         add_bevel(canopy, 1, 0.003)
     apply_mods(canopy, math.radians(35))
 
     seg = SEG[lod]
-    pods = (
-        cylinder_y('pod-rear-l', 0.26, 0.70, seg, kit.body, (-0.86, -1.22, 0.36)),
-        cylinder_y('pod-rear-r', 0.26, 0.70, seg, kit.body, (0.86, -1.22, 0.36)),
-        cylinder_y('pod-front-l', 0.15, 0.44, seg, kit.body, (-0.68, 1.22, 0.32)),
-        cylinder_y('pod-front-r', 0.15, 0.44, seg, kit.body, (0.68, 1.22, 0.32)),
+    slots = 3 if detail else (1 if lod != 'low' else 0)
+    wheels = (
+        (1, 1.48, 0.36),
+        (-1, 1.48, 0.36),
+        (1, -1.92, 0.30),
+        (-1, -1.92, 0.30),
     )
-    make_skids(kit.body, kit.recess)
-    place_lights(kit, hull, canopy)
+    drum_x = 0.64 if faired else 0.78
+    for sign, y, radius in wheels:
+        width = 0.40 if abs(y) > 1 else 0.36
+        place_wheel(
+            kit, f'drum-{sign:+d}-{y:+.2f}', sign, y, radius, width, seg,
+            slots if y > 0 or detail else 0, x=drum_x, pressed=loud and not split, covered=split,
+            panel=seamed,
+        )
+    if faired:
+        place_skirt(kit, 1, x=0.60, width=0.20, height=0.12, z=0.07)
+        place_skirt(kit, -1, x=0.60, width=0.20, height=0.12, z=0.07)
+    else:
+        place_skirt(kit, 1)
+        place_skirt(kit, -1)
+    place_bar(kit, canopy, 1.05 if loud else 0.84, 0.058 if loud else 0.046)
+    if seamed:
+        red = bpy.data.materials.get('light-red')
+        if red is not None:
+            red.node_tree.nodes['Principled BSDF'].inputs['Emission Strength'].default_value = 2.2
+
+    head_h = 0.05 if loud else 0.028
+    tail_len = 1.45 if loud else 1.05
+    tail_h = 0.08 if loud else 0.03
+    if split:
+        for sign in (1, -1):
+            stick(
+                kit, kit.light_strip(f'head-{sign:+d}', 0.26, head_h, 0.016, 'white'),
+                hull, (sign * 0.78, 2.28, 0.55), (0, 0.35, 1),
+            )
+    else:
+        stick(kit, kit.light_strip('head', 0.72 if loud else 0.55, head_h, 0.016, 'white'), hull, (0, 2.52, 0.42), (0, 1, 0.08))
+    stick(kit, kit.light_strip('tail', tail_len, tail_h, 0.016, 'red'), hull, (0, -2.45, 0.46), (0, -1, 0.2))
+    amber_len = 0.36 if loud else (0.28 if faired else 0.14)
+    amber_h = 0.07 if loud else (0.042 if faired else 0.022)
+    for sign, y in ((1, 1.85), (-1, 1.85), (1, -2.15), (-1, -2.15)):
+        stick(
+            kit, kit.light_strip(f'amber-{sign:+d}-{y:+.2f}', amber_len, amber_h, 0.012, 'amber'),
+            hull, (sign * 0.95, y, 0.48), (sign, 0.15, 0.2),
+        )
     if detail:
-        place_dress(kit, hull, pods, lod, rich)
-    if greeble:
-        place_greebles(kit, hull, 4 if rich else 2)
-    if rich:
-        place_rich(kit, hull)
+        if faired:
+            if seamed:
+                deck_n = 16 if lod == 'high' else (9 if lod == 'medium' else 5)
+                tail_n = 10 if lod == 'high' else (6 if lod == 'medium' else 4)
+                stick(
+                    kit, kit.vent('louver-deck', 1.70, 1.08, 0.07, deck_n, inset=True),
+                    hull, (0, -1.70, 0.84), (0, -0.2, 1), lift=0.0,
+                )
+                stick(
+                    kit, kit.vent('louver-tail', 1.22, 0.32, 0.05, tail_n, inset=True),
+                    hull, (0, -2.42, 0.52), (0, -1, 0.2), lift=0.0,
+                )
+            elif filled:
+                banks = ((-1.32, 1.62, 0.56, 7), (-1.98, 1.42, 0.50, 6))
+                for i, (y, width, height, slats) in enumerate(banks):
+                    stick(
+                        kit, kit.vent(f'louver-{i}', width, height, 0.08, slats if lod == 'high' else 4, contrast=True),
+                        hull, (0, y, 0.76), (0, -0.35, 1), lift=0.0,
+                    )
+                stick(
+                    kit, kit.vent('louver-tail', 1.40, 0.46, 0.09, 6 if lod == 'high' else 3, contrast=True),
+                    hull, (0, -2.46, 0.50), (0, -1, 0.25), lift=0.0,
+                )
+            else:
+                louver_h = 0.34 if loud else 0.18
+                louver_n = 3 if loud else (5 if lod == 'high' else 3)
+                for i, y in enumerate((-1.48, -1.86, -2.20)):
+                    stick(
+                        kit, kit.vent(
+                            f'louver-{i}', 1.25 if loud else 1.15, louver_h, 0.06 if loud else 0.055,
+                            louver_n, contrast=loud,
+                        ),
+                        hull, (0, y, 0.70), (0, -0.55, 1),
+                    )
+                stick(
+                    kit, kit.vent(
+                        'louver-tail', 1.15 if loud else 0.95, 0.32 if loud else 0.22, 0.06 if loud else 0.05,
+                        3 if loud else (4 if lod == 'high' else 2), contrast=loud,
+                    ),
+                    hull, (0, -2.48, 0.50), (0, -1, 0.2),
+                )
+        else:
+            for i, y in enumerate((-1.55, -1.85, -2.15)):
+                stick(kit, kit.vent(f'louver-{i}', 0.72, 0.11, 0.022, 4 if lod == 'high' else 2), hull, (0, y, 0.78), (0, -0.35, 1))
+        stick(kit, kit.seam('hinge', 1.3, 0.012, 0.008), canopy, (0, -0.2, 1.30), (0, 0, 1))
+        for sign in (1, -1):
+            if faired:
+                if filled:
+                    part = kit.panel_slash(f'door-{sign:+d}', 2.2, 0.72, 0.13, depth=0.026)
+                    frame(part, (sign * 1.00, 0.02, 0.60), (0, 1, 0), (0, 0, 1), (sign, 0, 0))
+                    belt = kit.seam(f'belt-{sign:+d}', 2.35, 0.042, 0.018)
+                    frame(belt, (sign * 1.00, 0.08, 0.36), (0, 1, 0), (0, 0, 1), (sign, 0, 0))
+                    jamb = kit.seam(f'door-jamb-{sign:+d}', 0.46, 0.032, 0.016)
+                    frame(jamb, (sign * 1.00, 0.98, 0.52), (0, 0, 1), (0, 1, 0), (sign, 0, 0))
+                    if seamed:
+                        # Panels the nose and pod cameras can see. A second slash sat off the hull and cut the side score.
+                        cheek = kit.panel_inset(f'cheek-{sign:+d}', 0.48, 0.18, rim=0.018)
+                        stick(kit, cheek, hull, (sign * 0.82, 1.55, 0.50), (sign, 0.15, 0.45))
+                        quarter = kit.panel_inset(f'quarter-{sign:+d}', 0.36, 0.14, rim=0.014)
+                        stick(kit, quarter, hull, (sign * 0.95, -1.05, 0.62), (sign, -0.1, 0.35))
+                else:
+                    part = kit.panel_slash(f'door-{sign:+d}', 1.9, 0.48, 0.055 if loud else 0.018)
+                    frame(part, (sign * 1.04, -0.05, 0.72), (0, 1, 0), (0, 0, 1), (sign, 0, 0))
+            else:
+                part = kit.gullwing_lines(f'door-{sign:+d}', 1.7, 0.52, 0.028)
+                stick(kit, part, hull, (sign * 0.95, -0.05, 0.55), (sign, 0, 0.15))
+            stick(
+                kit, kit.fan_grille(f'fan-{sign:+d}', 0.55, 0.18, 0.028, 4 if lod == 'high' else 2, glow=not loud),
+                hull, (sign * 0.55, -0.15, 0.12), (0, 0, -1),
+            )
+        if faired and not split:
+            stick(kit, kit.recess_plate('hood-gap', 0.62, 0.40), hull, (0, 1.70, 0.62), (0, 0.82, 0.35), lift=0.0)
+            stick(kit, kit.satin_plate('hood-satin', 0.44, 0.24), hull, (0, 1.70, 0.64), (0, 0.82, 0.35), lift=0.004)
+        elif not faired and not split:
+            box('hood-satin', (-0.28, 1.20, 0.70), (0.28, 1.85, 0.732), kit.satin)
+        if filled:
+            stick(kit, kit.seam('cowl-seam', 1.15, 0.022, 0.014), hull, (0, 1.28, 0.80), (0, 0, 1), lift=0.002)
+            if seamed:
+                for i, guess in enumerate((
+                    (0.98, 0.35, 0.82),
+                    (-0.96, -0.15, 0.86),
+                    (0.72, 1.35, 0.58),
+                    (-1.02, -1.35, 0.70),
+                    (0.58, -0.55, 0.98),
+                    (-0.64, 0.7, 0.92),
+                )):
+                    flake = kit.chip_flake(f'chip-{i}', 0.055, 0.016)
+                    stick(kit, flake, hull, guess, (guess[0], 0.0, 0.35))
+            for sign in (1, -1):
+                # Gasket on the glass shoulder. Kept under the roof line so the side outline stays.
+                box(
+                    f'seal-{sign:+d}',
+                    (sign * 0.58, -1.48, 0.82),
+                    (sign * 0.66, 0.72, 0.90),
+                    kit.rubber,
+                )
+            box('seal-front', (-0.46, 0.74, 0.78), (0.46, 0.82, 0.88), kit.rubber)
+        if faired:
+            y0, y1 = (-0.35, 0.55) if loud else (-1.15, 0.95)
+            half = 0.025 if loud else 0.04
+            for sign in (1, -1):
+                x = sign * 0.62
+                box(
+                    f'rocker-{sign:+d}',
+                    (x - half, y0, 0.02),
+                    (x + half, y1, 0.045),
+                    kit.lights['underglow'],
+                )
+        if rich:
+            stick(kit, kit.bolt_cluster('bolts-door-r', 0.08, 0.05, 4, 3), hull, (0.9, 0.55, 0.7), (1, 0, 0.2))
+            stick(kit, kit.bolt_cluster('bolts-door-l', 0.08, 0.05, 4, 4), hull, (-0.9, 0.55, 0.7), (-1, 0, 0.2))
+            for sign in (1, -1):
+                kit.place(kit.cable(
+                    f'skirt-cable-{sign:+d}',
+                    ((0, 0, 0), (0, 0.08, 0.04), (sign * 0.06, 0.16, 0.02)),
+                    radius=0.008,
+                ), (sign * 0.8, -0.9, 0.32))
+    if dressed:
+        for sign in (1, -1):
+            if filled:
+                place_decal(kit, sign, x=1.06, width=1.55, height=0.30)
+            else:
+                place_decal(kit, sign, x=1.05 if faired else 1.02)
+        if not detail:
+            box('underglow', (-0.28, -0.55, 0.05), (0.28, 0.35, 0.07), kit.lights['underglow'])
+
+    livery_dir = os.path.join(HARNESS, 'reviews', 'm2')
+    os.makedirs(livery_dir, exist_ok=True)
+    livery_png = os.path.join(livery_dir, 'livery-police.png')
+    image = paint_livery(livery_png)
+    assign_livery(kit.livery, image)
+    assign_decal_uvs()
 
     bpy.context.view_layer.update()
     for obj in meshes():
@@ -697,10 +1308,11 @@ def build(round_n, lod, out_path):
         if obj.type != 'MESH':
             bpy.data.objects.remove(obj, do_unlink=True)
     join_by_material()
-    if round_n >= 3 and lod != 'low':
+    if bake:
         body = bpy.data.objects.get('body')
         if body:
-            bake_body(body, 1024 if lod == 'high' else 512)
+            bake_body(body, TEX[lod], tuned, loud=loud, worn=filled, seamed=seamed)
+        # Livery UVs were authored on the card. smart_project would put the word on the edge.
     objs = meshes()
     ok = sit_and_scale(objs)
     export_glb(out_path)
@@ -713,7 +1325,7 @@ def main():
     argv = argv[argv.index('--') + 1:] if '--' in argv else []
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--round', type=int, default=3)
+    parser.add_argument('--round', type=int, default=4)
     parser.add_argument('--lod', choices=('low', 'medium', 'high', 'all'), default='high')
     parser.add_argument('--out', required=True)
     args = parser.parse_args(argv)

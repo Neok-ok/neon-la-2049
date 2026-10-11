@@ -1,0 +1,64 @@
+{
+  "subject": "Officer K's police spinner, Blade Runner 2049",
+  "use": "Comparison only. These files are downloaded into tools/model-harness/.refs/ and are gitignored. They are not shipped, not baked into textures, and not traced for logos, plates, or brand marks.",
+  "fetch": "python3 tools/model-harness/scripts/fetch_refs.py",
+  "stills": [
+    {
+      "id": "side",
+      "file": "side.jpg",
+      "angles": ["90", "270", "pod"],
+      "url": "https://hips.hearstapps.com/autoweek/assets/s3fs-public/futurePeugeot.jpg",
+      "page": "https://www.autoweek.com/car-life/a1832126/surprise-only-major-automaker-appear-blade-runner-2049-french/",
+      "what": "Trailer still. Rear three-quarter, close to a side view, with a standing figure. Best side outline. The nose is farther from the camera, so the front drum is foreshortened.",
+      "doNotCopy": ["any nameplate", "the plate on the tail"]
+    },
+    {
+      "id": "front",
+      "file": "front.jpg",
+      "angles": ["0", "45", "315", "nose", "top34", "channel"],
+      "url": "https://upload.wikimedia.org/wikipedia/commons/4/4f/Blade_Runner_-_47102814774.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Blade_Runner_-_47102814774.jpg",
+      "what": "Museum photograph of the 2049 prop (Petersen, 2019, CC-BY). Front three-quarter. Best front outline and drum-face read. The near drum is enlarged by perspective.",
+      "doNotCopy": ["the wordmark on the nose", "the graphic on the drum face", "the interior"]
+    },
+    {
+      "id": "rear",
+      "file": "rear.jpg",
+      "angles": ["135", "180", "225"],
+      "url": "https://hips.hearstapps.com/autoweek/assets/s3fs-public/BR2049.jpg",
+      "page": "https://www.autoweek.com/car-life/a1832126/surprise-only-major-automaker-appear-blade-runner-2049-french/",
+      "what": "Trailer still. Rear three-quarter, door up, louvered deck, red tail lamp, one rear drum. Best rear outline.",
+      "doNotCopy": ["the plate and its number", "the open-door mechanism as a copied part"]
+    },
+    {
+      "id": "top-plan",
+      "file": "top-plan.png",
+      "angles": ["top"],
+      "url": "https://hum2d.com/wp-content/uploads/Peugeot/131_Peugeot_Blade_Runner_2049_Spinner_2018/Peugeot_Blade_Runner_2049_Spinner_2018_blueprint_0001.png",
+      "page": "https://hum2d.com/clipart/peugeot-blade-runner-2049-spinner-2018/",
+      "crop": [314, 69, 142, 293],
+      "what": "Published top orthographic of the film car, cropped out of the blueprint sheet. This is the plan the top silhouette is traced from. It is a drawing, not a film frame. The nose is two cheeks with an open channel between them. Uniform scale sets the drawing's length to the 5.42 m side trace.",
+      "doNotCopy": ["the wordmark on the tail", "any badge"]
+    },
+    {
+      "id": "top-flight",
+      "file": "top-flight.jpg",
+      "angles": ["flight"],
+      "url": "https://lukedowding.com/wp-content/uploads/Blade-Runner-2049-frame-4k-5.jpg",
+      "page": "https://lukedowding.com/blade-runner-2049-4k-screen-shots/",
+      "crop": [1550, 120, 560, 400],
+      "what": "4K frame from the opening, cropped on the spinner. Near-overhead, high front, over the solar farm. The car is about 114 by 64 pixels in the full frame, so the plan and the nose channel are not resolved. Kept so the sheet has a real film overhead next to the model.",
+      "doNotCopy": []
+    },
+    {
+      "id": "top-roof",
+      "file": "top-roof.jpg",
+      "angles": ["roof"],
+      "url": "https://lukedowding.com/wp-content/uploads/Blade-Runner-2049-frame-4k-44.jpg",
+      "page": "https://lukedowding.com/blade-runner-2049-4k-screen-shots/",
+      "crop": [1500, 380, 900, 820],
+      "what": "4K frame of the LAPD tower from directly above, cropped on the roof. The spinner is the pair of lamps on the landing pad. The body is a few pixels across, so this frame is the roof-park scene and not a traceable plan.",
+      "doNotCopy": []
+    }
+  ]
+}

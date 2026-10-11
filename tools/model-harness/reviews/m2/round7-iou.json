@@ -1,0 +1,42 @@
+{
+  "views": {
+    "side": {
+      "iou": 0.8556185864500782,
+      "intersection": 60784,
+      "union": 71041,
+      "onlyRef": 1161,
+      "onlyModel": 9096,
+      "source": "side",
+      "photo": false,
+      "note": "estimated from a rear three-quarter still, perspective partly taken out"
+    },
+    "front": {
+      "iou": 0.8564698492462312,
+      "intersection": 29997,
+      "union": 35024,
+      "onlyRef": 705,
+      "onlyModel": 4322,
+      "source": "front",
+      "photo": false,
+      "note": "estimated from a front three-quarter museum photo"
+    },
+    "top": {
+      "iou": 0.8984111042918163,
+      "intersection": 144920,
+      "union": 161307,
+      "onlyRef": 5062,
+      "onlyModel": 11325,
+      "source": "top-plan",
+      "photo": false,
+      "note": "Traced from the published top orthographic (top-plan). Length is the 5.42 m side trace. Width is scaled to 2.32 m, the front-trace and model box, because the blueprint preview is wider than the car in the photographs. The notch is the open channel. Film overheads are on the sheet; the car is too small in those frames to trace."
+    }
+  },
+  "targets": {
+    "side": 0.85,
+    "front": 0.8,
+    "top": 0.8
+  },
+  "legend": "White is overlap. Red is reference only. Cyan is model only.",
+  "alignment": "Uniform scale. Side and top align nose-to-nose and ground or centreline. Front aligns ground and centre. The model is not stretched to the reference box.",
+  "topIsReconstructed": false
+}

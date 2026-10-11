@@ -8,3 +8,6 @@ __pycache__/
 *.pyc
 public/models/spinner/_review.glb
 public/models/spinner/*.raw.glb
+# Film stills and scratch glbs for the model harness. Comparison only. Never shipped.
+tools/model-harness/.refs/
+tools/model-harness/.rounds/

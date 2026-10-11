@@ -1,0 +1,42 @@
+{
+  "views": {
+    "side": {
+      "iou": 0.8818531927476236,
+      "intersection": 61138,
+      "union": 69329,
+      "onlyRef": 807,
+      "onlyModel": 7384,
+      "source": "side",
+      "photo": false,
+      "note": "estimated from a rear three-quarter still, perspective partly taken out"
+    },
+    "front": {
+      "iou": 0.8125404007756949,
+      "intersection": 27654,
+      "union": 34034,
+      "onlyRef": 3048,
+      "onlyModel": 3332,
+      "source": "front",
+      "photo": false,
+      "note": "estimated from a front three-quarter museum photo"
+    },
+    "top": {
+      "iou": 0.8895682867907524,
+      "intersection": 142137,
+      "union": 159782,
+      "onlyRef": 3581,
+      "onlyModel": 14064,
+      "source": null,
+      "photo": false,
+      "note": "reconstructed from the side and front stills; no top photograph"
+    }
+  },
+  "targets": {
+    "side": 0.85,
+    "front": 0.8,
+    "top": 0.8
+  },
+  "legend": "White is overlap. Red is reference only. Cyan is model only.",
+  "alignment": "Uniform scale. Side and top align nose-to-nose and ground or centreline. Front aligns ground and centre. The model is not stretched to the reference box.",
+  "topIsReconstructed": true
+}

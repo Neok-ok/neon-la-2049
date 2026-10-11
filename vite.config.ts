@@ -1,14 +1,45 @@
 import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { createReadStream, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, join, normalize } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
+
+const root = dirname(fileURLToPath(import.meta.url));
+
+function harnessFiles(): Plugin {
+  // Dev-only. Film stills and round glbs stay out of the production build.
+  const mounts = [
+    { url: '/harness-refs', dir: join(root, 'tools/model-harness/.refs') },
+    { url: '/harness-models', dir: join(root, 'tools/model-harness/.rounds') },
+  ];
+  return {
+    name: 'harness-files',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const raw = req.url?.split('?')[0] ?? '';
+        const mount = mounts.find((item) => raw.startsWith(`${item.url}/`));
+        if (!mount) return next();
+        const rel = normalize(decodeURIComponent(raw.slice(mount.url.length + 1)));
+        if (rel.startsWith('..') || rel.includes('..')) return next();
+        const file = join(mount.dir, rel);
+        if (!file.startsWith(mount.dir) || !existsSync(file) || !statSync(file).isFile()) return next();
+        res.statusCode = 200;
+        if (file.endsWith('.jpg') || file.endsWith('.jpeg')) res.setHeader('Content-Type', 'image/jpeg');
+        else if (file.endsWith('.png')) res.setHeader('Content-Type', 'image/png');
+        else if (file.endsWith('.glb')) res.setHeader('Content-Type', 'model/gltf-binary');
+        else if (file.endsWith('.json')) res.setHeader('Content-Type', 'application/json');
+        createReadStream(file).pipe(res);
+      });
+    },
+  };
+}
 
 // Relative base so the same build works at https://<user>.github.io/<repo>/ and locally.
 // GitHub Pages will not honour custom Cache-Control, so repeat visits use a service worker
 // plus content-hashed filenames. The worker is emitted unhashed as /sw.js.
 export default defineConfig({
   base: './',
-  plugins: [serviceWorkerPlugin()],
+  plugins: [serviceWorkerPlugin(), harnessFiles()],
   worker: { format: 'es' },
   build: {
     target: 'es2022',

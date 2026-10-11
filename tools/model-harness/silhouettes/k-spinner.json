@@ -1,0 +1,316 @@
+{
+  "units": "metres",
+  "axis": "First component is the view's horizontal axis. Second is up (side and front) or the other plan axis (top). Nose is the high end of the length axis.",
+  "alignment": "Uniform scale. Side and top align nose-to-nose and ground or centreline. Front aligns ground and centre. The model is not stretched to the reference box.",
+  "views": {
+    "side": {
+      "source": "side",
+      "photo": false,
+      "orthographic": "estimated from a rear three-quarter still, perspective partly taken out",
+      "lengthM": 5.42,
+      "heightM": 1.36,
+      "points": [
+        [
+          2.7,
+          0.42
+        ],
+        [
+          2.05,
+          0.6
+        ],
+        [
+          1.3,
+          0.84
+        ],
+        [
+          0.5,
+          1.18
+        ],
+        [
+          -0.35,
+          1.36
+        ],
+        [
+          -1.15,
+          1.3
+        ],
+        [
+          -1.85,
+          0.98
+        ],
+        [
+          -2.5,
+          0.72
+        ],
+        [
+          -2.72,
+          0.64
+        ],
+        [
+          -2.72,
+          0.3
+        ],
+        [
+          -2.4,
+          0.22
+        ],
+        [
+          -2.27,
+          0.34
+        ],
+        [
+          -2.2543,
+          0.2411
+        ],
+        [
+          -2.2089,
+          0.1519
+        ],
+        [
+          -2.1381,
+          0.0811
+        ],
+        [
+          -2.0489,
+          0.0357
+        ],
+        [
+          -1.95,
+          0.02
+        ],
+        [
+          -1.8511,
+          0.0357
+        ],
+        [
+          -1.7619,
+          0.0811
+        ],
+        [
+          -1.6911,
+          0.1519
+        ],
+        [
+          -1.6457,
+          0.2411
+        ],
+        [
+          -1.63,
+          0.34
+        ],
+        [
+          -1.2,
+          0.16
+        ],
+        [
+          0.7,
+          0.15
+        ],
+        [
+          1.21,
+          0.36
+        ],
+        [
+          1.2266,
+          0.2549
+        ],
+        [
+          1.2749,
+          0.1602
+        ],
+        [
+          1.3502,
+          0.0849
+        ],
+        [
+          1.4449,
+          0.0366
+        ],
+        [
+          1.55,
+          0.02
+        ],
+        [
+          1.6551,
+          0.0366
+        ],
+        [
+          1.7498,
+          0.0849
+        ],
+        [
+          1.8251,
+          0.1602
+        ],
+        [
+          1.8734,
+          0.2549
+        ],
+        [
+          1.89,
+          0.36
+        ],
+        [
+          2.2,
+          0.3
+        ],
+        [
+          2.7,
+          0.36
+        ]
+      ]
+    },
+    "front": {
+      "source": "front",
+      "photo": false,
+      "orthographic": "estimated from a front three-quarter museum photo",
+      "widthM": 2.24,
+      "heightM": 1.36,
+      "points": [
+        [
+          0.0,
+          1.36
+        ],
+        [
+          0.42,
+          1.33
+        ],
+        [
+          0.7,
+          1.08
+        ],
+        [
+          0.9,
+          0.78
+        ],
+        [
+          0.78,
+          0.7
+        ],
+        [
+          0.9101,
+          0.6741
+        ],
+        [
+          1.0204,
+          0.6004
+        ],
+        [
+          1.0941,
+          0.4901
+        ],
+        [
+          1.12,
+          0.36
+        ],
+        [
+          1.0941,
+          0.2299
+        ],
+        [
+          1.0204,
+          0.1196
+        ],
+        [
+          0.9101,
+          0.0459
+        ],
+        [
+          0.78,
+          0.02
+        ],
+        [
+          0.36,
+          0.18
+        ],
+        [
+          0.0,
+          0.24
+        ],
+        [
+          -0.36,
+          0.18
+        ],
+        [
+          -0.78,
+          0.02
+        ],
+        [
+          -0.9101,
+          0.0459
+        ],
+        [
+          -1.0204,
+          0.1196
+        ],
+        [
+          -1.0941,
+          0.2299
+        ],
+        [
+          -1.12,
+          0.36
+        ],
+        [
+          -1.0941,
+          0.4901
+        ],
+        [
+          -1.0204,
+          0.6004
+        ],
+        [
+          -0.9101,
+          0.6741
+        ],
+        [
+          -0.78,
+          0.7
+        ],
+        [
+          -0.9,
+          0.78
+        ],
+        [
+          -0.7,
+          1.08
+        ],
+        [
+          -0.42,
+          1.33
+        ]
+      ]
+    },
+    "top": {
+      "source": "top-plan",
+      "photo": false,
+      "orthographic": "Traced from the published top orthographic (top-plan). Length is the 5.42 m side trace. Width is scaled to 2.32 m, the front-trace and model box, because the blueprint preview is wider than the car in the photographs. The notch is the open channel. Film overheads are on the sheet; the car is too small in those frames to trace.",
+      "lengthM": 5.42,
+      "widthM": 2.32,
+      "points": [
+        [2.71, -0.88],
+        [2.50, -1.08],
+        [1.82, -1.16],
+        [0.40, -1.06],
+        [-0.20, -1.12],
+        [-1.30, -1.14],
+        [-2.15, -0.96],
+        [-2.71, -0.81],
+        [-2.71, 0.81],
+        [-2.15, 0.96],
+        [-1.30, 1.14],
+        [-0.20, 1.12],
+        [0.40, 1.06],
+        [1.82, 1.16],
+        [2.50, 1.08],
+        [2.71, 0.88],
+        [2.58, 0.71],
+        [2.15, 0.62],
+        [1.75, 0.64],
+        [1.75, -0.64],
+        [2.15, -0.62],
+        [2.58, -0.71]
+      ]
+    }
+  }
+}
