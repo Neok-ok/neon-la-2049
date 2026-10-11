@@ -82,6 +82,9 @@ async function shot(page, name) {
   return file;
 }
 
+const ONLY = new Set((process.env.SHOTS ?? '').split(',').map((s) => s.trim()).filter(Boolean));
+const want = (name) => ONLY.size === 0 || ONLY.has(name);
+
 const browser = await chromium.launch({
   executablePath: process.env.CHROME || '/usr/local/bin/google-chrome',
   args,
@@ -94,21 +97,28 @@ const desk = await browser.newContext(desktop);
 const page = await desk.newPage();
 errors.push(...await boot(page, `${BASE}?mode=fly&quality=high&freeze=1&ui=0&time=22.5&weather=rain${webgl}`));
 
-await page.evaluate(() => window.__nla.kView('aerial'));
-await shot(page, 'k-aerial');
+if (want('k-aerial')) {
+  await page.evaluate(() => window.__nla.kView('aerial'));
+  await shot(page, 'k-aerial');
+}
 
-await page.evaluate(() => window.__nla.broadwayView('street'));
-await shot(page, 'broadway-street');
+if (want('broadway-street')) {
+  await page.evaluate(() => window.__nla.broadwayView('street'));
+  await shot(page, 'broadway-street');
+}
 
-await page.evaluate(() => {
+if (want('financial-mid')) {
+  await page.evaluate(() => {
   const layout = window.__nla.app.query.layout;
   const l = layout.landmarkById('megatower-1');
   const g = layout.heightAt(l.x, l.z);
-  const yaw = (-l.bearingDeg * Math.PI) / 180;
-  const dist = 80;
+  // Entrance face is a quarter-turn off the grid (hero spec turn = 1). The podium is
+  // 150 m deep, so a stand 80 m from the centre is inside the mass.
+  const yaw = (-l.bearingDeg * Math.PI) / 180 + Math.PI / 2;
+  const dist = 150 / 2 + 48;
   const x = l.x + Math.sin(yaw) * dist;
   const z = l.z + Math.cos(yaw) * dist;
-  const y = g + l.height * 0.4;
+  const y = g + l.height * 0.38;
   const lookY = g + l.height * 0.42;
   const heading = Math.atan2(l.x - x, -(l.z - z)) * 180 / Math.PI;
   const pitch = Math.atan2(lookY - y, dist) * 180 / Math.PI;
@@ -116,9 +126,11 @@ await page.evaluate(() => {
   window.__nla.app.cams.fly.cockpit = true;
   window.__nla.setPose(x, y, z, heading, pitch);
 });
-await shot(page, 'financial-mid');
+  await shot(page, 'financial-mid');
+}
 
-await page.evaluate(() => {
+if (want('window-rain')) {
+  await page.evaluate(() => {
   const layout = window.__nla.app.query.layout;
   const l = layout.landmarkById('k-megablock-tower');
   const g = layout.heightAt(l.x, l.z);
@@ -146,15 +158,18 @@ await page.evaluate(() => {
   window.__nla.setTime(22.5);
   window.__nla.setPose(eye.x, eye.y, eye.z, heading, pitch);
 });
-await shot(page, 'window-rain');
+  await shot(page, 'window-rain');
+}
 await desk.close();
 
-const phone = await browser.newContext(iphone);
-const ip = await phone.newPage();
-errors.push(...await boot(ip, `${BASE}?mode=walk&quality=medium&freeze=1&ui=0&time=22.5&weather=rain${webgl}`));
-await ip.evaluate(() => window.__nla.broadwayView('street'));
-await shot(ip, 'iphone-broadway');
-await phone.close();
+if (want('iphone-broadway')) {
+  const phone = await browser.newContext(iphone);
+  const ip = await phone.newPage();
+  errors.push(...await boot(ip, `${BASE}?mode=walk&quality=medium&freeze=1&ui=0&time=22.5&weather=rain${webgl}`));
+  await ip.evaluate(() => window.__nla.broadwayView('street'));
+  await shot(ip, 'iphone-broadway');
+  await phone.close();
+}
 
 writeFileSync(join(OUT, 'errors.json'), JSON.stringify(errors, null, 2));
 console.log('ERRORS', errors.length);
