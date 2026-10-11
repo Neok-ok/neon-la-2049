@@ -66,7 +66,9 @@ def _shaft_z(_y):
 
 
 def build_crowd(lod='high'):
-    segs = {'low': 4, 'medium': 4, 'high': 8}[lod]
+    # Medium keeps the four silhouette extrema and two extra stations so a
+    # head is a volume, not a square tube, when the camera is on the sidewalk.
+    segs = {'low': 4, 'medium': 6, 'high': 8}[lod]
     mesh = Mesh()
     _body(mesh, segs, lod)
     _clothes(mesh, segs, lod)

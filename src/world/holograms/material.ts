@@ -199,7 +199,9 @@ function veilDancer(p: any, t: any, seed: any, mot: any, detail: any, distCam: a
   const body = mix(sdf, sampled, dancerMaskReady);
   // Hand the near slice to the hero mesh. Ghost slices stay on this quad.
   const close = smoothstep(float(80), float(24), distCam).mul(smoothstep(float(0.08), float(0.22), detail)).mul(step(slice, float(0.5)));
-  return body.mul(float(1).sub(close));
+  // Stay under the bloom threshold (1.0). The shared *2.5 is for small signs;
+  // this figure is 68 m tall and that gain clipped it to a white diamond.
+  return body.mul(float(1).sub(close)).mul(0.4);
 }
 
 let shared: MeshBasicNodeMaterial | null = null;

@@ -161,7 +161,9 @@ def main():
     for name in ('crowd-low', 'crowd-medium', 'crowd-high', 'dancer-low', 'dancer-medium', 'dancer-high'):
         src = raw / f'{name}.raw.glb'
         dst = OUT / f'{name}.glb'
-        run(['gltfpack', '-i', str(src), '-o', str(dst), '-c', '-kn', '-kv', '-vp', '16', '-vt', '14'])
+        # -vtf keeps part and bone ids in TEXCOORD_1. Integer quantization
+        # without a material transform wrote that set as zeros.
+        run(['gltfpack', '-i', str(src), '-o', str(dst), '-c', '-kn', '-kv', '-vp', '16', '-vt', '14', '-vtf'])
     print('humans built', OUT)
 
 

@@ -42,7 +42,7 @@
       }
     },
     "medium": {
-      "triangles": 520,
+      "triangles": 856,
       "iou": {
         "stand": 0.9851,
         "short": 0.8507,
