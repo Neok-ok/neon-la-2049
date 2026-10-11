@@ -321,10 +321,31 @@ function measureScale() {
   };
 }
 
+async function nearestPerson(page) {
+  return page.evaluate(() => {
+    const app = window.__nla.app;
+    const sp = app.cams.fly.spinner.position;
+    const mesh = app.crowd.mesh;
+    const arr = mesh.instanceMatrix.array;
+    let best = 1e9;
+    for (let i = 0; i < mesh.count; i++) {
+      const x = arr[i * 16 + 12];
+      const sx = Math.hypot(arr[i * 16], arr[i * 16 + 1], arr[i * 16 + 2]) || 0;
+      if (sx < 0.2 || x > 1e5) continue;
+      const d = Math.hypot(x - sp.x, arr[i * 16 + 14] - sp.z);
+      if (d < best) best = d;
+    }
+    return best;
+  });
+}
+
 async function scaleShot(view, quality, id) {
   const { ctx, page } = await openPage(view, quality);
   await page.evaluate(parkOnStreet);
-  await page.waitForTimeout(400);
+  const settle0 = Date.now();
+  while (Date.now() - settle0 < 8000 && await nearestPerson(page) > 25) {
+    await page.waitForTimeout(300);
+  }
   const aim = await page.evaluate(aimScale, id);
   console.log('AIM', id, JSON.stringify(aim));
   await page.waitForTimeout(700);
@@ -355,21 +376,40 @@ async function doorShot() {
     const h = walk.heading;
     const fx = Math.sin(h);
     const fz = -Math.cos(h);
+    const baseX = walk.pos.x;
+    const baseZ = walk.pos.z;
+    // The far side of this street is a building about 6 m behind the view.
+    // Sit the camera in the open roadway and the car between it and the door,
+    // short of the steps.
+    let placed = null;
+    for (const back of [5, 4, 3, 6]) {
+      const cx = baseX - fx * back;
+      const cz = baseZ - fz * back;
+      const gy = app.query.groundHeight(cx, cz);
+      if (app.query.insideSolid(cx, gy + 1.6, cz, 0.4)) continue;
+      const sx = cx + fx * 6.2;
+      const sz = cz + fz * 6.2;
+      const sy = app.query.groundHeight(sx, sz);
+      if (app.query.insideSolid(sx, sy + 0.7, sz, 1.1)) continue;
+      const sp = app.cams.fly.spinner.position;
+      sp.x = sx;
+      sp.z = sz;
+      sp.y = sy;
+      app.cams.fly.pos.y = sy;
+      app.cams.fly.heading = h;
+      app.cams.fly.spinner.rotation.set(0, -h, 0, 'YXZ');
+      walk.pos.x = cx;
+      walk.pos.z = cz;
+      walk.pos.y = gy;
+      walk.heading = Math.atan2(sx - cx, -(sz - cz));
+      const horiz = Math.hypot(sx - cx, sz - cz) || 1;
+      walk.pitch = Math.atan2((sy + 0.55) - (gy + 1.7), horiz);
+      placed = { back, pitch: walk.pitch };
+      break;
+    }
     const sp = app.cams.fly.spinner.position;
-    const aheadX = walk.pos.x + fx * 8;
-    const aheadZ = walk.pos.z + fz * 8;
-    const ground = app.query.groundHeight(aheadX, aheadZ);
-    sp.x = aheadX;
-    sp.z = aheadZ;
-    sp.y = ground;
-    app.cams.fly.pos.y = ground;
-    app.cams.fly.heading = h;
-    app.cams.fly.spinner.rotation.set(0, -h, 0, 'YXZ');
-    walk.pos.x -= fx * 4;
-    walk.pos.z -= fz * 4;
-    walk.pos.y = app.query.groundHeight(walk.pos.x, walk.pos.z);
-    walk.pitch = 0.2;
     return {
+      placed,
       spinner: { x: sp.x, y: sp.y, z: sp.z },
       cam: { x: walk.pos.x, y: walk.pos.y, z: walk.pos.z },
       inside: app.query.insideSolid(walk.pos.x, walk.pos.y + 1.2, walk.pos.z, 0.4),
@@ -389,14 +429,17 @@ async function doorShot() {
   await ctx.close();
 }
 
+const only = (process.env.ONLY ?? '').split(',').filter(Boolean);
+const want = (id) => only.length === 0 || only.includes(id);
+
 if (process.env.DOOR_ONLY === '1') {
   await doorShot();
 } else {
-  await scaleShot('desktop', 'ultra', 'scale-people');
-  await scaleShot('desktop', 'ultra', 'scale-lane');
-  await scaleShot('desktop', 'ultra', 'scale-facade');
-  await scaleShot('desktop', 'medium', 'scale-people');
-  await doorShot();
+  if (want('scale-people')) await scaleShot('desktop', 'ultra', 'scale-people');
+  if (want('scale-lane')) await scaleShot('desktop', 'ultra', 'scale-lane');
+  if (want('scale-facade')) await scaleShot('desktop', 'ultra', 'scale-facade');
+  if (want('scale-people-medium')) await scaleShot('desktop', 'medium', 'scale-people');
+  if (want('door')) await doorShot();
 }
 
 await browser.close();
