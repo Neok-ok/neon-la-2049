@@ -340,11 +340,61 @@ def place_frame(part, location, x_axis, z_axis):
     return part
 
 
+def trim_mat():
+    """Steel line. Dark-on-dark seams disappear on the contact sheet."""
+    mat = bpy.data.materials.new('trim')
+    mat.use_nodes = True
+    bsdf = mat.node_tree.nodes.get('Principled BSDF')
+    bsdf.inputs['Base Color'].default_value = (0.34, 0.35, 0.37, 1)
+    bsdf.inputs['Metallic'].default_value = 0.82
+    bsdf.inputs['Roughness'].default_value = 0.32
+    return mat
+
+
+def trim_bar(name, a, b, mat, thick=0.036, depth=0.016):
+    a = Vector(a)
+    b = Vector(b)
+    delta = b - a
+    length = delta.length
+    if length < 1e-3:
+        return None
+    bm = bmesh.new()
+    bmesh.ops.create_cube(bm, size=1.0)
+    bmesh.ops.scale(bm, verts=bm.verts, vec=(depth, length, thick))
+    quat = delta.normalized().to_track_quat('Y', 'Z')
+    bmesh.ops.rotate(bm, verts=bm.verts, cent=Vector((0, 0, 0)), matrix=quat.to_matrix().to_4x4())
+    bmesh.ops.translate(bm, verts=bm.verts, vec=(a + b) * 0.5)
+    return finish_mesh(bm, name, mat, math.radians(25))
+
+
+def car_shoulder(sign):
+    """Points on the flank, nose to tail, so one crease splits hood, side, and tail."""
+    half = CAR['length'] / 2
+    stations = (
+        (0.06, 0.66, 0.17, 0.66),
+        (0.16, 0.80, 0.15, 0.78),
+        (0.32, 0.88, 0.145, 0.90),
+        (0.50, 0.89, 0.14, 0.98),
+        (0.66, 0.86, 0.145, 0.94),
+        (0.80, 0.74, 0.155, 0.80),
+        (0.92, 0.58, 0.18, 0.64),
+    )
+    pts = []
+    for t, hw, belly, top in stations:
+        y = half - t * CAR['length']
+        rise = max(top - belly, 1e-4)
+        pts.append((sign * hw * 0.90, y, belly + rise * 0.58))
+    return pts
+
+
 def dress_car(kit, lod):
-    # The nose is 0.76 m wide and the tail 0.84 m. Blade lights stay inside both.
-    nose = CAR['length'] / 2 - 0.08
-    place(kit, kit.light_strip('head', 0.58, 0.040, 0.016, 'white'), (0, nose, 0.46), (0, 1, 0.12))
-    place(kit, kit.light_strip('tail', 0.64, 0.036, 0.014, 'red'), (0, -nose + 0.04, 0.44), (0, -1, 0.10))
+    # Two openings on the nose, a band on the tail. They sit just proud of the skin
+    # so a side view sees a lamp, not the edge of a blade.
+    for sign in (-1, 1):
+        place(kit, kit.seam(f'head-pocket-{sign:+d}', 0.30, 0.11, 0.02), (sign * 0.18, 2.34, 0.44), (0, 1, 0.18))
+        place(kit, kit.light_strip(f'head-{sign:+d}', 0.22, 0.072, 0.055, 'white'), (sign * 0.18, 2.36, 0.44), (0, 1, 0.18))
+    place(kit, kit.seam('tail-pocket', 0.70, 0.09, 0.018), (0, -2.34, 0.46), (0, -1, 0.12))
+    place(kit, kit.light_strip('tail', 0.58, 0.055, 0.05, 'red'), (0, -2.36, 0.46), (0, -1, 0.12))
     if lod == 'low':
         return
     # Side skin is at x=±0.89. Parts grow along +Z, so their origin sits just inboard.
@@ -359,15 +409,11 @@ def dress_car(kit, lod):
     ):
         place(kit, kit.panel_inset(name, w, h, rim=0.028, bolts=bolts), loc, normal)
     place(kit, kit.vent('cowl', 0.28, 0.07, 0.016, 4 if lod == 'high' else 3), (0.0, 0.85, 0.90), (0, 0.15, 1))
-    # Shoulder crease. Local width has to be vertical or the side view only sees the 1 cm depth.
-    # Outward normal keeps the bar on the flank, inside the 0.89 m skin.
+    steel = trim_mat()
     for sign in (-1, 1):
-        place_frame(
-            kit.seam(f'belt-{sign:+d}', 2.05, 0.08, 0.016),
-            (sign * 0.84, 0.02, 0.70),
-            (0, 1, 0),
-            (sign, 0, 0.12),
-        )
+        pts = car_shoulder(sign)
+        for i in range(len(pts) - 1):
+            trim_bar(f'crease-{sign:+d}-{i}', pts[i], pts[i + 1], steel)
     if lod != 'high':
         return
     place(kit, kit.intake('flank-l', 0.22, 0.08, 0.03, 3), (-0.82, 1.15, 0.46), (-1, 0.08, 0))

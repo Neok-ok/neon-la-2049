@@ -54,6 +54,7 @@ const WHITE = new Color(1.75, 1.55, 1.2);
 const RED = new Color(1.85, 0.07, 0.04);
 const AMBER = new Color(1.45, 0.48, 0.06);
 
+const TRIM = new Color(0.42, 0.44, 0.46);
 const GLASS = new Color(0.045, 0.05, 0.055);
 const RUBBER = new Color(0.015, 0.015, 0.016);
 const RECESS = new Color(0.035, 0.037, 0.04);
@@ -193,6 +194,7 @@ function kindOf(mesh: Mesh): string {
   if (n.includes('glass')) return 'glass';
   if (n.includes('rubber')) return 'rubber';
   if (n.includes('recess')) return 'recess';
+  if (n.includes('trim')) return 'trim';
   return 'body';
 }
 
@@ -203,6 +205,7 @@ function paintOf(id: 'car' | 'hauler', kind: string): { color: Color; emit: numb
   if (kind === 'glass') return { color: GLASS, emit: 0 };
   if (kind === 'rubber') return { color: RUBBER, emit: 0 };
   if (kind === 'recess') return { color: RECESS, emit: 0 };
+  if (kind === 'trim') return { color: TRIM, emit: 0 };
   return { color: id === 'hauler' ? BODY.hauler : BODY.car, emit: 0 };
 }
 

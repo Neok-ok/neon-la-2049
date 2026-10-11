@@ -4,14 +4,14 @@
     "width": 1.78,
     "roof": 1.466,
     "tris": {
-      "high": 2084,
-      "medium": 1256,
-      "low": 592
+      "high": 2264,
+      "medium": 1436,
+      "low": 652
     },
     "iou": {
       "side": 0.863,
       "top": 0.893,
-      "front": 0.76
+      "front": 0.759
     },
     "lane": 3.55,
     "person": 1.8,
