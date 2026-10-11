@@ -79,7 +79,9 @@ export class Precipitation {
       const distM = T.max(distNode, float(0.35));
       const rel = T.abs(distM.sub(focusM)).div(T.max(focusM, float(1)));
       const farther = T.smoothstep(float(0), float(0.02), distM.sub(focusM));
-      const nearFall = T.smoothstep(float(BOKEH.near0), float(BOKEH.near1), rel);
+      // Rain sits in a box around the camera, so the near side has to open inside that box.
+      // The scene curve stays gentler so a sign on the focus plane does not melt with the drops.
+      const nearFall = T.smoothstep(float(0.1), float(0.48), rel);
       const farFall = T.smoothstep(float(BOKEH.far0), float(BOKEH.far1), rel);
       const falloff = T.mix(nearFall, farFall, farther);
       const stop = T.smoothstep(float(BOKEH.stopHi), float(BOKEH.stopLo), nStop);
@@ -124,8 +126,10 @@ export class Precipitation {
       }
       if (isRain) {
         const across = T.abs(attribute('corner', 'vec2').x);
-        const soft = smoothstep(float(0.5), float(0.02), across);
-        a = a.mul(T.mix(float(1), soft, T.smoothstep(float(1.2), float(5), coc))).div(T.max(span, float(1)));
+        const soft = smoothstep(float(0.5), float(0.05), across);
+        // Spread the drop, but keep the core visible. Dividing by the full width hid every close streak.
+        a = a.mul(T.mix(float(1), soft, T.smoothstep(float(0.8), float(3.5), coc)));
+        a = a.div(T.pow(T.max(span, float(1)), float(0.35)));
       }
       return T.vec4(base.add(vec3(U.lightning)), a);
     })();
