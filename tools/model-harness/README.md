@@ -38,7 +38,7 @@ blender --background --python tools/model-harness/blender/build_spinner.py -- \
 | 7 | Flat covered drum faces (no ring, no slots) and a split nose with an open center channel |
 | 8 | Front-only nose slot with a filled roof, door grooves, a louver deck, worn gunmetal |
 | 9 | Wider gullwing gap, louver field, recessed nose slot, flat gunmetal roughness, clearcoat |
-| 10 | Flat smoked canopy, inset louver fins, panel seams on the nose and drums, worn paint, no cavity bump. This is the shipping cut |
+| 10 | Smoked glass, inset louver fins, panel seams on the nose and drums, worn paint, flat normal. Canopy outline stays the filled round-9 profile. This is the shipping cut |
 
 The script is the source of truth. Blender is Z-up with the nose on +Y; the glTF is Y-up with the nose on -Z, origin on the ground-contact centre. The M2 box is 5.45 × 2.32 × 1.36 m. The bar is `spinner-look-target.md`.
 
