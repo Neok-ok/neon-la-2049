@@ -33,7 +33,7 @@ Crowd share is 0.18 on the market mesh (Westside is 0.14, Hollywood is 0.22). A 
 
 ## Hall
 
-POI `east-la-market` is the door, so `at=` lands on the threshold. The yard is fabric: north wings, a back wall, east and west halls, a canopy, tanks and counters. `east-la-counter` is one `buildCorridorRoom` (warmth 0.96, no window, no rides, hum 0, muffle 0.8, stream radius 42 m). Extras are a tile counter, a steel top, an amber pot and four stools. The door faces south into the yard.
+POI `east-la-market` is the door, so `at=` lands on the threshold. The yard is fabric: north wings, a back wall, east and west halls, a canopy, tanks and counters. `east-la-counter` is one `buildCorridorRoom` (dark stained shell, no ceiling tube, no template table, no window, no rides, hum 0, muffle 0.8, stream radius 42 m). Extras are a long tile counter, a steel top, a hood, three pendant lamps and four stools. The door faces south into the yard.
 
 `east-la-coil` (coil-vendor, 8 × 12 m, amber) and `east-la-glyph` (glyph-loop, 9 × 11 m, amber) sit south of the door. Both are `registerHologram`. No new design.
 

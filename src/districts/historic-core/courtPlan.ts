@@ -3,8 +3,8 @@
 import type { InteriorBox, InteriorCollider, InteriorDetail, InteriorLight, InteriorPortal, RGB } from '../../world/interiors/types';
 
 const H = 22.4;
-const STONE: RGB = [0.62, 0.52, 0.42];
-const PLASTER: RGB = [0.70, 0.60, 0.48];
+const STONE: RGB = [0.28, 0.25, 0.23];
+const PLASTER: RGB = [0.22, 0.20, 0.19];
 const DARK: RGB = [0.22, 0.17, 0.14];
 const IRON: RGB = [0.28, 0.24, 0.22];
 const WARM: RGB = [1.0, 0.62, 0.28];
@@ -198,10 +198,16 @@ export function buildCourt(detail: InteriorDetail): Omit<CourtPlan, 'colliders'>
     { x: -5.4, y: 7.4, z: 8, color: [1, 0.55, 0.22], intensity: 1.3, range: 10 },
     { x: 5.4, y: 11.6, z: 11, color: [1, 0.55, 0.22], intensity: 1.3, range: 10 },
   ];
+  const glass: InteriorBox = {
+    x: 0, y: 18.4, z: 9, w: 10.2, h: 0.05, d: 11.6,
+    color: [0.16, 0.2, 0.24],
+    emissive: [0.05, 0.08, 0.1],
+    flick: -1,
+  };
   return {
-    boxes: [...BUILT.boxes, ...dress(detail)],
+    boxes: [...BUILT.boxes, ...dress(detail), glass],
     lights,
-    ambient: [0.24, 0.16, 0.11],
+    ambient: [0.1, 0.08, 0.07],
     portals: [{ x: 0, y: 3.45, z: 23.85, w: 4.5, h: 6.5, yaw: 0 }],
     openSky: { x: 0, z: 9, hw: 5.4, hd: 6.2, y0: 3, y1: 20 },
   };

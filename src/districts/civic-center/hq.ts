@@ -28,6 +28,9 @@ const SLIT = face(Style.Slit, 0.28, 0.66, 0.55);
 const COLD = face(Style.Glow, 0.92, 1.88, 0.18);
 const AMBER = face(Style.Glow, 0.8, 1.04, 0.33);
 const SOLID = face(Style.Solid, 0.02, 0.48, 0.12);
+/** Windowless dark concrete. The lobby ceiling and floor use this, not civic glazing. */
+const SOFFIT = face(Style.Solid, 0, 0.16, 0.09);
+const DIM = face(Style.Glow, 0.1, 1.2, 0.4);
 
 function stairs(m: Mass): void {
   const { width, z0, z1, y0, y1, n } = STAIR;
@@ -91,25 +94,25 @@ function lobby(m: Mass): void {
   m.box(1, -wingCx, 0, 0, wingW, HQ.podiumD, HQ.podiumH, CON);
   m.box(1, wingCx, 0, 0, wingW, HQ.podiumD, HQ.podiumH, CON);
   m.box(1, 0, rearCz, 0, door * 2, rearD, HQ.podiumH, CON);
-  m.soffit(1, 0, mouthCz, ceil, door * 2, mouthD, HQ.podiumH - ceil, DARK);
-  m.box(1, 0, mouthCz - 0.35, floor - 0.16, door * 2 - 0.7, mouthD + 0.9, 0.16, DARK);
+  m.soffit(1, 0, mouthCz, ceil, door * 2, mouthD, HQ.podiumH - ceil, SOFFIT);
+  m.box(1, 0, mouthCz - 0.35, floor - 0.16, door * 2 - 0.7, mouthD + 0.9, 0.16, SOFFIT);
   m.box(1, -door, faceZ - 0.15, floor, 0.55, 0.8, ceil - floor, DARK);
   m.box(1, door, faceZ - 0.15, floor, 0.55, 0.8, ceil - floor, DARK);
   m.box(2, 0, faceZ - 0.25, ceil - 0.4, door * 2 - 0.5, 0.4, 0.32, COLD);
 
   if (m.max < 2) return;
-  const room = face(Style.Civic, 0.22, 0.9, 0.36);
+  const room = face(Style.Solid, 0, 0.18, 0.14);
   m.box(2, 0, backZ - 1.7, floor, 8.6, 1.35, 1.15, SOLID);
-  m.box(2, 0, backZ - 1.7, floor + 1.05, 8.6, 0.16, 0.1, COLD);
-  m.box(2, 0, mouthCz, floor + 0.02, 2.4, mouthD - 1.4, 0.04, COLD);
+  m.box(2, 0, backZ - 1.7, floor + 1.05, 8.6, 0.16, 0.1, DIM);
+  m.box(2, 0, mouthCz, floor + 0.02, 2.4, mouthD - 1.4, 0.04, SOFFIT);
   // A dim concrete wall behind the sign, plus a thin cold line. A full glow panel blooms the room out.
   m.box(2, 0, backZ - 0.28, floor + 1.1, 12.4, 0.2, 7.6, room);
-  m.box(2, 0, backZ - 0.42, floor + 3.5, 9.2, 0.1, 0.22, COLD);
+  m.box(2, 0, backZ - 0.42, floor + 3.5, 9.2, 0.1, 0.22, DIM);
   for (const lx of [-5.4, 5.4]) {
     for (const lz of [-56.2, -50.4, -45.2]) m.box(2, lx, lz, floor, 0.9, 0.9, ceil - floor - 0.1, room);
   }
-  m.box(2, -door + 0.4, mouthCz, floor, 0.45, mouthD - 0.6, ceil - floor, DARK);
-  m.box(2, door - 0.4, mouthCz, floor, 0.45, mouthD - 0.6, ceil - floor, DARK);
+  m.box(2, -door + 0.4, mouthCz, floor, 0.45, mouthD - 0.6, ceil - floor, SOFFIT);
+  m.box(2, door - 0.4, mouthCz, floor, 0.45, mouthD - 0.6, ceil - floor, SOFFIT);
   // low barriers in the aisle and a directory on the right. The centre line stays open.
   for (const lx of [-3.6, 3.6]) {
     m.box(2, lx, -48.6, floor, 0.32, 2.2, 1.05, SOLID);
@@ -117,7 +120,7 @@ function lobby(m: Mass): void {
   }
   m.box(2, 6.6, -49.5, floor, 0.28, 1.6, 2.4, DARK);
   m.solid(6.6, -49.5, 0.28, 1.6, floor, floor + 2.4);
-  m.box(2, 6.6, -49.2, floor + 1.45, 0.12, 1.15, 0.7, COLD);
+  m.box(2, 6.6, -49.2, floor + 1.45, 0.12, 1.15, 0.7, DIM);
 }
 
 function shaftAndCrown(m: Mass): void {

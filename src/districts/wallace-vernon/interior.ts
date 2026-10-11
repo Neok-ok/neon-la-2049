@@ -1,6 +1,6 @@
-// A small water-lit room behind the human door on the north face.
-// Original plan: dark stone, a shallow pool, one walkway, caustic patches on the
-// existing interior flicker. Not the film atrium, and not the Bradbury stair.
+// One hall behind the human door on the north face.
+// Dark stone, ankle-deep gold water, one overhead shaft. Still a single mesh.
+// Not a copied film set, and not the Bradbury stair.
 import type { CityLayout } from '../../world/layout';
 import { getLayout } from '../../world/layout';
 import { bearingToYaw } from '../../world/geo';
@@ -11,11 +11,11 @@ import {
 import type { PlaceFrame } from '../../world/interiors';
 import { COURT, localToWorld } from './spec';
 
-const STONE: RGB = [0.10, 0.09, 0.08];
-const STONE_HI: RGB = [0.16, 0.14, 0.12];
-const WATER: RGB = [0.05, 0.08, 0.08];
-const CAUSTIC: RGB = [0.28, 0.55, 0.46];
-const BRONZE: RGB = [0.55, 0.32, 0.12];
+const STONE: RGB = [0.035, 0.032, 0.03];
+const STONE_HI: RGB = [0.07, 0.062, 0.05];
+const WATER: RGB = [0.05, 0.032, 0.012];
+const GOLD: RGB = [0.48, 0.26, 0.07];
+const SHAFT: RGB = [0.22, 0.12, 0.04];
 
 export function atriumFrame(layout: CityLayout): PlaceFrame | null {
   const l = layout.landmarkById('wallace-pyramid');
@@ -44,74 +44,71 @@ interface AtriumPlan {
   colliders: InteriorCollider[];
 }
 
-/** Local frame: door at the origin, the bridge on +Z, the room toward −Z. */
+/**
+ * Local frame: door at the origin, the bridge on +Z, the hall toward −Z.
+ * Depth stays in the gap in front of the first terrace collider (~34 m).
+ */
 export function buildAtrium(detail: InteriorDetail): AtriumPlan {
   const boxes: InteriorBox[] = [];
   const cols: InteriorCollider[] = [];
-  const far = -8.15;
-  const halfW = 3.35;
-  const th = 0.28;
-  const H = 4.05;
-  const open = 1.12;
+  const far = -24;
+  const halfW = 11;
+  const th = 0.42;
+  const H = 11.2;
+  const open = 2.15;
+  const depth = -far;
 
-  box(boxes, 0, -0.2, far / 2, halfW * 2, 0.2, -far, STONE);
-  wall(cols, 0, far / 2, halfW * 2, -far, -0.2, 0);
-  box(boxes, 0, H, far / 2, halfW * 2 + th, 0.24, -far, STONE_HI);
-  wall(cols, 0, far / 2, halfW * 2 + th, -far, H, H + 0.24);
+  box(boxes, 0, -0.35, far / 2, halfW * 2, 0.35, depth, STONE);
+  wall(cols, 0, far / 2, halfW * 2, depth, -0.35, 0);
+  box(boxes, 0, H, far / 2, halfW * 2 + th, 0.4, depth, STONE);
+  wall(cols, 0, far / 2, halfW * 2 + th, depth, H, H + 0.4);
 
-  box(boxes, -halfW, 0, far / 2, th, H, -far, STONE);
-  wall(cols, -halfW, far / 2, th, -far, 0, H);
-  box(boxes, halfW, 0, far / 2, th, H, -far, STONE);
-  wall(cols, halfW, far / 2, th, -far, 0, H);
+  box(boxes, -halfW, 0, far / 2, th, H, depth, STONE);
+  wall(cols, -halfW, far / 2, th, depth, 0, H);
+  box(boxes, halfW, 0, far / 2, th, H, depth, STONE);
+  wall(cols, halfW, far / 2, th, depth, 0, H);
 
   box(boxes, 0, 0, far, halfW * 2, H, th, STONE);
   wall(cols, 0, far, halfW * 2, th, 0, H);
 
   const sideW = halfW - open;
   const sideX = open + sideW / 2;
-  box(boxes, -sideX, 0, -0.08, sideW, H, th, STONE);
-  wall(cols, -sideX, -0.08, sideW, th, 0, H);
-  box(boxes, sideX, 0, -0.08, sideW, H, th, STONE);
-  wall(cols, sideX, -0.08, sideW, th, 0, H);
-  box(boxes, 0, 2.62, -0.08, open * 2, H - 2.62, th, STONE);
-  wall(cols, 0, -0.08, open * 2, th, 2.62, H);
+  box(boxes, -sideX, 0, -0.1, sideW, H, th, STONE);
+  wall(cols, -sideX, -0.1, sideW, th, 0, H);
+  box(boxes, sideX, 0, -0.1, sideW, H, th, STONE);
+  wall(cols, sideX, -0.1, sideW, th, 0, H);
+  box(boxes, 0, 2.7, -0.1, open * 2, H - 2.7, th, STONE);
+  wall(cols, 0, -0.1, open * 2, th, 2.7, H);
 
-  // Shallow water, either side of one walkway. The floor under it stays walkable.
-  box(boxes, -1.85, 0.02, far / 2 - 0.15, 2.5, 0.05, -far - 1.3, WATER, {
-    emissive: [0.05, 0.16, 0.14], flick: 0.4,
+  // Dry sill, then ankle-deep water across the hall. The stone under it stays walkable.
+  box(boxes, 0, 0.02, -0.85, open * 1.7, 0.08, 1.5, STONE_HI);
+  const waterZ = (far - 2.2) / 2;
+  const waterD = -far - 2.4;
+  box(boxes, 0, 0.02, waterZ, halfW * 2 - 1.4, 0.1, waterD, WATER, {
+    emissive: GOLD, flick: -1,
   });
-  box(boxes, 1.85, 0.02, far / 2 - 0.15, 2.5, 0.05, -far - 1.3, WATER, {
-    emissive: [0.05, 0.16, 0.14], flick: 1.7,
-  });
-  box(boxes, 0, 0.04, far / 2, 1.45, 0.16, -far - 1.6, STONE_HI);
-  wall(cols, 0, far / 2, 1.45, -far - 1.6, 0.04, 0.2);
 
-  const patches = detail === 0 ? 6 : detail === 1 ? 10 : 14;
-  for (let i = 0; i < patches; i++) {
-    const side = i % 2 === 0 ? -1 : 1;
-    const z = -1.1 - ((i / 2) / Math.max(1, patches / 2)) * (-far - 2.2);
-    const y = 0.7 + (i % 3) * 0.85;
-    // Just proud of the inner face. The wall centre is halfW, thickness th.
-    box(boxes, side * (halfW - th / 2 - 0.05), y, z, 0.06, 0.42, 0.7, CAUSTIC, {
-      emissive: CAUSTIC, flick: i * 0.73, detail: i < 6 ? 0 : i < 10 ? 1 : 2,
+  // One shaft, mid-hall. The column is emissive geometry; the light is baked, not a scene light.
+  const sz = -14;
+  box(boxes, 0, H - 0.06, sz, 2.6, 0.08, 2.6, STONE_HI, { emissive: [0.55, 0.3, 0.08], flick: -1 });
+  box(boxes, 0, 0.2, sz, 1.15, H - 0.45, 0.04, [0.01, 0.008, 0.006], { emissive: SHAFT, flick: -1 });
+  box(boxes, 0, 0.2, sz, 0.04, H - 0.45, 1.15, [0.01, 0.008, 0.006], { emissive: [0.16, 0.09, 0.03], flick: -1 });
+  const glints = detail === 0 ? 3 : detail === 1 ? 5 : 7;
+  for (let i = 0; i < glints; i++) {
+    const a = (i / glints) * Math.PI * 2;
+    box(boxes, Math.cos(a) * 1.6, 0.12, sz + Math.sin(a) * 1.6, 0.55, 0.02, 0.55, WATER, {
+      emissive: [0.7, 0.38, 0.1], flick: i * 0.6, detail: i < 3 ? 0 : i < 5 ? 1 : 2,
     });
-  }
-  if (detail >= 1) {
-    box(boxes, 0, 0.22, -1.15, 0.08, 0.9, 0.08, BRONZE, { emissive: BRONZE, flick: 2.2, detail: 1 });
-    box(boxes, -1.55, 3.55, far / 2, 0.12, 0.08, -far - 1.2, BRONZE, { emissive: [0.35, 0.2, 0.08], flick: -1, detail: 1 });
-    box(boxes, 1.55, 3.55, far / 2, 0.12, 0.08, -far - 1.2, BRONZE, { emissive: [0.35, 0.2, 0.08], flick: -1, detail: 1 });
   }
 
   const lights: InteriorLight[] = [
-    { x: -1.7, y: 0.4, z: -3.2, color: [0.45, 0.75, 0.62], intensity: 0.85, range: 7 },
-    { x: 1.7, y: 0.4, z: -6.1, color: [0.4, 0.7, 0.58], intensity: 0.7, range: 6.5 },
-    { x: 0, y: 2.4, z: -1.2, color: [0.75, 0.42, 0.16], intensity: 0.45, range: 5 },
+    { x: 0, y: H - 1.4, z: sz, color: [1, 0.58, 0.22], intensity: 2.4, range: 16 },
   ];
   return {
     boxes,
     lights,
-    ambient: [0.035, 0.038, 0.034],
-    portals: [{ x: 0, y: 1.3, z: 0.02, w: 2.15, h: 2.5 }],
+    ambient: [0.012, 0.011, 0.01],
+    portals: [{ x: 0, y: 1.35, z: 0.04, w: 2.2, h: 2.55 }],
     colliders: cols,
   };
 }
@@ -122,7 +119,7 @@ export function installWallaceInterior(layout: CityLayout = getLayout()): void {
   const plan = buildAtrium(0);
   registerInterior({
     id: 'wallace-atrium',
-    volume: placeVolume(frame, 0, -4.25, 3.6, 4.2, -0.25, 4.5),
+    volume: placeVolume(frame, 0, -12, 11.6, 12.3, -0.4, 11.8),
     doors: [{
       id: 'plaza',
       exterior: true,

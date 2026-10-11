@@ -17,6 +17,22 @@ export interface WallGap {
   height?: number;
 }
 
+/** Replaces the warmth mix. Rooms that omit this keep the shared corridor shell. */
+export interface ShellPalette {
+  wall: RGB;
+  floor: RGB;
+  ceil: RGB;
+  trim: RGB;
+  ambient: RGB;
+}
+
+export interface WindowOpening {
+  w: number;
+  h: number;
+  /** Centre height. Default 1.5. */
+  y?: number;
+}
+
 export interface CorridorRoomOpts {
   warmth: number;
   corridor: CorridorRoomSize;
@@ -31,6 +47,13 @@ export interface CorridorRoomOpts {
    * Pass false for a hall with no exterior on that wall (a lobby, a corridor).
    */
   window?: boolean;
+  /** +X opening. Default 1.15 × 0.7 m at y 1.5. Service rooms leave this unset. */
+  opening?: WindowOpening;
+  /** 0 drops both ceiling tubes and their lights. Default 1. */
+  tube?: number;
+  /** Built-in table. Default on. */
+  table?: boolean;
+  shell?: ShellPalette;
   extras?: InteriorBox[];
 }
 
@@ -114,13 +137,14 @@ function cutX(
 /** Local plan. `detail` drops trim; the colliders stay the same at every tier. */
 export function buildCorridorRoom(o: CorridorRoomOpts): CorridorRoomPlan {
   const t = Math.max(0, Math.min(1, o.warmth));
-  const wallC = mix([0.58, 0.60, 0.62], [0.70, 0.56, 0.40], t);
-  const floorC = mix([0.30, 0.31, 0.32], [0.38, 0.28, 0.20], t);
-  const ceilC = mix([0.50, 0.52, 0.54], [0.62, 0.52, 0.40], t);
-  const trimC = mix([0.42, 0.43, 0.44], [0.48, 0.36, 0.26], t);
+  const wallC = o.shell?.wall ?? mix([0.58, 0.60, 0.62], [0.70, 0.56, 0.40], t);
+  const floorC = o.shell?.floor ?? mix([0.30, 0.31, 0.32], [0.38, 0.28, 0.20], t);
+  const ceilC = o.shell?.ceil ?? mix([0.50, 0.52, 0.54], [0.62, 0.52, 0.40], t);
+  const trimC = o.shell?.trim ?? mix([0.42, 0.43, 0.44], [0.48, 0.36, 0.26], t);
   const tube = mix([0.82, 0.92, 1.05], [1.15, 0.78, 0.40], t);
   const tubeEm = mix([0.95, 1.15, 1.35], [1.45, 0.72, 0.28], t);
-  const ambient = mix([0.26, 0.28, 0.30], [0.32, 0.18, 0.10], t);
+  const ambient = o.shell?.ambient ?? mix([0.26, 0.28, 0.30], [0.32, 0.18, 0.10], t);
+  const tubeScale = Math.max(0, Math.min(1, o.tube ?? 1));
   const wood: RGB = [0.36, 0.26, 0.18];
 
   const C = o.corridor, R = o.room;
@@ -160,7 +184,10 @@ export function buildCorridorRoom(o: CorridorRoomOpts): CorridorRoomPlan {
     box(boxes, C.width / 2 - 0.04, 0.12, cZ, 0.06, 0.12, C.length - 0.2, trimC, { detail: 1 });
   }
 
-  box(boxes, 0, C.height - 0.08, cZ, 0.14, 0.05, C.length * 0.72, tube, { emissive: tubeEm, flick: 0.35 });
+  if (tubeScale > 0.02) {
+    const em: RGB = [tubeEm[0] * tubeScale, tubeEm[1] * tubeScale, tubeEm[2] * tubeScale];
+    box(boxes, 0, C.height - 0.08, cZ, 0.14, 0.05, C.length * 0.72, tube, { emissive: em, flick: 0.35 });
+  }
 
   const rZ = -C.length - R.length / 2;
   box(boxes, 0, 0, rZ, R.width, 0.12, R.length, floorC);
@@ -191,11 +218,16 @@ export function buildCorridorRoom(o: CorridorRoomOpts): CorridorRoomPlan {
     wall(cols, sx, sz, shoulder, th, 0, R.height);
   }
 
-  box(boxes, 0, R.height - 0.08, rZ, 0.14, 0.05, R.length * 0.62, tube, { emissive: tubeEm, flick: 1.7 });
+  if (tubeScale > 0.02) {
+    const em: RGB = [tubeEm[0] * tubeScale, tubeEm[1] * tubeScale, tubeEm[2] * tubeScale];
+    box(boxes, 0, R.height - 0.08, rZ, 0.14, 0.05, R.length * 0.62, tube, { emissive: em, flick: 1.7 });
+  }
 
   const tableZ = -C.length - R.length * 0.58;
-  box(boxes, -0.35, 0.12, tableZ, 1.15, 0.62, 0.7, wood);
-  wall(cols, -0.35, tableZ, 1.15, 0.7, 0.12, 0.74);
+  if (o.table !== false) {
+    box(boxes, -0.35, 0.12, tableZ, 1.15, 0.62, 0.7, wood);
+    wall(cols, -0.35, tableZ, 1.15, 0.7, 0.12, 0.74);
+  }
 
   if (o.detail >= 1) {
     box(boxes, R.width / 2 - 0.28, 0.12, rZ + 0.15, 0.42, 0.46, 1.3, trimC, { detail: 1 });
@@ -203,27 +235,29 @@ export function buildCorridorRoom(o: CorridorRoomOpts): CorridorRoomPlan {
     box(boxes, R.width / 2 - 0.04, 0.12, rZ, 0.06, 0.12, R.length - 0.2, trimC, { detail: 1 });
   }
 
-  const winW = 1.15, winH = 0.7;
+  const winW = o.opening?.w ?? 1.15;
+  const winH = o.opening?.h ?? 0.7;
   const winX = R.width / 2 - 0.02;
-  const winY = 1.5;
+  const winY = o.opening?.y ?? 1.5;
   const winZ = -C.length - R.length * 0.46;
   const wantWindow = o.window !== false;
-  if (wantWindow && o.detail >= 2) {
+  const frameDetail = o.opening ? 1 : 2;
+  if (wantWindow && o.detail >= frameDetail) {
     const ft = 0.06;
-    box(boxes, winX - 0.04, winY - winH / 2 - ft, winZ, ft, ft, winW + ft * 2, trimC, { detail: 2 });
-    box(boxes, winX - 0.04, winY + winH / 2, winZ, ft, ft, winW + ft * 2, trimC, { detail: 2 });
-    box(boxes, winX - 0.04, winY - winH / 2, winZ - winW / 2, ft, winH, ft, trimC, { detail: 2 });
-    box(boxes, winX - 0.04, winY - winH / 2, winZ + winW / 2, ft, winH, ft, trimC, { detail: 2 });
+    box(boxes, winX - 0.04, winY - winH / 2 - ft, winZ, ft, ft, winW + ft * 2, trimC, { detail: frameDetail });
+    box(boxes, winX - 0.04, winY + winH / 2, winZ, ft, ft, winW + ft * 2, trimC, { detail: frameDetail });
+    box(boxes, winX - 0.04, winY - winH / 2, winZ - winW / 2, ft, winH, ft, trimC, { detail: frameDetail });
+    box(boxes, winX - 0.04, winY - winH / 2, winZ + winW / 2, ft, winH, ft, trimC, { detail: frameDetail });
   }
   if (o.detail >= 3) {
     box(boxes, 0.85, 0.12, -C.length - 0.7, 0.48, 0.38, 0.48, mix(trimC, wood, 0.4), { detail: 3 });
   }
   if (o.extras) for (const e of o.extras) boxes.push(e);
 
-  const lights: InteriorLight[] = [
-    { x: 0, y: C.height - 0.15, z: -C.length * 0.45, color: tube, intensity: 3.4, range: Math.max(6, C.length) },
-    { x: 0, y: R.height - 0.15, z: rZ, color: tube, intensity: 3.6, range: Math.max(6, R.length + 1) },
-  ];
+  const lights: InteriorLight[] = tubeScale > 0.02 ? [
+    { x: 0, y: C.height - 0.15, z: -C.length * 0.45, color: tube, intensity: 3.4 * tubeScale, range: Math.max(6, C.length) },
+    { x: 0, y: R.height - 0.15, z: rZ, color: tube, intensity: 3.6 * tubeScale, range: Math.max(6, R.length + 1) },
+  ] : [];
   const portals: InteriorPortal[] = wantWindow
     ? [{ x: winX, y: winY, z: winZ, w: winW, h: winH, yaw: -Math.PI / 2 }]
     : [];

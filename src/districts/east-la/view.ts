@@ -134,9 +134,11 @@ export function eastLaCamera(layout: CityLayout, kind: EastLaView): EastPose | n
   if (kind === 'interior') {
     const origin = counterOrigin(layout);
     if (!origin) return null;
-    const feet = localDoor(origin, origin.yaw, -0.15, -4.2, 0.05);
-    const look = localDoor(origin, origin.yaw, -1.15, -5.6, 1.05);
-    return walk(feet, look, 0.02);
+    const feet = localDoor(origin, origin.yaw, 0.6, -2.6, 0.05);
+    const look = localDoor(origin, origin.yaw, -0.8, -5.2, 1.5);
+    const dist = Math.hypot(look.x - feet.x, look.z - feet.z) || 1;
+    const pitch = Math.atan2(look.y - (feet.y + 1.7), dist);
+    return walk(feet, look, pitch);
   }
 
   const list = near(layout, HUB.x, HUB.z, 1400);

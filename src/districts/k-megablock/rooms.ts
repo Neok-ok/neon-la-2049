@@ -97,6 +97,22 @@ export function corridorExtras(detail: InteriorDetail): InteriorBox[] {
   return boxes;
 }
 
+/** West wall opening. The shell, the blinds and the rain slot all use this. */
+export function apartmentWindow(): { x: number; y: number; z: number; w: number; h: number } {
+  const C = APARTMENT.corridor;
+  const R = APARTMENT.room;
+  const w = 3.15;
+  const h = 1.58;
+  const y = 1.22;
+  return { x: R.width / 2 - 0.02, y, z: -C.length - R.length * 0.46, w, h };
+}
+
+/** Dead ceiling disc. A faint column, not a figure. */
+export function apartmentShaft(): InteriorLight {
+  const win = apartmentWindow();
+  return { x: 0.42, y: 2.28, z: win.z + 0.05, color: [0.72, 0.46, 0.2], intensity: 0.62, range: 2.6 };
+}
+
 export function apartmentExtras(detail: InteriorDetail): InteriorBox[] {
   const boxes: InteriorBox[] = [];
   const C = { length: 1.55, width: 1.12, height: 2.38 };
@@ -120,28 +136,40 @@ export function apartmentExtras(detail: InteriorDetail): InteriorBox[] {
   push(boxes, sx, 0.12, sz, 1.15, 0.08, 1.05, TILE);
   push(boxes, sx + 0.45, 0.12, sz, 0.06, 1.9, 1.05, TILE, { detail: 0 });
   push(boxes, sx - 0.15, 1.85, sz, 0.12, 0.08, 0.12, [0.7, 0.72, 0.74], { detail: 1 });
-  // shelves
-  push(boxes, R.width / 2 - 0.22, 1.15, rZ - 0.7, 0.28, 0.04, 1.1, WOOD, { detail: 1 });
-  push(boxes, R.width / 2 - 0.22, 1.55, rZ - 0.7, 0.28, 0.04, 1.1, WOOD, { detail: 1 });
+  // shelves on the far wall, clear of the west window
+  const shelfZ = -C.length - R.length + 0.16;
+  push(boxes, -0.85, 1.2, shelfZ, 1.05, 0.04, 0.22, WOOD, { detail: 1 });
+  push(boxes, -0.85, 1.62, shelfZ, 1.05, 0.04, 0.22, WOOD, { detail: 1 });
   if (detail >= 2) {
     for (let i = 0; i < 3; i++) {
-      push(boxes, R.width / 2 - 0.22, 1.2, rZ - 1.05 + i * 0.28, 0.12, 0.16, 0.1, [0.3, 0.28, 0.26], { detail: 2 });
+      push(boxes, -1.2 + i * 0.28, 1.26, shelfZ - 0.02, 0.1, 0.16, 0.12, [0.3, 0.28, 0.26], { detail: 2 });
     }
   }
   // lock panel beside the entry
   push(boxes, C.width / 2 - 0.02, 1.12, -0.35, 0.06, 0.16, 0.1, DARK, { emissive: [0.85, 0.45, 0.16], flick: 0.6 });
-  // blinds over the template window (local +X, mid-room)
-  const winX = R.width / 2 - 0.1;
-  const winY = 1.5;
-  const winZ = -C.length - R.length * 0.46;
-  const winW = 1.15;
-  const winH = 0.7;
+  // blinds across the west wall. The opening matches apartmentWindow().
+  const win = apartmentWindow();
   if (detail >= 1) {
-    for (let i = 0; i < 6; i++) {
-      const y = winY - winH / 2 + 0.06 + i * (winH / 7);
-      push(boxes, winX, y, winZ, 0.02, 0.035, winW * 0.92, [0.12, 0.13, 0.15], { detail: 1 });
+    const slats = 10;
+    for (let i = 0; i < slats; i++) {
+      const y = win.y - win.h / 2 + 0.05 + i * (win.h / (slats + 0.4));
+      push(boxes, win.x - 0.06, y, win.z, 0.02, 0.028, win.w * 0.94, [0.07, 0.08, 0.09], { detail: 1 });
     }
   }
+  // Dead projector: a ceiling disc and a faint column. No figure.
+  const discZ = win.z + 0.05;
+  push(boxes, 0.42, R.height - 0.08, discZ, 0.78, 0.035, 0.78, [0.04, 0.04, 0.045], {
+    emissive: [0.1, 0.06, 0.03], flick: -1,
+  });
+  push(boxes, 0.42, R.height - 0.09, discZ, 0.46, 0.02, 0.46, [0.03, 0.03, 0.035], {
+    emissive: [0.06, 0.04, 0.02], flick: 1.4, yaw: 0.78,
+  });
+  push(boxes, 0.42, 0.42, discZ, 0.14, R.height - 0.58, 0.02, [0.012, 0.01, 0.008], {
+    emissive: [0.2, 0.11, 0.04], flick: -1,
+  });
+  push(boxes, 0.42, 0.42, discZ, 0.02, R.height - 0.58, 0.14, [0.012, 0.01, 0.008], {
+    emissive: [0.14, 0.08, 0.03], flick: -1,
+  });
   return boxes;
 }
 
