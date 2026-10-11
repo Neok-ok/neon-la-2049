@@ -68,10 +68,13 @@ export function kCamera(layout: CityLayout, kind: KView): KPose | null {
     return walk(feet, look, 0.02);
   }
   if (kind === 'apartment') {
-    // Just inside the door, looking across the table toward the window and the bench.
-    const feet = inRoom(APARTMENT.x, APARTMENT.z, APARTMENT.yaw, -0.2, K_Y + 0.16, -2.15);
-    const look = inRoom(APARTMENT.x, APARTMENT.z, APARTMENT.yaw, 1.25, K_Y + 1.2, -4.4);
-    return walk(feet, look, -0.1);
+    // South-east of the table, on the line through the lamp and the west window.
+    // Both sit in a 36° phone frame, above the touch sticks.
+    const feet = inRoom(APARTMENT.x, APARTMENT.z, APARTMENT.yaw, -1.45, K_Y + 0.16, -5.0);
+    const look = inRoom(APARTMENT.x, APARTMENT.z, APARTMENT.yaw, 1.4, K_Y + 1.1, -3.85);
+    const dist = Math.hypot(look.x - feet.x, look.z - feet.z) || 1;
+    const pitch = Math.atan2(look.y - (feet.y + 1.7), dist);
+    return walk(feet, look, pitch);
   }
   if (kind === 'roof') {
     // Hover just south of the pad centre, looking east along the markings.

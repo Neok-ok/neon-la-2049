@@ -109,8 +109,10 @@ export function wallaceCamera(layout: CityLayout, kind: WallaceView): WallacePos
   }
   const frame: PlaceFrame | null = atriumFrame(layout);
   if (!frame) return null;
-  const feetL = { x: 0.05, y: 0.22, z: -2.15 };
-  const lookL = { x: 0.35, y: 1.05, z: -7.1 };
+  // Near the door, off to the side, so the far wall, the shaft and the gold water
+  // share the frame. Phone sticks cover the lower third; the water sits above them.
+  const feetL = { x: -7.2, y: 0.16, z: -2.2 };
+  const lookL = { x: 2, y: 2.6, z: -18 };
   const [fx, fz] = xformXZ(frame, feetL.x, feetL.z);
   const [lx, lz] = xformXZ(frame, lookL.x, lookL.z);
   const feet = { x: fx, y: frame.y + feetL.y, z: fz };

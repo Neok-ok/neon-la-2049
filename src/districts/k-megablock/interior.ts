@@ -12,7 +12,8 @@ import {
   APARTMENT, CORRIDOR, HEAD, K_Y, LIFT, LOBBY, localToWorld,
 } from './spec';
 import {
-  apartmentColliders, apartmentExtras, apartmentLamp, buildLift, corridorExtras, lobbyExtras,
+  apartmentColliders, apartmentExtras, apartmentLamp, apartmentShaft, apartmentWindow, buildLift,
+  corridorExtras, lobbyExtras,
 } from './rooms';
 
 function frameAt(ox: number, oz: number, bearing: number, face: number, g: number, lx: number, lz: number, y: number): PlaceFrame {
@@ -55,20 +56,24 @@ export function installKInteriors(layout: CityLayout = getLayout()): void {
 
   const aptF = at(APARTMENT.x, APARTMENT.z, K_Y, APARTMENT.yaw);
   const aptPlan = (detail: 0 | 1 | 2 | 3) => {
+    const win = apartmentWindow();
     const plan = buildCorridorRoom({
-      warmth: 0.2,
+      warmth: 0,
+      shell: {
+        wall: [0.09, 0.10, 0.12],
+        floor: [0.045, 0.046, 0.05],
+        ceil: [0.06, 0.065, 0.075],
+        trim: [0.12, 0.13, 0.14],
+        ambient: [0.028, 0.032, 0.04],
+      },
+      tube: 0,
       corridor: APARTMENT.corridor,
       room: APARTMENT.room,
+      opening: { w: win.w, h: win.h, y: win.y },
       detail,
       extras: apartmentExtras(detail),
     });
-    // The template room tube is a cold wash. Pull it back so the amber practical can read.
-    const roomTube = plan.lights[1];
-    if (roomTube) {
-      roomTube.intensity = 0.65;
-      roomTube.range = 2.6;
-    }
-    plan.lights.push(apartmentLamp());
+    plan.lights.push(apartmentLamp(), apartmentShaft());
     plan.colliders.push(...apartmentColliders());
     return plan;
   };
@@ -124,9 +129,13 @@ export function installKInteriors(layout: CityLayout = getLayout()): void {
     colliders: cols(aptF, apt.colliders),
     build: (detail) => {
       const plan = aptPlan(detail);
+      const win = apartmentWindow();
       return placeInterior(aptF, {
         ...plan,
-        openSky: { x: 1.83, z: -3.71, hw: 0.28, hd: 0.62, y0: 1.05, y1: 1.95 },
+        openSky: {
+          x: win.x - 0.1, z: win.z, hw: 0.16, hd: win.w / 2,
+          y0: win.y - win.h / 2, y1: win.y + win.h / 2,
+        },
       });
     },
   });

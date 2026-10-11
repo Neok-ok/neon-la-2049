@@ -45,6 +45,10 @@ The shell can be opened without rebuilding it:
 | `sideDoors` | Gaps in the corridor side walls. `side: -1` is local −X. `at` is metres from the front door toward −Z. |
 | `backDoor` | A gap in the room's far wall. `at` omitted means the middle. |
 | `window: false` | Drops the +X window and its portal card. Default is on, so the Bradbury service room is unchanged. |
+| `opening` | Replaces the +X window size (default 1.15 × 0.7 m at y 1.5). Service rooms leave this unset. |
+| `tube` | Scales both ceiling tubes and their lights. `0` omits them. Default 1. |
+| `table: false` | Drops the built-in desk. Default on. |
+| `shell` | Replaces the warmth mix for wall, floor, ceiling, trim and ambient. Omitted rooms keep the shared corridor colours. |
 
 An empty gap list is the old solid wall.
 
@@ -61,7 +65,7 @@ An empty gap list is the old solid wall.
 
 Lighting is vertex colour on an unlit mesh, plus an emissive attribute that flickers from the clock. It does not follow night, wetness or the sign uniform. Open-sky rain is a local streak mesh (16 / 28 / 42 on medium / high / ultra, none on low) and only while the city rain is hidden.
 
-The doorway shows a procedural card (one draw) while the city is hidden. It is not a second render of the street. While the walker is still in the exterior door, the card is off and the real street is what they see.
+The doorway shows a procedural card (one draw) while the city is hidden. It is a dim rainy canyon, not a bright card, and not a second render of the street. While the walker is still in the exterior door, the card is off and the real street is what they see.
 
 `onShown(true)` means this interior's mesh is in the frame. Use it to hide a landmark court that would z-fight the baked mesh.
 
@@ -93,4 +97,4 @@ K's lobby, corridor, apartment, roof head-house and three lift cars call `regist
 
 ## Stage 21
 
-`east-la-counter` calls `registerInterior` and starts from `buildCorridorRoom` with `window: false`. The door faces south (yaw 0) into the market yard. Corridor 2.6 × 1.7 × 2.55 m, room 5.6 × 4.4 × 2.6 m, warmth 0.96, hum 0, muffle 0.8, stream radius 42 m. Extras are a tile counter, a steel top, an amber pot and four stools. No rides and no scene lights. The name stays off the signs.
+`east-la-counter` calls `registerInterior` and starts from `buildCorridorRoom` with `window: false`, a dark stained `shell`, `tube: 0` and `table: false`. The door faces south (yaw 0) into the market yard. Corridor 2.6 × 1.7 × 2.55 m, room 5.6 × 4.4 × 2.6 m, hum 0, muffle 0.8, stream radius 42 m. Extras are a long tile counter, a steel top, a hood, three pendant lamps and four stools. No rides and no scene lights. The name stays off the signs.

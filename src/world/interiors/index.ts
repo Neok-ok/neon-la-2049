@@ -1,7 +1,7 @@
 export { registerInterior, allInteriors } from './api';
 export { interiorDetail } from './detail';
 export { buildCorridorRoom } from './template';
-export type { CorridorRoomOpts, CorridorRoomPlan, CorridorRoomSize, WallGap } from './template';
+export type { CorridorRoomOpts, CorridorRoomPlan, CorridorRoomSize, ShellPalette, WallGap, WindowOpening } from './template';
 export { InteriorSystem } from './system';
 export type { ExteriorHosts, InteriorStats, RidePose } from './system';
 export { placeBox, placeCollider, placeInterior, placeLight, placePortal, placeVolume, xformXZ } from './xform';

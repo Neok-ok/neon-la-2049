@@ -3,8 +3,8 @@
 import type { InteriorBox, InteriorCollider, InteriorDetail, InteriorLight, InteriorPortal, RGB } from '../../world/interiors/types';
 
 const H = 22.4;
-const STONE: RGB = [0.62, 0.52, 0.42];
-const PLASTER: RGB = [0.70, 0.60, 0.48];
+const STONE: RGB = [0.16, 0.145, 0.13];
+const PLASTER: RGB = [0.12, 0.11, 0.1];
 const DARK: RGB = [0.22, 0.17, 0.14];
 const IRON: RGB = [0.28, 0.24, 0.22];
 const WARM: RGB = [1.0, 0.62, 0.28];
@@ -147,6 +147,13 @@ function structure(): { boxes: InteriorBox[]; colliders: InteriorCollider[] } {
   add(boxes, cols, 2.36, 0.16, 19.95, 0.05, 6.85, 7.5, PLASTER, { collide: false });
   add(boxes, cols, -2.36, 0.16, 19.95, 0.05, 6.85, 7.5, PLASTER, { collide: false });
   add(boxes, cols, 0, 7.02, 19.95, 4.55, 0.1, 7.5, PLASTER, { collide: false });
+  // The wing facades stay in the kept landmark. These baffles stop that window grid
+  // showing through the gap beside the tunnel. The door itself stays the portal card.
+  const baffle: RGB = [0.06, 0.055, 0.05];
+  add(boxes, cols, 4.75, 0.1, 16.85, 4.7, 21.4, 0.32, baffle);
+  add(boxes, cols, -4.75, 0.1, 16.85, 4.7, 21.4, 0.32, baffle);
+  add(boxes, cols, 6.7, 0.1, 12.2, 0.28, 21.6, 21.6, baffle);
+  add(boxes, cols, -6.7, 0.1, 12.2, 0.28, 21.6, 21.6, baffle);
 
   add(boxes, cols, 0.15, 0.14, 2.42, 1.2, 2.15, 0.05, [0.34, 0.24, 0.16], { collide: false, yaw: -0.42 });
   add(boxes, cols, 0, 10.35, 9, 1.55, 0.48, 1.55, [0.42, 0.26, 0.14], { collide: false, emissive: LANTERN, flick: 0.4 });
@@ -192,17 +199,24 @@ export function courtColliders(): InteriorCollider[] {
 
 export function buildCourt(detail: InteriorDetail): Omit<CourtPlan, 'colliders'> {
   const lights: InteriorLight[] = [
-    { x: 0, y: 11.2, z: 9, color: [1, 0.58, 0.24], intensity: 6.2, range: 28 },
+    { x: 0, y: 11.2, z: 9, color: [1, 0.58, 0.24], intensity: 3.6, range: 22 },
     { x: 4.0, y: 6.5, z: 11.6, color: [1, 0.64, 0.32], intensity: 2.4, range: 12 },
     { x: 0, y: 4.2, z: 20.2, color: [1, 0.72, 0.42], intensity: 1.8, range: 14 },
     { x: -5.4, y: 7.4, z: 8, color: [1, 0.55, 0.22], intensity: 1.3, range: 10 },
     { x: 5.4, y: 11.6, z: 11, color: [1, 0.55, 0.22], intensity: 1.3, range: 10 },
   ];
+  const glass: InteriorBox = {
+    x: 0, y: 18.4, z: 9, w: 10.2, h: 0.05, d: 11.6,
+    color: [0.16, 0.2, 0.24],
+    emissive: [0.05, 0.08, 0.1],
+    flick: -1,
+  };
   return {
-    boxes: [...BUILT.boxes, ...dress(detail)],
+    boxes: [...BUILT.boxes, ...dress(detail), glass],
     lights,
-    ambient: [0.24, 0.16, 0.11],
-    portals: [{ x: 0, y: 3.45, z: 23.85, w: 4.5, h: 6.5, yaw: 0 }],
+    ambient: [0.1, 0.08, 0.07],
+    // In front of the landmark's door glow (z ≈ 22.6), so the opening is the dim card.
+    portals: [{ x: 0, y: 3.5, z: 17.6, w: 4.6, h: 6.9, yaw: 0 }],
     openSky: { x: 0, z: 9, hw: 5.4, hd: 6.2, y0: 3, y1: 20 },
   };
 }

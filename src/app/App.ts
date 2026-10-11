@@ -22,6 +22,7 @@ import { megaCamera, type MegaView } from '../districts/financial-megatowers/vie
 import { dtlaCamera, type DtlaView } from '../districts/dtla/view';
 import { installDtlaHolos } from '../districts/dtla/holos';
 import { civicCamera, type CivicView } from '../districts/civic-center/view';
+import { inLapdLobby, lapdLobbyLooksIn } from '../districts/civic-center/shelter';
 import { broadwayCamera, type BroadwayView } from '../districts/historic-core/view';
 import { interiorCamera, type InteriorView } from '../districts/historic-core/interior';
 import { kCamera, type KView } from '../districts/k-megablock/view';
@@ -543,6 +544,8 @@ export class App {
       this.cams.mode === 'fly',
     );
 
+    this.applyLapdShelter();
+
     if (photoOn) this.photoMod!.render();
     else if (this.pipeline) this.pipeline.render();
     else this.renderer.render(this.scene, this.camera);
@@ -555,6 +558,35 @@ export class App {
       this.boot.interactiveMs = performance.now() - this.startMs;
       this.loadingEl.remove();
       this.loadingEl = null;
+    }
+  }
+
+  /**
+   * Soffit shelter for the LAPD lobby. Not an interior: the city stays drawn when the
+   * walker faces the door. Rain is off for the whole recess. Looking in hides the
+   * street meshes so the hall is not a 100-draw city frame.
+   */
+  private applyLapdShelter(): void {
+    const walk = this.cams.mode === 'walk';
+    const x = walk ? this.cams.walk.pos.x : this.camera.position.x;
+    const y = walk ? this.cams.walk.pos.y : this.camera.position.y;
+    const z = walk ? this.cams.walk.pos.z : this.camera.position.z;
+    const heading = walk ? this.cams.walk.heading : this.cams.pose().heading;
+    const layout = this.query.layout;
+    if (!inLapdLobby(layout, x, y, z)) return;
+    this.rain.mesh.visible = false;
+    this.snow.mesh.visible = false;
+    if (!lapdLobbyLooksIn(layout, heading)) return;
+    this.haze.group.visible = false;
+    this.air.glowMesh.visible = false;
+    this.air.breathMesh.visible = false;
+    this.streamer.root.visible = false;
+    this.holos.group.visible = false;
+    this.crowd.mesh.visible = false;
+    for (const n of this.traffic.nodes) n.visible = false;
+    for (const n of this.ground.nodes) n.visible = false;
+    for (const child of this.landmarks.root.children) {
+      if (child.name !== 'lapd-hq') child.visible = false;
     }
   }
 

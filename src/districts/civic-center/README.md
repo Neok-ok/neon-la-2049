@@ -46,4 +46,4 @@ A chunk that only contains the district stays near 5 k triangles of fabric. The 
 
 ## Left for later
 
-The lobby is a soffit, not an X3 interior: no separate light, and the exterior is not occluded. The back wall is dim concrete; the sign carries the room. Crowds stay on the ground. Pad hover is a flare, not gear-down. No stair handrail. No second pylon row down the mall.
+The lobby stays a soffit, not an X3 interior: no separate light and no `registerInterior`. Rain and snow stop while the feet are in the recess. Looking into the hall hides the street meshes for that frame; turning back toward the door shows the mall again. The ceiling and floor are windowless concrete. The back wall is dim; the sign carries the room. Crowds stay on the ground. Pad hover is a flare, not gear-down. No stair handrail. No second pylon row down the mall.
