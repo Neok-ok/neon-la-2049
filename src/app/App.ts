@@ -80,6 +80,8 @@ import type { PhotoHost } from '../photo/types';
 import { U } from '../atmosphere/uniforms';
 import { GroundHaze } from '../atmosphere/GroundHaze';
 import { WetReflector } from '../atmosphere/WetReflector';
+import { cameraOverRoad } from '../roads/mirror';
+import { prepareRoadTextures, roadTexturesReady } from '../roads/textures';
 import { Ambience } from '../audio/Ambience';
 import { MarketAudio } from '../audio/MarketAudio';
 import { HUD } from '../ui/HUD';
@@ -221,6 +223,7 @@ export class App {
     await r.init();
     this.backend = (r.backend as unknown as { isWebGPUBackend?: boolean }).isWebGPUBackend ? 'WebGPU' : 'WebGL2';
     await prepareAtlases(r, { preferCompressed: this.budget.deviceClass !== 'desktop' });
+    await prepareRoadTextures(r, this.quality.tier);
     r.toneMapping = ACESFilmicToneMapping;
     this.applyPixelRatio();
     this.camera.aspect = innerWidth / innerHeight;
@@ -389,6 +392,10 @@ export class App {
     this.quality = settingsFor(tier);
     this.applyPixelRatio();
     this.streamer.setQuality(this.quality);
+    const roadsWait = !roadTexturesReady(tier);
+    void prepareRoadTextures(this.renderer, tier).then(() => {
+      if (roadsWait && this.quality.tier === tier) this.streamer.invalidateLod0();
+    });
     this.streamer.invalidateLod0();
     this.interiors.setTier(tier);
     if (had !== this.quality.bloom) this.buildPipeline();
@@ -611,9 +618,10 @@ export class App {
     this.photoMod?.postAtmosphere();
     this.crowd.update(simDt, cam.x, cam.z, this.query, this.quality, this.atmosphere.weather.params.rain, this.elapsed, this.cams.pose().heading);
     this.haze.update(cam.x, cam.z, ground, alt, this.quality.tier);
+    const overRoad = cameraOverRoad(this.query.layout, cam.x, cam.z);
     const wantRefl = this.pressure.reflector && (params.refl === 1 || (
       params.refl !== 0 && !this.software && (this.quality.tier === 'high' || this.quality.tier === 'ultra')
-      && inMarket && alt < 28 && this.atmosphere.weather.wetness > 0.35
+      && (inMarket || overRoad) && alt < 28 && this.atmosphere.weather.wetness > 0.35
     ));
     this.wet.place(cam.x, ground, cam.z, wantRefl);
     // depth precision fallback when reversed-Z is unavailable (WebGL2 without EXT_clip_control)
