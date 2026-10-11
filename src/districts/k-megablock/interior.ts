@@ -93,7 +93,7 @@ export function installKInteriors(layout: CityLayout = getLayout()): void {
   registerInterior({
     id: 'k-lobby',
     volume: vol(lobbyF, -5.5, 5.5, -14.7, 0.9, -0.2, 3.55),
-    doors: [{ id: 'street', exterior: true, box: vol(lobbyF, -1.2, 1.2, -0.45, 1.45, -0.15, 2.7) }],
+    doors: [{ id: 'street', exterior: true, box: vol(lobbyF, -1.1, 1.1, -0.45, 1.45, -0.15, 2.2) }],
     links: ['k-lift-lobby'],
     showFromOutside: true,
     streamRadius: 88,

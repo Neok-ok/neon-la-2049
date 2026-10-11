@@ -48,7 +48,7 @@ export function installArtsInterior(layout: CityLayout = getLayout()): void {
   registerInterior({
     id: 'arts-foundry',
     volume: placeVolume(f, 0, -6.5, 4.15, 6.7, -0.2, 7.55),
-    doors: [{ id: 'dock', exterior: true, box: placeVolume(f, 0, 0.45, 0.78, 0.55, 0, 2.4) }],
+    doors: [{ id: 'dock', exterior: true, box: placeVolume(f, 0, 0.45, 1.05, 0.55, 0, 2.2) }],
     showFromOutside: true,
     streamRadius: 46,
     muffle: 0.8,

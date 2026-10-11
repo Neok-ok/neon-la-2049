@@ -127,6 +127,13 @@ export function planLax(b: LaxBlock): LaxPlan {
     boxes.push(box(bodyS, 0, HALL_B, bodyA, TERMINAL_H, Style.Megablock, 0.22, 0.78, 0));
     boxes.push(box(wingS, wingT, wingB, wingLa, TERMINAL_H, Style.Megablock, 0.22, 0.78, 0));
     boxes.push(box(wingS, -wingT, wingB, wingLa, TERMINAL_H, Style.Megablock, 0.22, 0.78, 0));
+    // The slot above 2.2 m stays open. The walk-through at the apron is a 2.2 m leaf.
+    const leaf = 2.2;
+    const side = (doorW - leaf) / 2;
+    const sideT = leaf / 2 + side / 2;
+    boxes.push(box(wingS, sideT, side, wingLa, leaf, Style.Solid, 0.05, 0.5, 0));
+    boxes.push(box(wingS, -sideT, side, wingLa, leaf, Style.Solid, 0.05, 0.5, 0));
+    boxes.push(box(wingS, 0, doorW, wingLa, 0.4, Style.Solid, 0.05, 0.5, 0, leaf));
     boxes.push(box(-40, 0, 150, 80, HANGAR_H, Style.Industrial, 0.06, 0.7, 0));
     boxes.push(box(wingS + wingLa / 2 + 0.28, wingT, wingB - 6, 0.4, 2.2, Style.Glow, 0.9, 1.45, 1, 5));
     boxes.push(box(wingS + wingLa / 2 + 0.28, -wingT, wingB - 6, 0.4, 2.2, Style.Glow, 0.9, 1.45, 1, 5));

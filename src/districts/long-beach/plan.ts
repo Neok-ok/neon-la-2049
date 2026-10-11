@@ -138,7 +138,7 @@ function concourse(boxes: FabricBox[], signs: FabricSign[]): void {
   put(sWall, -(gap / 2 + cheek / 2), cheek, wall, H);
   put(sWall, gap / 2 + cheek / 2, cheek, wall, H);
   put(sWall, 0, gap, wall, H - 2.2, 2.2, { style: Style.Solid, lit: 0.04, tint: 0.5 });
-  put(sWall, 0, gap * 0.92, wall, 0.22, 1.98, { style: Style.Glow, lit: 0.62, tint: 1.2, detail: 1 });
+  put(sWall, 0, gap * 0.92, wall, 0.22, 2.2, { style: Style.Glow, lit: 0.62, tint: 1.2, detail: 1 });
   const sideS = south + wall + (depth - wall) / 2;
   put(sideS, -width / 2 + wall / 2, wall, depth - wall, H);
   put(sideS, width / 2 - wall / 2, wall, depth - wall, H);

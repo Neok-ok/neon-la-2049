@@ -322,7 +322,12 @@ function pourHall(put: Emit, prop: PropFn, puff: PuffFn, r: Rng): void {
   const cheek = (width - gap * 2) / 2;
   put(s0 + wall / 2, t0 + cheek / 2, cheek, wall, roofY, 0, Style.Industrial, 0.12, 0.5, 0);
   put(s0 + wall / 2, t1 - cheek / 2, cheek, wall, roofY, 0, Style.Industrial, 0.12, 0.5, 0);
-  put(s0 + wall / 2, 0, gap * 2, wall, roofY - 4.4, 4.4, Style.Industrial, 0.12, 0.5, 0);
+  // The bay stays wide. The street hole is a 2.2 m leaf inside it.
+  const leaf = 2.2;
+  const leafJamb = (gap * 2 - leaf) / 2;
+  put(s0 + wall / 2, -(leaf / 2 + leafJamb / 2), leafJamb, wall, roofY, 0, Style.Industrial, 0.12, 0.5, 0);
+  put(s0 + wall / 2, leaf / 2 + leafJamb / 2, leafJamb, wall, roofY, 0, Style.Industrial, 0.12, 0.5, 0);
+  put(s0 + wall / 2, 0, leaf, wall, roofY - leaf, leaf, Style.Industrial, 0.12, 0.5, 0);
   put(s1 - wall / 2, 0, width, wall, roofY, 0, Style.Industrial, 0.12, 0.48, 0);
   put(sMid, t0 + wall / 2, wall, depth, roofY, 0, Style.Industrial, 0.12, 0.5, 0);
   put(sMid, t1 - wall / 2, wall, depth, roofY, 0, Style.Industrial, 0.12, 0.5, 0);

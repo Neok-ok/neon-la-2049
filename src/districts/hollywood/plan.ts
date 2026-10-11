@@ -223,9 +223,11 @@ function podiumBehind(b: HwBlock, face: FaceDir, out: HwPlan): void {
 
 function lobbyMouth(b: HwBlock, out: HwPlan): void {
   const edge = -b.la / 2;
-  const pierT = DOOR_HALF_T + 0.55;
-  pushBox(out, b, edge + 0.45, -pierT, 0.7, 1.1, 3.6, Style.Deco, 0.35, 1.05, 0, 0);
-  pushBox(out, b, edge + 0.45, pierT, 0.7, 1.1, 3.6, Style.Deco, 0.35, 1.05, 0, 0);
+  // lb is the street width. The inner face sits on the 2.1 m slot, not 0.2 m outside it.
+  const pierLb = 0.7;
+  const pierT = DOOR_HALF_T + pierLb / 2 + 0.02;
+  pushBox(out, b, edge + 0.45, -pierT, pierLb, 1.1, 3.6, Style.Deco, 0.35, 1.05, 0, 0);
+  pushBox(out, b, edge + 0.45, pierT, pierLb, 1.1, 3.6, Style.Deco, 0.35, 1.05, 0, 0);
   pushBox(out, b, edge + 1.6, 0, DOOR_HALF_T * 2 + 1.4, 3.2, 0.32, Style.Glow, 0.92, 1.5, 1, 2.2);
   out.signs.push({
     s: edge, t: 0, hb: 0, ha: 0, face: 'a-', along: 0, y: 4.7,

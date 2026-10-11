@@ -135,6 +135,19 @@ export function buildHeritage(plan: HeritagePlan, phrases: readonly number[] = P
       piece(pieces, -sideX, doorHead / 2, zc, sideW, doorHead, depth, stone, lit * 0.45, stoneTint * 0.92, seed, 0);
       piece(pieces, sideX, doorHead / 2, zc, sideW, doorHead, depth, stone, lit * 0.45, stoneTint * 0.92, seed, 0);
       piece(pieces, 0, (doorHead + frontH) / 2, zc + 0.05, width * 0.98, frontH - doorHead, depth * 0.96, stone, lit * 0.4, stoneTint, seed + 0.01, 0);
+      // The 3.2 × 3.6 opening is the frame. The leaf inside it is 2.2 × 2.2.
+      const leafW = Math.min(2.2, door);
+      const leafH = Math.min(2.2, doorHead);
+      const jamb = (door - leafW) / 2;
+      if (jamb >= 0.25) {
+        const jx = leafW / 2 + jamb / 2;
+        piece(pieces, -jx, doorHead / 2, zc, jamb, doorHead, depth, stone, lit * 0.5, stoneTint, seed + 0.011, 0);
+        piece(pieces, jx, doorHead / 2, zc, jamb, doorHead, depth, stone, lit * 0.5, stoneTint, seed + 0.012, 0);
+      }
+      const transom = doorHead - leafH;
+      if (transom >= 0.12) {
+        piece(pieces, 0, leafH + transom / 2, zc, leafW, transom, depth, stone, lit * 0.35, stoneTint * 0.95, seed + 0.013, 0);
+      }
     } else {
       piece(pieces, 0, frontH / 2, -depth / 2, width, frontH, depth, stone, lit * 0.4, stoneTint, seed, 0);
     }

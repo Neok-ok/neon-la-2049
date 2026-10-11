@@ -413,9 +413,9 @@ function addHub(
     put(yard.s - 6, t, 2.2, 1.6, 1.05, { style: Style.Market, detail: 1, lit: 0.32, tint: 0.7 });
     stalls.push({ s: yard.s - 6, t, face: 'a-' });
   }
-  put(door.s, -1.2, 0.48, 0.6, 2.7, { style: Style.Solid, detail: 0, lit: 0.05, tint: 0.5 });
-  put(door.s, 1.2, 0.48, 0.6, 2.7, { style: Style.Solid, detail: 0, lit: 0.05, tint: 0.5 });
-  put(door.s, 0, 2.9, 0.45, 0.35, { style: Style.Solid, detail: 1, lit: 0.08, tint: 0.55, base: 2.45 });
+  put(door.s, -1.29, 0.48, 0.6, 2.7, { style: Style.Solid, detail: 0, lit: 0.05, tint: 0.5 });
+  put(door.s, 1.29, 0.48, 0.6, 2.7, { style: Style.Solid, detail: 0, lit: 0.05, tint: 0.5 });
+  put(door.s, 0, 3.2, 0.55, 0.35, { style: Style.Solid, detail: 1, lit: 0.08, tint: 0.55, base: 2.2 });
   signOn(signs, rng, door.s, 0, 2.9, 0.7, 'a-');
   signOn(signs, rng, yard.s - 6, 0, 2.2, 1.6, 'a-');
   clutter(boxes, layout, b, cap, rng, -b.la / 2 + 12, 0, 8, 12, 6.8);
