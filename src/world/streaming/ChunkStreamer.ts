@@ -9,6 +9,7 @@ import {
 import type { QualitySettings } from '../../core/quality';
 import type { ChunkWorkerRequest, ChunkWorkerResponse } from '../fabric/chunk.worker';
 import { BLOCK_STRIDE, SIGN_STRIDE } from '../fabric/mesher';
+import { chunkNeedsFarDetail, farDetailsReady } from '../../districts/detailGate';
 import { getCityMaterial } from '../materials/cityMaterial';
 import { getSignMaterial } from '../materials/signMaterial';
 import { getLayout } from '../layout';
@@ -135,9 +136,14 @@ export class ChunkStreamer {
     }
   }
 
+  /** LOD0 results waiting on far-district prop modules. */
+  private detailHeld: Array<{ job: Job; res: ChunkWorkerResponse }> = [];
+  private readonly requestScratch: Slot[] = [];
+  private readonly billboardScratch: HologramSpec[] = [];
+
   /** True when nothing is queued or in flight (used by screenshot automation). */
   isIdle(): boolean {
-    if (this.jobs.size > 0 || this.ready.length > 0) return false;
+    if (this.jobs.size > 0 || this.ready.length > 0 || this.detailHeld.length > 0) return false;
     for (const s of this.supers.values()) {
       if (s.far.want >= 0 && s.far.shownLod !== s.far.want) return false;
       if (s.children) for (const c of s.children) if (c.want >= 0 && c.shownLod !== c.want) return false;
@@ -163,11 +169,15 @@ export class ChunkStreamer {
    * culls this list again by tier, so a far LOD upload does not force a draw.
    */
   billboards(): HologramSpec[] {
-    const out: HologramSpec[] = [];
+    const out = this.billboardScratch;
+    out.length = 0;
     for (const s of this.supers.values()) {
-      for (const slot of this.visibleSlots(s)) {
-        if (slot.panels.length) out.push(...slot.panels);
-      }
+      this.visitShown(s, (slot) => {
+        for (let i = 0; i < slot.panels.length; i++) {
+          const panel = slot.panels[i];
+          if (panel) out.push(panel);
+        }
+      });
     }
     return out;
   }
@@ -180,11 +190,11 @@ export class ChunkStreamer {
     const r2 = range * range;
     const pad = range + CHUNK;
     for (const s of this.supers.values()) {
-      for (const slot of this.visibleSlots(s)) {
-        if (slot.shownLod !== 0 || !slot.glows) continue;
+      this.visitShown(s, (slot) => {
+        if (slot.shownLod !== 0 || !slot.glows) return;
         const dx0 = slot.x0 + slot.size * 0.5 - x;
         const dz0 = slot.z0 + slot.size * 0.5 - z;
-        if (dx0 * dx0 + dz0 * dz0 > pad * pad) continue;
+        if (dx0 * dx0 + dz0 * dz0 > pad * pad) return;
         const g = slot.glows;
         for (let i = 0; i < g.length; i += 7) {
           const area = g[i + 6] ?? 0;
@@ -214,17 +224,24 @@ export class ChunkStreamer {
             area, d2,
           });
         }
-      }
+      });
     }
   }
 
-  private visibleSlots(s: Super): Slot[] {
+  /** Shown slots for one super, without allocating a filtered array. */
+  private visitShown(s: Super, fn: (slot: Slot) => void): void {
     if (s.near && s.children) {
       const allShown = s.children.every((c) => c.shown);
-      if (allShown || !s.far.shown) return s.children.filter((c) => c.shown);
+      if (allShown || !s.far.shown) {
+        for (const c of s.children) if (c.shown) fn(c);
+        return;
+      }
     }
-    if (!s.near && s.children && !s.far.shown) return s.children.filter((c) => c.shown);
-    return s.far.shown ? [s.far] : [];
+    if (!s.near && s.children && !s.far.shown) {
+      for (const c of s.children) if (c.shown) fn(c);
+      return;
+    }
+    if (s.far.shown) fn(s.far);
   }
 
   /** `foci[0]` is the camera; extra points (e.g. the next cinematic shot) are streamed in too. */
@@ -248,7 +265,8 @@ export class ChunkStreamer {
         }
     }
 
-    const requests: Slot[] = [];
+    const requests = this.requestScratch;
+    requests.length = 0;
     let far = 0, near = 0, l0 = 0;
     for (const [key, s] of this.supers) {
       const d = focusDist(foci, s.far.x0, s.far.z0, SUPER);
@@ -322,15 +340,31 @@ export class ChunkStreamer {
 
     // integrate finished chunks (bounded per frame, and by a short time slice so a
     // heavy LOD0 detail build does not stack a second upload in the same frame)
+    if (this.detailHeld.length && farDetailsReady()) {
+      for (const item of this.detailHeld) this.ready.push(item);
+      this.detailHeld.length = 0;
+    }
     this.ready.sort((a, b) => a.job.slot.dist - b.job.slot.dist);
     let budget = q.uploadsPerFrame;
     let uploaded = 0;
     let uploadMs = 0;
+    let read = 0;
     const sliceStart = performance.now();
-    while (budget > 0 && this.ready.length) {
+    const layout = this.layout;
+    while (budget > 0 && read < this.ready.length) {
       if (uploaded > 0 && performance.now() - sliceStart > 8) break;
       const t0 = performance.now();
-      const { job, res } = this.ready.shift()!;
+      const item = this.ready[read];
+      read++;
+      if (!item) break;
+      const { job, res } = item;
+      if (job.lod === 0 && chunkNeedsFarDetail(res.blocks, BLOCK_STRIDE, (index) => (
+        index === 0 ? layout.defaultDistrict.id : layout.districts[index - 1]?.id ?? ''
+      ))) {
+        this.detailHeld.push(item);
+        uploadMs += performance.now() - t0;
+        continue;
+      }
       const slot = job.slot;
       if (slot.pendingLod === job.lod) slot.pendingLod = -1;
       if (slot.want !== job.lod) {
@@ -346,10 +380,11 @@ export class ChunkStreamer {
       budget--;
       uploadMs += performance.now() - t0;
     }
+    if (read > 0) this.ready.splice(0, read);
     this.stats.uploads = uploaded;
     if (uploaded > this.stats.uploadPeak) this.stats.uploadPeak = uploaded;
     this.stats.uploadMs = uploadMs;
-    this.stats.readyQueue = this.ready.length;
+    this.stats.readyQueue = this.ready.length + this.detailHeld.length;
   }
 
   private freeWorker(): number {

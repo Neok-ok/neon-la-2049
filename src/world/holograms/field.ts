@@ -16,6 +16,9 @@ import { holoIndex, type HologramSpec } from './types';
 import type { GlowMark } from '../../atmosphere/AirField';
 
 const MAX = 96;
+const candScratch: Cand[] = [];
+const glowScratch: Cand[] = [];
+const litScratch: Cand[] = [];
 const _m = new Matrix4();
 const _q = new Quaternion();
 const _p = new Vector3();
@@ -85,7 +88,8 @@ export class HologramField {
     camera.getWorldDirection(_fwd);
     const cam = camera.position;
     const regs = allHolograms();
-    const cand: Cand[] = [];
+    const cand = candScratch;
+    cand.length = 0;
     const consider = (spec: HologramSpec): void => {
       const dx = spec.x - cam.x;
       const dy = spec.y - cam.y;
@@ -114,10 +118,15 @@ export class HologramField {
     cand.sort((a, b) => a.score - b.score);
     this.candidates = cand.length;
     const cap = Math.min(q.holoCount, cand.length);
-    const chosen = cand.slice(0, cap);
-    this.shown = chosen.length;
+    this.shown = cap;
     this.glowMarks.length = 0;
-    const glowSorted = chosen.slice().sort((a, b) => a.dist - b.dist);
+    const glowSorted = glowScratch;
+    glowSorted.length = 0;
+    for (let i = 0; i < cap; i++) {
+      const c = cand[i];
+      if (c && c.spec.band !== 'skyline') glowSorted.push(c);
+    }
+    glowSorted.sort((a, b) => a.dist - b.dist);
     for (let i = 0; i < glowSorted.length && this.glowMarks.length < 16; i++) {
       const c = glowSorted[i];
       if (!c || c.spec.band === 'skyline') continue;
@@ -132,8 +141,8 @@ export class HologramField {
     const slices = q.holoDetail >= 3 ? 3 : q.holoDetail >= 2 ? 2 : 1;
     const sliced = q.holoDetail >= 2 ? 5 : 0;
     let n = 0;
-    for (let i = 0; i < chosen.length && n < MAX; i++) {
-      const c = chosen[i];
+    for (let i = 0; i < cap && n < MAX; i++) {
+      const c = cand[i];
       if (!c) continue;
       const spec = c.spec;
       const nx = Math.sin(spec.yaw);
@@ -160,7 +169,13 @@ export class HologramField {
 
     U.holoSpill.value = q.holoSpill > 0 ? 1 : 0;
     clearHoloSpill();
-    const lit = chosen.filter((c) => c.spec.spill > 0).sort((a, b) => a.dist - b.dist);
+    const lit = litScratch;
+    lit.length = 0;
+    for (let i = 0; i < cap; i++) {
+      const c = cand[i];
+      if (c && c.spec.spill > 0) lit.push(c);
+    }
+    lit.sort((a, b) => a.dist - b.dist);
     const spillN = Math.min(q.holoSpill, HOLO_SPILL_SLOTS, lit.length);
     for (let i = 0; i < spillN; i++) {
       const c = lit[i];

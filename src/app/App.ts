@@ -6,6 +6,7 @@ import { params } from '../core/params';
 import { autoTier, probeDevice, settingsFor, stepAutoGuard, storedTier, storeTier, TIERS, type QualitySettings, type Tier } from '../core/quality';
 import { Atmosphere } from '../atmosphere/Atmosphere';
 import { setCityWindowDetail } from '../world/materials/cityMaterial';
+import { atlasMode, prepareAtlases } from '../world/materials/compressedAtlases';
 import { applyWindowTier, windowState } from '../world/windows/state';
 import { placeWindowHeroes } from '../world/windows/heroes';
 import { windowsApi } from '../world/windows/api';
@@ -26,34 +27,22 @@ import { inLapdLobby, lapdLobbyLooksIn } from '../districts/civic-center/shelter
 import { broadwayCamera, type BroadwayView } from '../districts/historic-core/view';
 import { interiorCamera, type InteriorView } from '../districts/historic-core/interior';
 import { kCamera, type KView } from '../districts/k-megablock/view';
-import { lakewoodCamera, type LakewoodView } from '../districts/lakewood-megablocks/view';
-import { installLakewoodHolos } from '../districts/lakewood-megablocks/holos';
-import { southLaCamera, type SouthLaView } from '../districts/south-la-megablocks/view';
-import { installSouthLaHolos } from '../districts/south-la-megablocks/holos';
+import type { LakewoodView } from '../districts/lakewood-megablocks/view';
+import type { SouthLaView } from '../districts/south-la-megablocks/view';
 import { artsCamera, type ArtsView } from '../districts/arts-district/view';
-import { westsideCamera, type WestsideView } from '../districts/westside/view';
-import { basinCamera, type BasinView } from '../districts/basin-sprawl/view';
-import { southeastCamera, type SoutheastView } from '../districts/southeast-industrial/view';
-import { hollywoodCamera, type HollywoodView } from '../districts/hollywood/view';
-import { installHollywoodHolos } from '../districts/hollywood/holos';
-import { laxCamera, laxLaunchFor, type LaxView } from '../districts/lax-spaceport/view';
-import { installLaxHolos } from '../districts/lax-spaceport/holos';
-import { launchPad, launchPhase, launchRumble, mountLaunch, requestLaunch, updateLaunch } from '../districts/lax-spaceport/launch';
-import { gantryTris } from '../districts/lax-spaceport/gantry';
-import { mountSoutheastFlares } from '../districts/southeast-industrial/field';
-import { southBayCamera, type SouthBayView } from '../districts/south-bay-refineries/view';
-import { installSouthBayHolos } from '../districts/south-bay-refineries/holos';
-import { mountSouthBayFlares, southBayHum } from '../districts/south-bay-refineries/field';
-import { harborCamera, type HarborView } from '../districts/harbor/view';
-import { installHarborHolos } from '../districts/harbor/holos';
-import { longBeachCamera, type LongBeachView } from '../districts/long-beach/view';
-import { installLongBeachHolos } from '../districts/long-beach/holos';
-import { eastLaCamera, type EastLaView } from '../districts/east-la/view';
-import { installEastLaHolos } from '../districts/east-la/holos';
-import { mountEastLaInterchanges } from '../districts/east-la/interchange';
-import { eastLaMachinery } from '../districts/east-la/crossings';
-import { marketPin } from '../districts/east-la/locate';
-import { harborHum, mountHarbor, updateHarbor } from '../districts/harbor/field';
+import type { WestsideView } from '../districts/westside/view';
+import type { BasinView } from '../districts/basin-sprawl/view';
+import type { SoutheastView } from '../districts/southeast-industrial/view';
+import type { HollywoodView } from '../districts/hollywood/view';
+import type { LaxView } from '../districts/lax-spaceport/view';
+import type { SouthBayView } from '../districts/south-bay-refineries/view';
+import type { HarborView } from '../districts/harbor/view';
+import type { LongBeachView } from '../districts/long-beach/view';
+import type { EastLaView } from '../districts/east-la/view';
+import {
+  farDistrictsPromise, farDistrictsReady, farGantryTris, farLaunchPad, farLaunchPhase,
+  mountFarDistricts, requestFarLaunch, sampleFarFrame,
+} from './farDistricts';
 import { setRefineryFlame } from '../districts/_shared/refinery/flames';
 import { installArtsHolos } from '../districts/arts-district/holos';
 import { sampleDistrictLook } from '../atmosphere/districtLook';
@@ -148,7 +137,10 @@ export class App {
   private slowMs = 0;
   private sessionWorstMs = 0;
   private loopStart = 0;
-  private boot = { initMs: 0, firstFrameMs: 0, interactiveMs: 0 };
+  private boot = { initMs: 0, firstFrameMs: 0, interactiveMs: 0, farMs: 0 };
+  private farHooked = false;
+  private farApplied = false;
+  private wallaceLm: { x: number; z: number; reserveRadius: number } | null | undefined;
   private started = false;
   private photoMod: PhotoMode | null = null;
   private photoGate: Promise<PhotoMode> | null = null;
@@ -193,6 +185,7 @@ export class App {
     }));
     await r.init();
     this.backend = (r.backend as unknown as { isWebGPUBackend?: boolean }).isWebGPUBackend ? 'WebGPU' : 'WebGL2';
+    await prepareAtlases(r);
     r.toneMapping = ACESFilmicToneMapping;
     r.setPixelRatio(Math.min(devicePixelRatio, this.quality.pixelRatio));
     r.setSize(innerWidth, innerHeight, false);
@@ -209,25 +202,11 @@ export class App {
     this.streamer = new ChunkStreamer(this.scene, this.quality);
     this.landmarks = new Landmarks(this.query);
     this.scene.add(this.landmarks.root);
-    mountSoutheastFlares(this.scene, this.query.layout);
-    mountSouthBayFlares(this.scene, this.query.layout);
-    mountHarbor(this.scene, this.query.layout, this.query);
-    mountLaunch(this.scene, this.query.layout);
     installCoast(this.scene, this.query, this.quality.tier);
     installShowcase(this.query.layout);
     installDtlaHolos(this.query.layout);
     installCivicHolos(this.query.layout);
-    installLakewoodHolos(this.query.layout);
-    installSouthLaHolos(this.query.layout);
     installArtsHolos(this.query.layout);
-    installHollywoodHolos(this.query.layout);
-    this.scene.add(installLaxHolos(this.query.layout));
-    installSouthBayHolos(this.query.layout);
-    installHarborHolos(this.query.layout);
-    installLongBeachHolos(this.query.layout);
-    installEastLaHolos(this.query.layout);
-    const eastDeck = mountEastLaInterchanges(this.query.layout);
-    if (eastDeck) this.scene.add(eastDeck);
     this.holos = new HologramField(this.query.layout);
     this.scene.add(this.holos.group);
     this.traffic = new SpinnerTraffic(this.scene, this.query, settingsFor('ultra').traffic);
@@ -239,6 +218,7 @@ export class App {
     this.scene.add(this.rain.mesh, this.snow.mesh, this.crowd.mesh, this.haze.group);
     installInteriors();
     this.interiors = new InteriorSystem(this.scene, this.query, this.quality.tier);
+    this.hookFar();
 
     const spots = marketSpots(this.query.layout);
     setSeats([...(spots.noodle?.seats ?? []), ...(spots.bibi?.seats ?? [])]);
@@ -442,7 +422,8 @@ export class App {
     const inArts = districtNow.id === 'arts-district';
     const inSoutheast = districtNow.id === 'southeast-industrial';
     const inEast = districtNow.id === 'east-la';
-    const walLm = this.query.layout.landmarkById('wallace-pyramid');
+    if (this.wallaceLm === undefined) this.wallaceLm = this.query.layout.landmarkById('wallace-pyramid');
+    const walLm = this.wallaceLm;
     const inWallace = districtNow.id === 'wallace-vernon'
       || (!!walLm && Math.hypot(cam.x - walLm.x, cam.z - walLm.z) < walLm.reserveRadius + 40);
     const coast = updateCoast(cam, this.quality.tier, simDt, this.elapsed, this.atmosphere.weather.params.rain, this.atmosphere.weather.params.wind, this.query.layout, params.surf);
@@ -518,13 +499,15 @@ export class App {
     }
     this.ambience.setInterior(this.interiors.blend);
     this.ambience.setHum(this.interiors.humAmount);
-    updateLaunch(this.elapsed, this.quality.tier, w.windDir, w.params.wind);
+    const far = sampleFarFrame({
+      elapsed: this.elapsed, tier: this.quality.tier, windDir: w.windDir, wind: w.params.wind,
+      x: cam.x, y: cam.y, z: cam.z, layout: this.query.layout,
+    });
     const districtMach = inWallace
       ? Math.max(0, 1 - alt / 140) * 0.82
       : inArts ? Math.max(0, 1 - alt / 90) * 0.66
         : inSoutheast ? Math.max(0, 1 - alt / 110) * 0.5 : 0;
-    this.ambience.setMachinery(Math.min(1, districtMach + launchRumble(cam.x, cam.y, cam.z) + southBayHum(cam.x, cam.y, cam.z, this.query.layout) + harborHum(cam.x, cam.y, cam.z, this.query.layout) + eastLaMachinery(cam.x, cam.y, cam.z, this.query.layout)));
-    updateHarbor(this.elapsed, cam.x, cam.y, cam.z);
+    this.ambience.setMachinery(Math.min(1, districtMach + far.rumble + far.southBay + far.harbor + far.east));
     setRefineryFlame(this.quality.tier, w.windDir, w.params.wind);
     this.ambience.setTraffic(this.ground.bed);
     this.ambience.setSurf(coast.surf, coast.impact, coast.crest);
@@ -532,7 +515,7 @@ export class App {
     this.camera.updateMatrixWorld();
     const e = this.camera.matrixWorld.elements;
     const cook = marketSpots(this.query.layout).noodle?.cook ?? null;
-    const hall = marketPin(this.query.layout);
+    const hall = far.hall;
     const nearHall = !!hall && inEast && alt < 28 && Math.hypot(cam.x - hall.x, cam.z - hall.z) < 48;
     this.marketAudio.update(
       cam,
@@ -620,6 +603,52 @@ export class App {
     if (!a) return b;
     if (!b || a.dist <= b.dist) return { ...a, closing: 0, heavy: false };
     return b;
+  }
+
+  /** Start the far-district download as early as the class is constructed, and mount when both sides exist. */
+  private hookFar(): void {
+    if (this.farHooked) return;
+    this.farHooked = true;
+    const run = () => this.applyFar();
+    if (farDistrictsReady()) run();
+    else void farDistrictsPromise.then(run);
+  }
+
+  private applyFar(): void {
+    if (this.farApplied || !this.landmarks || !this.interiors) return;
+    this.farApplied = true;
+    mountFarDistricts(this.scene, this.query.layout, this.query);
+    this.landmarks.mountPending(true);
+    this.interiors.adoptNew(this.query);
+    this.boot.farMs = performance.now() - this.startMs;
+  }
+
+  private applyDistrictPose(p: {
+    x: number; y: number; z: number; heading: number; pitch: number;
+    mode: 'walk' | 'fly'; cockpit?: boolean;
+    feet?: { x: number; y: number; z: number };
+  } | null | undefined): boolean {
+    if (!p) return false;
+    this.query.fabricAt(p.x, p.z);
+    this.cams.setMode(p.mode);
+    if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
+    this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
+    if (p.mode === 'walk') {
+      this.cams.walk.pitch = p.pitch;
+      this.cams.walk.heading = p.heading;
+      if (p.feet) {
+        this.cams.walk.pos.set(p.feet.x, p.feet.y, p.feet.z);
+        this.camera.position.set(p.feet.x, p.feet.y + 1.7, p.feet.z);
+        this.camera.rotation.set(p.pitch, -p.heading, 0, 'YXZ');
+        this.camera.updateMatrixWorld();
+      }
+    }
+    return true;
+  }
+
+  private async ensureFar(): Promise<void> {
+    await farDistrictsPromise;
+    this.applyFar();
   }
 
   /** Debug / automation hooks (screenshots, console). */
@@ -891,231 +920,77 @@ export class App {
         return true;
       },
       /** Stage 16 cameras: the strip from a kilometre up, the boulevard, a giant figure, the hillside wordmark, the arcade lobby. */
-      hollywoodView: (kind: HollywoodView) => {
-        const p = hollywoodCamera(this.query.layout, kind);
-        if (!p) return false;
-        this.query.fabricAt(p.x, p.z);
-        this.cams.setMode(p.mode);
-        if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
-        this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
-        if (p.mode === 'walk') {
-          this.cams.walk.pitch = p.pitch;
-          this.cams.walk.heading = p.heading;
-          if (p.feet) {
-            this.cams.walk.pos.set(p.feet.x, p.feet.y, p.feet.z);
-            this.camera.position.set(p.feet.x, p.feet.y + 1.7, p.feet.z);
-            this.camera.rotation.set(p.pitch, -p.heading, 0, 'YXZ');
-            this.camera.updateMatrixWorld();
-          }
-        }
-        return true;
+      hollywoodView: async (kind: HollywoodView) => {
+        const { hollywoodCamera } = await import('../districts/hollywood/view');
+        await this.ensureFar();
+        return this.applyDistrictPose(hollywoodCamera(this.query.layout, kind));
       },
       /** Stage 17 cameras. `downtown` and `burn` also arm a mid-ascent launch. */
-      laxView: (kind: LaxView) => {
+      laxView: async (kind: LaxView) => {
+        const [{ laxCamera, laxLaunchFor }, { requestLaunch }] = await Promise.all([
+          import('../districts/lax-spaceport/view'),
+          import('../districts/lax-spaceport/launch'),
+        ]);
+        await this.ensureFar();
         const arm = laxLaunchFor(kind);
         if (arm) requestLaunch(arm.phase, arm.pad);
-        const p = laxCamera(this.query.layout, kind);
-        if (!p) return false;
-        this.query.fabricAt(p.x, p.z);
-        this.cams.setMode(p.mode);
-        if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
-        this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
-        if (p.mode === 'walk') {
-          this.cams.walk.pitch = p.pitch;
-          this.cams.walk.heading = p.heading;
-          if (p.feet) {
-            this.cams.walk.pos.set(p.feet.x, p.feet.y, p.feet.z);
-            this.camera.position.set(p.feet.x, p.feet.y + 1.7, p.feet.z);
-            this.camera.rotation.set(p.pitch, -p.heading, 0, 'YXZ');
-            this.camera.updateMatrixWorld();
-          }
-        }
-        return true;
+        return this.applyDistrictPose(laxCamera(this.query.layout, kind));
       },
       /** Ignition now, or a phase 0..1 into the current burn. Optional pad index holds that gantry. */
-      launch: (phase?: number, pad?: number) => {
-        requestLaunch(phase ?? 0, pad);
-        return { phase: phase ?? 0, pad: pad ?? launchPad() };
-      },
+      launch: (phase?: number, pad?: number) => requestFarLaunch(phase, pad),
       /** Stage 21 cameras: the carpet from a kilometre up, a junction, a market street, the river, the counter, a side street, the deck. */
-      eastLaView: (kind: EastLaView) => {
-        const p = eastLaCamera(this.query.layout, kind);
-        if (!p) return false;
-        this.query.fabricAt(p.x, p.z);
-        this.cams.setMode(p.mode);
-        if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
-        this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
-        if (p.mode === 'walk') {
-          this.cams.walk.pitch = p.pitch;
-          this.cams.walk.heading = p.heading;
-          if (p.feet) {
-            this.cams.walk.pos.set(p.feet.x, p.feet.y, p.feet.z);
-            this.camera.position.set(p.feet.x, p.feet.y + 1.7, p.feet.z);
-            this.camera.rotation.set(p.pitch, -p.heading, 0, 'YXZ');
-            this.camera.updateMatrixWorld();
-          }
-        }
-        return true;
+      eastLaView: async (kind: EastLaView) => {
+        const { eastLaCamera } = await import('../districts/east-la/view');
+        await this.ensureFar();
+        return this.applyDistrictPose(eastLaCamera(this.query.layout, kind));
       },
       /** Stage 20 cameras: the core from a kilometre up, the skyline from the harbor wall, the canyon, the Lakewood edge, the concourse, the freight lane. */
-      longBeachView: (kind: LongBeachView) => {
-        const p = longBeachCamera(this.query.layout, kind);
-        if (!p) return false;
-        this.query.fabricAt(p.x, p.z);
-        this.cams.setMode(p.mode);
-        if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
-        this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
-        if (p.mode === 'walk') {
-          this.cams.walk.pitch = p.pitch;
-          this.cams.walk.heading = p.heading;
-          if (p.feet) {
-            this.cams.walk.pos.set(p.feet.x, p.feet.y, p.feet.z);
-            this.camera.position.set(p.feet.x, p.feet.y + 1.7, p.feet.z);
-            this.camera.rotation.set(p.pitch, -p.heading, 0, 'YXZ');
-            this.camera.updateMatrixWorld();
-          }
-        }
-        return true;
+      longBeachView: async (kind: LongBeachView) => {
+        const { longBeachCamera } = await import('../districts/long-beach/view');
+        await this.ensureFar();
+        return this.applyDistrictPose(longBeachCamera(this.query.layout, kind));
       },
       /** Stage 19 cameras: the quay from a kilometre up, cranes over the harbor wall, stacks, a hull, the street, the control room, the port from LAX. */
-      harborView: (kind: HarborView) => {
-        const p = harborCamera(this.query.layout, kind);
-        if (!p) return false;
-        this.query.fabricAt(p.x, p.z);
-        this.cams.setMode(p.mode);
-        if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
-        this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
-        if (p.mode === 'walk') {
-          this.cams.walk.pitch = p.pitch;
-          this.cams.walk.heading = p.heading;
-          if (p.feet) {
-            this.cams.walk.pos.set(p.feet.x, p.feet.y, p.feet.z);
-            this.camera.position.set(p.feet.x, p.feet.y + 1.7, p.feet.z);
-            this.camera.rotation.set(p.pitch, -p.heading, 0, 'YXZ');
-            this.camera.updateMatrixWorld();
-          }
-        }
-        return true;
+      harborView: async (kind: HarborView) => {
+        const { harborCamera } = await import('../districts/harbor/view');
+        await this.ensureFar();
+        return this.applyDistrictPose(harborCamera(this.query.layout, kind));
       },
       /** Stage 18 cameras: the coast from a kilometre up, the flare field from LAX, tanks, spheres, the sea-wall edge, a stack, the door, the control room, downtown. */
-      southBayView: (kind: SouthBayView) => {
-        const p = southBayCamera(this.query.layout, kind);
-        if (!p) return false;
-        this.query.fabricAt(p.x, p.z);
-        this.cams.setMode(p.mode);
-        if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
-        this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
-        if (p.mode === 'walk') {
-          this.cams.walk.pitch = p.pitch;
-          this.cams.walk.heading = p.heading;
-          if (p.feet) {
-            this.cams.walk.pos.set(p.feet.x, p.feet.y, p.feet.z);
-            this.camera.position.set(p.feet.x, p.feet.y + 1.7, p.feet.z);
-            this.camera.rotation.set(p.pitch, -p.heading, 0, 'YXZ');
-            this.camera.updateMatrixWorld();
-          }
-        }
-        return true;
+      southBayView: async (kind: SouthBayView) => {
+        const { southBayCamera } = await import('../districts/south-bay-refineries/view');
+        await this.ensureFar();
+        return this.applyDistrictPose(southBayCamera(this.query.layout, kind));
       },
       /** Stage 15 cameras: the belt from a kilometre up, a flare, a tank farm, a pipe canyon, the pump door, the control room, downtown. */
-      southeastView: (kind: SoutheastView) => {
-        const p = southeastCamera(this.query.layout, kind);
-        if (!p) return false;
-        this.query.fabricAt(p.x, p.z);
-        this.cams.setMode(p.mode);
-        if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
-        this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
-        if (p.mode === 'walk') {
-          this.cams.walk.pitch = p.pitch;
-          this.cams.walk.heading = p.heading;
-          if (p.feet) {
-            this.cams.walk.pos.set(p.feet.x, p.feet.y, p.feet.z);
-            this.camera.position.set(p.feet.x, p.feet.y + 1.7, p.feet.z);
-            this.camera.rotation.set(p.pitch, -p.heading, 0, 'YXZ');
-            this.camera.updateMatrixWorld();
-          }
-        }
-        return true;
+      southeastView: async (kind: SoutheastView) => {
+        const { southeastCamera } = await import('../districts/southeast-industrial/view');
+        await this.ensureFar();
+        return this.applyDistrictPose(southeastCamera(this.query.layout, kind));
       },
       /** Stage 14 cameras: seams from a kilometre up, a quiet street, a strip, a roof. */
-      basinView: (kind: BasinView) => {
-        const p = basinCamera(this.query.layout, kind);
-        if (!p) return false;
-        this.query.fabricAt(p.x, p.z);
-        this.cams.setMode(p.mode);
-        if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
-        this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
-        if (p.mode === 'walk') {
-          this.cams.walk.pitch = p.pitch;
-          this.cams.walk.heading = p.heading;
-          if (p.feet) {
-            this.cams.walk.pos.set(p.feet.x, p.feet.y, p.feet.z);
-            this.camera.position.set(p.feet.x, p.feet.y + 1.7, p.feet.z);
-            this.camera.rotation.set(p.pitch, -p.heading, 0, 'YXZ');
-            this.camera.updateMatrixWorld();
-          }
-        }
-        return true;
+      basinView: async (kind: BasinView) => {
+        const { basinCamera } = await import('../districts/basin-sprawl/view');
+        await this.ensureFar();
+        return this.applyDistrictPose(basinCamera(this.query.layout, kind));
       },
       /** Stage 13 cameras: the sector from a kilometre up, a quiet street, a strip, a roof, the 10, the yard, the diner, a Wilshire-side tower. */
-      westsideView: (kind: WestsideView) => {
-        const p = westsideCamera(this.query.layout, kind);
-        if (!p) return false;
-        this.query.fabricAt(p.x, p.z);
-        this.cams.setMode(p.mode);
-        if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
-        this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
-        if (p.mode === 'walk') {
-          this.cams.walk.pitch = p.pitch;
-          this.cams.walk.heading = p.heading;
-          if (p.feet) {
-            this.cams.walk.pos.set(p.feet.x, p.feet.y, p.feet.z);
-            this.camera.position.set(p.feet.x, p.feet.y + 1.7, p.feet.z);
-            this.camera.rotation.set(p.pitch, -p.heading, 0, 'YXZ');
-            this.camera.updateMatrixWorld();
-          }
-        }
-        return true;
+      westsideView: async (kind: WestsideView) => {
+        const { westsideCamera } = await import('../districts/westside/view');
+        await this.ensureFar();
+        return this.applyDistrictPose(westsideCamera(this.query.layout, kind));
       },
       /** Stage 12 cameras: street, court, market, spine, hub, signal, the 110, Wallace, the sector, the Lakewood seam, the laundry hall. */
-      southLaView: (kind: SouthLaView) => {
-        const p = southLaCamera(this.query.layout, kind);
-        if (!p) return false;
-        this.query.fabricAt(p.x, p.z);
-        this.cams.setMode(p.mode);
-        if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
-        this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
-        if (p.mode === 'walk') {
-          this.cams.walk.pitch = p.pitch;
-          this.cams.walk.heading = p.heading;
-          if (p.feet) {
-            this.cams.walk.pos.set(p.feet.x, p.feet.y, p.feet.z);
-            this.camera.position.set(p.feet.x, p.feet.y + 1.7, p.feet.z);
-            this.camera.rotation.set(p.pitch, -p.heading, 0, 'YXZ');
-            this.camera.updateMatrixWorld();
-          }
-        }
-        return true;
+      southLaView: async (kind: SouthLaView) => {
+        const { southLaCamera } = await import('../districts/south-la-megablocks/view');
+        await this.ensureFar();
+        return this.applyDistrictPose(southLaCamera(this.query.layout, kind));
       },
       /** Stage 11 cameras: a residential street, a courtyard, a corner market, laundry, a signal, K's edge, the river, the sector, the shop, the yard. */
-      lakewoodView: (kind: LakewoodView) => {
-        const p = lakewoodCamera(this.query.layout, kind);
-        if (!p) return false;
-        this.query.fabricAt(p.x, p.z);
-        this.cams.setMode(p.mode);
-        if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
-        this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
-        if (p.mode === 'walk') {
-          this.cams.walk.pitch = p.pitch;
-          this.cams.walk.heading = p.heading;
-          if (p.feet) {
-            this.cams.walk.pos.set(p.feet.x, p.feet.y, p.feet.z);
-            this.camera.position.set(p.feet.x, p.feet.y + 1.7, p.feet.z);
-            this.camera.rotation.set(p.pitch, -p.heading, 0, 'YXZ');
-            this.camera.updateMatrixWorld();
-          }
-        }
-        return true;
+      lakewoodView: async (kind: LakewoodView) => {
+        const { lakewoodCamera } = await import('../districts/lakewood-megablocks/view');
+        await this.ensureFar();
+        return this.applyDistrictPose(lakewoodCamera(this.query.layout, kind));
       },
       kView: (kind: KView) => {
         const p = kCamera(this.query.layout, kind);
@@ -1263,9 +1138,10 @@ export class App {
         audioDistrict: this.marketAudio.districtId,
         landmarkLods: this.landmarks.lods.active.join('/'),
         beacons: this.landmarks.beacons.count,
-        launch: launchPhase(),
-        launchPad: launchPad(),
-        gantryTris: gantryTris.join('/'),
+        launch: farLaunchPhase(),
+        launchPad: farLaunchPad(),
+        gantryTris: farGantryTris(),
+        farMs: this.boot.farMs,
         querySyncs: this.query.syncCount,
         queryUnpacks: this.query.unpackCount,
         queryUnpackMs: this.query.lastUnpackMs,
@@ -1283,6 +1159,7 @@ export class App {
         qualityChoice: this.qualityChoice,
         autoTier: this.autoTier,
         autoReason: this.autoReason,
+        atlas: atlasMode(),
         initMs: this.boot.initMs,
         firstFrameMs: this.boot.firstFrameMs,
         interactiveMs: this.boot.interactiveMs,

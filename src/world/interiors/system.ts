@@ -91,6 +91,19 @@ export class InteriorSystem {
     this.hosts = hosts;
   }
 
+  /** Mount interiors registered after the constructor (far districts). */
+  adoptNew(query: CityQuery): void {
+    for (const spec of allInteriors()) {
+      if (this.runs.has(spec.id)) continue;
+      if (spec.colliders?.length) {
+        query.addColliders(spec.colliders.map((c) => ({ ...c, yaw: c.yaw ?? 0 })));
+      }
+      const run = this.make(spec);
+      this.runs.set(spec.id, run);
+      this.rebuild(run);
+    }
+  }
+
   setTier(tier: Tier): void {
     const next = interiorDetail(tier);
     if (next === this.detail) return;
