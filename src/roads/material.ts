@@ -87,8 +87,9 @@ function richSolid(): MeshStandardNodeMaterial {
       fract(wu.add(2.7)).mul(0.48).add(0.51),
       fract(wv.add(1.9)).mul(0.48).add(0.01),
     ));
-    const wobble = smoothstep(-0.15, 0.55, mx_noise_float(vec3(wpos.x.mul(0.13), wpos.z.mul(0.13), float(2))));
-    const asphaltMix = mix(asphalt.rgb, patch.rgb, wobble.mul(roadFancy));
+    const wobble = smoothstep(-0.05, 0.62, mx_noise_float(vec3(wpos.x.mul(0.13), wpos.z.mul(0.13), float(2))));
+    const worn = patch.rgb.mul(1.7).add(vec3(0.015, 0.012, 0.01));
+    const asphaltMix = mix(asphalt.rgb, worn, wobble.mul(roadFancy).mul(0.8));
     const surfaced = mix(asphaltMix, mix(walk.rgb, concrete.rgb, isConcrete), isWalk.add(isConcrete).min(1));
     const head = vec3(0.16, 0.09, 0.04);
     const pole = vec3(0.07, 0.07, 0.075);
@@ -130,10 +131,16 @@ function richSolid(): MeshStandardNodeMaterial {
     const ndv = max(dot(normalize(vec3(0, 1, 0)), view), float(0));
     const fres = pow(float(1).sub(ndv), float(3));
     const sodium = smoothstep(0.15, 0.85, U.sheen);
-    const neon = mix(vec3(0.9, 0.1, 0.42), vec3(1.0, 0.5, 0.16), sodium);
+    const band = mx_noise_float(vec3(wpos.x.mul(0.015), wpos.z.mul(0.015), float(4)));
+    const mag = vec3(0.72, 0.08, 0.36);
+    const cyan = vec3(0.08, 0.42, 0.58);
+    const local = mix(mix(mag, cyan, smoothstep(0.3, 0.7, band)), vec3(1.0, 0.5, 0.16), sodium);
     const wet = U.wetness.mul(step(k, 0.5));
     const altFade = smoothstep(80, 18, U.camAlt);
-    const glow = neon.mul(fres).mul(puddleAmt().mul(0.85).add(wet.mul(0.22))).mul(U.night).mul(U.neonWet)
+    // Puddles carry reflected neon. The wet sheet stays a dark sheen so asphalt
+    // stays black even where a district's neonWet is high.
+    const sheenAmt = puddleAmt().mul(0.16).add(wet.mul(0.025));
+    const glow = local.mul(fres).mul(sheenAmt).mul(U.night).mul(U.neonWet)
       .mul(U.signPower).mul(mix(float(1), float(0.28), U.reflMix)).mul(altFade).mul(step(k, 0.5));
     return lamp.add(glow);
   })();
