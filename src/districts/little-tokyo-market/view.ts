@@ -83,7 +83,8 @@ export function marketCamera(layout: CityLayout, kind: MarketView): MarketPose |
       x: s.x + toward.x * 1.15,
       y: ground + 1.7,
       z: s.z + toward.z * 1.15,
-      heading: Math.atan2(lx, -lz),
+      // A little toward the walked lane, so a 390-wide frame still holds the figures.
+      heading: Math.atan2(lx, -lz) - 0.18,
       pitch: 0.09,
       mode: 'walk',
     };
