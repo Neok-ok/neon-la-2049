@@ -228,7 +228,16 @@ function lobbyMouth(b: HwBlock, out: HwPlan): void {
   const pierT = DOOR_HALF_T + pierLb / 2 + 0.02;
   pushBox(out, b, edge + 0.45, -pierT, pierLb, 1.1, 3.6, Style.Deco, 0.35, 1.05, 0, 0);
   pushBox(out, b, edge + 0.45, pierT, pierLb, 1.1, 3.6, Style.Deco, 0.35, 1.05, 0, 0);
-  pushBox(out, b, edge + 1.6, 0, DOOR_HALF_T * 2 + 1.4, 3.2, 0.32, Style.Glow, 0.92, 1.5, 1, 2.2);
+  // hitsDoor drops any box that crosses the slot, which is what a head bar has to do.
+  // Push it straight in so the 2.2 m cap survives.
+  out.boxes.push({
+    s: edge + 0.45, t: 0, lb: 2.2, la: 1.1, h: 1.4,
+    style: Style.Deco, lit: 0.35, tint: 1.05, detail: 0, base: 2.2,
+  });
+  out.boxes.push({
+    s: edge + 0.2, t: 0, lb: 2.3, la: 0.28, h: 0.22,
+    style: Style.Glow, lit: 0.92, tint: 1.5, detail: 1, base: 2.2,
+  });
   out.signs.push({
     s: edge, t: 0, hb: 0, ha: 0, face: 'a-', along: 0, y: 4.7,
     w: 4.2, h: 0.9, color: SignColor.Yellow, kind: 0, seed: phraseSeed(CELL.SECTOR_1),
