@@ -216,13 +216,24 @@ export function entryFlight(d: Draft): void {
     if (Math.max(Math.abs(lo), Math.abs(hi)) > d.halfW + 2.2) return false;
     if (stairHits(d, s, midT, STAIR_W, flight.run, base, base + STOREY)) return false;
     for (let i = 0; i < flight.risers; i++) {
+      const treadT = start + dir * flight.tread * (i + 0.5);
       addBox(d, {
-        s, t: start + dir * flight.tread * (i + 0.5),
+        s, t: treadT,
         lb: snapMetres(flight.tread * 0.96, 0.01), la: STAIR_W, h: flight.rise,
         base: base + flight.rise * i,
         style: Style.Solid, lit: 0.03, tint: tint * 0.72,
         detail: 1, ornament: 1, role: 'stair',
       });
+      // A short nosing so the flight reads at night. Every third riser, not a new lamp type.
+      if (i % 3 === 0) {
+        addBox(d, {
+          s: faceS - STAIR_W + 0.06, t: treadT,
+          lb: snapMetres(flight.tread * 0.9, 0.01), la: 0.12, h: 0.08,
+          base: base + flight.rise * (i + 1) - 0.08,
+          style: Style.Glow, lit: 0.4, tint: 0.9,
+          detail: 1, ornament: 1, role: 'stair',
+        });
+      }
     }
     const railS = faceS - STAIR_W + 0.05;
     for (let i = 0; i < flight.risers; i += 4) {

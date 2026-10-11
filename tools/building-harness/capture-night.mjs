@@ -89,8 +89,10 @@ for (const tier of tiers) {
           if (!q.insideSolid(cx, p.ground + 1.2, cz, 0.7)) break;
           dist += 3.5;
         }
-        const lookX = p.door[0] - cx;
-        const lookZ = p.door[1] - cz;
+        const aimX = p.door[0] + p.bx * 2.2;
+        const aimZ = p.door[1] + p.bz * 2.2;
+        const lookX = aimX - cx;
+        const lookZ = aimZ - cz;
         const heading = Math.atan2(lookX, -lookZ);
         const pitch = Math.atan2(2.2 - 1.7, Math.hypot(lookX, lookZ) || 1);
         if (nla.app.cams.mode !== 'walk') nla.setMode('walk');
