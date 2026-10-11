@@ -8,7 +8,9 @@
 //   c = (f^2 / (N * (S - f))) * |S - D| / D
 // The blur is a half-resolution disc: a box prefilter, then samples that stay one texel
 // apart and fade out past the clamped radius. The full-resolution picture is kept wherever
-// the circle is under a pixel, and the upsample rejects a neighbour whose focus does not match.
+// the circle is under about a pixel, and the upsample rejects a neighbour whose focus does not match.
+// View-Z is reconstructed with the scene camera's near and far. A gather quad would otherwise
+// substitute its own orthographic range and push every pixel to the blur clamp.
 // Anamorphic squeeze stretches the gather vertically (oval bokeh after the desqueeze).
 // Edge fringing is a fraction of a pixel at the frame edge. Grain is a hashed value, heavier in the shadows.
 
@@ -78,6 +80,8 @@ export function createLensRig(
   const uFocal = T.uniform(35);
   const uFStop = T.uniform(4);
   const uSensor = T.uniform(24);
+  const uNear = T.uniform(0.15);
+  const uFar = T.uniform(60000);
   const uViewH = T.uniform(720);
   const uMaxPx = T.uniform(cap.dofPx);
   const uProjX = T.uniform(1);
@@ -132,7 +136,7 @@ export function createLensRig(
   // so a wide stop cannot pull the samples apart into stacks. Alpha stores the centre CoC for the upsample.
   const gatherNode = T.Fn(() => {
     const uv0 = T.uv();
-    const viewDist = (uvNode: unknown) => T.abs(T.perspectiveDepthToViewZ(depth.sample(uvNode).r, T.cameraNear, T.cameraFar));
+    const viewDist = (uvNode: unknown) => T.abs(T.perspectiveDepthToViewZ(depth.sample(uvNode).r, uNear, uFar));
     const cocAt = (distNode: unknown) => {
       const f = T.max(uFocal, T.float(1));
       const nStop = T.max(uFStop, T.float(1.1));
@@ -152,7 +156,7 @@ export function createLensRig(
       const ndcX = uv0.x.mul(2).sub(1);
       const ndcY = uv0.y.mul(2).sub(1);
       const distZ = T.max(center, T.float(0.35));
-      const viewZ = T.perspectiveDepthToViewZ(depth.sample(uv0).r, T.cameraNear, T.cameraFar);
+      const viewZ = T.perspectiveDepthToViewZ(depth.sample(uv0).r, uNear, uFar);
       const viewX = ndcX.mul(distZ).div(T.max(uProjX, T.float(0.0001)));
       const viewY = ndcY.mul(distZ).div(T.max(uProjY, T.float(0.0001)));
       const clip = uMat.mul(T.vec4(viewX, viewY, viewZ, 1));
@@ -189,7 +193,7 @@ export function createLensRig(
 
   const optical = T.Fn(() => {
     const uv0 = T.uv();
-    const viewDist = (uvNode: unknown) => T.abs(T.perspectiveDepthToViewZ(depth.sample(uvNode).r, T.cameraNear, T.cameraFar));
+    const viewDist = (uvNode: unknown) => T.abs(T.perspectiveDepthToViewZ(depth.sample(uvNode).r, uNear, uFar));
     const cocAt = (distNode: unknown) => {
       const f = T.max(uFocal, T.float(1));
       const nStop = T.max(uFStop, T.float(1.1));
@@ -223,8 +227,8 @@ export function createLensRig(
     }
     const safe = T.smoothstep(T.float(0.0001), T.float(0.02), wsum);
     const blurred = T.mix(sharp, acc.div(T.max(wsum, T.float(0.0001))), safe);
-    // Stay on the full-resolution picture until the circle is actually wider than a pixel.
-    const amt = T.smoothstep(T.float(0.85), T.float(3.4), centerCoc);
+    // A couple of pixels of circle is a real f/4 background, not a reason to leave the sharp plate.
+    const amt = T.smoothstep(T.float(1.15), T.float(4), centerCoc);
     let rgb = T.mix(sharp, blurred, amt);
 
     if (cap.caPx > 0) {
@@ -280,7 +284,7 @@ export function createLensRig(
   return finishRig(
     scenePass, bloomNode, prefilter, gather, image, camera, viewToPrev,
     {
-      uFocus, uFocal, uFStop, uSensor, uViewH, uProjX, uProjY, uAnamorphic, uFlare, uCa,
+      uFocus, uFocal, uFStop, uSensor, uNear, uFar, uViewH, uProjX, uProjY, uAnamorphic, uFlare, uCa,
       uGrain, uVignette, uGradeMix, uMotion, uGrainSeed, uBloom, uLift, uGain, uSat, uContrast, uGamma,
       uTileScale, uTileOffset, uFullSize, uDrawSize, uDofTexel,
     },
@@ -291,7 +295,7 @@ export function createLensRig(
 }
 
 interface Uniforms {
-  uFocus: any; uFocal: any; uFStop: any; uSensor: any; uViewH: any; uProjX: any; uProjY: any;
+  uFocus: any; uFocal: any; uFStop: any; uSensor: any; uNear: any; uFar: any; uViewH: any; uProjX: any; uProjY: any;
   uAnamorphic: any; uFlare: any; uCa: any; uGrain: any; uVignette: any; uGradeMix: any;
   uMotion: any; uGrainSeed: any; uBloom: any; uLift: any; uGain: any; uSat: any; uContrast: any; uGamma: any;
   uTileScale: any; uTileOffset: any; uFullSize: any; uDrawSize: any; uDofTexel: any;
@@ -349,6 +353,8 @@ function finishRig(
   const syncCamera = (camera: PerspectiveCamera) => {
     camera.updateMatrixWorld();
     u.uSensor.value = Math.max(1, camera.getFilmHeight());
+    u.uNear.value = Math.max(1e-4, camera.near);
+    u.uFar.value = Math.max(camera.near + 1, camera.far);
     u.uProjX.value = camera.projectionMatrix.elements[0] || 1;
     u.uProjY.value = camera.projectionMatrix.elements[5] || 1;
   };

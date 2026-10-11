@@ -13,8 +13,8 @@ export const LETTERBOX_RATIO: Record<LetterboxId, number | null> = {
 /**
  * maxEdge is the long side. maxPixels caps area. tile is the largest GPU buffer one capture tile may use.
  * dofScale is the gather resolution (0.5 = half the drawing buffer). dofRings is the disc radius in
- * gather texels; dofPx is that radius in full-resolution pixels and is the blur clamp.
- * dofTaps counts the disc, including the centre.
+ * gather texels. Samples stay one texel apart, so dofPx (rings / dofScale) is both the disc radius
+ * and the blur clamp, in full-resolution pixels. dofTaps counts the disc, including the centre.
  */
 export const CAPTURE_CAPS: Record<Tier, {
   maxEdge: number; maxPixels: number; tile: number;
@@ -23,9 +23,9 @@ export const CAPTURE_CAPS: Record<Tier, {
   motion: boolean; motionPx: number; flareTaps: number; caPx: number;
 }> = {
   low: { maxEdge: 1280, maxPixels: 1280 * 720, tile: 480, dofTaps: 20, dofRings: 2, dofScale: 0.5, dofPx: 4, heavyBloom: false, motion: false, motionPx: 0, flareTaps: 0, caPx: 0 },
-  medium: { maxEdge: 1920, maxPixels: 1920 * 1080, tile: 640, dofTaps: 39, dofRings: 3, dofScale: 0.5, dofPx: 6, heavyBloom: false, motion: true, motionPx: 8, flareTaps: 4, caPx: 0.22 },
-  high: { maxEdge: 2560, maxPixels: 2560 * 1440, tile: 768, dofTaps: 64, dofRings: 4, dofScale: 0.5, dofPx: 8, heavyBloom: true, motion: true, motionPx: 14, flareTaps: 8, caPx: 0.35 },
-  ultra: { maxEdge: 2560, maxPixels: 2560 * 1440, tile: 1024, dofTaps: 64, dofRings: 4, dofScale: 0.5, dofPx: 8, heavyBloom: true, motion: true, motionPx: 22, flareTaps: 16, caPx: 0.45 },
+  medium: { maxEdge: 1920, maxPixels: 1920 * 1080, tile: 640, dofTaps: 20, dofRings: 2, dofScale: 0.5, dofPx: 4, heavyBloom: false, motion: true, motionPx: 8, flareTaps: 4, caPx: 0.22 },
+  high: { maxEdge: 2560, maxPixels: 2560 * 1440, tile: 768, dofTaps: 39, dofRings: 3, dofScale: 0.5, dofPx: 6, heavyBloom: true, motion: true, motionPx: 14, flareTaps: 8, caPx: 0.35 },
+  ultra: { maxEdge: 2560, maxPixels: 2560 * 1440, tile: 1024, dofTaps: 39, dofRings: 3, dofScale: 0.5, dofPx: 6, heavyBloom: true, motion: true, motionPx: 22, flareTaps: 16, caPx: 0.45 },
 };
 
 export interface FrameSize {
