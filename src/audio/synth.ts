@@ -30,6 +30,9 @@ export function looping(ctx: BaseAudioContext, buf: AudioBuffer): AudioBufferSou
 
 const tongues = new WeakMap<BaseAudioContext, AudioBuffer[]>();
 
+/** Second formant of each invented babble recipe. The playback filter sits here. */
+export const TONGUE_F2 = [1280, 1760, 980, 1540];
+
 /** Four unintelligible babble loops. Formant pairs are invented, not a recording of speech. */
 export function tongueBuffer(ctx: BaseAudioContext, tongue: number): AudioBuffer {
   let set = tongues.get(ctx);
@@ -40,7 +43,7 @@ export function tongueBuffer(ctx: BaseAudioContext, tongue: number): AudioBuffer
   const i = ((tongue % 4) + 4) % 4;
   const hit = set[i];
   if (hit) return hit;
-  const seconds = 1.6;
+  const seconds = 4;
   const sr = ctx.sampleRate;
   const len = Math.floor(sr * seconds);
   const buf = ctx.createBuffer(1, len, sr);
@@ -56,7 +59,7 @@ export function tongueBuffer(ctx: BaseAudioContext, tongue: number): AudioBuffer
     n += gap;
   }
   const f1 = [340, 280, 250, 390][i]!;
-  const f2 = [1280, 1760, 980, 1540][i]!;
+  const f2 = TONGUE_F2[i]!;
   bandpassInto(d, sr, f1, 2.2, 0.75);
   bandpassInto(d, sr, f2, 1.6, 0.35);
   fadeEdges(d, Math.floor(sr * 0.02));

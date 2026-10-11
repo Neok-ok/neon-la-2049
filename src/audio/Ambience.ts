@@ -1,6 +1,7 @@
 // Procedural ambience (no music, no samples): rain hiss + patter, distant city rumble, wind.
 // Starts on the first user gesture (required by iOS Safari). A later tap resumes a
 // context that iOS suspended or interrupted while the phone was locked.
+import { scheduleParam } from './param';
 import { audioPrefs, writeAudioPrefs } from './prefs';
 
 let activeBus: Ambience | null = null;
@@ -39,6 +40,11 @@ export interface BedInput {
   surfImpact: number;
   crest: number;
   traffic: number;
+  /**
+   * 0..1 weight on the shared city rumble. Loud districts stay at 1.
+   * Quiet districts (coast, basin, Lakewood, Wallace) pass a smaller weight.
+   */
+  place?: number;
 }
 
 export interface BedTargets {
@@ -79,16 +85,20 @@ export function ambienceTargets(p: BedInput): BedTargets {
   // move RMS, and the apartment hum then outranks the court. While the room
   // is still open between those cutoffs and about 1.6 kHz, keep a slit of city.
   const slit = clamp01((muffleHz - 420) / 280) * clamp01((1600 - muffleHz) / 500);
+  const place = clamp01(p.place ?? 1);
+  // Street city is 0.34 on the ground (`0.12 + 0.22`). The trial at ~0.10
+  // measured about −38 dB and lost the low end, so this is the floor to keep.
+  const city = (0.12 + 0.22 * street) * (1 - CITY_DUCK * m) * (1 + 0.85 * slit) * place;
   return {
     rain: rain * 0.22 * sky * (1 - 0.58 * m),
     patter,
     lfo: 0.45 * patter,
-    city: (0.18 + 0.3 * street) * (1 - CITY_DUCK * m) * (1 + 0.85 * slit),
+    city,
     wind: Math.min(0.55, 0.03 + p.wind * 0.02 + p.snow * 0.08 + (1 - street) * 0.12 + p.crest * 0.16) * (1 - 0.35 * m),
     hum: p.hum * 0.05,
-    mach: mach * 0.04,
-    tone: mach * 0.01,
-    surf: surf * 0.075,
+    mach: mach * 0.22,
+    tone: mach * 0.06,
+    surf: surf * 0.22,
     impact: surf * p.surfImpact * 0.17,
     tire: traffic * 0.028,
     rumble: traffic * 0.018,
@@ -142,6 +152,8 @@ export class Ambience {
   private crestWind = 0;
   /** 0..1 tyre hiss and low traffic rumble. Stored before the audio context exists. */
   private traffic = 0;
+  /** District weight on the shared city rumble. 1 until CitySound names a place. */
+  private cityPlace = 1;
   private tireGain: GainNode | null = null;
   private rumbleGain: GainNode | null = null;
   private roomGain: GainNode | null = null;
@@ -415,7 +427,7 @@ export class Ambience {
 
   private applyMaster(): void {
     if (!this.master || !this.ctx) return;
-    this.master.gain.setTargetAtTime(this.masterLevel(), this.ctx.currentTime, 0.04);
+    scheduleParam(this.master.gain, this.masterLevel(), this.ctx.currentTime, 0.04, 'master');
   }
 
   get interiorAmount(): number {
@@ -431,7 +443,7 @@ export class Ambience {
     let n = 0;
     const street = Math.max(0.15, 1 - this.altLevel / 400);
     if (this.rainLevel > 0.05) n += 2;
-    if (0.18 + 0.3 * street > 0.05) n += 1;
+    if ((0.12 + 0.22 * street) * this.cityPlace > 0.05) n += 1;
     if (this.windLevel > 0.02 || this.crestWind > 0.05) n += 1;
     if (this.machinery > 0.05) n += 1;
     if (this.traffic > 0.05) n += 1;
@@ -459,6 +471,11 @@ export class Ambience {
   /** 0..1 nearby traffic. Stored before the audio context exists. */
   setTraffic(amount: number): void {
     this.traffic = Math.max(0, Math.min(1, amount));
+  }
+
+  /** 0..1. How much of the shared city rumble this district keeps. Not saved. */
+  setCityPlace(amount: number): void {
+    this.cityPlace = Number.isFinite(amount) ? Math.max(0, Math.min(1, amount)) : 1;
   }
 
   /** 0..1 wash, 0..1 impact, 0..1 crest wind. Stored before the audio context exists. */
@@ -524,29 +541,31 @@ export class Ambience {
       surfImpact: this.surfImpact,
       crest: this.crestWind,
       traffic: this.traffic,
+      place: this.cityPlace,
     };
   }
 
   private writeBed(g: BedTargets, time: number | null, wobble: number): void {
-    const set = (param: AudioParam | undefined, value: number, tc: number) => {
-      if (!param) return;
-      if (time == null) param.value = value;
-      else param.setTargetAtTime(value, time, tc);
+    const set = (param: AudioParam | undefined, value: number, tc: number, name: string, epsilon = 0.001) => {
+      scheduleParam(param, value, time, tc, name, epsilon);
     };
-    set(this.roomGain?.gain, g.room, 0.4);
-    set(this.muffleFilter?.frequency, g.muffleHz, 0.35);
-    set(this.humGain?.gain, g.hum, 0.45);
-    set(this.machGain?.gain, g.mach * wobble, 0.5);
-    set(this.machTone?.gain, g.tone, 0.5);
-    set(this.surfGain?.gain, g.surf, 0.35);
-    set(this.impactGain?.gain, g.impact, 0.03);
-    set(this.tireGain?.gain, g.tire, 0.35);
-    set(this.rumbleGain?.gain, g.rumble, 0.4);
-    set(this.rainGain?.gain, g.rain, 0.5);
-    set(this.patterGain?.gain, g.patter, 0.5);
-    set(this.lfoDepth?.gain, g.lfo, 0.5);
-    set(this.cityGain?.gain, g.city, 0.8);
-    set(this.windGain?.gain, g.wind, 0.45);
+    set(this.roomGain?.gain, g.room, 0.4, 'room');
+    set(this.muffleFilter?.frequency, g.muffleHz, 0.35, 'muffle', 1);
+    set(this.humGain?.gain, g.hum, 0.45, 'hum');
+    // First writer a non-finite camera height reaches. harborHum / southBayHum
+    // fold that height into the machinery amount, and this gain is scheduled
+    // before the tone. A finite 390×844 load does not hit it; the log names `mach`.
+    set(this.machGain?.gain, g.mach * wobble, 0.5, 'mach');
+    set(this.machTone?.gain, g.tone, 0.5, 'tone');
+    set(this.surfGain?.gain, g.surf, 0.35, 'surf');
+    set(this.impactGain?.gain, g.impact, 0.03, 'impact');
+    set(this.tireGain?.gain, g.tire, 0.35, 'tire');
+    set(this.rumbleGain?.gain, g.rumble, 0.4, 'rumble');
+    set(this.rainGain?.gain, g.rain, 0.5, 'rain');
+    set(this.patterGain?.gain, g.patter, 0.5, 'patter');
+    set(this.lfoDepth?.gain, g.lfo, 0.5, 'lfo');
+    set(this.cityGain?.gain, g.city, 0.8, 'city');
+    set(this.windGain?.gain, g.wind, 0.45, 'wind');
   }
 }
 

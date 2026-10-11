@@ -1,10 +1,10 @@
-// Offline renders of four street scenes. Same graph and the same gain law as the live bus.
-// No samples. The files are demonstrations, not a second runtime.
-import { mountCityGraph } from './graph';
-import { mixTargets, slotLevel } from './mix';
-import { bedOrQuiet, VOICE_CAP } from './registry';
-import { setPos } from './synth';
+// Offline renders of four street scenes. Same graph and the same gain law as the live bus,
+// including the master bed and the interior low-pass. No samples. Demonstrations, not a second runtime.
+import { Ambience } from './Ambience';
 import './beds';
+import { applyCityMix, mountCityGraph } from './graph';
+import { cityPlaceOf } from './mix';
+import { VOICE_CAP } from './registry';
 
 export interface CaptureFile {
   id: string;
@@ -18,20 +18,24 @@ interface Scene {
   id: string;
   district: string;
   rain: number;
+  wind: number;
   alt: number;
   interior: number;
+  hum: number;
   night: number;
   presence: number;
+  traffic: number;
   inMarket: boolean;
-  /** Force the horn open so a 3 s file contains it. */
+  awningNear: number;
+  /** Force the horn open so a 3 s file contains the blast. */
   horn: number;
 }
 
 const SCENES: Scene[] = [
-  { id: 'market', district: 'little-tokyo-market', rain: 0.85, alt: 1.7, interior: 0, night: 1, presence: 1, inMarket: true, horn: 0 },
-  { id: 'broadway', district: 'historic-core', rain: 0.7, alt: 1.7, interior: 0, night: 1, presence: 0.72, inMarket: false, horn: 0 },
-  { id: 'harbor', district: 'harbor', rain: 0.45, alt: 6, interior: 0, night: 1, presence: 0.02, inMarket: false, horn: 1 },
-  { id: 'interior', district: 'little-tokyo-market', rain: 0.85, alt: 1.7, interior: 1, night: 1, presence: 0.2, inMarket: true, horn: 0 },
+  { id: 'market', district: 'little-tokyo-market', rain: 0.85, wind: 5, alt: 1.7, interior: 0, hum: 0, night: 1, presence: 1, traffic: 0.35, inMarket: true, awningNear: 0.8, horn: 0 },
+  { id: 'broadway', district: 'historic-core', rain: 0.7, wind: 5, alt: 1.7, interior: 0, hum: 0, night: 1, presence: 0.72, traffic: 0.45, inMarket: false, awningNear: 0.15, horn: 0 },
+  { id: 'harbor', district: 'harbor', rain: 0.65, wind: 5, alt: 6, interior: 0, hum: 0, night: 1, presence: 0.02, traffic: 0.2, inMarket: false, awningNear: 0.1, horn: 1 },
+  { id: 'interior', district: 'k-megablock', rain: 0.65, wind: 5, alt: 1.7, interior: 0.88, hum: 0.45, night: 1, presence: 0.12, traffic: 0, inMarket: false, awningNear: 0.1, horn: 0 },
 ];
 
 export async function captureScenes(): Promise<CaptureFile[]> {
@@ -44,72 +48,17 @@ async function renderScene(scene: Scene): Promise<CaptureFile> {
   const seconds = 3;
   const sr = 44100;
   const ctx = new OfflineAudioContext(2, Math.floor(sr * seconds), sr);
-  const master = ctx.createGain();
-  master.gain.value = 0.8;
-  const muffle = ctx.createBiquadFilter();
-  muffle.type = 'lowpass';
-  muffle.frequency.value = scene.interior > 0.5 ? 420 : 14000;
-  master.connect(muffle).connect(ctx.destination);
-
-  const rain = ctx.createBufferSource();
-  rain.buffer = white(ctx, 2);
-  rain.loop = true;
-  const hp = ctx.createBiquadFilter();
-  hp.type = 'highpass';
-  hp.frequency.value = 900;
-  const rg = ctx.createGain();
-  rg.gain.value = scene.rain * 0.32 * (1 - 0.58 * scene.interior);
-  rain.connect(hp).connect(rg).connect(master);
-  rain.start(0);
-
-  if (scene.interior > 0.45) {
-    const room = ctx.createBufferSource();
-    room.buffer = brown(ctx, 2);
-    room.loop = true;
-    const lp = ctx.createBiquadFilter();
-    lp.type = 'lowpass';
-    lp.frequency.value = 220;
-    const g = ctx.createGain();
-    g.gain.value = scene.interior * 0.02;
-    room.connect(lp).connect(g).connect(master);
-    room.start(0);
-  }
-
+  const amb = new Ambience(false);
+  amb.mountOffline(ctx);
+  amb.pinMaster(0.8);
+  amb.setInterior(scene.interior);
+  amb.setHum(scene.hum);
+  amb.setTraffic(scene.traffic);
+  amb.setCityPlace(cityPlaceOf(scene.district));
+  amb.prime(scene.rain, 0, scene.wind, scene.alt, 1);
+  const master = amb.output!;
   const graph = mountCityGraph(ctx, master, VOICE_CAP.medium);
-  const bed = bedOrQuiet(scene.district);
-  const mix = mixTargets({
-    bed,
-    presence: scene.presence,
-    rain: scene.rain,
-    alt: scene.alt,
-    interior: scene.interior,
-    night: scene.night,
-    traffic: scene.district === 'harbor' ? 0.2 : 0.45,
-    hornEnv: scene.horn,
-    awningNear: scene.inMarket ? 0.8 : 0.15,
-    inMarket: scene.inMarket,
-  });
-  graph.drone.gain.value = mix.drone;
-  graph.murmur.gain.value = mix.murmur;
-  graph.industrial.gain.value = mix.industrial;
-  graph.awning.gain.value = mix.awning;
-  graph.horn.gain.setValueAtTime(0, 0);
-  graph.horn.gain.linearRampToValueAtTime(mix.horn, 0.25);
-  graph.horn.gain.linearRampToValueAtTime(mix.horn, 1.5);
-  graph.horn.gain.linearRampToValueAtTime(0, 2.8);
-  graph.wet.gain.value = mix.pa * mix.canyon * 0.7;
-  graph.feedback.gain.value = 0.16 + mix.canyon * 0.22;
-  graph.delay.delayTime.value = 0.11 + mix.canyon * 0.1;
-  const tongue = Math.max(0, Math.min(graph.pa.length - 1, bed.tongue));
-  graph.pa[tongue]!.gain.value = mix.pa;
-
-  const places: Array<{ kind: 'sizzle' | 'murmur' | 'neon' | 'steam'; x: number; z: number; y: number }> = [
-    { kind: 'sizzle', x: 4, z: 1.2, y: 1.2 },
-    { kind: 'murmur', x: -3, z: 2, y: 1.6 },
-    { kind: 'neon', x: 2.2, z: -1.4, y: 3.2 },
-    { kind: 'steam', x: 5, z: -2, y: 1.3 },
-  ];
-  if (ctx.listener.positionX) {
+  if (ctx.listener.positionX && ctx.listener.forwardX && ctx.listener.upX) {
     ctx.listener.positionX.value = 0;
     ctx.listener.positionY.value = 1.7;
     ctx.listener.positionZ.value = 0;
@@ -120,43 +69,27 @@ async function renderScene(scene: Scene): Promise<CaptureFile> {
     ctx.listener.upY.value = 1;
     ctx.listener.upZ.value = 0;
   }
-  for (let i = 0; i < graph.slots.length && i < places.length; i++) {
-    const slot = graph.slots[i]!;
-    const p = places.find((q) => q.kind === slot.kind) ?? places[i]!;
-    setPos(slot.pan, p.x, p.y, p.z);
-    const dist = Math.hypot(p.x, p.z);
-    slot.gain.gain.value = slotLevel(slot.kind, bed, dist, scene.rain, mix.street, mix.open, scene.presence);
-  }
-
+  applyCityMix(graph, {
+    district: scene.district,
+    rain: scene.rain,
+    alt: scene.alt,
+    interior: scene.interior,
+    night: scene.night,
+    presence: scene.presence,
+    traffic: scene.traffic,
+    hornEnv: scene.horn,
+    awningNear: scene.awningNear,
+    inMarket: scene.inMarket,
+  });
   const audio = await ctx.startRendering();
   return { id: scene.id, peak: peakOf(audio), rms: rmsOf(audio), wav: bytesToBase64(encodeWav(audio)) };
-}
-
-function white(ctx: BaseAudioContext, seconds: number): AudioBuffer {
-  const len = Math.floor(ctx.sampleRate * seconds);
-  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
-  const d = buf.getChannelData(0);
-  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
-  return buf;
-}
-
-function brown(ctx: BaseAudioContext, seconds: number): AudioBuffer {
-  const len = Math.floor(ctx.sampleRate * seconds);
-  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
-  const d = buf.getChannelData(0);
-  let last = 0;
-  for (let i = 0; i < len; i++) {
-    last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02;
-    d[i] = last * 3.5;
-  }
-  return buf;
 }
 
 function peakOf(buf: AudioBuffer): number {
   let m = 0;
   for (let c = 0; c < buf.numberOfChannels; c++) {
     const d = buf.getChannelData(c);
-    for (let i = 0; i < d.length; i += 8) m = Math.max(m, Math.abs(d[i]!));
+    for (let i = 0; i < d.length; i++) m = Math.max(m, Math.abs(d[i]!));
   }
   return Math.round(m * 1000) / 1000;
 }

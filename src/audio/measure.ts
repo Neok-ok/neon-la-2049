@@ -1,9 +1,11 @@
 // Offline acceptance renders for the R2 bed. Same band split as the sound critique.
 // Not a second runtime: the page calls this from __nlaAudio.measure.
+import { CityLayout } from '../world/layout';
 import { Ambience, CITY_DUCK, ambienceTargets, shouldResume } from './Ambience';
 import './beds';
-import { mountCityGraph, type CityGraph } from './graph';
-import { mixTargets, slotLevel, spinnerVoice, type SpinnerHeard } from './mix';
+import { heardDistrictId, retargetCrossfade } from './CitySound';
+import { applyCityMix, mountCityGraph, type CityGraph } from './graph';
+import { cityPlaceOf, mixTargets, spinnerVoice, type SpinnerHeard } from './mix';
 import { VOICE_CAP, bedOrQuiet } from './registry';
 import { setPos } from './synth';
 
@@ -52,7 +54,10 @@ interface Scene {
   awningNear?: number;
   flying?: boolean;
   spinner?: SpinnerHeard | null;
-  solo?: 'city';
+  solo?: 'city' | 'pa';
+  hornEnv?: number;
+  /** Autocorrelation period. PA uses 4 s; the city bed uses 6 s. */
+  loopAt?: number;
   cityGain?: number;
   /** Render the seamless bed with the rate locked, to separate the joint from the drift. */
   lockRate?: boolean;
@@ -72,13 +77,6 @@ const SCENES: Array<Scene & { laws: Array<'r2' | 'legacy'> }> = [
   { id: 'aerial', laws: ['legacy', 'r2'], district: 'dtla', rain: 0.65, wind: 8, alt: 1600, aboveClouds: 1 - (1600 - 1400) / 600, interior: 0, night: 1, presence: 0, traffic: 0, seconds: 3, save: true },
   { id: 'dtla-street', laws: ['r2'], district: 'dtla', rain: 0.65, wind: 5, alt: 1.7, interior: 0, night: 1, presence: 0.4, traffic: 0.1, seconds: 2.5 },
   { id: 'service', laws: ['r2'], district: 'historic-core', rain: 0.7, wind: 5, alt: 1.7, interior: 1, hum: 0, night: 1, presence: 0.1, traffic: 0.1, seconds: 2.5 },
-];
-
-const PLACES = [
-  { kind: 'sizzle', x: 4, z: 1.2, y: 1.2 },
-  { kind: 'murmur', x: -3, z: 2, y: 1.6 },
-  { kind: 'neon', x: 2.2, z: -1.4, y: 3.2 },
-  { kind: 'steam', x: 5, z: -2, y: 1.3 },
 ];
 
 export async function measurePass(): Promise<{
@@ -159,9 +157,10 @@ async function render(scene: Scene, law: 'r2' | 'legacy'): Promise<MeasureFile> 
     amb.setTraffic(scene.traffic);
     amb.setMachinery(scene.machinery ?? 0);
     amb.setSurf(scene.surf ?? 0, scene.surfImpact ?? 0, scene.crest ?? 0);
-    if (scene.solo === 'city') {
-      amb.soloCity(scene.cityGain ?? 0.479);
-      gains = { city: scene.cityGain ?? 0.479, lfo: 0, muffleHz: 14000, rain: 0, patter: 0, room: 0, hum: 0 };
+    amb.setCityPlace(cityPlaceOf(scene.district));
+    if (scene.solo === 'city' || scene.solo === 'pa') {
+      amb.soloCity(scene.solo === 'pa' ? 0 : (scene.cityGain ?? 0.479));
+      gains = { city: scene.solo === 'pa' ? 0 : (scene.cityGain ?? 0.479), lfo: 0, muffleHz: 14000, rain: 0, patter: 0, room: 0, hum: 0 };
     } else {
       const g = amb.prime(scene.rain, scene.snow ?? 0, scene.wind, scene.alt, scene.aboveClouds ?? 1);
       gains = pack(g);
@@ -184,8 +183,9 @@ async function render(scene: Scene, law: 'r2' | 'legacy'): Promise<MeasureFile> 
   }
   const audio = await ctx.startRendering();
   const metrics = analyze(audio);
-  const loop6 = scene.seconds >= 7 ? loopScore(audio, 6) : null;
-  const loopNear = scene.seconds >= 7 ? peakNear(audio, 6, 0.8) : null;
+  const loopPeriod = scene.loopAt ?? (scene.seconds >= 7 ? 6 : 0);
+  const loop6 = loopPeriod > 0 ? loopScore(audio, loopPeriod) : null;
+  const loopNear = loopPeriod > 0 ? peakNear(audio, loopPeriod, 0.8) : null;
   const file: MeasureFile = {
     id: scene.id,
     law,
@@ -207,35 +207,7 @@ async function render(scene: Scene, law: 'r2' | 'legacy'): Promise<MeasureFile> 
 }
 
 function dress(graph: CityGraph, scene: Scene, _law: 'r2' | 'legacy'): void {
-  const bed = bedOrQuiet(scene.district);
-  const mix = mixTargets({
-    bed,
-    presence: scene.presence,
-    rain: scene.rain,
-    alt: scene.alt,
-    interior: scene.interior,
-    night: scene.night,
-    traffic: scene.traffic,
-    hornEnv: 0,
-    awningNear: scene.awningNear ?? 0.1,
-    inMarket: !!scene.inMarket,
-  });
-  graph.drone.gain.value = mix.drone;
-  graph.murmur.gain.value = mix.murmur;
-  graph.industrial.gain.value = mix.industrial;
-  graph.awning.gain.value = mix.awning;
-  graph.horn.gain.value = 0;
-  graph.wet.gain.value = mix.pa * mix.canyon * 0.7;
-  graph.feedback.gain.value = 0.16 + mix.canyon * 0.22;
-  graph.delay.delayTime.value = 0.11 + mix.canyon * 0.1;
-  const tongue = Math.max(0, Math.min(graph.pa.length - 1, bed.tongue));
-  for (let i = 0; i < graph.pa.length; i++) graph.pa[i]!.gain.value = i === tongue ? mix.pa : 0;
-  for (let i = 0; i < graph.slots.length && i < PLACES.length; i++) {
-    const slot = graph.slots[i]!;
-    const p = PLACES.find((q) => q.kind === slot.kind) ?? PLACES[i]!;
-    setPos(slot.pan, p.x, p.y, p.z);
-    slot.gain.gain.value = slotLevel(slot.kind, bed, Math.hypot(p.x, p.z), scene.rain, mix.street, mix.open, scene.presence);
-  }
+  applyCityMix(graph, scene);
 }
 
 function placeSpinner(graph: CityGraph, scene: Scene, law: 'r2' | 'legacy'): { gain: number; freq: number } {
@@ -630,6 +602,93 @@ function encodeWav(buffer: AudioBuffer): Uint8Array {
     }
   }
   return new Uint8Array(out);
+}
+
+const R7_SCENES: Scene[] = [
+  { id: 'downpour-market', district: 'little-tokyo-market', rain: 1, wind: 8, alt: 1.7, interior: 0, night: 1, presence: 1, traffic: 0.2, inMarket: true, awningNear: 0.8, seconds: 3, save: true },
+  { id: 'market-rain', district: 'little-tokyo-market', rain: 0.85, wind: 5, alt: 1.7, interior: 0, night: 1, presence: 1, traffic: 0.35, inMarket: true, awningNear: 0.8, seconds: 3, save: true },
+  { id: 'broadway-rain', district: 'historic-core', rain: 0.7, wind: 5, alt: 1.7, interior: 0, night: 1, presence: 0.72, traffic: 0.45, awningNear: 0.15, seconds: 3, save: true },
+  { id: 'broadway-pa', district: 'historic-core', rain: 0, wind: 0, alt: 1.7, interior: 0, night: 1, presence: 0.72, traffic: 0, seconds: 8, solo: 'pa', loopAt: 4, save: true },
+  { id: 'harbor-night', district: 'harbor', rain: 0.65, wind: 5, alt: 6, interior: 0, night: 1, presence: 0.02, traffic: 0.2, hornEnv: 1, seconds: 3, save: true },
+  { id: 'harbor-day', district: 'harbor', rain: 0.65, wind: 5, alt: 6, interior: 0, night: 0, presence: 0.02, traffic: 0.2, hornEnv: 1, seconds: 3, save: true },
+  { id: 'seawall', district: 'coastal-strip', rain: 0.65, wind: 5, alt: 2, interior: 0, night: 1, presence: 0, traffic: 0, surf: 0.9, surfImpact: 0.45, seconds: 3, save: true },
+  { id: 'basin-rain', district: 'basin-sprawl', rain: 0.65, wind: 5, alt: 1.7, interior: 0, night: 1, presence: 0.07, traffic: 0.2, seconds: 3, save: true },
+  { id: 'basin-dry', district: 'basin-sprawl', rain: 0, wind: 2, alt: 1.7, interior: 0, night: 0, presence: 0.07, traffic: 0.2, seconds: 3 },
+  { id: 'lakewood-rain', district: 'lakewood-megablocks', rain: 0.65, wind: 5, alt: 1.7, interior: 0, night: 1, presence: 0.12, traffic: 0.15, seconds: 3, save: true },
+  { id: 'coast-dry', district: 'coastal-strip', rain: 0, wind: 4, alt: 2, interior: 0, night: 1, presence: 0, traffic: 0, surf: 0.9, surfImpact: 0.3, seconds: 3 },
+  { id: 'lax-launch', district: 'lax-spaceport', rain: 0, wind: 3, alt: 1.7, interior: 0, night: 1, presence: 0, traffic: 0.05, machinery: 0.85, seconds: 3, save: true },
+  { id: 'lax-dry', district: 'lax-spaceport', rain: 0, wind: 3, alt: 1.7, interior: 0, night: 1, presence: 0, traffic: 0.05, machinery: 0, seconds: 3 },
+  { id: 'wallace-street', district: 'wallace-vernon', rain: 0, wind: 3, alt: 1.7, interior: 0, night: 1, presence: 0, traffic: 0, machinery: 0.82, seconds: 3, save: true },
+  { id: 'wallace-dry', district: 'wallace-vernon', rain: 0, wind: 3, alt: 1.7, interior: 0, night: 1, presence: 0, traffic: 0, machinery: 0, seconds: 3 },
+  { id: 'wallace-rain', district: 'wallace-vernon', rain: 0.65, wind: 5, alt: 1.7, interior: 0, night: 1, presence: 0, traffic: 0, machinery: 0.82, seconds: 3, save: true },
+  { id: 'k-apartment', district: 'k-megablock', rain: 0.65, wind: 5, alt: 1.7, interior: 0.88, hum: 0.45, night: 1, presence: 0.12, traffic: 0, seconds: 3, save: true },
+];
+
+export async function measureR7(): Promise<{
+  checks: Record<string, number | boolean | string>;
+  causeway: Array<{ name: string; polygon: string; heard: string }>;
+  files: MeasureFile[];
+}> {
+  const layout = new CityLayout();
+  const spots = [
+    { name: 'plaza', x: 4037, z: 3151 },
+    { name: 'atrium', x: 4030, z: 3615 },
+    { name: 'approach', x: 4031, z: 2937 },
+    { name: 'basin', x: 0, z: 0 },
+  ];
+  const causeway = spots.map((s) => ({
+    name: s.name,
+    polygon: layout.districtAt(s.x, s.z).id,
+    heard: heardDistrictIdSafe(layout, s.x, s.z),
+  }));
+  const street = ambienceTargets(blank({ rain: 0.65, altitude: 1.7 }));
+  const quiet = ambienceTargets(blank({ rain: 0, altitude: 1.7, place: cityPlaceOf('basin-sprawl') }));
+  const mid = retargetCrossfade(0.283, 0.203);
+  const checks: Record<string, number | boolean | string> = {
+    cityStreet: round3(street.city),
+    cityQuiet: round3(quiet.city),
+    surfCoeff: round3(ambienceTargets(blank({ surf: 1 })).surf),
+    machCoeff: round3(ambienceTargets(blank({ machinery: 1 })).mach),
+    toneCoeff: round3(ambienceTargets(blank({ machinery: 1 })).tone),
+    voiceCap: VOICE_CAP.medium,
+    crossA: round3(mid.aW),
+    crossB: round3(mid.bW),
+  };
+  const files: MeasureFile[] = [];
+  for (const scene of R7_SCENES) {
+    try {
+      const file = await render(scene, 'r2');
+      const bed = bedOrQuiet(scene.district);
+      const mix = mixTargets({
+        bed,
+        presence: scene.presence,
+        rain: scene.rain,
+        alt: scene.alt,
+        interior: scene.interior,
+        night: scene.night,
+        traffic: scene.traffic,
+        hornEnv: scene.hornEnv ?? 0,
+        awningNear: scene.awningNear ?? 0.1,
+        inMarket: !!scene.inMarket,
+      });
+      file.gains = {
+        ...file.gains,
+        drone: round3(mix.drone),
+        pa: round3(mix.pa),
+        horn: round3(mix.horn),
+        awning: round3(mix.awning),
+        industrial: round3(mix.industrial),
+      };
+      files.push(file);
+    } catch (err) {
+      files.push(failed(scene, 'r2', err));
+    }
+  }
+  return { checks, causeway, files };
+}
+
+function heardDistrictIdSafe(layout: CityLayout, x: number, z: number): string {
+  return heardDistrictId(layout, x, z);
 }
 
 function bytesToBase64(bytes: Uint8Array): string {

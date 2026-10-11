@@ -36,6 +36,36 @@ export interface MixOut {
   open: number;
 }
 
+/** Street PA coefficient. Tuned so a Broadway tongue alone sits near −32 dB RMS. */
+export const PA_COEFF = 0.085;
+
+/**
+ * Shared city-rumble weight. Loud streets stay at 1. The coast, the basin,
+ * Lakewood and the Wallace causeway drop toward the room; the harbor drops
+ * enough that the horn, not the rumble, is the place.
+ */
+const CITY_PLACE: Record<string, number> = {
+  'coastal-strip': 0.15,
+  'basin-sprawl': 0.15,
+  'lakewood-megablocks': 0.15,
+  'wallace-vernon': 0.15,
+  harbor: 0.4,
+};
+
+export function cityPlaceOf(id: string): number {
+  return CITY_PLACE[id] ?? 1;
+}
+
+/** Canyon delay, seconds. Broadway (canyon 0.95) is about 0.37 s. */
+export function canyonDelay(canyon: number): number {
+  return 0.16 + clamp01(canyon) * 0.22;
+}
+
+/** Canyon feedback, capped near 0.25. */
+export function canyonFeedback(canyon: number): number {
+  return Math.min(0.25, 0.10 + clamp01(canyon) * 0.16);
+}
+
 export function mixTargets(m: MixIn, out?: MixOut): MixOut {
   const open = 1 - 0.78 * clamp01(m.interior);
   const street = m.alt < 12 ? 1 : m.alt < 48 ? (48 - m.alt) / 36 : 0;
@@ -49,17 +79,19 @@ export function mixTargets(m: MixIn, out?: MixOut): MixOut {
   }
   awning = Math.max(awning, m.rain * (0.04 + clamp01(m.awningNear) * 0.22) * (m.alt < 36 ? 1 : 0));
   awning *= 1 - 0.72 * clamp01(m.interior);
-  const hornStreet = m.alt < 140 ? Math.max(0, 1 - m.alt / 180) : 0;
+  const hornStreet = m.alt < 400 ? Math.max(0, 1 - m.alt / 400) : 0;
+  const floor = Math.max(presence, m.bed.pa * 0.45);
+  const night = clamp01(m.night);
   const dest = out ?? {
     drone: 0, murmur: 0, industrial: 0, pa: 0, canyon: 0, awning: 0, horn: 0, street: 0, open: 1,
   };
-  dest.drone = m.bed.drone * 0.05 * wide * open * (1 - 0.3 * clamp01(m.traffic));
+  dest.drone = m.bed.drone * 0.14 * (0.65 + 0.70 * night) * wide * open * (1 - 0.3 * clamp01(m.traffic));
   dest.murmur = m.bed.murmur * presence * 0.14 * street * open;
   dest.industrial = m.bed.industrial * 0.032 * wide * (1 - 0.45 * clamp01(m.interior));
-  dest.pa = m.bed.pa * 0.085 * street * (1 - 0.92 * clamp01(m.interior)) * (0.4 + 0.6 * Math.max(presence, m.bed.pa > 0.4 ? 0.35 : 0));
+  dest.pa = m.bed.pa * PA_COEFF * street * (1 - 0.92 * clamp01(m.interior)) * (0.4 + 0.6 * floor);
   dest.canyon = clamp01(m.bed.canyon);
   dest.awning = awning;
-  dest.horn = m.hornEnv * m.bed.foghorn * clamp01(m.night) * hornStreet * 0.045 * open;
+  dest.horn = m.hornEnv * m.bed.foghorn * night * hornStreet * 0.18 * open;
   dest.street = street;
   dest.open = open;
   return dest;
@@ -83,14 +115,19 @@ export function slotLevel(
     base = 0.18 * bed.murmur * fill;
     reach = 22;
   } else if (kind === 'neon') {
-    base = 0.12 * bed.neon;
-    reach = 7;
+    base = 0.22 * bed.neon;
+    reach = 12;
   } else if (kind === 'steam') {
     base = 0.16 * bed.steam * (0.4 + 0.6 * clamp01(rain));
     reach = 16;
   }
-  const t = Math.max(0, 1 - dist / reach);
-  return base * t * t * street * open;
+  const fall = kind === 'neon'
+    ? 1 / (1 + (dist / Math.max(0.001, reach)) ** 2)
+    : (() => {
+      const t = Math.max(0, 1 - dist / reach);
+      return t * t;
+    })();
+  return base * fall * street * open;
 }
 
 export interface SpinnerHeard {
