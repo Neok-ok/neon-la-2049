@@ -63,7 +63,7 @@ async function shot(page, name) {
   });
   await page.waitForFunction((n) => window.__nla.app.frames > n + 1, frame, { timeout: 30_000 });
   const file = join(OUT, `${name}.png`);
-  await page.screenshot({ path: file, type: 'png' });
+  await page.screenshot({ path: file, type: 'png', timeout: 120_000 });
   const stats = await page.evaluate(() => {
     const s = window.__nla.stats();
     return {
