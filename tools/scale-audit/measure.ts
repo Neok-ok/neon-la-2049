@@ -139,6 +139,16 @@ function m(n: number, d = 2): string {
   return `${v} m`;
 }
 
+function worse(
+  a: { verdict: Verdict; severity: Severity },
+  b: { verdict: Verdict; severity: Severity },
+): { verdict: Verdict; severity: Severity } {
+  const rank: Record<Verdict, number> = { pass: 0, watch: 1, fail: 2 };
+  const sev: Record<Severity, number> = { '—': 0, low: 1, medium: 2, high: 3 };
+  if (rank[a.verdict] !== rank[b.verdict]) return rank[a.verdict] > rank[b.verdict] ? a : b;
+  return sev[a.severity] >= sev[b.severity] ? a : b;
+}
+
 function scoreRange(v: number, lo: number, hi: number): { verdict: Verdict; severity: Severity } {
   if (v >= lo && v <= hi) return { verdict: 'pass', severity: '—' };
   const span = Math.max(1e-6, hi - lo);
@@ -291,13 +301,18 @@ function sidewalkVerdict(street: number, lane: number): { implied: number; score
 
 function anchors(): void {
   const facade = src('src/world/windows/facade.ts');
-  must(facade, 'export const CELL_H = [1, 3.6, 4.0, 7.0, 3.2, 3.4, 3.1, 5.5, 3.2, 3.4, 3.2, 4.4, 13.0, 4.5, 11.7, 3.5, 6.6, 3.9, 4.8, 5.6]', 'facade.ts');
+  must(facade, 'export const CELL_H = [1, 3.6, 4.0, 3.5, 3.2, 3.4, 3.1, 4.0, 3.2, 3.4, 3.2, 4.0, 13.0, 4.5, 11.7, 3.5, 3.3, 3.9, 3.2, 3.8]', 'facade.ts');
   const gen = src('src/world/fabric/generator.ts');
   must(gen, 'const HILL_ARCHETYPE_THRESHOLD = 45', 'generator.ts');
   must(gen, 'b.y0 -= 8', 'generator.ts');
   const vehicles = src('src/vehicles/vehicleModels.ts');
-  must(vehicles, 'car: 4.35', 'vehicleModels.ts');
-  must(vehicles, 'box(1.82, 0.46, 4.2, 0, 0.38, 0.05, BODY.car, 0)', 'vehicleModels.ts');
+  must(vehicles, 'export const CAR_L = 4.85', 'vehicleModels.ts');
+  must(vehicles, 'export const CAR_W = 1.78', 'vehicleModels.ts');
+  must(vehicles, 'export const CAR_H = 1.466', 'vehicleModels.ts');
+  must(vehicles, 'export const HAULER_L = 16.159', 'vehicleModels.ts');
+  must(vehicles, 'export const HAULER_W = 2.316', 'vehicleModels.ts');
+  must(vehicles, 'export const HAULER_H = 3.887', 'vehicleModels.ts');
+  must(vehicles, 'car: CAR_L', 'vehicleModels.ts');
   const crowd = src('src/districts/little-tokyo-market/crowd.ts');
   must(crowd, 'box(0, 1.69, 0, 0.17, 0.22, 0.17, 1)', 'crowd.ts');
   must(crowd, 'Body is 1.80 m to the top of the head', 'crowd.ts');
@@ -309,21 +324,25 @@ function anchors(): void {
   const spin = src('src/vehicles/spinnerModel.ts');
   must(spin, 'export const SPINNER_DIMS = { length: 5.0, width: 2.3, height: 1.45 }', 'spinnerModel.ts');
   const dress = src('src/districts/historic-core/dress.ts');
-  must(dress, 'sx: 0.95, sy: 1.45, sz: 2.15', 'historic-core/dress.ts');
-  must(dress, 'sx: 0.28, sy: 0.85, sz: 0.28', 'historic-core/dress.ts');
+  must(dress, 'const RICKSHAW_H = 1.45', 'historic-core/dress.ts');
+  must(dress, 'y: b.ground + RICKSHAW_H / 2', 'historic-core/dress.ts');
+  must(dress, 'sx: 0.28, sy: 1.6, sz: 0.28', 'historic-core/dress.ts');
   const kit = src('src/districts/_shared/kit/templates.ts');
   must(kit, 'Centered box', 'templates.ts');
   const traffic = src('src/vehicles/groundTraffic.ts');
-  must(traffic, 'sx: 0.5, sy: 1.22, sz: 0.7, len: MESH_LEN.car * 0.7', 'groundTraffic.ts');
+  must(traffic, 'sx: 0.62, sy: 1.05, sz: 0.59, len: MESH_LEN.car * 0.59', 'groundTraffic.ts');
   must(traffic, 'new BoxGeometry(0.16, 5.45, 0.16).translate(0, 2.72, 0)', 'groundTraffic.ts');
+  const apron = src('src/districts/coastal-strip/apronPlan.ts');
+  must(apron, 'export const STEP_NOSING = 0.02', 'apronPlan.ts');
+  must(apron, 'planFlight(rise)', 'apronPlan.ts');
   const brad = src('src/districts/historic-core/bradbury.ts');
   must(brad, 'const H = 22.4', 'bradbury.ts');
-  must(brad, 'const DOOR_H = 7.2', 'bradbury.ts');
+  must(brad, 'const DOOR_H = 2.2', 'bradbury.ts');
   must(brad, 'const JACKET_H = 27', 'bradbury.ts');
   const bridge = src('src/districts/historic-core/bridge.ts');
   must(bridge, 'const DECK = 11.2', 'bridge.ts');
-  must(bridge, 'const STEPS = 32', 'bridge.ts');
-  must(bridge, 'const TREAD = 0.34', 'bridge.ts');
+  must(bridge, 'const STEPS = FLIGHT.risers', 'bridge.ts');
+  must(bridge, 'const TREAD = FLIGHT.tread', 'bridge.ts');
   must(bridge, 'const DANCER_H = 68', 'bridge.ts');
   const gantry = src('src/districts/lax-spaceport/gantry.ts');
   must(gantry, 'const MAST = 30', 'gantry.ts');
@@ -336,9 +355,9 @@ function anchors(): void {
   must(veil, 'const PYLON_H = 50', 'sign.ts');
   must(veil, 'const PANEL_H = 42', 'sign.ts');
   const market = src('src/districts/little-tokyo-market/dress.ts');
-  must(market, 'const SOFFIT = 2.62', 'dress.ts');
+  must(market, 'const SOFFIT = 2.35', 'dress.ts');
   must(market, 'const deckY = 4.05', 'dress.ts');
-  must(market, 'const run = 0.42', 'dress.ts');
+  must(market, 'const run = flight.tread', 'dress.ts');
   must(market, 'b.ground + 2.05', 'dress.ts');
   const flare = src('src/world/landmarks/Landmarks.ts');
   must(flare, 'const h = l.height * r.range(0.6, 1.1)', 'Landmarks.ts');
@@ -378,13 +397,25 @@ function crowdFile(id: string): string {
   return f;
 }
 
+function numConst(text: string, name: string): number {
+  const hit = text.match(new RegExp(`export const ${name} = (\\d+(?:\\.\\d+)?)`));
+  if (!hit) throw new Error(`missing ${name}`);
+  return +hit[1]!;
+}
+
+function agree(name: string, authored: number, measured: number): void {
+  if (Math.abs(authored - measured) > 0.05) {
+    throw new Error(`${name} authored ${authored} vs bounds ${measured}`);
+  }
+}
+
 function parseVehicles(): Record<string, Extents> {
   const text = src('src/vehicles/vehicleModels.ts');
   const build = sliceFn(text, 'function build()');
-  const ids = ['car', 'van', 'box', 'hauler', 'tanker'] as const;
+  const ids = ['van', 'box', 'tanker'] as const;
   const out: Record<string, Extents> = {};
   for (const id of ids) {
-    const key = id === 'box' ? 'const truck = mergeGeometries' : `const ${id} = mergeGeometries`;
+    const key = id === 'box' ? 'const truck = merged' : `const ${id} = merged`;
     const i = build.indexOf(key);
     if (i < 0) throw new Error(`vehicle block ${id}`);
     const next = build.indexOf('const ', i + key.length);
@@ -397,7 +428,32 @@ function parseVehicles(): Record<string, Extents> {
     const y = +moved[1]!;
     out.tanker!.top = Math.max(out.tanker!.top, y + radius);
   }
+  const bounds = JSON.parse(readFileSync(join(ROOT, 'public/models/traffic/bounds.json'), 'utf8')) as {
+    car: { length: number; width: number; roof: number };
+    hauler: { length: number; width: number; roof: number };
+  };
+  const carL = numConst(text, 'CAR_L');
+  const carW = numConst(text, 'CAR_W');
+  const carH = numConst(text, 'CAR_H');
+  const haulerL = numConst(text, 'HAULER_L');
+  const haulerW = numConst(text, 'HAULER_W');
+  const haulerH = numConst(text, 'HAULER_H');
+  agree('car length', carL, bounds.car.length);
+  agree('car width', carW, bounds.car.width);
+  agree('car roof', carH, bounds.car.roof);
+  agree('hauler length', haulerL, bounds.hauler.length);
+  agree('hauler width', haulerW, bounds.hauler.width);
+  agree('hauler roof', haulerH, bounds.hauler.roof);
+  out.car = { top: bounds.car.roof, length: bounds.car.length, width: bounds.car.width, boxes: 0 };
+  out.hauler = { top: bounds.hauler.roof, length: bounds.hauler.length, width: bounds.hauler.width, boxes: 0 };
   return out;
+}
+
+function canyonRickshaw(): { sx: number; sy: number; sz: number; lenFactor: number } {
+  const text = src('src/vehicles/groundTraffic.ts');
+  const hit = text.match(/sx:\s*([\d.]+),\s*sy:\s*([\d.]+),\s*sz:\s*([\d.]+),\s*len:\s*MESH_LEN\.car\s*\*\s*([\d.]+)/);
+  if (!hit) throw new Error('canyon rickshaw scale');
+  return { sx: +hit[1]!, sy: +hit[2]!, sz: +hit[3]!, lenFactor: +hit[4]! };
 }
 
 function parseSpinner(): { length: number; width: number; top: number; authoredH: number } {
@@ -535,38 +591,43 @@ function vehicleRows(id: string, lane: number | undefined, kind: string | undefi
     const car = mesh.car!;
     const showsCar = mix === 'canyon' || mix.includes('car') || id === 'lax-spaceport';
     if (showsCar) {
+      const roof = scoreRange(car.top, 1.4, 1.55);
+      const len = scoreRange(car.length, 4.5, 5.6);
+      const width = car.width <= 1.82
+        ? { verdict: 'pass' as const, severity: '—' as const }
+        : { verdict: 'fail' as const, severity: 'high' as const };
       rows.push(row(
         'Compact car, visual roof',
         `${m(car.top)} roof, ${m(car.length)} long, ${m(car.width)} wide`,
-        'real sedan roof 1.40–1.55 m, length 4.5–5.6 m',
-        car.top < 1.4 ? { verdict: 'fail', severity: 'high' } : scoreRange(car.top, 1.4, 1.55),
-        'src/vehicles/vehicleModels.ts car boxes',
+        'real sedan roof 1.40–1.55 m, length 4.5–5.6 m, width ≤ 1.82 m',
+        worse(worse(roof, len), width),
+        'public/models/traffic/bounds.json; vehicleModels.ts CAR_L/W/H',
         'vehicles',
-        'Traffic length MESH_LEN.car is 4.35 m. The bible compact car is 4.2 × 1.82 × 0.9 m. The mesh matches that length and width; the roof is 1.03 m against the bible 0.9 m and a real roof near 1.45 m.',
+        'The glTF is the mesh. Width stays inside the 1.82 m body D7’s driving line assumes.',
       ));
-      const bibleH = scoreNear(car.top, 0.9, 0.05);
       rows.push(row(
         'Compact car vs bible height',
         m(car.top),
-        'bible 0.9 m',
-        bibleH.verdict === 'pass' ? bibleH : { verdict: 'watch', severity: 'low' },
+        'bible 1.47 m',
+        scoreNear(car.top, 1.47, 0.04),
         'docs/BIBLE.md ground vehicles; vehicleModels.ts',
         'vehicles',
-        'The authored height is the short one. Real-world scale is the row above.',
+        'Bible height is the measured roof, rounded.',
       ));
     }
     if (mix === 'canyon') {
-      const roof = car.top * 1.22;
-      const len = 4.35 * 0.7;
-      const wid = car.width * 0.5;
+      const scale = canyonRickshaw();
+      const roof = car.top * scale.sy;
+      const len = car.length * scale.lenFactor;
+      const wid = car.width * scale.sx;
       rows.push(row(
         'Canyon rickshaw scale',
         `${m(roof)} roof, ${m(len)} long, ${m(wid)} wide (28% of cars)`,
         'rickshaw about 1.4–1.8 m tall and 2.5–3.2 m long',
-        scoreRange(roof, 1.4, 1.8),
-        'src/vehicles/groundTraffic.ts style() sx 0.5 sy 1.22 sz 0.7',
+        worse(scoreRange(roof, 1.4, 1.8), scoreRange(len, 2.5, 3.2)),
+        'src/vehicles/groundTraffic.ts style() sx 0.62 sy 1.05 sz 0.59',
         'vehicles',
-        'Applied when the edge kind is canyon or the driving line is under 5 m.',
+        'Applied when the edge kind is canyon or the driving line is under 5 m. The car mesh is scaled; it is not a second model.',
       ));
     }
     if (mix.includes('van') || mix === 'van') {
@@ -607,14 +668,22 @@ function vehicleRows(id: string, lane: number | undefined, kind: string | undefi
     }
     if (mix === 'hauler') {
       const h = mesh.hauler!;
+      const height = scoreRange(h.top, 3.5, 4.2);
+      const length = scoreRange(h.length, 14, 18);
+      const half = h.width / 2 <= 1.16
+        ? { verdict: 'pass' as const, severity: '—' as const }
+        : { verdict: 'fail' as const, severity: 'high' as const };
+      const lane = h.width < 3.55
+        ? { verdict: 'pass' as const, severity: '—' as const }
+        : { verdict: 'fail' as const, severity: 'high' as const };
       rows.push(row(
         'Hauler, visual',
-        `${m(h.top)} roof, ${m(h.length)} long`,
-        'real articulated truck height 3.5–4.2 m, length 14–18 m',
-        scoreRange(h.top, 3.5, 4.2),
-        'src/vehicles/vehicleModels.ts hauler boxes',
+        `${m(h.top)} roof, ${m(h.length)} long, ${m(h.width)} wide`,
+        'real articulated truck height 3.5–4.2 m, length 14–18 m, half-width ≤ 1.16 m',
+        worse(worse(worse(height, length), half), lane),
+        'public/models/traffic/bounds.json; vehicleModels.ts HAULER_L/W/H',
         'vehicles',
-        'MESH_LEN.hauler is 11.7 m, which matches the bible and is short of a real tractor-trailer.',
+        'Half-width stays inside the 1.16 m of asphalt between a driving line and the curb. The body is narrower than a 3.55 m lane.',
       ));
     }
   }
@@ -746,8 +815,11 @@ function extraRows(id: string, layout: CityLayout): Row[] {
     rows.push(row('Footbridge rail', '1.05 m', '0.90–1.10 m', scoreRange(1.05, 0.9, 1.1), 'src/districts/historic-core/bridge.ts rail box h 1.05', 'rails'));
     rows.push(pass('Footbridge deck', '11.2 m', 'JSON / bible deck 11.2 m', 'src/districts/historic-core/bridge.ts DECK', 'landmarks'));
     rows.push(custom('Dancer hologram', '68 m tall, 15 m wide', 'a pedestrian is 1.6–1.9 m; this is a billboard', 'watch', 'low', 'src/districts/historic-core/bridge.ts DANCER_H', 'people', 'Bible: the figure is not on the deck. It stands in the Broadway intersection. Not a person mesh.'));
-    rows.push(row('Parked rickshaw prop', '0.725 m above the ground', 'rickshaw body about 1.2–1.6 m', { verdict: 'fail', severity: 'high' }, 'src/districts/historic-core/dress.ts sy 1.45 at y ground', 'vehicles', 'Kit boxes are centered. y is the ground, so half of the 1.45 m box is under the street.'));
-    rows.push(row('Canyon bollard', '0.425 m above the ground', 'bollard 0.6–1.0 m', scoreRange(0.425, 0.6, 1.0), 'src/districts/historic-core/dress.ts cyl sy 0.85 at y ground', 'lamps', 'Same centered-mesh placement. Visible height is sy/2.'));
+    const rickshawH = numConst(src('src/districts/historic-core/dress.ts').replace('const RICKSHAW_H', 'export const RICKSHAW_H'), 'RICKSHAW_H');
+    rows.push(row('Parked rickshaw prop', `${m(rickshawH)} above the ground`, 'rickshaw body about 1.2–1.6 m', scoreRange(rickshawH, 1.2, 1.6), 'src/districts/historic-core/dress.ts RICKSHAW_H at y ground + half', 'vehicles', 'Kit boxes are centered. The prop is lifted by half its height, so the body stands on the street and the lamp sits on the roof.'));
+    const bollard = src('src/districts/historic-core/dress.ts').match(/sx: 0\.28, sy: (\d+(?:\.\d+)?), sz: 0\.28/);
+    const bollardTop = bollard ? +bollard[1]! / 2 : NaN;
+    rows.push(row('Canyon bollard', `${m(bollardTop)} above the ground`, 'bollard 0.6–1.0 m', scoreRange(bollardTop, 0.6, 1.0), 'src/districts/historic-core/dress.ts cyl sy 1.6 at y ground', 'lamps', 'Same centered-mesh placement. Visible height is sy/2.'));
   }
   if (id === 'civic-center') {
     const riser = (STAIR.y1 - STAIR.y0) / STAIR.n;
@@ -828,8 +900,11 @@ function extraRows(id: string, layout: CityLayout): Row[] {
       const risers = steps.map((s) => s.h);
       const maxR = Math.max(...risers);
       const med = median(risers);
-      rows.push(row('Apron stair rise', `${m(med, 3)} median, ${m(maxR, 3)} max (${risers.length} treads)`, 'real 0.15–0.18 m', scoreRange(maxR, 0.15, 0.18), 'src/districts/coastal-strip/apronPlan.ts rise/round(rise/0.39)', 'stairs', 'The comment says treads rise ≤ 0.40 m. The formula can step past that. Bible row follows.'));
-      rows.push(row('Apron stair vs bible', `${m(maxR, 3)} max`, 'bible ≤ 0.40 m', maxR <= 0.4 ? { verdict: 'pass', severity: '—' } : { verdict: 'fail', severity: 'high' }, 'src/districts/coastal-strip/apronPlan.ts', 'stairs'));
+      const goings = steps.map((s) => s.w - 0.02);
+      const minG = Math.min(...goings);
+      const maxG = Math.max(...goings);
+      rows.push(row('Apron stair rise', `${m(med, 3)} median, ${m(maxR, 3)} max (${risers.length} treads)`, 'real 0.15–0.18 m', scoreRange(maxR, 0.15, 0.18), 'src/districts/coastal-strip/apronPlan.ts planFlight', 'stairs', 'Switchbacks run along the wall. Each riser is planFlight’s rise. Landings are decks, so they are not treads.'));
+      rows.push(row('Apron stair going', `${m(minG, 3)} min, ${m(maxG, 3)} max`, '0.28–0.32 m', worse(scoreRange(minG, 0.28, 0.32), scoreRange(maxG, 0.28, 0.32)), 'src/districts/coastal-strip/apronPlan.ts STEP_NOSING', 'stairs', 'Going is the tread length along the wall, step width minus the 0.02 m nosing.'));
       rows.push(row('Terrace rail', '0.98 m to the top of an 0.08 m bar', '0.90–1.10 m', scoreRange(0.98, 0.9, 1.1), 'src/districts/coastal-strip/surface.ts rail at t.y+0.9', 'rails'));
     }
   }

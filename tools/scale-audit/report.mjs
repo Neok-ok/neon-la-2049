@@ -23,9 +23,9 @@ const GROUP_TITLE = {
 };
 
 const PASS_BLURB = {
-  vehicles: 'Raise the shared car (and the truck classes) so a 1.75 m person reads next to them. The bible’s 0.9 m compact height is the number to change with the mesh.',
+  vehicles: 'The compact and the hauler are real-scale glTF meshes. A 1.80 m person reads next to them. Van, box and tanker keep their authored boxes.',
   doors: 'Human openings should land between 2.0 and 2.4 m. Monumental portals can stay huge if a human door sits in front of them.',
-  stairs: 'Real risers are 0.15–0.18 m and treads about 0.28 m. Flights the bible already calls out (0.35 m, 0.375 m, apron ~0.39 m) need a lore decision before the mesh changes.',
+  stairs: 'Real risers are 0.15–0.18 m and treads about 0.28 m. The Grey Coast apron uses that rise and a 0.29 m going. Flights the bible already calls out (0.35 m, 0.375 m) need a lore decision before those meshes change.',
   rails: 'Handrails want about 0.9–1.1 m. Anything under the 0.45 m step-up can be walked over.',
   storeys: 'Façade CELL_H is the floor the player counts. Keep 3–4 m for housing and shops. Office bands the bible already allows at 4.0–5.5 m should be labeled as that, not left looking like a mistake. Slit and monolith panels are not floors.',
   lanes: 'Keep freeway spacing at 3.5–3.7 m. Say out loud that a driving line is a centreline offset. Wide avenues with one tracked lane should not be read as 8 m sidewalks.',

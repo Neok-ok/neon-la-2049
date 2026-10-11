@@ -1,0 +1,44 @@
+{
+  "car": {
+    "length": 4.85,
+    "width": 1.78,
+    "roof": 1.466,
+    "tris": {
+      "high": 2084,
+      "medium": 1256,
+      "low": 592
+    },
+    "iou": {
+      "side": 0.863,
+      "top": 0.893,
+      "front": 0.76
+    },
+    "lane": 3.55,
+    "person": 1.8,
+    "door": {
+      "width": 1.0,
+      "height": 2.2
+    }
+  },
+  "hauler": {
+    "length": 16.159,
+    "width": 2.316,
+    "roof": 3.887,
+    "tris": {
+      "high": 2420,
+      "medium": 1336,
+      "low": 716
+    },
+    "iou": {
+      "side": 0.834,
+      "top": 0.955,
+      "front": 0.942
+    },
+    "lane": 3.55,
+    "person": 1.8,
+    "door": {
+      "width": 1.0,
+      "height": 2.2
+    }
+  }
+}
