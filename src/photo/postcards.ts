@@ -108,7 +108,7 @@ export const POSTCARDS: readonly Postcard[] = [
   {
     id: 'broadway-rain',
     name: 'Canyon rain',
-    focal: 55, focus: 14, aperture: apertureFromFStop(2.8), roll: 0, lockSubject: true,
+    focal: 55, focus: 14, aperture: apertureFromFStop(4), roll: 0, lockSubject: true,
     grade: 'neon', grain: 0.28, vignette: 0.5, bloom: 0.55, exposure: 0.96,
     letterbox: '2.39', rain: 0.72, fog: 0.0016, snow: 0, hours: 22.2,
     pose: (layout, query) => {

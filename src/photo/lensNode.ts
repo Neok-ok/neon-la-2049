@@ -159,7 +159,8 @@ export function createLensRig(
     const centerCoc = cocAt(center);
     const reach = T.min(centerCoc, uMaxPx);
     const squeeze = T.mix(T.float(1), T.float(2), uAnamorphic);
-    const lod = T.log2(T.max(reach.div(rings * pxPerTexel), T.float(1)));
+    // One extra mip past the tap spacing, so the blobs overlap into one disc.
+    const lod = T.log2(T.max(reach.div(rings * pxPerTexel), T.float(1))).add(1.1);
 
     let vel = T.vec2(0, 0);
     if (cap.motion) {
@@ -240,8 +241,8 @@ export function createLensRig(
     }
     const safe = T.smoothstep(T.float(0.0001), T.float(0.02), wsum);
     const blurred = T.mix(sharp, acc.div(T.max(wsum, T.float(0.0001))), safe);
-    // Leave the sharp plate once the eased circle is actually wider than a pixel.
-    const amt = T.smoothstep(T.float(0.85), T.float(2.1), centerCoc);
+    // A short crossover, so a half-mix does not leave a second copy of the sign in the disc.
+    const amt = T.smoothstep(T.float(0.55), T.float(1.45), centerCoc);
     let rgb = T.mix(sharp, blurred, amt);
 
     if (cap.caPx > 0) {
