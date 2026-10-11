@@ -107,6 +107,7 @@ canvas#view { position: fixed; inset: 0; width: 100vw; height: 100dvh; display: 
   .toolbar .more-toggle { display: inline-block; }
   .toolbar .more { display: none; width: 100%; gap: 4px; flex-wrap: wrap; justify-content: center; }
   .toolbar.open .more { display: flex; }
+  .toolbar .vol input { width: 56px; }
 }
 
 /* photo mode — the game HUD is hidden; this bar is the only chrome */

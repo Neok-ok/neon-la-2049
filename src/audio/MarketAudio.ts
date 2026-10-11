@@ -12,11 +12,13 @@ export class MarketAudio {
       __nlaAudio?: {
         capture: () => Promise<CaptureFile[]>;
         measure: () => Promise<unknown>;
+        measureR7: () => Promise<unknown>;
       };
     };
     w.__nlaAudio = {
       capture: () => import('./capture').then((m) => m.captureScenes()),
-      measure: () => import('./measure').then((m) => m.measurePass()),
+        measure: () => import('./measure').then((m) => m.measurePass()),
+        measureR7: () => import('./measure').then((m) => m.measureR7()),
     };
   }
 

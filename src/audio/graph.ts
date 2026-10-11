@@ -1,7 +1,8 @@
 // The city-sound graph: a handful of looping sources, a nearest-N panner pool, one canyon
 // delay. Nodes are created once. The frame loop only moves gains.
-import { SLOT_KINDS, type SlotKind } from './registry';
-import { looping, noiseBuffer, panner, tongueBuffer } from './synth';
+import { bedOrQuiet, SLOT_KINDS, type SlotKind } from './registry';
+import { canyonDelay, canyonFeedback, mixTargets, slotLevel, type MixIn } from './mix';
+import { looping, noiseBuffer, panner, setPos, tongueBuffer } from './synth';
 
 export interface StreetSlot {
   kind: SlotKind;
@@ -36,7 +37,7 @@ const SLOT_FILTER: Record<SlotKind, { type: BiquadFilterType; freq: number; q: n
   sizzle: { type: 'bandpass', freq: 3200, q: 1.35, ref: 3.2, max: 26, roll: 1.55 },
   clatter: { type: 'bandpass', freq: 880, q: 1.1, ref: 2.4, max: 16, roll: 1.7 },
   murmur: { type: 'bandpass', freq: 460, q: 0.75, ref: 6, max: 28, roll: 1.15 },
-  neon: { type: 'bandpass', freq: 6800, q: 4.5, ref: 1.1, max: 8, roll: 2.4 },
+  neon: { type: 'bandpass', freq: 6800, q: 4.5, ref: 1.1, max: 8, roll: 2.4 * 0.35 },
   steam: { type: 'bandpass', freq: 1500, q: 0.55, ref: 2.2, max: 18, roll: 1.45 },
 };
 
@@ -67,13 +68,11 @@ export function mountCityGraph(ctx: BaseAudioContext, master: AudioNode, slots: 
 
   const pa: GainNode[] = [];
   const sum = ctx.createGain();
+  // The buffer is already formant-filtered. A second band-pass sat between the
+  // formants and left the tongue near −48 dB, so the playback filter is gone.
   for (let i = 0; i < tongues.length; i++) {
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.frequency.value = 780 + i * 140;
-    filter.Q.value = 0.7;
     const g = gain(ctx, 0);
-    looping(ctx, tongues[i]!).connect(filter).connect(g).connect(sum);
+    looping(ctx, tongues[i]!).connect(g).connect(sum);
     pa.push(g);
   }
   sum.connect(master);
@@ -140,6 +139,73 @@ export function makeSlot(ctx: BaseAudioContext, master: AudioNode, white: AudioB
   const pan = panner(ctx, spec.ref, spec.max, spec.roll);
   looping(ctx, white).connect(filter).connect(g).connect(pan).connect(master);
   return { kind, gain: g, filter, pan, connected: true, key: 0, target: 0 };
+}
+
+export interface CityBusScene {
+  district: string;
+  rain: number;
+  alt: number;
+  interior: number;
+  night: number;
+  presence: number;
+  traffic: number;
+  hornEnv?: number;
+  awningNear?: number;
+  inMarket?: boolean;
+  /** Tongue alone, dry, for the Broadway PA measurement. */
+  solo?: 'pa' | 'city';
+}
+
+/** Write settled district-bus gains. Live CitySound uses the same mix, through aim. */
+export function applyCityMix(graph: CityGraph, scene: CityBusScene): void {
+  const bed = bedOrQuiet(scene.district);
+  const mixIn: MixIn = {
+    bed,
+    presence: scene.presence,
+    rain: scene.rain,
+    alt: scene.alt,
+    interior: scene.interior,
+    night: scene.night,
+    traffic: scene.traffic,
+    hornEnv: scene.hornEnv ?? 0,
+    awningNear: scene.awningNear ?? 0.1,
+    inMarket: !!scene.inMarket,
+  };
+  const mix = mixTargets(mixIn);
+  const tongue = Math.max(0, Math.min(graph.pa.length - 1, bed.tongue));
+  if (scene.solo === 'pa') {
+    graph.drone.gain.value = 0;
+    graph.murmur.gain.value = 0;
+    graph.industrial.gain.value = 0;
+    graph.awning.gain.value = 0;
+    graph.horn.gain.value = 0;
+    graph.wet.gain.value = 0;
+    graph.feedback.gain.value = 0;
+    for (let i = 0; i < graph.pa.length; i++) graph.pa[i]!.gain.value = i === tongue ? mix.pa : 0;
+    for (const slot of graph.slots) slot.gain.gain.value = 0;
+    return;
+  }
+  graph.drone.gain.value = mix.drone;
+  graph.murmur.gain.value = mix.murmur;
+  graph.industrial.gain.value = mix.industrial;
+  graph.awning.gain.value = mix.awning;
+  graph.horn.gain.value = mix.horn;
+  graph.wet.gain.value = mix.pa * mix.canyon * 0.7;
+  graph.feedback.gain.value = canyonFeedback(mix.canyon);
+  graph.delay.delayTime.value = canyonDelay(mix.canyon);
+  for (let i = 0; i < graph.pa.length; i++) graph.pa[i]!.gain.value = i === tongue ? mix.pa : 0;
+  const places = [
+    { kind: 'sizzle' as const, x: 4, z: 1.2, y: 1.2 },
+    { kind: 'murmur' as const, x: -3, z: 2, y: 1.6 },
+    { kind: 'neon' as const, x: 2.2, z: -1.4, y: 3.2 },
+    { kind: 'steam' as const, x: 5, z: -2, y: 1.3 },
+  ];
+  for (let i = 0; i < graph.slots.length && i < places.length; i++) {
+    const slot = graph.slots[i]!;
+    const p = places.find((q) => q.kind === slot.kind) ?? places[i]!;
+    setPos(slot.pan, p.x, p.y, p.z);
+    slot.gain.gain.value = slotLevel(slot.kind, bed, Math.hypot(p.x, p.z), scene.rain, mix.street, mix.open, scene.presence);
+  }
 }
 
 function gain(ctx: BaseAudioContext, v: number): GainNode {

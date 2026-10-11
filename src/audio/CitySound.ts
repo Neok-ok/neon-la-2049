@@ -9,7 +9,8 @@ import { crowdAudioSnap, crowdShareOf } from '../districts/little-tokyo-market/c
 import type { Ambience } from './Ambience';
 import './beds';
 import { makeSlot, mountCityGraph, type CityGraph, type StreetSlot } from './graph';
-import { hornEnvelope, mixTargets, slotLevel, spinnerVoice } from './mix';
+import { canyonDelay, canyonFeedback, cityPlaceOf, hornEnvelope, mixTargets, slotLevel, spinnerVoice } from './mix';
+import { scheduleParam } from './param';
 import { SLOT_KINDS, VOICE_CAP, bedOrQuiet, blendBeds, type DistrictBed, type SlotKind } from './registry';
 import { setListener, setPos } from './synth';
 
@@ -110,20 +111,20 @@ export class CitySound {
       inMarket,
     }, this.mixOut);
 
-    aim(g.drone.gain, mix.drone, t, 0.45);
-    aim(g.murmur.gain, mix.murmur, t, 0.4);
-    aim(g.industrial.gain, mix.industrial, t, 0.5);
-    aim(g.awning.gain, mix.awning, t, 0.35);
-    aim(g.horn.gain, mix.horn, t, 0.08);
-    aim(g.wet.gain, mix.pa * mix.canyon * 0.7, t, 0.4);
-    aim(g.feedback.gain, 0.16 + mix.canyon * 0.22, t, 0.5);
-    aim(g.delay.delayTime, 0.11 + mix.canyon * 0.1, t, 0.5);
+    aim(g.drone.gain, mix.drone, t, 0.45, 'drone');
+    aim(g.murmur.gain, mix.murmur, t, 0.4, 'murmur');
+    aim(g.industrial.gain, mix.industrial, t, 0.5, 'industrial');
+    aim(g.awning.gain, mix.awning, t, 0.35, 'awning');
+    aim(g.horn.gain, mix.horn, t, 0.08, 'horn');
+    aim(g.wet.gain, mix.pa * mix.canyon * 0.7, t, 0.4, 'wet');
+    aim(g.feedback.gain, canyonFeedback(mix.canyon), t, 0.5, 'feedback');
+    aim(g.delay.delayTime, canyonDelay(mix.canyon), t, 0.5, 'delay');
     const tongueB = this.bId ? bedOrQuiet(this.bId).tongue : bedA.tongue;
     for (let i = 0; i < g.pa.length; i++) {
       let w = 0;
       if (i === bedA.tongue) w += this.aW;
       if (i === tongueB) w += this.bW;
-      aim(g.pa[i]!.gain, mix.pa * w, t, 0.35);
+      aim(g.pa[i]!.gain, mix.pa * w, t, 0.35, `pa${i}`);
     }
 
     this.placeStreet(cam, alt, rain, sizzleAt, mix.street, mix.open, presence, bed, t);
@@ -139,18 +140,20 @@ export class CitySound {
 
   private follow(x: number, z: number, dt: number): void {
     if (!this.layout) this.layout = new CityLayout();
-    const id = this.layout.districtAt(x, z).id;
+    const id = heardDistrictId(this.layout, x, z);
     this.districtId = id;
     if (!this.aId) {
       this.aId = id;
       this.aW = 1;
+      this.pushPlace();
       return;
     }
     if (id !== this.aId) {
+      const next = retargetCrossfade(this.aW, this.bW);
       this.bId = this.aId;
-      this.bW = this.aW;
+      this.bW = next.bW;
       this.aId = id;
-      this.aW = 0;
+      this.aW = next.aW;
     }
     const k = 1 - Math.exp(-dt / 1.35);
     this.aW += (1 - this.aW) * k;
@@ -159,6 +162,16 @@ export class CitySound {
       this.bW = 0;
       this.bId = '';
     }
+    this.pushPlace();
+  }
+
+  private pushPlace(): void {
+    const aw = this.aW;
+    const bw = this.bW;
+    const n = aw + bw || 1;
+    const b = this.bId || this.aId;
+    const place = (cityPlaceOf(this.aId) * aw + cityPlaceOf(b) * bw) / n;
+    this.ambience.setCityPlace(place);
   }
 
   private syncSlots(ctx: BaseAudioContext, master: AudioNode, cap: number): void {
@@ -175,7 +188,7 @@ export class CitySound {
         slot.connected = true;
       } else if (!on && slot.connected) {
         slot.target = 0;
-        aim(slot.gain.gain, 0, ctx.currentTime, 0.08);
+        aim(slot.gain.gain, 0, ctx.currentTime, 0.08, 'slot');
         slot.pan.disconnect();
         slot.connected = false;
       }
@@ -235,14 +248,14 @@ export class CitySound {
       if (!best) {
         slot.key = 0;
         slot.target = 0;
-        aim(slot.gain.gain, 0, t, 0.12);
+        aim(slot.gain.gain, 0, t, 0.12, 'slot');
         continue;
       }
       used[usedN++] = best.key;
       slot.key = best.key;
       setPos(slot.pan, best.x, best.y, best.z);
       slot.target = slotLevel(slot.kind, bed, Math.sqrt(best.d2), rain, street, open, presence);
-      aim(slot.gain.gain, slot.target, t, 0.1);
+      aim(slot.gain.gain, slot.target, t, 0.1, 'slot');
     }
   }
 
@@ -300,11 +313,11 @@ export class CitySound {
     if (voice.gain > 0) {
       if (voice.onListener) setPos(g.spinnerPan, cam.x, cam.y, cam.z);
       else if (spinnerAt) setPos(g.spinnerPan, spinnerAt.x, spinnerAt.y, spinnerAt.z);
-      aim(g.spinner.gain, voice.gain, t, voice.onListener ? 0.25 : 0.08);
-      aim(g.spinnerFilter.frequency, voice.freq, t, 0.05);
+      aim(g.spinner.gain, voice.gain, t, voice.onListener ? 0.25 : 0.08, 'spinner');
+      aim(g.spinnerFilter.frequency, voice.freq, t, 0.05, 'spinnerFreq', 1);
       this.spinnerOn = voice.gain > HEARD ? 1 : 0;
     } else {
-      aim(g.spinner.gain, 0, t, 0.1);
+      aim(g.spinner.gain, 0, t, 0.1, 'spinner');
       this.spinnerOn = 0;
     }
   }
@@ -323,8 +336,31 @@ function taken(used: number[], n: number, key: number): boolean {
   return false;
 }
 
-function aim(param: AudioParam, value: number, time: number, tc: number): void {
-  param.setTargetAtTime(value, time, tc);
+function aim(param: AudioParam, value: number, time: number, tc: number, name: string, epsilon = 0.001): void {
+  scheduleParam(param, value, time, tc, name, epsilon);
+}
+
+/**
+ * Polygon, or the Wallace pyramid reserve plus 40 m — the same test App uses
+ * for machinery. The causeway and the north court sit outside the polygon.
+ */
+export function heardDistrictId(layout: CityLayout, x: number, z: number): string {
+  let id = layout.districtAt(x, z).id;
+  const wal = layout.landmarkById('wallace-pyramid');
+  if (wal && Math.hypot(x - wal.x, z - wal.z) < wal.reserveRadius + 40) id = 'wallace-vernon';
+  return id;
+}
+
+/** On a new district, keep whatever was still fading. Weight is conserved. */
+export function retargetCrossfade(aW: number, bW: number): { aW: number; bW: number } {
+  let nextA = 0;
+  let nextB = aW + bW;
+  const sum = nextA + nextB;
+  if (sum > 1) {
+    nextA /= sum;
+    nextB /= sum;
+  }
+  return { aW: nextA, bW: nextB };
 }
 
 function heard(v: number): number {

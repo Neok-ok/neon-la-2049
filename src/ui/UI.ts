@@ -91,7 +91,8 @@ export class UI {
       cb.toggleSound();
     });
     this.soundBtn.title = 'Mute (M). The choice is remembered.';
-    more.appendChild(this.soundBtn);
+    this.soundBtn.classList.add('sound');
+    this.bar.appendChild(this.soundBtn);
     const vol = document.createElement('label');
     vol.className = 'vol';
     vol.textContent = 'Vol';
@@ -106,7 +107,7 @@ export class UI {
       activeAmbience()?.setVolume(Number(this.volume.value) / 100);
     });
     vol.appendChild(this.volume);
-    more.appendChild(vol);
+    this.bar.appendChild(vol);
     onAudioPrefs(() => this.syncSound());
     more.appendChild(button('HUD', () => cb.toggleHUD()));
     const help = button('?', () => this.showHelp());
