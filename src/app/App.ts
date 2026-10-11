@@ -345,8 +345,8 @@ export class App {
   setQuality(choice: Tier | 'auto'): void {
     this.qualityChoice = choice;
     storeTier(choice);
-    this.applyTier(choice === 'auto' ? this.autoTier : choice);
     this.ui.setQualityValue(choice);
+    this.applyTier(choice === 'auto' ? this.autoTier : choice);
   }
 
   private applyTier(tier: Tier): void {
@@ -363,6 +363,7 @@ export class App {
     this.photoMod?.retier();
     this.cams.fly.setSpinnerTier(tier);
     this.slowMs = 0;
+    this.ui.setAppliedTier(tier);
   }
 
   private resize(): void {

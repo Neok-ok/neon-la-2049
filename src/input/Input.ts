@@ -1,4 +1,6 @@
 // Unified input: keyboard + mouse (pointer lock or drag-to-look) + touch joysticks (see TouchControls).
+import { codesFor, gameplayHeld, onGameplayHeld, type Action } from './controls';
+
 export interface TouchState {
   moveX: number; // -1..1 (strafe)
   moveY: number; // -1..1 (forward = +1)
@@ -21,8 +23,14 @@ export class Input {
   suspendPointer = false;
 
   constructor(private canvas: HTMLCanvasElement) {
+    onGameplayHeld(() => {
+      this.keys.clear();
+      this.pressed.clear();
+    });
     window.addEventListener('keydown', (e) => {
-      if ((e.target as HTMLElement)?.tagName === 'SELECT' || (e.target as HTMLElement)?.tagName === 'INPUT') return;
+      if (gameplayHeld()) return;
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'SELECT' || tag === 'INPUT' || tag === 'TEXTAREA') return;
       if (!this.keys.has(e.code)) this.pressed.add(e.code);
       this.keys.add(e.code);
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
@@ -39,7 +47,7 @@ export class Input {
     });
     window.addEventListener('mouseup', () => (this.dragging = false));
     window.addEventListener('mousemove', (e) => {
-      if (this.suspendPointer) return;
+      if (this.suspendPointer || gameplayHeld()) return;
       if (document.pointerLockElement === canvas || this.dragging) {
         this.lookDX += e.movementX;
         this.lookDY += e.movementY;
@@ -54,6 +62,11 @@ export class Input {
   /** Was the key pressed since the last frame (edge-triggered)? */
   wasPressed(code: string): boolean {
     return this.pressed.has(code);
+  }
+
+  /** Edge for a rebindable action (primary key, plus the old alternate when it still applies). */
+  wasPressedAction(action: Action): boolean {
+    return codesFor(action).some((code) => this.pressed.has(code));
   }
 
   endFrame(): void {
@@ -71,23 +84,27 @@ export class Input {
     return codes.some((c) => this.keys.has(c));
   }
 
+  private held(action: Action): boolean {
+    return codesFor(action).some((code) => this.keys.has(code));
+  }
+
   /** forward (+1) / back (-1) */
   get forward(): number {
-    return (this.key('KeyW') ? 1 : 0) - (this.key('KeyS') ? 1 : 0) + this.touch.moveY;
+    return (this.held('forward') ? 1 : 0) - (this.held('back') ? 1 : 0) + this.touch.moveY;
   }
   get strafe(): number {
-    return (this.key('KeyD') ? 1 : 0) - (this.key('KeyA') ? 1 : 0) + this.touch.moveX;
+    return (this.held('right') ? 1 : 0) - (this.held('left') ? 1 : 0) + this.touch.moveX;
   }
   get vertical(): number {
-    return (this.key('Space', 'KeyE') || this.touch.up ? 1 : 0) - (this.key('KeyC', 'KeyQ', 'ControlLeft') || this.touch.down ? 1 : 0);
+    return (this.held('up') || this.touch.up ? 1 : 0) - (this.held('down') || this.touch.down ? 1 : 0);
   }
   get turn(): number {
-    return (this.key('ArrowRight') ? 1 : 0) - (this.key('ArrowLeft') ? 1 : 0) + this.touch.lookX;
+    return (this.held('lookRight') ? 1 : 0) - (this.held('lookLeft') ? 1 : 0) + this.touch.lookX;
   }
   get tilt(): number {
-    return (this.key('ArrowDown') ? 1 : 0) - (this.key('ArrowUp') ? 1 : 0) + this.touch.lookY;
+    return (this.held('lookDown') ? 1 : 0) - (this.held('lookUp') ? 1 : 0) + this.touch.lookY;
   }
   get boost(): boolean {
-    return this.key('ShiftLeft', 'ShiftRight') || this.touch.boost;
+    return this.held('boost') || this.touch.boost;
   }
 }

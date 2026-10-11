@@ -1,6 +1,7 @@
 // First-person street-level walking (1.7 m eye height, realistic walk/run speeds, building collision).
 import { MathUtils, Vector3, type PerspectiveCamera } from 'three/webgpu';
 import type { Controller, Pose } from './types';
+import { applyViewFov, gameplayHeld, lookScale } from '../input/controls';
 import type { Input } from '../input/Input';
 import type { CityQuery } from '../world/CityQuery';
 import { nearestSeat } from '../world/seats';
@@ -41,8 +42,7 @@ export class WalkController implements Controller {
     this.pitch = 0.08;
     this.vy = 0;
     this.input.pointerLockWanted = true;
-    this.camera.fov = 70;
-    this.camera.updateProjectionMatrix();
+    applyViewFov(this.camera, 'walk');
   }
 
   exit(): void {
@@ -58,14 +58,20 @@ export class WalkController implements Controller {
   update(dt: number): void {
     if (!this.active) return;
     const inp = this.input;
+    applyViewFov(this.camera, 'walk');
+    if (gameplayHeld()) {
+      inp.consumeLook();
+      return;
+    }
     const [mx, my] = inp.consumeLook();
-    this.heading += mx * 0.0022 + inp.turn * 1.8 * dt;
-    this.pitch = MathUtils.clamp(this.pitch - my * 0.0022 - inp.tilt * 1.3 * dt, -1.45, 1.45);
+    const { sens, pitch } = lookScale();
+    this.heading += mx * 0.0022 * sens + inp.turn * 1.8 * dt * sens;
+    this.pitch = MathUtils.clamp(this.pitch - my * 0.0022 * pitch - inp.tilt * 1.3 * dt * pitch, -1.45, 1.45);
 
     const speed = (inp.boost ? HUMAN.run : HUMAN.walk) * this.speedScale;
     const f = MathUtils.clamp(inp.forward, -1, 1), s = MathUtils.clamp(inp.strafe, -1, 1);
     this.sitLock = Math.max(0, this.sitLock - dt);
-    if (inp.wasPressed('KeyE') && this.sitLock <= 0) {
+    if (inp.wasPressedAction('interact') && this.sitLock <= 0) {
       if (this.seated) this.seated = false;
       else {
         const seat = nearestSeat(this.pos.x, this.pos.z);
