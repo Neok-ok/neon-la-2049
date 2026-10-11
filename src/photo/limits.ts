@@ -1,5 +1,5 @@
 // Capture size caps. A phone must never allocate a framebuffer bigger than its tier can hold.
-import type { Tier } from '../core/quality';
+import { settingsFor, TIERS, type Tier } from '../core/quality';
 import type { CaptureKind, LetterboxId } from './types';
 
 export const LETTERBOX_RATIO: Record<LetterboxId, number | null> = {
@@ -23,10 +23,10 @@ export const CAPTURE_CAPS: Record<Tier, {
   /** Motion smear and anamorphic streak. Low keeps the gather small and skips both. */
   motion: boolean; motionPx: number; flareTaps: number; caPx: number;
 }> = {
-  low: { maxEdge: 1280, maxPixels: 1280 * 720, tile: 480, dofTaps: 41, dofRings: 3, dofScale: 0.5, dofPx: 18, heavyBloom: false, motion: false, motionPx: 0, flareTaps: 0, caPx: 0 },
-  medium: { maxEdge: 1920, maxPixels: 1920 * 1080, tile: 640, dofTaps: 41, dofRings: 3, dofScale: 0.5, dofPx: 32, heavyBloom: false, motion: true, motionPx: 8, flareTaps: 4, caPx: 0.22 },
-  high: { maxEdge: 2560, maxPixels: 2560 * 1440, tile: 768, dofTaps: 41, dofRings: 3, dofScale: 0.5, dofPx: 40, heavyBloom: true, motion: true, motionPx: 14, flareTaps: 8, caPx: 0.35 },
-  ultra: { maxEdge: 2560, maxPixels: 2560 * 1440, tile: 1024, dofTaps: 41, dofRings: 3, dofScale: 0.5, dofPx: 40, heavyBloom: true, motion: true, motionPx: 22, flareTaps: 16, caPx: 0.45 },
+  low: { maxEdge: 1280, maxPixels: 1280 * 720, tile: 480, dofTaps: 41, dofRings: 3, dofScale: 0.5, dofPx: 22, heavyBloom: false, motion: false, motionPx: 0, flareTaps: 0, caPx: 0 },
+  medium: { maxEdge: 1920, maxPixels: 1920 * 1080, tile: 640, dofTaps: 41, dofRings: 3, dofScale: 0.5, dofPx: 48, heavyBloom: false, motion: true, motionPx: 8, flareTaps: 4, caPx: 0.22 },
+  high: { maxEdge: 2560, maxPixels: 2560 * 1440, tile: 768, dofTaps: 41, dofRings: 3, dofScale: 0.5, dofPx: 56, heavyBloom: true, motion: true, motionPx: 14, flareTaps: 8, caPx: 0.35 },
+  ultra: { maxEdge: 2560, maxPixels: 2560 * 1440, tile: 1024, dofTaps: 41, dofRings: 3, dofScale: 0.5, dofPx: 56, heavyBloom: true, motion: true, motionPx: 22, flareTaps: 16, caPx: 0.45 },
 };
 
 export interface FrameSize {
@@ -129,9 +129,11 @@ export interface LensMemory {
 
 /**
  * GPU targets the lens rig allocates for a drawing buffer of viewW×viewH.
- * Scene colour and depth stay full resolution. The depth-of-field pair is dofScale
- * (half resolution on every tier, including Medium and Low). Bloom, when the tier
- * has it, is the five-mip dual Kawase chain at half resolution and below.
+ * `viewW`×`viewH` is the drawing buffer the governor is actually using, not a
+ * pixel-ratio cap multiplied by a desktop window. Scene colour and depth stay at
+ * that size. The depth-of-field gather is dofScale (half resolution on every tier).
+ * The far-field plate is two quarter-resolution passes. Bloom, when the tier has it,
+ * is the five-mip dual Kawase chain at half resolution and below.
  * Depth is the pass depth texture (unsigned int, 4 bytes). DoF targets are RGBA16F
  * with no depth buffer.
  */
@@ -147,6 +149,7 @@ export function lensTargetMemory(tier: Tier, viewW: number, viewH: number): Lens
     { name: 'dof-prefilter', w: dw, h: dh, format: 'RGBA16F', bytes: dw * dh * RGBA16F_BYTES },
     { name: 'dof-gather', w: dw, h: dh, format: 'RGBA16F', bytes: dw * dh * RGBA16F_BYTES },
     // Quarter-resolution plate the wide disc gathers. Half-res targets stay on every tier.
+    { name: 'dof-soft-h', w: Math.max(1, Math.floor(w * 0.25)), h: Math.max(1, Math.floor(h * 0.25)), format: 'RGBA16F', bytes: Math.max(1, Math.floor(w * 0.25)) * Math.max(1, Math.floor(h * 0.25)) * RGBA16F_BYTES },
     { name: 'dof-soft', w: Math.max(1, Math.floor(w * 0.25)), h: Math.max(1, Math.floor(h * 0.25)), format: 'RGBA16F', bytes: Math.max(1, Math.floor(w * 0.25)) * Math.max(1, Math.floor(h * 0.25)) * RGBA16F_BYTES },
   ];
   if (cap.heavyBloom) {
@@ -168,4 +171,65 @@ export function lensTargetMemory(tier: Tier, viewW: number, viewH: number): Lens
   const dofBytes = targets.filter((t) => t.name.startsWith('dof-')).reduce((sum, t) => sum + t.bytes, 0);
   const bytes = targets.reduce((sum, t) => sum + t.bytes, 0);
   return { tier, viewW: w, viewH: h, dofScale: cap.dofScale, targets, dofBytes, bytes };
+}
+
+/** Pixel-class phone the memory profiler emulates. CSS viewport, not the ultra cap. */
+export const PHONE_CSS_W = 412;
+export const PHONE_CSS_H = 915;
+export const PHONE_DPR = 2.625;
+
+/**
+ * Drawing buffer after the tier's pixel-ratio ceiling and the governor's resolution scale.
+ * The ceiling only limits `devicePixelRatio`. It is not itself a resolution to allocate.
+ */
+export function governorBuffer(
+  cssW: number,
+  cssH: number,
+  dpr: number,
+  pixelRatioCap: number,
+  resolutionScale: number,
+): { w: number; h: number } {
+  const ratio = Math.max(0.5, Math.min(dpr, pixelRatioCap) * resolutionScale);
+  return {
+    w: Math.max(1, Math.round(Math.max(1, cssW) * ratio)),
+    h: Math.max(1, Math.round(Math.max(1, cssH) * ratio)),
+  };
+}
+
+/**
+ * Extra scale so the lens targets at the governor buffer fit in `targetBytes`.
+ * 1 means they already fit. The street view does not use this; only the lens does.
+ */
+export function lensBudgetScale(
+  tier: Tier,
+  cssW: number,
+  cssH: number,
+  dpr: number,
+  pixelRatioCap: number,
+  resolutionScale: number,
+  targetBytes: number,
+): number {
+  const buf = governorBuffer(cssW, cssH, dpr, pixelRatioCap, resolutionScale);
+  const bytes = lensTargetMemory(tier, buf.w, buf.h).bytes;
+  if (targetBytes <= 0 || bytes <= targetBytes) return 1;
+  return Math.max(0.5, Math.min(1, Math.sqrt((targetBytes * 0.9) / bytes)));
+}
+
+export interface PhoneLensRow extends LensMemory {
+  pixelRatioCap: number;
+  /** Buffer before the budget fit. */
+  governorW: number;
+  governorH: number;
+  budgetScale: number;
+}
+
+/** Lens targets for each tier on a Pixel-class phone, sized from the governor buffer. */
+export function phoneLensReport(targetBytes: number, resolutionScale = 1): PhoneLensRow[] {
+  return TIERS.map((tier) => {
+    const pixelRatioCap = settingsFor(tier).pixelRatio;
+    const gov = governorBuffer(PHONE_CSS_W, PHONE_CSS_H, PHONE_DPR, pixelRatioCap, resolutionScale);
+    const budgetScale = lensBudgetScale(tier, PHONE_CSS_W, PHONE_CSS_H, PHONE_DPR, pixelRatioCap, resolutionScale, targetBytes);
+    const buf = governorBuffer(PHONE_CSS_W, PHONE_CSS_H, PHONE_DPR, pixelRatioCap, resolutionScale * budgetScale);
+    return { ...lensTargetMemory(tier, buf.w, buf.h), pixelRatioCap, governorW: gov.w, governorH: gov.h, budgetScale };
+  });
 }

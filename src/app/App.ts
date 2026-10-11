@@ -1,5 +1,5 @@
 // Top-level wiring: renderer, scene, streaming city, landmarks, traffic, atmosphere, cameras, UI, audio.
-import { ACESFilmicToneMapping, MathUtils, PerspectiveCamera, RenderPipeline, Scene, Timer, Vector3, WebGPURenderer } from 'three/webgpu';
+import { ACESFilmicToneMapping, MathUtils, PerspectiveCamera, RenderPipeline, Scene, Timer, Vector2, Vector3, WebGPURenderer } from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import { params } from '../core/params';
@@ -74,6 +74,7 @@ import { CameraSystem } from '../camera/CameraSystem';
 import type { ModeId, Pose } from '../camera/types';
 import type { PhotoMode } from '../photo/PhotoMode';
 import { createPlayLens, type PlayLens } from '../photo/playLens';
+import { CAPTURE_CAPS, lensBudgetScale } from '../photo/limits';
 import { setDisturbance } from '../camera/disturbance';
 import { formatFStop } from '../camera/lensModel';
 import type { PhotoHost } from '../photo/types';
@@ -145,6 +146,9 @@ export class App {
 
   private pipeline: RenderPipeline | null = null;
   private playLens: PlayLens | null = null;
+  private readonly lensSize = new Vector2();
+  private ratioKey = '';
+  private ratioCached = 0;
   private timer = new Timer();
   private elapsed = 0;
   private frames = 0;
@@ -286,7 +290,10 @@ export class App {
     this.cams.onChange = (m) => {
       this.ui.setMode(m);
       this.touch?.setMode(m);
+      if (m !== 'cine') this.releasePlayLens();
+      this.applyPixelRatio();
     };
+    if (startMode === 'cine') this.applyPixelRatio();
 
     this.ui = new UI(
       {
@@ -360,6 +367,16 @@ export class App {
     return p;
   }
 
+  private lensActive(): boolean {
+    return (this.photoMod?.active ?? false) || this.cams?.mode === 'cine';
+  }
+
+  /** Depth-of-field targets exist only while photo or cinematic DoF is drawing. */
+  private releasePlayLens(): void {
+    this.playLens?.dispose();
+    this.playLens = null;
+  }
+
   /** Cinematic mode draws through the lens rig. Walk and fly keep buildPipeline. */
   private renderCine(): void {
     if (!this.playLens) {
@@ -429,12 +446,50 @@ export class App {
     };
   }
 
-  private applyPixelRatio(): void {
+  /** Pixel ratio of the governor's drawing buffer. Photo and cine shrink it until the lens fits. */
+  private drawingRatio(): number {
     const dpr = typeof devicePixelRatio === 'number' && devicePixelRatio > 0 ? devicePixelRatio : 1;
-    const ratio = Math.max(0.5, Math.min(dpr, this.quality.pixelRatio) * this.pressure.resolutionScale);
+    const active = this.lensActive();
+    const key = `${this.quality.tier}|${innerWidth}|${innerHeight}|${dpr}|${this.pressure.resolutionScale}|${active ? 1 : 0}|${this.budget.targetBytes}`;
+    if (key === this.ratioKey) return this.ratioCached;
+    let scale = this.pressure.resolutionScale;
+    if (active) {
+      scale *= lensBudgetScale(
+        this.quality.tier, innerWidth, innerHeight, dpr, this.quality.pixelRatio, scale, this.budget.targetBytes,
+      );
+    }
+    const ratio = Math.max(0.5, Math.min(dpr, this.quality.pixelRatio) * scale);
+    this.ratioKey = key;
+    this.ratioCached = ratio;
+    return ratio;
+  }
+
+  private applyPixelRatio(): void {
+    const ratio = this.drawingRatio();
     this.pixelScale = ratio;
     this.renderer.setPixelRatio(ratio);
     this.renderer.setSize(innerWidth, innerHeight, false);
+  }
+
+  /** Rain softens by its own distance while a lens is drawing. Walk and fly leave the streaks thin. */
+  private syncRainDefocus(): void {
+    const photo = this.photoMod?.active ? this.photoMod.defocus() : null;
+    const cine = this.cams?.mode === 'cine' ? this.cams.cine.lens : null;
+    const src = photo ?? (cine ? { focus: cine.focus, focalMm: cine.focalMm, fStop: cine.fStop } : null);
+    if (!src || !this.renderer) {
+      this.rain.setDefocus(null);
+      return;
+    }
+    this.renderer.getDrawingBufferSize(this.lensSize);
+    this.rain.setDefocus({
+      focus: src.focus,
+      focalMm: src.focalMm,
+      fStop: src.fStop,
+      sensor: this.camera.getFilmHeight(),
+      viewHeight: this.lensSize.y,
+      maxPx: CAPTURE_CAPS[this.quality.tier].dofPx,
+      fovDeg: this.camera.fov,
+    });
   }
 
   private rtBytes(): number {
@@ -452,7 +507,7 @@ export class App {
     const jsRatio = this.budget.jsHeapBytes > 0 ? heap / this.budget.jsHeapBytes : 0;
     const gpuRatio = this.budget.gpuBytes > 0 ? gpu / this.budget.gpuBytes : 0;
     this.pressure = stepGovernor(this.pressure, Math.max(jsRatio, gpuRatio), 1, frameMs);
-    if (Math.abs(this.pixelScale - Math.min(devicePixelRatio || 1, this.quality.pixelRatio) * this.pressure.resolutionScale) > 0.03) {
+    if (Math.abs(this.pixelScale - this.drawingRatio()) > 0.03) {
       this.applyPixelRatio();
     }
     resources.setMipBias(this.viewMipBias());
@@ -651,6 +706,7 @@ export class App {
       fillEmptyAirLights(lamps.map((p) => ({ ...p, radius: 18, r: 0.55, g: 0.64, b: 0.72 })));
     }
     const coastLean = 1 + Math.max(coast.crest * 0.85, coast.near * (stormDrive.on ? 0.35 : 0.08));
+    this.syncRainDefocus();
     this.rain.update(simDt, cam, w.params.rain * aboveClouds, w.params.wind * coastLean, w.windDir, this.quality.rainCount);
     this.snow.update(simDt, cam, w.params.snow * aboveClouds, w.params.wind, w.windDir, this.quality.snowCount);
     const at = this.cams.mode === 'walk' ? this.cams.walk.pos : cam;
@@ -861,13 +917,16 @@ export class App {
     if (document.pointerLockElement) document.exitPointerLock();
     this.spinnerWasVisible = this.cams.fly.spinner.visible;
     this.cams.fly.spinner.visible = false;
+    this.releasePlayLens();
     this.photoMod.enter();
+    this.applyPixelRatio();
   }
 
   private exitPhoto(): void {
     if (!this.photoMod?.active || this.captureLock) return;
     this.photoMod.exit();
     this.cams.fly.spinner.visible = this.spinnerWasVisible;
+    this.applyPixelRatio();
   }
 
   private photoHost(): PhotoHost {

@@ -400,6 +400,12 @@ export class PhotoMode {
     }
   }
 
+  /** Lens the rain streaks follow. Null when photo mode is closed. */
+  defocus(): { focus: number; focalMm: number; fStop: number } | null {
+    if (!this.active) return null;
+    return { focus: this.cam.focus, focalMm: this.cam.focal, fStop: this.state.fStop };
+  }
+
   snapshot(): PhotoState {
     return { ...this.state, focal: this.cam.focal, focus: this.cam.focus, roll: this.cam.roll, orbit: this.cam.orbit };
   }

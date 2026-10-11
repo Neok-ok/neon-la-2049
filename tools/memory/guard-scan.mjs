@@ -18,6 +18,9 @@ const FILES = [
   'src/roads/detail.ts',
   'src/roads/material.ts',
   'src/roads/textures.ts',
+  'src/photo/lensNode.ts',
+  'src/photo/pipeline.ts',
+  'src/photo/playLens.ts',
 ];
 
 const CONSTRUCT = /new\s+(BufferGeometry|DataTexture|CanvasTexture|CompressedTexture|WebGLRenderTarget|RenderTarget|MeshStandardNodeMaterial|MeshBasicNodeMaterial)\b/;

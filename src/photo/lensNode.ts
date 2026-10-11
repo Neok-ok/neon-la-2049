@@ -6,8 +6,9 @@
 //
 // Circle of confusion, millimetres, then pixels of the film height:
 //   c = (f^2 / (N * (S - f))) * |S - D| / D
-// The blur is a half-resolution disc: a box prefilter, then a feathered circle whose taps
-// read a quarter-resolution plate so they overlap instead of copying a sign. The full-resolution
+// The blur is a half-resolution disc: a box prefilter, then a feathered circle. Wide circles
+// read a quarter-resolution gaussian, blurred in two passes and weighted by depth, so a far
+// wall becomes one continuous field instead of a row of upright colour bands. The full-resolution
 // picture is kept wherever the circle is under about a pixel. The upsample keeps a texel whose
 // focus does not match, and falls back to that pixel's own disc rather than the sharp frame,
 // so an in-focus edge cannot leak into the blur.
@@ -15,14 +16,17 @@
 // substitute its own orthographic range and push every pixel to the blur clamp.
 // At 720p a 55 mm circle is only a couple of pixels from the near wall to the end of the street.
 // The radius therefore follows focus error, focal length, and f-stop, and stops at the tier clamp.
-// Wide circles gather the quarter-resolution plate.
+// Wide circles gather the quarter-resolution field. The targets follow the drawing buffer
+// (the governor's size) and are registered with the resource manager for the life of the rig.
 // Anamorphic squeeze stretches the gather vertically (oval bokeh after the desqueeze).
 // Edge fringing is a fraction of a pixel at the frame edge. Grain is a hashed value, heavier in the shadows.
 
-import { HalfFloatType, Matrix4, NearestFilter, NodeUpdateType, Vector2, Vector3, type PerspectiveCamera } from 'three/webgpu';
+import { HalfFloatType, Matrix4, NearestFilter, NodeUpdateType, Vector2, Vector3, type PerspectiveCamera, type RenderTarget, type Texture } from 'three/webgpu';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import * as TSL from 'three/tsl';
+import { resources, runTracked } from '../core/memory';
 import { gradeById } from './grades';
+import { BOKEH } from './bokeh';
 import { CAPTURE_CAPS, dofDisc } from './limits';
 import type { GradeId } from './types';
 import type { Tier } from '../core/quality';
@@ -115,9 +119,31 @@ export function createLensRig(
   const uDofTexel = T.uniform(new Vector2(1, 1));
   let tiled = false;
 
-  const scenePass = T.pass(scene, camera, { samples: 0 });
-  const color = scenePass.getTextureNode('output');
-  const depth = scenePass.getTextureNode('depth');
+  const tracked: object[] = [];
+  const lensRtt = (node: unknown, options: object, label: string): any => {
+    let rtt: any;
+    const rt = resources.target(() => {
+      rtt = T.rtt(node, null, null, options);
+      rtt.name = label;
+      return rtt.renderTarget as RenderTarget;
+    }, { label, owner: 'lens' });
+    tracked.push(rt);
+    return rtt;
+  };
+
+  let scenePass: LensRig['scenePass'] & { renderTarget: RenderTarget; getTextureNode(name: string): unknown };
+  const sceneRt = resources.target(() => {
+    scenePass = T.pass(scene, camera, { samples: 0 });
+    return scenePass.renderTarget;
+  }, { label: 'lens-scene', owner: 'lens' });
+  tracked.push(sceneRt);
+  const depthTex = scenePass!.renderTarget.depthTexture as Texture | null;
+  if (depthTex) {
+    resources.tag(depthTex, { label: 'lens-depth', owner: 'lens' });
+    tracked.push(depthTex);
+  }
+  const color = scenePass!.getTextureNode('output') as any;
+  const depth = scenePass!.getTextureNode('depth') as any;
 
   const rttOptions = { type: HalfFloatType, depthBuffer: false, generateMipmaps: false, resolutionScale: cap.dofScale };
   const rings = Math.max(1, cap.dofRings);
@@ -138,14 +164,16 @@ export function createLensRig(
     // The near wall and the end of the street sit at similar sensor circles. Open the
     // background first so the focused signs stay readable while the canyon melts.
     const farther = T.smoothstep(T.float(0), T.float(0.02), distM.sub(focusM));
-    const nearFall = T.smoothstep(T.float(0.32), T.float(1.05), rel);
-    const farFall = T.smoothstep(T.float(0.1), T.float(0.62), rel);
+    const nearFall = T.smoothstep(T.float(BOKEH.near0), T.float(BOKEH.near1), rel);
+    const farFall = T.smoothstep(T.float(BOKEH.far0), T.float(BOKEH.far1), rel);
     const falloff = T.mix(nearFall, farFall, farther);
-    const stop = T.smoothstep(T.float(11), T.float(2), nStop);
-    const focalW = T.smoothstep(T.float(32), T.float(58), f);
+    const stop = T.smoothstep(T.float(BOKEH.stopHi), T.float(BOKEH.stopLo), nStop);
+    const focalW = T.smoothstep(T.float(BOKEH.focalLo), T.float(BOKEH.focalHi), f);
     const shaped = falloff.mul(stop).mul(focalW).mul(uMaxPx);
     return T.min(T.max(physical, shaped), uMaxPx);
   };
+
+  const viewDistAt = (uvNode: unknown) => T.abs(T.perspectiveDepthToViewZ(depth.sample(uvNode).r, uNear, uFar));
 
   // Box-downsample the linear picture so each disc sample is already a small average, not a copy of a sign.
   const prefilterNode = T.Fn(() => {
@@ -159,28 +187,48 @@ export function createLensRig(
       .add(color.sample(uv.add(T.vec2(hx.mul(-1), hy.mul(-1)))).rgb);
     return T.vec4(acc.mul(0.25), 1);
   })();
-  const prefilter = T.rtt(prefilterNode, null, null, rttOptions);
+  const prefilter = lensRtt(prefilterNode, rttOptions, 'dof-prefilter');
   prefilter.updateBeforeType = NodeUpdateType.NONE;
-  prefilter.name = 'dof-prefilter';
 
-  // A round plate already blurred by about two dozen pixels. Wide taps read this, so they
-  // overlap into one disc instead of reprinting a sign.
-  const softNode = T.Fn(() => {
-    const uv = T.uv();
+  // Separable gaussian at quarter resolution. Horizontal taps melt upright bands into one
+  // field. A sample much closer than this pixel is dropped, so the focused signs stay out of it.
+  const gauss = gauss1d(24, 56, 4);
+  const weigh = (center: any, dist: any, k: number) => {
+    const closer = T.smoothstep(T.float(14), T.float(36), center.sub(dist));
+    return T.float(k).mul(T.float(1).sub(closer.mul(0.92)));
+  };
+  const softHNode = T.Fn(() => {
+    const uv0 = T.uv();
     const texel = T.vec2(1, 1).div(T.max(uDrawSize, T.vec2(1, 1)));
-    const kernel = softDisc();
+    const center = viewDistAt(uv0);
     let acc = T.vec3(0, 0, 0);
-    let w = T.float(0);
-    for (const [x, y, k] of kernel) {
-      const sample = color.sample(T.clamp(uv.add(T.vec2(x, y).mul(texel)), T.vec2(0, 0), T.vec2(1, 1))).rgb;
-      acc = acc.add(sample.mul(k));
-      w = w.add(k);
+    let wsum = T.float(0);
+    for (const [x, k] of gauss) {
+      const uv = T.clamp(uv0.add(T.vec2(texel.x.mul(x), 0)), T.vec2(0, 0), T.vec2(1, 1));
+      const w = weigh(center, viewDistAt(uv), k);
+      acc = acc.add(color.sample(uv).rgb.mul(w));
+      wsum = wsum.add(w);
     }
-    return T.vec4(acc.div(T.max(w, T.float(0.0001))), 1);
+    return T.vec4(acc.div(T.max(wsum, T.float(0.0001))), 1);
   })();
-  const soft = T.rtt(softNode, null, null, { ...rttOptions, resolutionScale: 0.25 });
+  const softH = lensRtt(softHNode, { ...rttOptions, resolutionScale: 0.25 }, 'dof-soft-h');
+  softH.updateBeforeType = NodeUpdateType.NONE;
+  const softNode = T.Fn(() => {
+    const uv0 = T.uv();
+    const texel = T.vec2(1, 1).div(T.max(uDrawSize, T.vec2(1, 1)));
+    const center = viewDistAt(uv0);
+    let acc = T.vec3(0, 0, 0);
+    let wsum = T.float(0);
+    for (const [y, k] of gauss) {
+      const uv = T.clamp(uv0.add(T.vec2(0, texel.y.mul(y))), T.vec2(0, 0), T.vec2(1, 1));
+      const w = weigh(center, viewDistAt(uv), k);
+      acc = acc.add(softH.sample(uv).rgb.mul(w));
+      wsum = wsum.add(w);
+    }
+    return T.vec4(acc.div(T.max(wsum, T.float(0.0001))), 1);
+  })();
+  const soft = lensRtt(softNode, { ...rttOptions, resolutionScale: 0.25 }, 'dof-soft');
   soft.updateBeforeType = NodeUpdateType.NONE;
-  soft.name = 'dof-soft';
 
   // Small circles read the half-res plate. Wide circles read the quarter-res blur and stay
   // one disc. Alpha stores the centre circle for the upsample.
@@ -230,19 +278,18 @@ export function createLensRig(
       const radial = T.length(T.vec2(T.float(ox), T.float(oy))).div(rings);
       const rim = T.mix(T.float(0.84), T.float(1.16), T.smoothstep(T.float(0.4), T.float(1), radial));
       const w = gate.mul(rim).mul(T.float(1).sub(sharper.mul(0.94))).mul(T.float(1).sub(closer.mul(0.8)));
-      const useWide = T.smoothstep(T.float(10), T.float(22), reach);
+      const useWide = T.smoothstep(T.float(12), T.float(26), reach);
       const rgb = T.mix(prefilter.sample(tightUv).rgb, soft.sample(wideUv).rgb, useWide);
       const luma = rgb.dot(T.vec3(0.2126, 0.7152, 0.0722));
       const hot = T.smoothstep(T.float(0.9), T.float(2.6), luma);
-      const punch = T.mix(T.float(1), T.float(1).add(hot.mul(0.5)), T.smoothstep(T.float(6), T.float(16), reach));
+      const punch = T.mix(T.float(1), T.float(1).add(hot.mul(0.35)), T.smoothstep(T.float(6), T.float(16), reach).mul(T.float(1).sub(useWide)));
       acc = acc.add(rgb.mul(punch).mul(w));
       wsum = wsum.add(w);
     });
     return T.vec4(acc.div(T.max(wsum, T.float(0.0001))), centerCoc);
   })();
-  const gather = T.rtt(gatherNode, null, null, { ...rttOptions, magFilter: NearestFilter, minFilter: NearestFilter });
+  const gather = lensRtt(gatherNode, { ...rttOptions, magFilter: NearestFilter, minFilter: NearestFilter }, 'dof-gather');
   gather.updateBeforeType = NodeUpdateType.NONE;
-  gather.name = 'dof-gather';
 
   const optical = T.Fn(() => {
     const uv0 = T.uv();
@@ -325,13 +372,28 @@ export function createLensRig(
   let bloomNode: LensRig['bloom'] = null;
   if (withBloom && bloomSpec) {
     const source = bloomSpec.from === 'scene' ? color : optical;
-    const node = bloom(source, bloomSpec.strength, bloomSpec.radius, bloomSpec.threshold);
+    const node = runTracked(() => bloom(source, bloomSpec.strength, bloomSpec.radius, bloomSpec.threshold));
+    const internals = node as unknown as {
+      _renderTargetBright?: RenderTarget;
+      _renderTargetsHorizontal?: RenderTarget[];
+      _renderTargetsVertical?: RenderTarget[];
+    };
+    const bloomTargets = [
+      internals._renderTargetBright,
+      ...(internals._renderTargetsHorizontal ?? []),
+      ...(internals._renderTargetsVertical ?? []),
+    ];
+    bloomTargets.forEach((rt, i) => {
+      if (!rt) return;
+      resources.tag(rt, { label: `lens-bloom-${i}`, owner: 'lens' });
+      tracked.push(rt);
+    });
     bloomNode = node as unknown as LensRig['bloom'];
     image = optical.add(node);
   }
 
   return finishRig(
-    scenePass, bloomNode, prefilter, soft, gather, image, camera, viewToPrev,
+    scenePass!, bloomNode, prefilter, softH, soft, gather, image, camera, viewToPrev,
     {
       uFocus, uFocal, uFStop, uSensor, uNear, uFar, uViewH, uProjX, uProjY, uAnamorphic, uFlare, uCa,
       uGrain, uVignette, uGradeMix, uMotion, uGrainSeed, uBloom, uLift, uGain, uSat, uContrast, uGamma,
@@ -340,6 +402,7 @@ export function createLensRig(
     () => tiled,
     (next) => { tiled = next; },
     cap.dofScale,
+    tracked,
   );
 }
 
@@ -360,6 +423,7 @@ function finishRig(
   scenePass: LensRig['scenePass'],
   bloomNode: LensRig['bloom'],
   prefilter: Pass,
+  softH: Pass,
   soft: Pass,
   gather: Pass,
   image: any,
@@ -369,6 +433,7 @@ function finishRig(
   isTiled: () => boolean,
   setTiled: (next: boolean) => void,
   dofScale: number,
+  tracked: object[],
 ): LensRig {
   const displayed = T.renderOutput(image);
   const printed = T.Fn(() => {
@@ -489,6 +554,7 @@ function finishRig(
       }
       scenePass.updateBefore(frame);
       prefilter.updateBefore(frame);
+      softH.updateBefore(frame);
       soft.updateBefore(frame);
       gather.updateBefore(frame);
       bloomNode?.updateBefore(frame);
@@ -504,8 +570,11 @@ function finishRig(
       }
     },
     dispose() {
+      for (const obj of tracked) resources.release(obj);
+      tracked.length = 0;
       bloomNode?.dispose();
       prefilter.dispose?.();
+      softH.dispose?.();
       soft.dispose?.();
       gather.dispose?.();
       scenePass.dispose?.();
@@ -513,22 +582,16 @@ function finishRig(
   };
 }
 
-/** Round plate, about a dozen full-resolution pixels across, so a wide tap is a disc and not a cross. */
-function softDisc(): Array<[number, number, number]> {
-  const pts: Array<[number, number, number]> = [[0, 0, 1]];
-  const rings: Array<{ r: number; n: number; w: number }> = [
-    { r: 8, n: 8, w: 0.7 },
-    { r: 16, n: 10, w: 0.45 },
-    { r: 26, n: 12, w: 0.24 },
-    { r: 36, n: 14, w: 0.12 },
-  ];
-  for (const ring of rings) {
-    for (let i = 0; i < ring.n; i++) {
-      const a = ((i + (ring.n % 2) * 0.5) / ring.n) * Math.PI * 2;
-      pts.push([Math.cos(a) * ring.r, Math.sin(a) * ring.r, ring.w]);
-    }
+/** Separable gaussian in full-resolution pixels. Weights sum to 1. */
+function gauss1d(sigma: number, radius: number, step: number): Array<[number, number]> {
+  const raw: Array<[number, number]> = [];
+  let sum = 0;
+  for (let x = -radius; x <= radius + 1e-4; x += step) {
+    const w = Math.exp(-0.5 * (x / sigma) ** 2);
+    raw.push([Math.round(x * 1000) / 1000, w]);
+    sum += w;
   }
-  return pts;
+  return raw.map(([x, w]) => [x, w / Math.max(1e-8, sum)]);
 }
 
 function flareOffsets(taps: number): Array<[number, number]> {
