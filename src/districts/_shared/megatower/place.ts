@@ -9,6 +9,7 @@ import type { LandmarkCollider, LandmarkEnv } from '../../../world/landmarks/reg
 import { LightKind as BeaconKind } from '../../../world/landmarks/Beacons';
 import type { Sign } from '../../../world/fabric/types';
 import { SignColor } from '../../../world/fabric/types';
+import { phraseSeed } from '../../../world/materials/signPhrases';
 import { frameToWorld, GeoSink, type KitFrame } from './geoSink';
 import { faceNormal, type KitHolo, type LightKind, type TowerParts } from './tower';
 import type { MassSink } from './sink';
@@ -38,6 +39,8 @@ export interface PlaceOptions {
   designs?: HoloDesignId[];
   colors?: number[];
   seed: number;
+  /** Atlas cells, in sign order. Omitted keeps a random seed (Wallace, gantries). */
+  phrases?: readonly number[];
 }
 
 /** World yaw of a face normal (matches signs / holograms: normal = (sin yaw, cos yaw)). */
@@ -96,7 +99,9 @@ export function placeKit(parts: TowerParts, frame: KitFrame, env: LandmarkEnv, o
     const list: Sign[] = parts.signs.map((s, i) => {
       const [x, z] = frameToWorld(frame, s.lx, s.lz);
       const yaw = faceYaw(frame, s.face) + (s.kind === 1 ? Math.PI / 2 : 0);
-      return { x, y: frame.y + s.y, z, yaw, w: s.w, h: s.h, color: s.color, seed: (o.seed * 7.1 + i * 0.137) % 1, kind: s.kind };
+      const cell = o.phrases?.length ? o.phrases[i % o.phrases.length]! : -1;
+      const seed = cell >= 0 ? phraseSeed(cell) : (o.seed * 7.1 + i * 0.137) % 1;
+      return { x, y: frame.y + s.y, z, yaw, w: s.w, h: s.h, color: s.color, seed, kind: s.kind };
     });
     signs = makeSignMesh(list);
   }

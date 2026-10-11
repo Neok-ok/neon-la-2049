@@ -65,6 +65,8 @@ export interface ResidentialParams {
    * Omit and no block is treated as a face.
    */
   face?: FaceBand;
+  /** Atlas cells for street signs. Omitted keeps the food list. */
+  phrases?: readonly number[];
 }
 
 export interface FaceBand {
@@ -159,7 +161,8 @@ export interface ResidentialPlan {
   signs: PlannedSign[];
 }
 
-const PHRASE = [2, 56, 60, 37, 7, 4, 57];
+const FOOD_PHRASE = [2, 56, 60, 37, 7, 4, 57];
+let activePhrases: readonly number[] = FOOD_PHRASE;
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
@@ -248,7 +251,7 @@ function signAt(
     s, t, hb, ha, face,
     along: rng.range(-4, 4),
     y: yy, w, h, color, kind: 0,
-    seed: phraseSeed(PHRASE[rng.int(0, PHRASE.length - 1)]!),
+    seed: phraseSeed(activePhrases[rng.int(0, activePhrases.length - 1)]!),
   });
 }
 
@@ -572,6 +575,16 @@ function buildCourt(
 }
 
 export function planResidential(block: ResBlock, params: ResidentialParams, layout: CityLayout): ResidentialPlan {
+  const prevPhrases = activePhrases;
+  activePhrases = params.phrases?.length ? params.phrases : FOOD_PHRASE;
+  try {
+    return planResidentialNow(block, params, layout);
+  } finally {
+    activePhrases = prevPhrases;
+  }
+}
+
+function planResidentialNow(block: ResBlock, params: ResidentialParams, layout: CityLayout): ResidentialPlan {
   const rng = new Rng(block.seed || 1);
   const { i, j } = gridIndex(block);
   const hubCell = params.hub

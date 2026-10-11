@@ -1,7 +1,7 @@
 // Screenshot and debug cameras for Stage 6 (`__nla.broadwayView`).
 import type { CityLayout } from '../../world/layout';
 import {
-  AX, AZ, BRADBURY_FRONT, BRADBURY_S, BRADBURY_T, BRIDGE_S, BRIDGE_T, BX, BZ,
+  AX, AZ, BLOCK_A, BRADBURY_FRONT, BRADBURY_S, BRADBURY_T, BROADWAY_T, BX, BZ,
   FACE_YAW, headingAlong, localToWorld,
 } from './spec';
 
@@ -39,9 +39,10 @@ export function broadwayCamera(layout: CityLayout, kind: BroadwayView): Broadway
   }
 
   if (kind === 'bridge') {
-    // Just north of the deck, a few metres off the centreline, looking up at the figure.
-    const p = at(layout, BRIDGE_S + 26, BRIDGE_T + 3.2, 0);
-    const target = at(layout, BRIDGE_S, BRIDGE_T, 20);
+    // North of the Broadway intersection, off the centreline, so the feet stay in frame.
+    const s = -7 * BLOCK_A;
+    const p = at(layout, s + 50, BROADWAY_T + 4.2, 0);
+    const target = at(layout, s, BROADWAY_T, 20);
     const horiz = Math.hypot(target.x - p.x, target.z - p.z) || 1;
     const pitch = Math.atan2(target.y - (p.g + 1.7), horiz);
     return {

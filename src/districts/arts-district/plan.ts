@@ -2,7 +2,7 @@
 // read the same function. No three.js.
 import { Rng } from '../../core/rng';
 import { Style, SignColor, type FaceDir, type StyleId } from '../../world/fabric/types';
-import { phraseSeed } from '../../world/materials/signPhrases';
+import { PHRASE_ARTS, phraseSeed } from '../../world/materials/signPhrases';
 import type { CityLayout } from '../../world/layout';
 import {
   HALL, foundryAt, type ArtsBlock, type FoundryId,
@@ -89,7 +89,7 @@ const DARK: RGB = [0.07, 0.065, 0.06];
 const RED: RGB = [0.85, 0.06, 0.04];
 const NONE: RGB = [0, 0, 0];
 
-const PHRASES = [2, 10, 23, 39, 47, 49, 58, 62];
+const PHRASES = PHRASE_ARTS;
 
 interface RiverHit {
   dist: number;

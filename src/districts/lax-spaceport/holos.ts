@@ -1,5 +1,5 @@
-// Two off-world ads on the terminal face. Existing designs, registerHologram only.
-// The glyphs are noise. The wedge is the lease loop. Neither is a carrier mark.
+// One glyph board on the terminal face. DEPART / CALDERA and the colony line are kind-0 signs.
+// The glyphs are noise. Neither is a carrier mark.
 import { SignColor } from '../../world/fabric/types';
 import type { CityLayout } from '../../world/layout';
 import { registerHologram } from '../../world/holograms/api';
@@ -20,17 +20,5 @@ export function installLaxHolos(layout: CityLayout): void {
     rank: 0,
     band: 'tower',
     spill: 22,
-  });
-  registerHologram({
-    id: 'lax-lease',
-    x: door.x + 52, y: y + 56, z,
-    yaw: Math.PI,
-    w: 36, h: 12,
-    design: 'lease-loop',
-    color: SignColor.Cyan,
-    seed: 0.61,
-    rank: 1,
-    band: 'tower',
-    spill: 16,
   });
 }

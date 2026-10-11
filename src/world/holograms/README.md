@@ -98,9 +98,9 @@ Do not reuse `dtla-hero-0` / `dtla-hero-1` (the flyover billboards in `showcase.
 
 | Id | Where | Design | Band |
 |---|---|---|---|
-| `joi-bridge-dancer` | Spring-side footbridge, bottom of the quad on the 11.2 m deck, normal facing north along the street | veil-dancer | tower |
+| `joi-bridge-dancer` | Broadway intersection, s = −770, t = −210. Feet at street level. The 11.2 m deck stays empty of the figure. | veil-dancer | tower |
 
-Rank 0, 14 × 46 m, pink, spill 28 m. Kind-2 billboards in the canyon still promote crane / coil / ribbon. They do not use `veil-dancer`.
+Rank 0, 15 × 68 m, pink, spill 36 m. Close to the camera, medium and above thicken the body; low stays a thin glyph. Rain scanlines still tear it. Kind-2 billboards in the canyon still promote crane / coil / ribbon. They do not use `veil-dancer`.
 
 ## Stage 16 placements
 
@@ -124,9 +124,8 @@ Every quad is well over 140 m². Heritage billboards on the strip (16 × 10 m) s
 | Id | Where | Design | Band |
 |---|---|---|---|
 | `lax-glyph` | 18 × 44 m, white, spill 22 m, rank 0 | glyph-loop | tower |
-| `lax-lease` | 36 × 12 m, cyan, spill 16 m, rank 1 | lease-loop | tower |
 
-Both quads are over 140 m². Terminal wayfinding stays kind 0. The gantries do not register hologram slots.
+DEPART, CALDERA and `CALDERA BERTH IS OPEN` are kind-0 signs beside the board. The lease wedge is gone. Terminal wayfinding stays kind 0. The gantries do not register hologram slots.
 
 ## Stage 18 placements
 
@@ -135,9 +134,8 @@ Both quads are over 140 m². Terminal wayfinding stays kind 0. The gantries do n
 | Id | Where | Design | Band |
 |---|---|---|---|
 | `south-bay-hazard` | 12 × 16 m, amber, spill 14 m, rank 0 | glyph-loop | street |
-| `south-bay-share` | 16 × 10 m, cyan, spill 12 m, rank 1 | lease-loop | street |
 
-The glyphs are noise. The wedge is the existing share ad. No refinery name. Yard stencils stay kind 0.
+The share ad is gone. The glyphs are noise. No refinery name. Yard stencils stay kind 0.
 
 ## Stage 19 placements
 

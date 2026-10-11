@@ -69,7 +69,7 @@ export interface HeritageBuild {
   signs: HeritageSign[];
 }
 
-const PHRASES = [2, 4, 3, 20, 23, 39, 48, 58, 59, 62, 1, 5, 49, 16, 19, 47];
+const PHRASES = [2, 3, 48, 51, 53, 62, 1, 5, 16, 20, 23, 9, 85, 52, 88];
 const COLORS = [SignColor.Pink, SignColor.Violet, SignColor.Amber, SignColor.Cyan, SignColor.Red, SignColor.Yellow];
 
 function hash(seed: number, i: number): number {
@@ -108,7 +108,7 @@ export function faceSize(face: FaceDir, w: number, d: number): { lb: number; la:
   return { lb: d, la: w };
 }
 
-export function buildHeritage(plan: HeritagePlan): HeritageBuild {
+export function buildHeritage(plan: HeritagePlan, phrases: readonly number[] = PHRASES): HeritageBuild {
   const pieces: HeritagePiece[] = [];
   const signs: HeritageSign[] = [];
   const width = Math.max(6, plan.width);
@@ -181,7 +181,7 @@ export function buildHeritage(plan: HeritagePlan): HeritageBuild {
     signs.push({
       x: 0, y: 4.55, w: Math.min(8.5, mw * 0.72), h: 1.15,
       color: COLORS[Math.floor(hash(seed, 2) * COLORS.length)]!, kind: 0,
-      phrase: PHRASES[Math.floor(hash(seed, 3) * PHRASES.length)]!,
+      phrase: phrases[Math.floor(hash(seed, 3) * phrases.length)]!,
     });
   }
 
@@ -195,7 +195,7 @@ export function buildHeritage(plan: HeritagePlan): HeritageBuild {
     }
   }
 
-  blades(signs, plan, width, frontH, height, seed);
+  blades(signs, plan, width, frontH, height, seed, phrases);
   return { pieces, signs };
 }
 
@@ -224,7 +224,7 @@ function crown(
   }
 }
 
-function blades(signs: HeritageSign[], plan: HeritagePlan, width: number, frontH: number, height: number, seed: number): void {
+function blades(signs: HeritageSign[], plan: HeritagePlan, width: number, frontH: number, height: number, seed: number, phrases: readonly number[]): void {
   const stacks = width > 22 ? 2 : 1;
   const n = Math.max(0, Math.min(6, plan.blades));
   for (let s = 0; s < stacks; s++) {
@@ -238,7 +238,7 @@ function blades(signs: HeritageSign[], plan: HeritagePlan, width: number, frontH
         x, y: y + h / 2, w, h,
         color: COLORS[Math.floor(hash(seed, 20 + s * 5 + i) * COLORS.length)]!,
         kind: 1,
-        phrase: PHRASES[Math.floor(hash(seed, 30 + i + s) * PHRASES.length)]!,
+        phrase: phrases[Math.floor(hash(seed, 30 + i + s) * phrases.length)]!,
       });
       y += h + 0.55;
     }
@@ -254,7 +254,7 @@ function blades(signs: HeritageSign[], plan: HeritagePlan, width: number, frontH
         x, y: y + h / 2, w: 1.7, h,
         color: COLORS[Math.floor(hash(seed, 40 + i) * COLORS.length)]!,
         kind: 1,
-        phrase: PHRASES[Math.floor(hash(seed, 41 + i) * PHRASES.length)]!,
+        phrase: phrases[Math.floor(hash(seed, 41 + i) * phrases.length)]!,
       });
       y += h + 0.7;
     }
@@ -264,7 +264,7 @@ function blades(signs: HeritageSign[], plan: HeritagePlan, width: number, frontH
       x: 0, y: frontH + (height - frontH) * 0.55, w: 16, h: 10,
       color: COLORS[Math.floor(hash(seed, 50) * COLORS.length)]!,
       kind: 2,
-      phrase: PHRASES[4]!,
+      phrase: 48,
     });
   }
 }

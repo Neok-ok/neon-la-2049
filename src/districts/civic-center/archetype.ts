@@ -2,7 +2,7 @@
 // City Hall is left empty so the two stairs can see each other. No walkway decks: those belong to DTLA.
 import { registerArchetype } from '../../world/fabric/registry';
 import { Style, SignColor } from '../../world/fabric/types';
-import { phraseSeed } from '../../world/materials/signPhrases';
+import { PHRASE_CIVIC, phraseSeed } from '../../world/materials/signPhrases';
 import { buildMegablock, type MegablockForm } from '../_shared/megablock/build';
 import { FabricSink } from '../_shared/megatower/fabricSink';
 import { inCivicMall, mallAxis } from './spec';
@@ -38,7 +38,7 @@ registerArchetype('civic-center', (ctx) => {
       }
       ctx.box(lot.s, lot.t, 2.2, 2.2, r.range(4, 9), { style: Style.Industrial, lit: 0, tint: 0.6, base: H, detail: 2 });
       if (r.chance(0.35)) {
-        ctx.sign(lot.s, lot.t, lot.lb * 0.5, lot.la * 0.5, 'a+', 0, plinth + 2.2, r.range(3.5, 6), 1.2, SignColor.White, 0, phraseSeed(39));
+        ctx.sign(lot.s, lot.t, lot.lb * 0.5, lot.la * 0.5, 'a+', 0, plinth + 2.2, r.range(3.5, 6), 1.2, SignColor.White, 0, phraseSeed(PHRASE_CIVIC[r.int(0, PHRASE_CIVIC.length - 1)]!));
       }
       continue;
     }
@@ -63,7 +63,7 @@ registerArchetype('civic-center', (ctx) => {
     if (r.chance(0.2)) {
       ctx.sign(
         lot.s, lot.t, lot.lb * 0.47, lot.la * 0.47, r.chance(0.5) ? 'a+' : 'b+',
-        0, r.range(6, 16), r.range(3.2, 6.5), 1.3, SignColor.White, 0, phraseSeed(r.chance(0.7) ? 39 : 62),
+        0, r.range(6, 16), r.range(3.2, 6.5), 1.3, SignColor.White, 0, phraseSeed(PHRASE_CIVIC[r.int(0, PHRASE_CIVIC.length - 1)]!),
       );
     }
   }

@@ -6,6 +6,9 @@ import {
 } from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import type { CityLayout } from '../../world/layout';
+import { SignColor, type Sign } from '../../world/fabric/types';
+import { makeSignMesh } from '../../world/materials/signMesh';
+import { CELL, phraseSeed } from '../../world/materials/signPhrases';
 import { U } from '../../atmosphere/uniforms';
 import { freewayRoutes } from '../../vehicles/trafficRegistry';
 import { eastLaCrossings, type Crossing } from './crossings';
@@ -253,11 +256,31 @@ export function mountEastLaInterchanges(layout: CityLayout): Group | null {
   const depth = i10Depth();
   const concrete = new Ribbon();
   const glow = new Ribbon();
-  for (const c of list) addCrossing(layout, c, depth, concrete, glow);
+  const paper: Sign[] = [];
+  for (const c of list) {
+    addCrossing(layout, c, depth, concrete, glow);
+    if (c.id !== 'el-5-10') continue;
+    const grade = layout.heightAt(c.x, c.z);
+    paper.push({
+      x: c.x + c.vx * 36,
+      y: grade + 2.8,
+      z: c.z + c.vz * 36,
+      yaw: Math.atan2(-c.vx, -c.vz),
+      w: 7.2, h: 1.8,
+      color: SignColor.Amber,
+      seed: phraseSeed(CELL.GRID_DOWN),
+      kind: 0,
+    });
+  }
   const group = new Group();
   group.name = 'east-la-interchange';
   const deck = concrete.mesh(concreteMaterial(), 'east-la-deck');
   const lamps = glow.mesh(glowMaterial(), 'east-la-deck-glow');
+  if (paper.length) {
+    const mesh = makeSignMesh(paper);
+    mesh.name = 'east-la-grid-down';
+    group.add(mesh);
+  }
   if (deck) group.add(deck);
   if (lamps) {
     lamps.renderOrder = 2;

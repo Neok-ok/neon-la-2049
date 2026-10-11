@@ -1,6 +1,7 @@
 // Lakewood / Downey numbers. The shared planner stays free of this district's coordinates.
 import { geoToLocal } from '../../world/geo';
 import type { ResidentialParams } from '../_shared/residential/plan';
+import { PHRASE_WASH } from '../../world/materials/signPhrases';
 
 export const BEARING = 0;
 export const BLOCK_A = 210;
@@ -35,4 +36,5 @@ export const LAKEWOOD_PARAMS: ResidentialParams = {
   hub: { x: hubX, z: hubZ },
   seam: { x: kX, z: kZ, radius: 1450 },
   seamLit: [0.15, 0.24],
+  phrases: PHRASE_WASH,
 };

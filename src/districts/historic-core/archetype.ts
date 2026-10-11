@@ -1,9 +1,9 @@
 // Broadway canyon fabric. Heritage bays on the street faces, named theatres where the real
 // houses stand, a hole where the Bradbury landmark owns the lot. Boxes only.
 import { registerArchetype } from '../../world/fabric/registry';
-import { Style, type FaceDir, type StyleId } from '../../world/fabric/types';
+import { SignColor, Style, type FaceDir, type StyleId } from '../../world/fabric/types';
 import type { FabricCtx } from '../../world/fabric/types';
-import { phraseSeed } from '../../world/materials/signPhrases';
+import { CELL, PHRASE_HERITAGE, phraseSeed } from '../../world/materials/signPhrases';
 import {
   buildHeritage, faceSize, projectFace,
   type HeritageCrown, type HeritageFamily, type HeritagePlan,
@@ -128,7 +128,7 @@ registerArchetype('historic-core', (ctx) => {
       if (r.chance(0.7)) {
         const signS = geom.along === 's' ? r.range(-w * 0.2, w * 0.2) : geom.plane;
         const signT = geom.along === 't' ? r.range(-w * 0.2, w * 0.2) : geom.plane;
-        ctx.sign(signS, signT, 0, 0, geom.face, 0, r.range(8, 16), 1.6, r.range(6, 9), r.int(0, 5), 1, phraseSeed(r.int(0, 63)));
+        ctx.sign(signS, signT, 0, 0, geom.face, 0, r.range(8, 16), 1.6, r.range(6, 9), r.int(0, 5), 1, phraseSeed(PHRASE_HERITAGE[r.int(0, PHRASE_HERITAGE.length - 1)]!));
       }
       continue;
     }
@@ -153,6 +153,13 @@ registerArchetype('historic-core', (ctx) => {
     // The Bradbury landmark owns this interval. Side bays still fill the rest of the face.
     if (b.i === BRADBURY_I && b.j === BRADBURY_J && geom.face === 'b-') {
       occupied.push([BRADBURY_HOLE.s0 - 0.4, BRADBURY_HOLE.s1 + 0.4]);
+      const shutterS = BRADBURY_HOLE.s1 + 8;
+      occupied.push([shutterS - 2.4, shutterS + 2.4]);
+      const faceT = -b.lb / 2;
+      ctx.box(shutterS, faceT + 0.28, 0.42, 3.6, 2.7, {
+        style: Style.Solid, lit: 0.03, tint: 0.32, base: 0.3,
+      });
+      ctx.sign(shutterS, faceT, 0, 0, 'b-', 0, 1.65, 3.2, 0.9, SignColor.Amber, 0, phraseSeed(CELL.CURFEW));
     }
 
     const runs = freeRuns(geom.span, occupied, 12);

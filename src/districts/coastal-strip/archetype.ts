@@ -2,11 +2,11 @@
 // those families are 90–250 m and the wrong façade. Heights stay 15–60 m.
 import { registerArchetype } from '../../world/fabric/registry';
 import { SignColor, Style } from '../../world/fabric/types';
-import { phraseSeed } from '../../world/materials/signPhrases';
+import { PHRASE_WATER, phraseSeed } from '../../world/materials/signPhrases';
 import { inApron } from './apronPlan';
 import { nearSeaWall } from './profile';
 
-const PHRASES = [2, 39, 50, 58, 62];
+const PHRASES = PHRASE_WATER;
 
 registerArchetype('coastal-grey', (ctx) => {
   const r = ctx.rng;

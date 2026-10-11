@@ -7,7 +7,7 @@ import { Style, SignColor, type FaceDir } from '../../world/fabric/types';
 import type { CityLayout } from '../../world/layout';
 import { distToSegment } from '../../world/layout';
 import { SIGN_RGB } from '../../world/materials/signPalette';
-import { phraseSeed } from '../../world/materials/signPhrases';
+import { PHRASE_DTLA, phraseSeed } from '../../world/materials/signPhrases';
 import type { KitDetail, MassSink, FaceStyle } from '../_shared/megatower/sink';
 import { buildTower, type CrownKind, type Face, type KitSign, type TowerForm } from '../_shared/megatower/tower';
 import { buildMegablock, type FacadeFamily, type MegablockForm, type MegablockParts } from '../_shared/megablock/build';
@@ -20,7 +20,7 @@ const TOWER_FORMS: TowerForm[] = ['slab', 'stepped', 'stack', 'blade'];
 const TOWER_CROWNS: CrownKind[] = ['hammer', 'stepped', 'flare', 'blade'];
 const PAL = [SignColor.Cyan, SignColor.Pink, SignColor.White, SignColor.Violet, SignColor.Amber, SignColor.Red];
 /** Atlas cells that read as downtown commerce rather than a food stall. */
-const PHRASES = [2, 4, 19, 25, 39, 49, 58, 62];
+const PHRASES = PHRASE_DTLA;
 
 export interface DtlaBlock {
   cx: number;

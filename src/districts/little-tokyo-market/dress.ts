@@ -436,7 +436,7 @@ export function dressBlock(b: MarketBlock, layout: CityLayout): Dressing {
       };
       placeFacingStreet(0, 1.95, Math.min(2.6, sl.w * 0.5), 0.58, SignColor.Amber, phraseSeed(bar ? 3 : 0));
       placeFacingStreet(-sl.w * 0.28, 1.72, Math.min(1.3, sl.w * 0.28), 0.7, bar ? SignColor.Violet : SignColor.Red, phraseSeed(bar ? 21 : 9));
-      placeFacingStreet(sl.w * 0.28, 1.72, Math.min(1.3, sl.w * 0.28), 0.7, SignColor.Cyan, phraseSeed(bar ? 16 : 40));
+      placeFacingStreet(sl.w * 0.28, 1.72, Math.min(1.3, sl.w * 0.28), 0.7, SignColor.Cyan, phraseSeed(bar ? 16 : 48));
 
       const entranceS = fs - sl.os * 0.85;
       const entranceT = ft - sl.ot * 0.85;

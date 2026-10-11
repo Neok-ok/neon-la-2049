@@ -22,7 +22,7 @@ Invented heights are recorded in the Bible. Nothing here crosses 120 m, so the m
 
 Ground above 45 m still swaps to `hills-sparse` before this archetype runs. The planner returns no buildings there. About one slope block in three gets a small warm lamp in the detail pass.
 
-Landmark `veil-mark` is five atlas panels on 50 m pylons (10.5 × 42 m, span 13 m), facing south, at block i = 39, j = −129 (34.109356 N / 118.369091 W). Phrases are latin `KASAI`, kana `MIDORI`, `OPEN LATE`, `NIGHT MARKET`, and `2049`. Kind 0, so the hologram field does not replace the text. Warm beacons sit on the pylons. The mesh stays on at every distance. Reserve radius 34 m.
+Landmark `veil-mark` is five atlas panels on 50 m pylons (10.5 × 42 m, span 13 m), facing south, at block i = 39, j = −129 (34.109356 N / 118.369091 W). Phrases are latin `KASAI`, kana `MIDORI`, `OPEN LATE`, hanzi `MIDORI`, and `2049`. Not `NIGHT MARKET`. Kind 0, so the hologram field does not replace the text. Warm beacons sit on the pylons. The mesh stays on at every distance. Reserve radius 34 m.
 
 Far-LOD ground lights for `hollywood-strip` are 1 and street neon is 0.86. The carpet lookup uses the JSON archetype, so the slopes glow with the strip even though their fabric is `hills-sparse`. `entertainment` stays 1 / 1 and unused. Basin, Westside, the belt and `industrial` are unchanged. The ground-light shader is unchanged.
 

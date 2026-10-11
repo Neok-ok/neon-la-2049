@@ -1,6 +1,7 @@
 // Westside numbers. The shared planner stays free of this district's streets.
 import { geoToLocal } from '../../world/geo';
 import type { SprawlFace, SprawlParams } from '../_shared/sprawl/plan';
+import { PHRASE_WESTSIDE } from '../../world/materials/signPhrases';
 
 export const BEARING = 0;
 export const BLOCK_A = 190;
@@ -62,4 +63,5 @@ export const WESTSIDE_PARAMS: SprawlParams = {
   hub: { x: hubX, z: hubZ },
   rise: EAST_EDGE,
   walls: true,
+  phrases: PHRASE_WESTSIDE,
 };
