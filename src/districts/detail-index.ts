@@ -2,6 +2,7 @@
 // The opening view is imported up front. Far districts load in parallel; ChunkStreamer
 // holds their LOD0 uploads until `farDetailsReady()`.
 import './_shared/streetLamps';
+import '../roads/detail';
 import './little-tokyo-market/details';
 import './dtla/details';
 import './dtla/crowd';

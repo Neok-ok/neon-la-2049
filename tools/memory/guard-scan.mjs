@@ -15,6 +15,9 @@ const FILES = [
   'src/world/materials/signAtlas.ts',
   'src/world/materials/cityMaterial.ts',
   'src/world/materials/signMaterial.ts',
+  'src/roads/detail.ts',
+  'src/roads/material.ts',
+  'src/roads/textures.ts',
 ];
 
 const CONSTRUCT = /new\s+(BufferGeometry|DataTexture|CanvasTexture|CompressedTexture|WebGLRenderTarget|RenderTarget|MeshStandardNodeMaterial|MeshBasicNodeMaterial)\b/;

@@ -35,6 +35,7 @@ registerStreetLattice({
 });
 
 // The 110 is the deep downtown cut. The 101 and the 10 are a little shallower.
+// US-101 lane spacing is 3.55 m, inside the 3.5–3.7 m audit band.
 // The other freeways stay on grade: far streaks only, so the basin reads from the air.
 registerFreewayTraffic({
   id: 'I-110', depth: 8.6, trench: true, vehicles: true,
@@ -42,7 +43,7 @@ registerFreewayTraffic({
 });
 registerFreewayTraffic({
   id: 'US-101', depth: 8.1, trench: true, vehicles: true,
-  lanes: 3, inset: 4.7, spacing: 3.45, streakLanes: 2, streakStep: 32, density: 0.9,
+  lanes: 3, inset: 4.7, spacing: 3.55, streakLanes: 2, streakStep: 32, density: 0.9,
 });
 registerFreewayTraffic({
   id: 'I-10', depth: 7.5, trench: true, vehicles: true,

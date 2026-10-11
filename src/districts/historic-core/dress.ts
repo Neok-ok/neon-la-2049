@@ -106,9 +106,10 @@ export function dressBlock(b: CanyonBlock, layout: CityLayout): {
         if (layout.isOcean(x, z)) continue;
         pts.push([x, z]);
         if (i % 2 === 0) {
+          // The kit cylinder is centred on Y, so 1.6 m of scale stands 0.8 m tall.
           props.push({
             template: 'cyl', x, y: b.ground, z, yaw: edge.yaw,
-            sx: 0.28, sy: 0.85, sz: 0.28,
+            sx: 0.28, sy: 1.6, sz: 0.28,
             color: CONCRETE, emissive: NONE, metal: 0.2, rank: 0,
           });
         }
