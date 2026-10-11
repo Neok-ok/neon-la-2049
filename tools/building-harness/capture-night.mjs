@@ -79,22 +79,23 @@ for (const tier of tiers) {
       await page.evaluate((p) => {
         const nla = window.__nla;
         const q = nla.app.query;
-        const side = 6;
-        let dist = Math.max((p.gap ?? 8) + 6, 16);
+        // Beside the flight, close enough that a 1.8 m person and the 2.2 m opening share the frame.
+        const side = 3.2;
+        let dist = 7.2;
         let cx = p.door[0];
         let cz = p.door[1];
-        for (let i = 0; i < 6; i++) {
+        for (let i = 0; i < 8; i++) {
           cx = p.door[0] + p.normal[0] * dist + p.bx * side;
           cz = p.door[1] + p.normal[1] * dist + p.bz * side;
-          if (!q.insideSolid(cx, p.ground + 1.2, cz, 0.7)) break;
-          dist += 3.5;
+          if (!q.insideSolid(cx, p.ground + 1.2, cz, 0.45)) break;
+          dist += 1.6;
         }
-        const aimX = p.door[0] + p.bx * 2.2;
-        const aimZ = p.door[1] + p.bz * 2.2;
+        const aimX = p.door[0] + p.bx * 0.4;
+        const aimZ = p.door[1] + p.bz * 0.4;
         const lookX = aimX - cx;
         const lookZ = aimZ - cz;
         const heading = Math.atan2(lookX, -lookZ);
-        const pitch = Math.atan2(2.2 - 1.7, Math.hypot(lookX, lookZ) || 1);
+        const pitch = Math.atan2(1.35 - 1.7, Math.hypot(lookX, lookZ) || 1);
         if (nla.app.cams.mode !== 'walk') nla.setMode('walk');
         nla.setPose(cx, p.ground + 2, cz, (heading * 180) / Math.PI, (pitch * 180) / Math.PI);
         const w = nla.app.cams.walk;
@@ -102,6 +103,21 @@ for (const tier of tiers) {
         w.heading = heading;
         w.pitch = pitch;
         nla.app.cams.fly.spinner.visible = false;
+      }, tower);
+      await settle(page, 1800);
+      await page.evaluate((p) => {
+        const nla = window.__nla;
+        const q = nla.app.query;
+        const w = nla.app.cams.walk;
+        let cx = w.pos.x;
+        let cz = w.pos.z;
+        for (let i = 0; i < 12; i++) {
+          if (!q.insideSolid(cx, p.ground + 1.2, cz, 0.4)) break;
+          cx += p.normal[0] * 1.5;
+          cz += p.normal[1] * 1.5;
+        }
+        w.pos.x = cx;
+        w.pos.z = cz;
       }, tower);
       await page.waitForFunction((door) => {
         const mesh = window.__nla?.app?.crowd?.mesh;
@@ -115,8 +131,8 @@ for (const tier of tiers) {
           const d = Math.hypot(e[i * 16 + 12] - door[0], e[i * 16 + 14] - door[1]);
           if (d < best) best = d;
         }
-        return best < 18;
-      }, tower.door, { timeout: 14_000 }).catch(() => {});
+        return best < 4.8;
+      }, tower.door, { timeout: 16_000 }).catch(() => {});
       const info = await page.evaluate((p) => {
         const nla = window.__nla;
         const mesh = nla.app.crowd.mesh;
@@ -140,7 +156,7 @@ for (const tier of tiers) {
           feet: [Number(w.pos.x.toFixed(1)), Number(w.pos.z.toFixed(1))],
         };
       }, tower);
-      await settle(page, 400);
+      await settle(page, 900);
       const file = `${tier}-${tower.kind}-street.png`;
       await shot(page, join(OUT, file));
       const st = await page.evaluate(() => window.__nla.stats());

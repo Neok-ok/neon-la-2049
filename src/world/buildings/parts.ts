@@ -128,6 +128,8 @@ export interface Skin {
   lit: number;
   tint: number;
   door: boolean;
+  /** Opening center along t, relative to the mass center. 0 keeps the door in the middle. */
+  doorT?: number;
 }
 
 /** A mass. When `door` is set and the piece touches the ground, the south face (a-) is a 2.2 m opening. */
@@ -138,25 +140,35 @@ export function skin(d: Draft, o: Skin): void {
     return;
   }
   const thick = 0.72;
+  const doorAt = t + (o.doorT ?? 0);
+  const massL = t - lb / 2;
+  const massR = t + lb / 2;
+  const doorL = doorAt - DOOR_W / 2;
+  const doorR = doorAt + DOOR_W / 2;
+  const leftW = doorL - massL;
+  const rightW = massR - doorR;
+  if (leftW < 0.3 || rightW < 0.3) {
+    addBox(d, { s, t, lb, la, h, base, style, lit, tint, detail: 0, role: 'mass' });
+    return;
+  }
   const bodyLa = Math.max(1.2, la - thick);
   const bodyS = s + thick / 2;
   addBox(d, { s: bodyS, t, lb, la: bodyLa, h, base, style, lit, tint, detail: 0, role: 'mass' });
   const ss = s - la / 2 + thick / 2;
-  const cheek = (lb - DOOR_W) / 2;
   const wall: Omit<BBox, 's' | 't' | 'lb' | 'la' | 'h' | 'base'> = {
     style, lit, tint, detail: 0,
   };
-  addBox(d, { ...wall, s: ss, t: t - (DOOR_W / 2 + cheek / 2), lb: cheek, la: thick, h, base, role: 'door-cheek' });
-  addBox(d, { ...wall, s: ss, t: t + (DOOR_W / 2 + cheek / 2), lb: cheek, la: thick, h, base, role: 'door-cheek' });
+  addBox(d, { ...wall, s: ss, t: (massL + doorL) / 2, lb: leftW, la: thick, h, base, role: 'door-cheek' });
+  addBox(d, { ...wall, s: ss, t: (doorR + massR) / 2, lb: rightW, la: thick, h, base, role: 'door-cheek' });
   const head = h - DOOR_H;
   if (head > 0.2) {
     addBox(d, {
-      ...wall, s: ss, t, lb: DOOR_W, la: thick, h: head, base: base + DOOR_H, role: 'door-header',
+      ...wall, s: ss, t: doorAt, lb: DOOR_W, la: thick, h: head, base: base + DOOR_H, role: 'door-header',
     });
   }
   const soffit = LIGHT_ROLES.doorSoffit;
   addBox(d, {
-    s: ss, t, lb: DOOR_W * 0.92, la: thick * 0.8,
+    s: ss, t: doorAt, lb: DOOR_W * 0.92, la: thick * 0.8,
     h: soffit.h, base: base + DOOR_H - soffit.h,
     style: soffit.style, lit: soffit.lit, tint: soffit.tint,
     detail: 1, ornament: 1, role: 'door-header',
@@ -169,7 +181,7 @@ export function skin(d: Draft, o: Skin): void {
   for (const side of [-1, 1]) {
     addBox(d, {
       ...glow,
-      s: outer - 0.04, t: t + side * (DOOR_W / 2 + 0.1),
+      s: outer - 0.04, t: doorAt + side * (DOOR_W / 2 + 0.1),
       lb: 0.16, la: 0.1, h: DOOR_H, base, role: 'door-jamb',
     });
   }

@@ -8,7 +8,7 @@ import { Rng } from '../../core/rng';
 import { Style } from '../fabric/types';
 import { AD_COLORS, LIGHT_ROLES } from './lights';
 import {
-  DOOR_H, RES_STOREY, STOREY, addBox, balcony, band, emptyDraft, entryFlight, glowCrown, mastTip, rail, skin, snap,
+  DOOR_H, DOOR_W, RES_STOREY, STOREY, addBox, balcony, band, emptyDraft, entryFlight, glowCrown, mastTip, rail, skin, snap,
   type Draft, type TowerKind,
 } from './parts';
 
@@ -336,9 +336,13 @@ function cantilever(d: Draft, spec: TowerSpec, H: number, y0: number, door: bool
 function lantern(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolean, variant: number): void {
   const barT = spec.w * (variant === 1 ? 0.42 : 0.34);
   const barS = spec.d * 0.34;
+  const slabW = spec.w * 0.96;
+  // The crossing bar covers the middle of this face. Sit the opening beside it.
+  const clear = barT / 2 + DOOR_W / 2 + 1.2;
+  const doorT = slabW / 2 - clear > 0.5 ? -clear : 0;
   skin(d, {
-    s: 0, t: 0, lb: spec.w * 0.96, la: barS, h: H, base: y0,
-    style: Style.Ribbed, lit: spec.lit, tint: spec.tint, door,
+    s: 0, t: 0, lb: slabW, la: barS, h: H, base: y0,
+    style: Style.Ribbed, lit: spec.lit, tint: spec.tint, door, doorT,
   });
   addBox(d, {
     s: 0, t: 0, lb: barT, la: spec.d * 0.96, h: H - 0.6, base: y0,
