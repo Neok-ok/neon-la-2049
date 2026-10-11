@@ -83,8 +83,8 @@ function shellVolume(m: Mass, g: number): void {
   m.solid(0, F - TUNNEL / 2, COURT, TUNNEL, g + DOOR_H, g + H);
   const jambW = (COURT - DOOR) / 2;
   const jambX = DOOR / 2 + jambW / 2;
-  m.box(1, -jambX, F - TUNNEL / 2, g, jambW, TUNNEL, DOOR_H, stone);
-  m.box(1, jambX, F - TUNNEL / 2, g, jambW, TUNNEL, DOOR_H, stone);
+  m.box(0, -jambX, F - TUNNEL / 2, g, jambW, TUNNEL, DOOR_H, stone);
+  m.box(0, jambX, F - TUNNEL / 2, g, jambW, TUNNEL, DOOR_H, stone);
   m.solid(-jambX, F - TUNNEL / 2, jambW, TUNNEL, g, g + DOOR_H);
   m.solid(jambX, F - TUNNEL / 2, jambW, TUNNEL, g, g + DOOR_H);
 

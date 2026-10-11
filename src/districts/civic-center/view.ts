@@ -65,7 +65,7 @@ export function civicCamera(layout: CityLayout, kind: CivicView, lanes: readonly
 
   if (kind === 'steps') {
     // Low on the stair, off the centre line, looking up the run toward the door.
-    const lz = -80;
+    const lz = (STAIR.z0 + STAIR.z1) / 2;
     const [x, z] = localToWorld(lapd.x, lapd.z, yaw, 4, lz);
     const [dx, dz] = localToWorld(lapd.x, lapd.z, yaw, 0, -52);
     const y = g + treadTop(STAIR, lz);
