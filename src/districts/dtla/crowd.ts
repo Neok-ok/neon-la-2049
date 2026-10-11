@@ -3,13 +3,12 @@
 // The three B1 heroes sit west of those plazas, so a loaded block near one also gets a sidewalk
 // around the footprint and a short queue at the door. Same mesh, same share.
 import type { CityQuery, PackedBlock } from '../../world/CityQuery';
-import { hashString } from '../../core/rng';
+import { hash2i, hashString } from '../../core/rng';
 import { bearingToDir } from '../../world/geo';
 import { lifeSpot, type CrowdLifeSpot } from '../../world/crowdLife';
 import { doorFace } from '../../world/buildings/parts';
 import { placeHero } from '../../world/buildings/place';
 import { registerCrowdSource } from '../little-tokyo-market/crowd';
-import { blockIndexAt } from '../_shared/megablock/grid';
 import { dressBlock, type DtlaBlock } from './block';
 import { plazaLoops } from './plaza';
 
@@ -25,11 +24,17 @@ function idOf(b: PackedBlock, query: CityQuery): string {
 }
 
 function asDtla(b: PackedBlock): DtlaBlock {
-  const idx = blockIndexAt(b.cx, b.cz);
+  // The query buffer stores the seed as float32, which does not round-trip.
+  // Rebuild the generator seed so the door queue lands on the mesh that was actually built.
+  const i = Math.round(b.i);
+  const j = Math.round(b.j);
+  const index = Math.round(b.districtIndex);
   return {
-    cx: b.cx, cz: b.cz, ax: b.ax, az: b.az, bx: -b.az, bz: b.ax,
-    la: b.la, lb: b.lb, street: b.street, seed: b.seed, ground: b.ground,
-    i: idx.i, j: idx.j,
+    cx: b.cx, cz: b.cz, ax: b.ax, az: b.az, bx: b.bx, bz: b.bz,
+    la: b.la, lb: b.lb, street: b.street,
+    seed: hash2i(i + 100000, j + 100000, index * 7919 + 13),
+    ground: b.ground,
+    i, j,
   };
 }
 

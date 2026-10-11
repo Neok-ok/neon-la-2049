@@ -40,7 +40,7 @@ function already(file) {
   try { return existsSync(file) && statSync(file).size > 40000; } catch { return false; }
 }
 
-/** Street camera: full 1.8 m figure beside the 2.2 m door, feet in frame, umbrellas not filling it. */
+/** Street camera: a 1.8 m figure beside the 2.2 m door, with the flight in profile. */
 function placeStreet(arg) {
   const p = arg.tower;
   const phase = arg.phase;
@@ -66,44 +66,47 @@ function placeStreet(arg) {
         const x = e[i * 16 + 12];
         const z = e[i * 16 + 14];
         const d = Math.hypot(x - p.door[0], z - p.door[1]);
-        if (d > 22 || depOf(x, z) < -0.6) continue;
-        found.push({ x, z, d, lat: latOf(x, z) });
+        if (d > 14 || depOf(x, z) < -0.4) continue;
+        found.push({ x, z, d, lat: latOf(x, z), dep: depOf(x, z) });
       }
     }
     found.sort((a, b) => a.d - b.d);
-    person = found.find((c) => (lantern ? c.lat < 3.5 : Math.abs(c.lat) < 14)) ?? found[0] ?? null;
+    person = found.find((c) => (lantern ? c.lat < 2.5 : c.d < 7)) ?? found[0] ?? null;
   }
 
-  // Stairs run toward +t. A small +t offset shows that profile without turning the door into a slot.
-  // The lantern cross covers +t, so that camera stays on the open side.
-  let camLat = lantern ? -5.2 : 2.3;
-  let out = lantern ? 13.5 : 8.2;
-  if (person && !lantern && person.lat > 4.5) camLat = -2.5;
-  if (person) {
-    const pd = depOf(person.x, person.z);
-    if (pd > 0.4) out = Math.max(out, Math.min(15.5, pd + 6.5));
+  // Seed stands on the queue so that spot wins the idle budget. The shot then steps back,
+  // still inside the same crowd cell, and looks up so the black street does not eat the frame.
+  // Stairs run toward +t. The lantern cross covers +t, so that camera stays on the open arm.
+  let camLat = lantern ? -2.2 : 0.4;
+  let out = lantern ? 4.0 : 3.3;
+  if (phase === 'final') {
+    camLat = lantern ? -3.6 : 2.15;
+    out = lantern ? 8.2 : 6.7;
+    if (person && !lantern && person.lat > 3) camLat = -2.15;
+    if (person && person.dep > 0.4) out = Math.max(out, Math.min(lantern ? 11 : 9.0, person.dep + 5.4));
   }
 
   let cx = p.door[0] + nx * out + bx * camLat;
   let cz = p.door[1] + nz * out + bz * camLat;
-  for (let i = 0; i < 16 && q.insideSolid(cx, p.ground + 1.2, cz, 0.32); i++) {
-    cx += nx * 1.1;
-    cz += nz * 1.1;
+  const step = phase === 'final' ? 0.7 : 0.45;
+  for (let i = 0; i < 8 && q.insideSolid(cx, p.ground + 1.2, cz, 0.3); i++) {
+    cx += nx * step;
+    cz += nz * step;
   }
-  if (person) {
-    for (let i = 0; i < 10 && Math.hypot(person.x - cx, person.z - cz) < 6.5; i++) {
-      cx += nx * 0.65;
-      cz += nz * 0.65;
+  if (person && phase === 'final') {
+    for (let i = 0; i < 6 && Math.hypot(person.x - cx, person.z - cz) < 5.6; i++) {
+      cx += nx * 0.45;
+      cz += nz * 0.45;
     }
   }
 
-  const aimX = person ? p.door[0] * 0.62 + person.x * 0.38 : p.door[0] + bx * 0.35;
-  const aimZ = person ? p.door[1] * 0.62 + person.z * 0.38 : p.door[1] + bz * 0.35;
+  const aimX = person && phase === 'final' ? p.door[0] * 0.7 + person.x * 0.3 : p.door[0];
+  const aimZ = person && phase === 'final' ? p.door[1] * 0.7 + person.z * 0.3 : p.door[1];
   const lookX = aimX - cx;
   const lookZ = aimZ - cz;
-  const dist = Math.hypot(lookX, lookZ) || 1;
   const heading = Math.atan2(lookX, -lookZ);
-  const pitch = Math.atan2(0.92 - 1.7, dist);
+  // Positive pitch looks up in this camera. That drops the horizon and keeps feet in frame.
+  const pitch = phase === 'final' ? 0.2 : 0.02;
   if (nla.app.cams.mode !== 'walk') nla.setMode('walk');
   nla.setPose(cx, p.ground + 2, cz, (heading * 180) / Math.PI, (pitch * 180) / Math.PI);
   const w = nla.app.cams.walk;
@@ -115,6 +118,7 @@ function placeStreet(arg) {
     person: person ? { x: person.x, z: person.z, d: person.d } : null,
     out,
     camLat,
+    pitch,
     doorDist: Math.hypot(cx - p.door[0], cz - p.door[1]),
     personDist: person ? Math.hypot(person.x - cx, person.z - cz) : null,
   };
@@ -171,7 +175,7 @@ for (const tier of tiers) {
           const d = Math.hypot(e[i * 16 + 12] - door[0], e[i * 16 + 14] - door[1]);
           if (d < best) best = d;
         }
-        return best < 18;
+        return best < 6.5;
       }, tower.door, { timeout: 12_000 }).catch(() => {});
       const info = await page.evaluate(placeStreet, { tower, phase: 'final' });
       await settle(page, 900);

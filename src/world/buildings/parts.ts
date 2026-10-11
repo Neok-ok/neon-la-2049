@@ -239,8 +239,8 @@ export function entryFlight(d: Draft): void {
       // A thin edge on every riser. Spacing stays the 0.17 m rise; the line is not a second step.
       addBox(d, {
         s: faceS - STAIR_W + 0.05, t: treadT,
-        lb: snapMetres(flight.tread * 0.88, 0.01), la: 0.1, h: 0.045,
-        base: base + flight.rise * (i + 1) - 0.045,
+        lb: snapMetres(flight.tread * 0.88, 0.01), la: 0.1, h: 0.06,
+        base: base + flight.rise * (i + 1) - 0.06,
         style: Style.Glow, lit: 0.62, tint: 0.9,
         detail: 1, ornament: 1, role: 'stair',
       });
