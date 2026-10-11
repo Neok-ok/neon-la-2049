@@ -10,6 +10,8 @@ import { createSpinnerMesh } from '../vehicles/spinnerModel';
 const v1 = new Vector3(), v2 = new Vector3(), v3 = new Vector3();
 /** Chase camera sits off the tail so the nose does not cover the thing you flew in to see. */
 const CHASE_SIDE = 5.4;
+/** Portrait is a narrow horizontal field, so the same offset would push the craft out of frame. */
+const CHASE_SIDE_PORTRAIT = 1.8;
 
 export class FlyController implements Controller {
   readonly id = 'fly' as const;
@@ -45,9 +47,10 @@ export class FlyController implements Controller {
     this.spinner.visible = true;
     this.input.pointerLockWanted = true;
     forwardOf(this.heading, this.pitch, v1);
+    const side = this.camera.aspect < 0.85 ? CHASE_SIDE_PORTRAIT : CHASE_SIDE;
     this.camPos.copy(this.pos).addScaledVector(v1, -11);
-    this.camPos.x += Math.cos(this.heading) * CHASE_SIDE;
-    this.camPos.z += Math.sin(this.heading) * CHASE_SIDE;
+    this.camPos.x += Math.cos(this.heading) * side;
+    this.camPos.z += Math.sin(this.heading) * side;
     this.camPos.y += 2.5;
     this.camera.fov = 62;
     this.camera.updateProjectionMatrix();
@@ -136,8 +139,9 @@ export class FlyController implements Controller {
     } else {
       const dist = 11 + this.vel.length() * 0.02;
       const desired = v2.copy(this.pos).addScaledVector(look, -dist);
-      desired.x += Math.cos(this.heading) * CHASE_SIDE;
-      desired.z += Math.sin(this.heading) * CHASE_SIDE;
+      const side = this.camera.aspect < 0.85 ? CHASE_SIDE_PORTRAIT : CHASE_SIDE;
+      desired.x += Math.cos(this.heading) * side;
+      desired.z += Math.sin(this.heading) * side;
       desired.y += 2.6;
       // pull the camera in if it would end up inside a building
       for (let i = 0; i < 6 && this.solid(desired); i++) desired.lerp(this.pos, 0.4).y += 0.5;

@@ -828,7 +828,7 @@ export class CrowdField {
         const dz = p.z - z;
         const along = dx * fx + dz * fz;
         const side = dx * rx + dz * rz;
-        if (along > 1 && along < 18 && Math.abs(side) < 7.5) {
+        if (along > 1 && along < 18 && Math.abs(side) < 4) {
           this.laneLoops.add(li);
           break;
         }
@@ -870,7 +870,7 @@ export class CrowdField {
       const dz = p.z - z;
       const along = dx * fx + dz * fz;
       const side = dx * rx + dz * rz;
-      if (along < along0 || along > along1 || Math.abs(side) > 7.5) continue;
+      if (along < along0 || along > along1 || Math.abs(side) > 4) continue;
       const score = Math.abs(along - want) + Math.abs(side) * 0.25;
       if (score < bestScore) {
         bestScore = score;

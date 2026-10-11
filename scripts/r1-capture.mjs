@@ -159,7 +159,8 @@ async function runPass(label, contextOpts, query) {
   await ctx.close();
 }
 
-await runPass('desk', desktop, '');
+const DESK = process.env.DESK !== '0';
+if (DESK) await runPass('desk', desktop, '');
 if (PHONE) await runPass('phone', iphone, '&touch=1');
 
 writeFileSync(join(OUT, 'errors.json'), JSON.stringify(errors, null, 2));
