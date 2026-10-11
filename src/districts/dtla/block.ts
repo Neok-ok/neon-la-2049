@@ -42,6 +42,8 @@ export interface ReplayBox {
   tint: number;
   detail: 0 | 1 | 2;
   ornament?: 0 | 1 | 2;
+  /** Tower kit. Bridges and walk links leave this unset and stay in the chunk mesh. */
+  kit?: boolean;
 }
 
 export interface DtlaSign {
@@ -227,8 +229,8 @@ function dressLot(
     d: footD,
     minH: narrow ? 64 : 180,
     maxH: narrow ? 120 : 248.4,
-    plinth: narrow ? 0 : 50.4,
-    decks: narrow ? [] : [46],
+    plinth: 0,
+    decks: [],
     phrases: PHRASES,
     lit: r.range(0.22, 0.48),
     tint: r.range(0.55, 0.85),
@@ -239,6 +241,7 @@ function dressLot(
     boxes.push({
       s: lot.s + box.s, t: lot.t + box.t, lb: box.lb, la: box.la, h: box.h, base: box.base,
       style: box.style, lit: box.lit, tint: box.tint, detail: box.detail, ornament: box.ornament,
+      kit: true,
     });
   }
   for (const s of placed.signs) {

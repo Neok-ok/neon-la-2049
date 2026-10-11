@@ -32,6 +32,24 @@ export class LandmarkLods {
     this.root.name = 'landmark-lods';
   }
 
+  /**
+   * Swap the detail levels of a landmark that is already showing.
+   * The caller disposes the previous meshes. The far level starts visible.
+   */
+  replace(name: string, levels: Object3D[], dists: number[]): void {
+    const e = this.list.find((item) => item.name === name);
+    if (!e || levels.length === 0) return;
+    const parent = e.levels[0]?.parent ?? null;
+    for (const o of e.levels) o.removeFromParent();
+    e.levels = levels;
+    e.dists = dists;
+    e.current = levels.length - 1;
+    levels.forEach((o, i) => {
+      o.visible = i === e.current;
+      parent?.add(o);
+    });
+  }
+
   /** `levels[0]` is the most detailed. Returns a group holding every level (only one visible). */
   add(name: string, levels: Object3D[], dists: number[], x: number, z: number, y0: number, y1: number, r: number): Group {
     const g = new Group();

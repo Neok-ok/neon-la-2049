@@ -24,8 +24,7 @@ function tower(ctx: FabricCtx, l: LotRect): boolean {
       if (ctx.layout.isOcean(cx, cz) || ctx.layout.isReserved(cx, cz, 0.5)) return false;
     }
   }
-  const plinthRoll = r.chance(0.42) ? 0 : r.range(18, 40);
-  const plinth = plinthRoll === 0 ? 0 : Math.round(plinthRoll / STOREY) * STOREY;
+  const plinth = r.chance(0.22) ? STOREY * 2 : 0;
   const placed = placeLot(r, {
     w, d,
     minH: 151.2,

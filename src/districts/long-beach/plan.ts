@@ -25,6 +25,8 @@ export interface FabricBox {
   tint: number;
   detail: 0 | 1 | 2;
   ornament?: 0 | 1 | 2;
+  /** Tower kit. The concourse door shell leaves this unset. */
+  kit?: boolean;
 }
 
 export interface FabricSign {
@@ -81,6 +83,7 @@ function emitMass(boxes: FabricBox[], signs: FabricSign[], r: Rng, o: MassOpts):
     boxes.push({
       s: o.s0 + b.s, t: o.t0 + b.t, lb: b.lb, la: b.la, h: b.h, base: b.base,
       style: b.style, lit: b.lit, tint: b.tint, detail: b.detail, ornament: b.ornament,
+      kit: true,
     });
   }
   for (const s of placed.signs) {

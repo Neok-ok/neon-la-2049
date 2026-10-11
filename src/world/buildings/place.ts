@@ -137,6 +137,7 @@ export function emitPlaced(ctx: FabricCtx, placed: Placed): number {
       base: b.base > 0.05 ? b.base : undefined,
     });
     if (!made) continue;
+    made.kit = true;
     if (b.ornament !== undefined) made.ornament = b.ornament;
     n++;
   }

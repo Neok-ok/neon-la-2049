@@ -92,7 +92,7 @@ export function snap(h: number, module: number, min: number, max: number): numbe
 }
 
 export function addBox(d: Draft, b: BBox): void {
-  if (b.h < 0.08 || b.lb < 0.35 || b.la < 0.35) return;
+  if (b.h < 0.06 || b.lb < 0.07 || b.la < 0.07) return;
   if (b.base + b.h > d.height) d.height = b.base + b.h;
   d.boxes.push(b);
 }

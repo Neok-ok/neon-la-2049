@@ -23,6 +23,8 @@ import { hologramsFromSignBuffer } from '../holograms/fromSigns';
 import type { HologramSpec } from '../holograms/types';
 import { SIGN_RGB } from '../materials/signPalette';
 import type { GlowMark } from '../../atmosphere/AirField';
+import { buildKitMesh } from '../buildings/kitMesh';
+import { KIT_STRIDE } from '../buildings/kitBudget';
 import { buildingDetailCap, type BuildingCap } from '../buildings/tiers';
 
 export const CHUNK = 500;
@@ -635,6 +637,11 @@ export class ChunkStreamer {
       mesh.matrixAutoUpdate = false;
       g.add(mesh);
       this.stats.boxes = r.boxCount;
+    }
+    const kitRec = r.kit;
+    if (kitRec && kitRec.length >= KIT_STRIDE) {
+      const kit = buildKitMesh(kitRec, 'b1-kit');
+      if (kit) g.add(kit);
     }
     const n = r.signs.length / SIGN_STRIDE;
     if (n > 0) g.add(this.buildSigns(r.signs, n));

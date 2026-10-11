@@ -19,8 +19,8 @@ The masses are split by storey, the way a shape grammar would cut a footprint in
 - Wonka, Wimmer, Sillion, Ribarsky, *Instant Architecture*, SIGGRAPH 2003. Facade split into floors and bays. Here a floor is 3.6 m (3.4 m on the residential stack) and the window style is one of the existing atlas ids.
 - Müller, Wonka, Haegler, Ulmer, Van Gool, *Procedural Modeling of Buildings*, SIGGRAPH 2006. Mass model then facade. `recipes.ts` is that split.
 - van Dongen, *Interior Mapping*, 2008. Already in `src/world/windows/`. These towers set `lit` on inhabited styles so the same shader lights the rooms. No second window shader.
-- Chunk meshes stay merged. Ornament is a filter on the existing chunk, not a new instanced draw. Far LOD is the existing LOD2 mass, which is the impostor.
-- Rain streaks and grime in the harness are a procedural canvas roughness map. In the city, grime is the stain already in `cityMaterial`. Tint on these towers stays in 0.55–0.85.
+- Tower boxes are instances of one shared kit box. Ornament is still a filter: Low keeps masses, Medium adds balconies and fins, High adds pipes and antennas. Far LOD is the existing LOD2 mass, which is the impostor. The chunk streamer disposes the instance buffer when the chunk unloads.
+- Rain streaks and grime in the harness are a procedural canvas roughness map. That canvas is not uploaded with the city. In the game, grime is the stain already in `cityMaterial`, and signs and windows stay on the existing KTX2 atlases. Tint on these towers stays in 0.55–0.85. No new texture is added.
 
 ## Reference board
 

@@ -1,9 +1,12 @@
 // Pure module (worker-safe). Turns fabric output into packed vertex arrays for one chunk mesh.
 import type { CityLayout } from '../layout';
 import { nearestWall, pastSeaWall } from '../../districts/coastal-strip/profile';
+import { KIT_STRIDE } from '../buildings/kitBudget';
 import { TRENCH_CUT, TRENCH_LIP, trenchDistance } from '../../vehicles/trenchQuery';
 import type { Box, FabricOutput } from './types';
 import { Style } from './types';
+
+export { KIT_STRIDE };
 
 export interface ChunkArrays {
   position: Float32Array;
@@ -15,6 +18,8 @@ export interface ChunkArrays {
   signs: Float32Array;
   /** stride BLOCK_STRIDE: cx, cz, ax, az, la, lb, street, districtIndex, seed, ground */
   blocks: Float32Array;
+  /** stride KIT_STRIDE: x, y0, z (chunk-relative x/z), yaw, w, h, d, seed, style, lit, tint */
+  kit: Float32Array;
   maxY: number;
   boxCount: number;
 }
@@ -289,20 +294,36 @@ function emitGround(wr: Writer, layout: CityLayout, x0: number, z0: number, size
     }
 }
 
+/** True when this box survives the LOD and the ornament cap. Shared by the mesher and the memory audit. */
+export function keepBox(b: Box, lod: number, detailCap: number): boolean {
+  const rules = lodRules(lod);
+  if (b.detail > rules.maxDetail) return false;
+  if (b.ornament !== undefined && b.ornament > detailCap) return false;
+  if (b.h + b.y0 < rules.minBoxHeight && b.style !== Style.Industrial) return false;
+  return true;
+}
+
 export function buildChunkArrays(
   layout: CityLayout, fab: FabricOutput, x0: number, z0: number, size: number, lod: number, detailCap = 2,
 ): ChunkArrays {
   const rules = lodRules(lod);
   const wr = new Writer();
   emitGround(wr, layout, x0, z0, size, rules);
+  const kit: number[] = [];
   let boxCount = 0;
+  let maxY = 0;
   for (const b of fab.boxes) {
-    if (b.detail > rules.maxDetail) continue;
-    if (b.ornament !== undefined && b.ornament > detailCap) continue;
-    if (b.h + (b.y0 - 0) < rules.minBoxHeight && b.style !== Style.Industrial) continue;
-    emitBox(wr, b, x0, z0);
+    if (!keepBox(b, lod, detailCap)) continue;
+    const top = b.y0 + b.h;
+    if (top > maxY) maxY = top;
+    if (b.kit) {
+      kit.push(b.x - x0, b.y0, b.z - z0, b.yaw, b.w, b.h, b.d, b.seed, b.style, b.lit, b.tint);
+    } else {
+      emitBox(wr, b, x0, z0);
+    }
     boxCount++;
   }
+  if (maxY > wr.maxY) wr.maxY = maxY;
   const signs: number[] = [];
   for (const sg of fab.signs) {
     if (sg.w * sg.h < rules.minSignArea) continue;
@@ -318,6 +339,7 @@ export function buildChunkArrays(
     bdata: new Float32Array(wr.bd),
     index: new Uint32Array(wr.idx),
     signs: new Float32Array(signs),
+    kit: new Float32Array(kit),
     maxY: wr.maxY,
     boxCount,
   };

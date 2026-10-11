@@ -16,6 +16,7 @@ import {
   readUaHints, refineBudget, resources, startupProbe, stepGovernor,
   type MemoryBudget, type Pressure,
 } from '../core/memory';
+import { setB1HeroTier } from '../world/buildings/landmark';
 import { CityQuery } from '../world/CityQuery';
 import { Landmarks } from '../world/landmarks/Landmarks';
 import { localToGeo, geoToLocal } from '../world/geo';
@@ -249,6 +250,7 @@ export class App {
     if (params.flash === 'full') stormCtl.gentle = false;
 
     this.streamer = new ChunkStreamer(this.scene, this.quality);
+    setB1HeroTier(this.quality.tier);
     this.landmarks = new Landmarks(this.query);
     this.scene.add(this.landmarks.root);
     installCoast(this.scene, this.query, this.quality.tier);
@@ -424,6 +426,7 @@ export class App {
     void prepareRoadTextures(this.renderer, tier).then(() => {
       if (roadsWait && this.quality.tier === tier) this.streamer.invalidateLod0();
     });
+    setB1HeroTier(tier);
     this.streamer.invalidateLod0();
     this.interiors.setTier(tier);
     releaseLightingTierTargets(this.scene, this.atmosphere.sun, tier);

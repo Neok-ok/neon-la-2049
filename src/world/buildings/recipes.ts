@@ -115,7 +115,7 @@ function crownExtra(kind: TowerKind): number {
 function bandSlab(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolean, variant: number): void {
   const rhythm = variant === 1 ? 6 : 4;
   const step = spec.kind === 'res-stack' ? RES_STOREY * rhythm : STOREY * rhythm;
-  const inset = variant === 2 ? 0.86 : 0.9;
+  const inset = variant === 2 ? 0.78 : 0.84;
   const bw = spec.w * inset;
   const bd = spec.d * inset;
   let y = 0;
@@ -140,7 +140,7 @@ function bandSlab(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
         style, lit: spec.lit, tint: spec.tint, detail: 0, role: 'mass',
       });
     }
-    if (bandH > 0.4) band(d, 0, 0, spec.w * 0.98, spec.d * 0.98, y0 + y + winH, bandH, spec.lit, spec.tint);
+    if (bandH > 0.4) band(d, 0, 0, spec.w, spec.d, y0 + y + winH, Math.max(bandH, 1.6), spec.lit, spec.tint);
     y += slice;
     first = false;
   }

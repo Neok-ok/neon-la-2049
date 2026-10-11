@@ -225,13 +225,154 @@ for (let n = 0; n < 40; n++) {
 check('variant spread', kinds.size >= 16, String(kinds.size));
 
 const mesher = await vite.ssrLoadModule('/src/world/fabric/mesher.ts');
+const budget = await vite.ssrLoadModule('/src/world/buildings/kitBudget.ts');
+const place = await vite.ssrLoadModule('/src/world/buildings/place.ts');
+const quality = await vite.ssrLoadModule('/src/core/quality.ts');
+const tiers = await vite.ssrLoadModule('/src/world/buildings/tiers.ts');
+function owningBlock(fab, b) {
+  let best = null;
+  let bestD = 1e12;
+  for (const block of fab.blocks) {
+    const dist = (b.x - block.cx) ** 2 + (b.z - block.cz) ** 2;
+    if (dist < bestD) { bestD = dist; best = block; }
+  }
+  return best;
+}
+const finOwned = fin.boxes.filter((b) => owningBlock(fin, b)?.archetype === 'financial-megatowers');
+const finKit = finOwned.filter((b) => b.kit).length;
+check('financial towers are kit instances', finOwned.length > 0 && finKit === finOwned.length, `${finKit}/${finOwned.length}`);
+
+function chunkTris(arrays) {
+  const instances = arrays.kit.length / budget.KIT_STRIDE;
+  return {
+    boxes: arrays.boxCount,
+    tris: arrays.index.length / 3 + budget.kitTris(instances),
+    kit: instances,
+    uniqueTris: arrays.index.length / 3,
+  };
+}
 const tierTris = {};
 for (const cap of [0, 1, 2]) {
-  const arrays = mesher.buildChunkArrays(layout, fin, -2000, -200, 1000, 0, cap);
-  tierTris['cap' + cap] = { boxes: arrays.boxCount, tris: arrays.index.length / 3 };
+  tierTris['cap' + cap] = chunkTris(mesher.buildChunkArrays(layout, fin, -2000, -200, 1000, 0, cap));
 }
-const far = mesher.buildChunkArrays(layout, fin, -2000, -200, 1000, 2, 0);
-tierTris.lod2 = { boxes: far.boxCount, tris: far.index.length / 3 };
+tierTris.lod2 = chunkTris(mesher.buildChunkArrays(layout, fin, -2000, -200, 1000, 2, 0));
+
+const SUPER = 2000;
+const CHUNK = 500;
+const AABB_TOP = 260;
+const districts = ['financial-megatowers', 'dtla', 'long-beach']
+  .map((id) => layout.districts.find((d) => d.id === id))
+  .filter(Boolean);
+
+function distToBox(px, py, pz, x0, z0, size) {
+  const dx = Math.max(x0 - px, 0, px - (x0 + size));
+  const dz = Math.max(z0 - pz, 0, pz - (z0 + size));
+  const dy = Math.max(0 - py, 0, py - AABB_TOP);
+  return Math.hypot(dx, dy, dz);
+}
+function overlaps(x0, z0, size, box) {
+  const [minX, minZ, maxX, maxZ] = box;
+  return x0 < maxX && x0 + size > minX && z0 < maxZ && z0 + size > minZ;
+}
+function countKit(boxes, lod, cap) {
+  let n = 0;
+  for (const b of boxes) if (b.kit && mesher.keepBox(b, lod, cap)) n++;
+  return n;
+}
+
+const cache = new Map();
+function superFabric(x0, z0) {
+  const key = `${x0},${z0}`;
+  let fab = cache.get(key);
+  if (!fab) {
+    fab = gen.generateFabric(layout, x0, z0, SUPER);
+    cache.set(key, fab);
+  }
+  return fab;
+}
+
+function residentAt(px, pz, tier) {
+  const q = quality.settingsFor(tier);
+  const cap = tiers.buildingDetailCap(tier);
+  let instances = 0;
+  let meshes = 0;
+  const sy0 = Math.floor((pz - q.farRadius) / SUPER) * SUPER;
+  const sy1 = Math.floor((pz + q.farRadius) / SUPER) * SUPER;
+  const sx0 = Math.floor((px - q.farRadius) / SUPER) * SUPER;
+  const sx1 = Math.floor((px + q.farRadius) / SUPER) * SUPER;
+  for (let sz = sy0; sz <= sy1; sz += SUPER) {
+    for (let sx = sx0; sx <= sx1; sx += SUPER) {
+      if (distToBox(px, 2, pz, sx, sz, SUPER) > q.farRadius) continue;
+      if (!districts.some((d) => overlaps(sx, sz, SUPER, d.bbox))) continue;
+      const fab = superFabric(sx, sz);
+      const near = distToBox(px, 2, pz, sx, sz, SUPER) < q.nearRadius;
+      if (!near) {
+        const n = countKit(fab.boxes, 2, 0);
+        if (n > 0) { instances += n; meshes++; }
+        continue;
+      }
+      for (let j = 0; j < 4; j++) {
+        for (let i = 0; i < 4; i++) {
+          const x0 = sx + i * CHUNK;
+          const z0 = sz + j * CHUNK;
+          const lod = distToBox(px, 2, pz, x0, z0, CHUNK) < q.lod0Radius ? 0 : 1;
+          let n = 0;
+          for (const b of fab.boxes) {
+            if (!b.kit || !mesher.keepBox(b, lod, cap)) continue;
+            if (b.x < x0 || b.x >= x0 + CHUNK || b.z < z0 || b.z >= z0 + CHUNK) continue;
+            n++;
+          }
+          if (n > 0) { instances += n; meshes++; }
+        }
+      }
+    }
+  }
+  return { instances, meshes };
+}
+
+function heroBytes(cap) {
+  let bytes = 0;
+  let instances = 0;
+  let meshes = 0;
+  const caps = [];
+  for (let c = cap; c >= 0; c--) caps.push(c);
+  for (const id of ['b1-gate', 'b1-step', 'b1-obelisk']) {
+    const lm = layout.landmarkById(id);
+    const kind = id === 'b1-gate' ? 'hero-gate' : id === 'b1-step' ? 'hero-step' : 'hero-obelisk';
+    const placed = place.placeHero(kind, lm.baseWidth, lm.baseDepth, lm.height, 0.2);
+    for (const c of caps) {
+      const n = placed.boxes.filter((b) => b.detail <= c && (b.ornament === undefined || b.ornament <= c)).length;
+      if (n <= 0) continue;
+      bytes += budget.kitMeshBytes(n);
+      instances += n;
+      meshes++;
+    }
+  }
+  return { bytes, instances, meshes };
+}
+
+const memory = {};
+for (const tier of ['low', 'medium', 'high', 'ultra']) {
+  const cap = tiers.buildingDetailCap(tier);
+  let best = null;
+  for (const d of districts) {
+    const [minX, minZ, maxX, maxZ] = d.bbox;
+    const hit = residentAt((minX + maxX) / 2, (minZ + maxZ) / 2, tier);
+    if (!best || hit.instances > best.instances) best = { district: d.id, ...hit };
+  }
+  const heroesMem = heroBytes(cap);
+  const fabricBytes = best.instances * budget.KIT_INSTANCE_BYTES + best.meshes * budget.KIT_TEMPLATE_BYTES;
+  memory[tier] = {
+    texturesMB: 0,
+    geometryMB: Number(((fabricBytes + heroesMem.bytes) / (1024 * 1024)).toFixed(3)),
+    fabricInstances: best.instances,
+    fabricMeshes: best.meshes,
+    heroInstances: heroesMem.instances,
+    heroMeshes: heroesMem.meshes,
+    cameraDistrict: best.district,
+    cap,
+  };
+}
 
 console.log(JSON.stringify({
   fails,
@@ -242,6 +383,7 @@ console.log(JSON.stringify({
   longBeach: { heroA: Number(heroTop.toFixed(1)), heroB: Number(topB.toFixed(1)), doorCheeks: door.length },
   storey: STOREY,
   tierTris,
+  memory,
 }, null, 2));
 
 const fabricIndex = await vite.ssrLoadModule('/src/districts/fabric-index.ts');

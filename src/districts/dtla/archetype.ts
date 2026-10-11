@@ -19,7 +19,9 @@ registerArchetype('megablock-downtown', (ctx) => {
       tint: box.tint,
       base: box.base,
     });
-    if (made && box.ornament !== undefined) made.ornament = box.ornament;
+    if (!made) continue;
+    if (box.kit) made.kit = true;
+    if (box.ornament !== undefined) made.ornament = box.ornament;
   }
   for (const s of d.signs) {
     ctx.sign(s.s, s.t, s.hb, s.ha, s.face, s.along, s.y, s.w, s.h, s.color, s.kind, s.seed);

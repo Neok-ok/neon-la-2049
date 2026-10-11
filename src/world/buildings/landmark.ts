@@ -1,15 +1,19 @@
 // Three original hero megastructures in the financial district.
 // They are landmarks so sky lanes step over them and the spinner collides above the fabric ceiling.
+// Each LOD is an instanced copy of the shared kit box, not a unique mesh.
+// Low keeps the mass (the impostor). Medium adds the mid band. High and ultra add the near band.
 // LAPD, City Hall and the Wallace pyramid are not built here.
-import { Mesh } from 'three/webgpu';
+import type { InstancedMesh, Object3D } from 'three/webgpu';
 import { hashString } from '../../core/rng';
+import type { Tier } from '../../core/quality';
 import { bearingToDir } from '../geo';
-import { GeoWriter } from '../landmarks/GeoWriter';
 import type { Landmark } from '../layout';
+import type { LandmarkLods } from '../landmarks/LandmarkLods';
 import { registerLandmarkType, type LandmarkCollider, type LandmarkEnv } from '../landmarks/registry';
-import { getCityMaterial } from '../materials/cityMaterial';
 import { HERO_KINDS } from './parts';
-import { placeHero } from './place';
+import { placeHero, type Placed, type PlacedBox } from './place';
+import { buildKitMesh, disposeKitMesh } from './kitMesh';
+import { buildingDetailCap, type BuildingCap } from './tiers';
 
 const LOD_DIST = [1600, 5200];
 
@@ -19,10 +23,79 @@ const KIND_OF: Record<string, (typeof HERO_KINDS)[number]> = {
   'b1-obelisk': 'hero-obelisk',
 };
 
+interface HeroSlot {
+  id: string;
+  lods: LandmarkLods;
+  placed: Placed;
+  ground: number;
+  yaw: number;
+  bearing: number;
+  x: number;
+  z: number;
+  meshes: InstancedMesh[];
+}
+
+const heroes: HeroSlot[] = [];
+let heroCap: BuildingCap = 2;
+
 function worldOf(x: number, z: number, bearing: number, s: number, t: number): [number, number] {
   const [ax, az] = bearingToDir(bearing);
   const [bx, bz] = bearingToDir(bearing + 90);
   return [x + ax * s + bx * t, z + az * s + bz * t];
+}
+
+function capsFor(cap: BuildingCap): BuildingCap[] {
+  const out: BuildingCap[] = [];
+  for (let c = cap; c >= 0; c--) out.push(c as BuildingCap);
+  return out;
+}
+
+function distsFor(caps: BuildingCap[]): number[] {
+  if (caps.length >= 3) return [LOD_DIST[0]!, LOD_DIST[1]!];
+  if (caps.length === 2) return [LOD_DIST[1]!];
+  return [];
+}
+
+function recordsFor(slot: HeroSlot, cap: BuildingCap): Float32Array {
+  const tmp: number[] = [];
+  for (const b of slot.placed.boxes) {
+    if (!keepHero(b, cap)) continue;
+    const [wx, wz] = worldOf(slot.x, slot.z, slot.bearing, b.s, b.t);
+    const seed = (hashString(`${slot.id}:${b.s.toFixed(2)}:${b.t.toFixed(2)}:${b.base.toFixed(1)}`) % 997) / 997;
+    tmp.push(wx, slot.ground + b.base, wz, slot.yaw, b.lb, b.h, b.la, seed, b.style, b.lit, b.tint);
+  }
+  return new Float32Array(tmp);
+}
+
+function keepHero(b: PlacedBox, cap: BuildingCap): boolean {
+  if (b.detail > cap) return false;
+  if (b.ornament !== undefined && b.ornament > cap) return false;
+  return true;
+}
+
+function meshesFor(slot: HeroSlot, cap: BuildingCap): InstancedMesh[] {
+  const meshes: InstancedMesh[] = [];
+  for (const c of capsFor(cap)) {
+    const mesh = buildKitMesh(recordsFor(slot, c), `${slot.id}-l${c}`);
+    if (!mesh) continue;
+    meshes.push(mesh);
+  }
+  return meshes;
+}
+
+function applySlot(slot: HeroSlot, cap: BuildingCap): void {
+  for (const mesh of slot.meshes) disposeKitMesh(mesh);
+  const meshes = meshesFor(slot, cap);
+  slot.meshes = meshes;
+  slot.lods.replace(slot.id, meshes, distsFor(capsFor(cap)));
+}
+
+/** Quality changes rebuild the three heroes. Fabric chunks rebuild on their own. */
+export function setB1HeroTier(tier: Tier): void {
+  const cap = buildingDetailCap(tier);
+  if (cap === heroCap) return;
+  heroCap = cap;
+  for (const slot of heroes) applySlot(slot, cap);
 }
 
 registerLandmarkType('b1-hero', (l: Landmark, env: LandmarkEnv) => {
@@ -34,27 +107,16 @@ registerLandmarkType('b1-hero', (l: Landmark, env: LandmarkEnv) => {
   const bearing = l.bearingDeg;
   // Same yaw the fabric mesher uses, so local width stays on the block B axis.
   const yaw = Math.PI - (bearing * Math.PI) / 180;
-  const levels = [2, 1, 0].map((cap) => {
-    const writer = new GeoWriter();
-    for (const b of placed.boxes) {
-      if (b.detail > cap) continue;
-      if (b.ornament !== undefined && b.ornament > cap) continue;
-      const [wx, wz] = worldOf(l.x, l.z, bearing, b.s, b.t);
-      writer.box(wx, wz, ground + b.base, b.lb, b.la, b.h, yaw, {
-        style: b.style,
-        lit: b.lit,
-        tint: b.tint,
-        seed: (hashString(`${l.id}:${b.s.toFixed(2)}:${b.t.toFixed(2)}:${b.base.toFixed(1)}`) % 997) / 997,
-      });
-    }
-    const mesh = new Mesh(writer.build(), getCityMaterial());
-    mesh.name = `${l.id}-l${cap}`;
-    mesh.matrixAutoUpdate = false;
-    return mesh;
-  });
+  const slot: HeroSlot = {
+    id: l.id, lods: env.lods, placed, ground, yaw, bearing, x: l.x, z: l.z, meshes: [],
+  };
+  const meshes = meshesFor(slot, heroCap);
+  slot.meshes = meshes;
+  heroes.push(slot);
+  const levels: Object3D[] = meshes;
   const top = ground + placed.boxes.reduce((m, b) => Math.max(m, b.base + b.h), 0);
   const r = Math.hypot(w, d) * 0.5;
-  const object = env.lods.add(l.id, levels, LOD_DIST, l.x, l.z, ground, top, r);
+  const object = env.lods.add(l.id, levels, distsFor(capsFor(heroCap)), l.x, l.z, ground, top, r);
   const colliders: LandmarkCollider[] = [];
   for (const b of placed.boxes) {
     if (b.detail > 0) continue;
