@@ -74,7 +74,8 @@ export class Precipitation {
     m.colorNode = Fn(() => {
       const d = length(center.sub(cameraPosition));
       const fade = smoothstep(0.5, 2.5, d).mul(smoothstep(box.x * 0.25, box.x * 0.5, d).oneMinus());
-      const neon = vec3(1.0, 0.28, 0.48).mul(0.45).add(vec3(0.25, 0.75, 1.0).mul(0.35)).add(vec3(1.0, 0.55, 0.16).mul(0.25));
+      const magCyan = vec3(1.0, 0.22, 0.48).mul(0.55).add(vec3(0.2, 0.75, 1.0).mul(0.45));
+      const neon = mix(magCyan, vec3(1.0, 0.58, 0.22), U.sheen);
       const rainCol = U.fogColor.mul(2.2).add(vec3(0.05, 0.06, 0.07));
       const base = isRain ? mix(rainCol, neon, U.neonWet.mul(U.night).mul(0.65)) : mix(vec3(0.75, 0.78, 0.85), U.fogColor.mul(3.0), 0.3);
       const a = isRain ? fade.mul(0.55) : fade.mul(0.85);

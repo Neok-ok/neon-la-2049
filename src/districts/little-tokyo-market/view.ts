@@ -84,7 +84,7 @@ export function marketCamera(layout: CityLayout, kind: MarketView): MarketPose |
       y: ground + 1.7,
       z: s.z + toward.z * 1.15,
       heading: Math.atan2(lx, -lz),
-      pitch: -0.02,
+      pitch: 0.09,
       mode: 'walk',
     };
   }

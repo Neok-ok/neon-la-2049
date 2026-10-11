@@ -24,8 +24,8 @@ import {
 } from './profile';
 import { stairLocalOn } from './collision';
 
-const BOARD: FaceStyle = { style: Style.Solid, lit: 0.02, tint: 0.78, seed: 0.16 };
-const CONCRETE: FaceStyle = { style: Style.Solid, lit: 0.015, tint: 0.62, seed: 0.51 };
+const BOARD: FaceStyle = { style: Style.Solid, lit: 0.02, tint: 0.86, seed: 0.16 };
+const CONCRETE: FaceStyle = { style: Style.Solid, lit: 0.015, tint: 0.74, seed: 0.51 };
 const STAIN: FaceStyle = { style: Style.Solid, lit: 0.01, tint: 0.34, seed: 0.44 };
 const LADDER: FaceStyle = { style: Style.Glow, lit: 0.32, tint: 1.9, seed: 0.19 };
 const JOINT: FaceStyle = { style: Style.Solid, lit: 0, tint: 0.2, seed: 0.71 };

@@ -23,7 +23,7 @@ interface WeatherDef extends WeatherParams {
 }
 
 export const WEATHER: Record<WeatherId, WeatherDef> = {
-  clear: { label: 'Dry smog haze', rain: 0, snow: 0, fog: 0.0007, falloff: 600, wind: 2, overcast: 0.45, smogTint: 0.5, wetTarget: 0.15, layer: 0.0007, layerY: 210, dur: [240, 600], next: { overcast: 0.4, smog: 0.25, drizzle: 0.2, fog: 0.15 } },
+  clear: { label: 'Clear', rain: 0, snow: 0, fog: 0.0007, falloff: 600, wind: 2, overcast: 0.45, smogTint: 0.08, wetTarget: 0.15, layer: 0.0007, layerY: 210, dur: [240, 600], next: { overcast: 0.4, smog: 0.25, drizzle: 0.2, fog: 0.15 } },
   overcast: { label: 'Overcast', rain: 0, snow: 0, fog: 0.001, falloff: 450, wind: 4, overcast: 0.8, smogTint: 0.25, wetTarget: 0.35, layer: 0.0006, layerY: 260, dur: [150, 360], next: { drizzle: 0.35, rain: 0.25, clear: 0.2, fog: 0.1, snow: 0.1 } },
   drizzle: { label: 'Drizzle', rain: 0.3, snow: 0, fog: 0.0013, falloff: 420, wind: 3, overcast: 0.85, smogTint: 0.2, wetTarget: 0.75, layer: 0.0007, layerY: 280, dur: [120, 300], next: { rain: 0.45, overcast: 0.25, fog: 0.15, sleet: 0.15 } },
   rain: { label: 'Rain', rain: 0.65, snow: 0, fog: 0.0016, falloff: 380, wind: 5, overcast: 0.9, smogTint: 0.2, wetTarget: 1, layer: 0.0006, layerY: 300, dur: [180, 420], next: { downpour: 0.3, drizzle: 0.35, overcast: 0.2, sleet: 0.15 } },

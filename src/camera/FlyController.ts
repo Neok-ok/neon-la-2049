@@ -8,6 +8,8 @@ import { CityQuery } from '../world/CityQuery';
 import { createSpinnerMesh } from '../vehicles/spinnerModel';
 
 const v1 = new Vector3(), v2 = new Vector3(), v3 = new Vector3();
+/** Chase camera sits off the tail so the nose does not cover the thing you flew in to see. */
+const CHASE_SIDE = 5.4;
 
 export class FlyController implements Controller {
   readonly id = 'fly' as const;
@@ -43,7 +45,10 @@ export class FlyController implements Controller {
     this.spinner.visible = true;
     this.input.pointerLockWanted = true;
     forwardOf(this.heading, this.pitch, v1);
-    this.camPos.copy(this.pos).addScaledVector(v1, -11).add(v2.set(0, 2.5, 0));
+    this.camPos.copy(this.pos).addScaledVector(v1, -11);
+    this.camPos.x += Math.cos(this.heading) * CHASE_SIDE;
+    this.camPos.z += Math.sin(this.heading) * CHASE_SIDE;
+    this.camPos.y += 2.5;
     this.camera.fov = 62;
     this.camera.updateProjectionMatrix();
   }
@@ -131,6 +136,8 @@ export class FlyController implements Controller {
     } else {
       const dist = 11 + this.vel.length() * 0.02;
       const desired = v2.copy(this.pos).addScaledVector(look, -dist);
+      desired.x += Math.cos(this.heading) * CHASE_SIDE;
+      desired.z += Math.sin(this.heading) * CHASE_SIDE;
       desired.y += 2.6;
       // pull the camera in if it would end up inside a building
       for (let i = 0; i < 6 && this.solid(desired); i++) desired.lerp(this.pos, 0.4).y += 0.5;
@@ -139,6 +146,8 @@ export class FlyController implements Controller {
     }
     const target2 = v3.copy(this.pos).addScaledVector(look, 25);
     target2.y += this.cockpit ? 1.2 : 1.5;
+    // 390-wide portrait: lower the aim so a distant mass sits above the touch sticks.
+    if (!this.cockpit && this.camera.aspect < 0.85) target2.y -= 5.5;
     this.camera.up.set(0, 1, 0);
     this.camera.lookAt(target2);
     if (this.cockpit) this.camera.rotateZ(this.bank * 0.6);
