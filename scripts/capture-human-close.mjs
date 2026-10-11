@@ -344,7 +344,7 @@ async function install() {
         doors.push({ x, y, z });
       });
       const folks = people().filter((p) => Math.abs(p.y - origin.y) < 4);
-      const cars = carsNear(origin.x, origin.z, 40).filter((c) => (
+      const cars = carsNear(origin.x, origin.z, 42).filter((c) => (
         Math.abs(c.y - origin.y) < 4 && (c.name === 'ground-car' || c.name === 'ground-van')
       ));
       const q = a.query;
@@ -355,43 +355,59 @@ async function install() {
         for (const p of folks) {
           if (Math.abs(p.y - door.y) > 2.4) continue;
           const d = Math.hypot(p.x - door.x, p.z - door.z);
-          if (d < 8 && d < pd) { pd = d; person = p; }
+          if (d < 6 && d < pd) { pd = d; person = p; }
         }
         if (!person) continue;
-        for (const c of cars) {
+        const nearCars = cars.filter((c) => {
           const cd = Math.hypot(c.x - door.x, c.z - door.z);
-          if (cd < 5 || cd > 22) continue;
-          const fl = Math.hypot(c.fx, c.fz) || 1;
-          const ux = c.fx / fl, uz = c.fz / fl;
-          for (const dir of [1, -1]) {
-            const px = c.x + ux * dir * 11;
-            const pz = c.z + uz * dir * 11;
-            const gy = q.groundHeight(px, pz);
-            if (Math.abs(gy - person.y) > 2) continue;
-            if (!clearSpot(px, pz, gy)) continue;
-            const lookX = (door.x + person.x) * 0.5;
-            const lookZ = (door.z + person.z) * 0.5;
-            const eyeY = gy + 1.55;
-            const yaw = Math.atan2(lookX - px, -(lookZ - pz));
-            const horiz = Math.hypot(lookX - px, lookZ - pz) || 1;
-            const pitch = Math.atan2((door.y + 1.1) - eyeY, horiz);
-            applyPose(px, pz, gy, yaw, pitch);
-            const personN = ndc(person.x, person.y + 1.0, person.z);
-            const doorN = ndc(door.x, door.y + 1.05, door.z);
-            const carN = ndc(c.x, c.y + 0.7, c.z);
-            const on = (n, lim) => n && Math.abs(n.x) < lim && Math.abs(n.y) < 0.82;
-            if (!on(personN, 0.78) || !on(doorN, 0.78) || !on(carN, 0.88)) continue;
-            if (Math.abs(personN.x - doorN.x) < 0.06) continue;
-            if (Math.abs(carN.x - personN.x) < 0.16) continue;
+          return cd >= 6 && cd <= 20;
+        });
+        for (let k = 0; k < 20; k++) {
+          const ang = (k / 20) * Math.PI * 2;
+          const dist = 6.4 + (k % 3) * 0.7;
+          const px = door.x + Math.sin(ang) * dist;
+          const pz = door.z + Math.cos(ang) * dist;
+          const gy = q.groundHeight(px, pz);
+          if (Math.abs(gy - door.y) > 1.4) continue;
+          if (!clearSpot(px, pz, gy)) continue;
+          if (!lineClear(px, pz, door.x, door.z, gy)) continue;
+          const lookX = door.x * 0.65 + person.x * 0.35;
+          const lookZ = door.z * 0.65 + person.z * 0.35;
+          const eyeY = gy + 1.55;
+          const yaw = Math.atan2(lookX - px, -(lookZ - pz));
+          const horiz = Math.hypot(lookX - px, lookZ - pz) || 1;
+          const pitch = Math.atan2((door.y + 1.15) - eyeY, horiz);
+          applyPose(px, pz, gy, yaw, pitch);
+          const personN = ndc(person.x, person.y + 1.0, person.z);
+          const doorN = ndc(door.x, door.y + 1.05, door.z);
+          const doorTop = ndc(door.x, door.y + 2.05, door.z);
+          const on = (n, lim) => n && Math.abs(n.x) < lim && Math.abs(n.y) < 0.72;
+          if (!on(personN, 0.62) || !on(doorN, 0.55)) continue;
+          if (!doorTop || Math.abs(doorTop.y - doorN.y) < 0.16) continue;
+          if (Math.abs(personN.x - doorN.x) < 0.08) continue;
+          let carPick = null;
+          for (const c of nearCars) {
+            const camCar = Math.hypot(c.x - px, c.z - pz);
             const camDoor = Math.hypot(px - door.x, pz - door.z);
-            const score = Math.abs(personN.x) + Math.abs(doorN.x) + Math.abs(carN.x) * 0.35 + Math.abs(camDoor - 8) * 0.04;
-            if (!best || score < best.score) {
-              best = {
-                ok: true, score, car: c.name, pd: Math.round(pd * 10) / 10, cd: Math.round(cd * 10) / 10,
-                camDoor: Math.round(camDoor * 10) / 10, personN, doorN, carN, doors: doors.length,
-                px, pz, gy, yaw, pitch,
-              };
-            }
+            if (camCar < camDoor + 1.2) continue;
+            const carN = ndc(c.x, c.y + 0.7, c.z);
+            if (!on(carN, 0.9)) continue;
+            if (Math.abs(carN.x - personN.x) < 0.18) continue;
+            const cd = Math.hypot(c.x - door.x, c.z - door.z);
+            const score = Math.abs(doorN.x) * 1.4 + Math.abs(personN.x) + Math.abs(Math.abs(carN.x) - 0.45) + (c.name === 'ground-van' ? 0.25 : 0);
+            if (!carPick || score < carPick.score) carPick = { c, carN, cd, camCar, score };
+          }
+          if (!carPick) continue;
+          const camDoor = Math.hypot(px - door.x, pz - door.z);
+          const score = carPick.score + Math.abs(camDoor - 7) * 0.05;
+          if (!best || score < best.score) {
+            best = {
+              ok: true, score, car: carPick.c.name,
+              pd: Math.round(pd * 10) / 10, cd: Math.round(carPick.cd * 10) / 10,
+              camDoor: Math.round(camDoor * 10) / 10,
+              personN, doorN, carN: carPick.carN, doors: doors.length,
+              px, pz, gy, yaw, pitch,
+            };
           }
         }
       }

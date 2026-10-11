@@ -538,12 +538,13 @@ function placeOnWalk(
   if (profile.sidewalk < 1.2) return { x, z, lift: 0 };
   const curbOuter = profile.carriageHalf + CURB_W;
   const outer = curbOuter + profile.sidewalk;
-  if (absSide > outer + 0.35) return { x, z, lift: 0 };
-  if (absSide > outer) return { x, z, lift: 0 };
-  if (absSide >= curbOuter + 0.28) return { x, z, lift: WALK_LIFT };
   const lamp = Math.min(0.7, profile.sidewalk * 0.4);
+  // Past the lamp line, so a walker is not standing on the curb or in the gutter.
   const inner = curbOuter + lamp + 0.28;
   const far = Math.max(inner + 0.2, outer - 0.35);
+  if (absSide > outer + 0.35) return { x, z, lift: 0 };
+  if (absSide > outer) return { x, z, lift: 0 };
+  if (absSide >= inner && absSide <= outer) return { x, z, lift: WALK_LIFT };
   const mid = (inner + far) * 0.5;
   const sign = absSide < 0.35 ? (unit(salt, 20) < 0.5 ? -1 : 1) : Math.sign(side) || 1;
   const room = Math.max(0.1, far - inner);
