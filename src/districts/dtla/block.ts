@@ -255,7 +255,8 @@ function dressLot(
   }
   const door = doorFace(placed.draft);
   if (door) {
-    const [dx, dz] = world(b, lot.s + door.s - 2.5, lot.t + door.t + 2.2);
+    // Clear of the flight, which runs the other way along the facade.
+    const [dx, dz] = world(b, lot.s + door.s - 2.5, lot.t + door.t - 2.6);
     life.push(lifeSpot(dx, dz, Math.atan2(-b.ax, -b.az), 'queue', 3));
   }
   placeKiosks(b, lot, { baseHalfW: footW / 2, baseHalfD: footD / 2 }, r, busy, props, steam, pools, life);
@@ -332,8 +333,8 @@ function placeKiosks(
     const span = side.along === 't' ? lot.lb : lot.la;
     for (let i = 0; i < n; i++) {
       let slide = (i - (n - 1) / 2) * Math.min(14, span * 0.28);
-      // The tower door is centred on the south face. Keep the kiosk off that opening.
-      if (side.ns < 0 && Math.abs(slide) < 3.6) slide += 3.6;
+      // Door is centred. The flight occupies about +1.4 m to +8 m. Keep kiosks on the other side.
+      if (side.ns < 0 && slide > -7.2 && slide < 9) slide = -7.2 - i * 2.4;
       const s = side.along === 't' ? ks : ks + slide;
       const t = side.along === 't' ? kt + slide : kt;
       if (Math.abs(s - lot.s) > lot.la / 2 - 1 || Math.abs(t - lot.t) > lot.lb / 2 - 1) continue;

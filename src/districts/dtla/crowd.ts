@@ -84,9 +84,9 @@ function heroApron(query: CityQuery, blocks: PackedBlock[]): { extra: Array<Arra
     const placed = placeHero(kind, w, depth, l.height, (hashString(l.id) % 1000) / 1000);
     const door = doorFace(placed.draft);
     if (!door) continue;
-    // Beside the jamb, not in the opening, so the doorway stays readable.
+    // Beside the jamb, opposite the flight, so the doorway and the steps stay readable.
     const ss = door.s - 2.8;
-    const tt = door.t + 2.3;
+    const tt = door.t - 2.6;
     const x = l.x + ax * ss + bx * tt;
     const z = l.z + az * ss + bz * tt;
     life.push(lifeSpot(x, z, Math.atan2(-ax, -az), 'queue', 3));

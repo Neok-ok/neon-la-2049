@@ -79,8 +79,8 @@ for (const tier of tiers) {
       await page.evaluate((p) => {
         const nla = window.__nla;
         const q = nla.app.query;
-        const side = 4.2;
-        let dist = Math.max((p.gap ?? 8) + 3.4, 10);
+        const side = 6;
+        let dist = Math.max((p.gap ?? 8) + 6, 16);
         let cx = p.door[0];
         let cz = p.door[1];
         for (let i = 0; i < 6; i++) {
@@ -92,7 +92,7 @@ for (const tier of tiers) {
         const lookX = p.door[0] - cx;
         const lookZ = p.door[1] - cz;
         const heading = Math.atan2(lookX, -lookZ);
-        const pitch = Math.atan2(0.7, Math.hypot(lookX, lookZ) || 1);
+        const pitch = Math.atan2(2.2 - 1.7, Math.hypot(lookX, lookZ) || 1);
         if (nla.app.cams.mode !== 'walk') nla.setMode('walk');
         nla.setPose(cx, p.ground + 2, cz, (heading * 180) / Math.PI, (pitch * 180) / Math.PI);
         const w = nla.app.cams.walk;
