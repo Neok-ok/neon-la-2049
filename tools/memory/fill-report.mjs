@@ -33,7 +33,7 @@ function cell(s, key) {
 }
 
 function replaceInner(html, id, inner) {
-  const re = new RegExp(`(<div id="${id}">)[\\s\\S]*?(</div>)`);
+  const re = new RegExp(`(<div\\b[^>]*\\bid="${id}"[^>]*>)[\\s\\S]*?(</div>)`);
   if (!re.test(html)) throw new Error(`missing #${id}`);
   return html.replace(re, `$1\n${inner}\n$2`);
 }
