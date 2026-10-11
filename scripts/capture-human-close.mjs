@@ -227,7 +227,15 @@ async function install() {
           const backX = px + Math.sin(ang) * 1.6;
           const backZ = pz + Math.cos(ang) * 1.6;
           const boxed = q.insideSolid(backX, gy + 1.3, backZ, 0.2, true) ? 4 : 0;
-          const score = boxed + Math.abs(dist - 8);
+          // A facade behind the person keeps the shot on a street, not in an empty lot.
+          const beyond = 5.5;
+          const bx = p.x - Math.sin(ang) * beyond;
+          const bz = p.z - Math.cos(ang) * beyond;
+          let facade = 0;
+          for (const h of [1.2, 3.2, 6]) {
+            if (q.insideSolid(bx, p.y + h, bz, 0.35, true)) facade++;
+          }
+          const score = boxed + (facade > 0 ? 0 : 6) + Math.abs(dist - 8);
           if (!best || score < best.score) best = { px, pz, gy, dist, score };
         }
         if (best) break;
@@ -360,27 +368,53 @@ async function install() {
         if (!person) continue;
         const nearCars = cars.filter((c) => {
           const cd = Math.hypot(c.x - door.x, c.z - door.z);
-          return cd >= 6 && cd <= 20;
+          return cd >= 8 && cd <= 22;
         });
-        for (let k = 0; k < 20; k++) {
-          const ang = (k / 20) * Math.PI * 2;
-          const dist = 6.4 + (k % 3) * 0.7;
+        // Stand on the street side of the leaf, square to the opening, not down the avenue.
+        let outAng = null;
+        let outClear = -1;
+        for (let k = 0; k < 24; k++) {
+          const ang = (k / 24) * Math.PI * 2;
+          let clear = 0;
+          for (const r of [2.2, 4.5, 7]) {
+            const sx = door.x + Math.sin(ang) * r;
+            const sz = door.z + Math.cos(ang) * r;
+            if (!q.insideSolid(sx, door.y + 1.3, sz, 0.2, true)) clear++;
+          }
+          if (clear > outClear) { outClear = clear; outAng = ang; }
+        }
+        const angles = [];
+        if (outAng != null) {
+          for (const delta of [0, 0.35, -0.35, 0.7, -0.7]) angles.push(outAng + delta);
+        }
+        for (let k = 0; k < 12; k++) angles.push((k / 12) * Math.PI * 2);
+        for (const ang of angles) {
+          const dist = 7.2;
           const px = door.x + Math.sin(ang) * dist;
           const pz = door.z + Math.cos(ang) * dist;
           const gy = q.groundHeight(px, pz);
           if (Math.abs(gy - door.y) > 1.4) continue;
           if (!clearSpot(px, pz, gy)) continue;
           if (!lineClear(px, pz, door.x, door.z, gy)) continue;
-          const lookX = door.x * 0.65 + person.x * 0.35;
-          const lookZ = door.z * 0.65 + person.z * 0.35;
+          const rightX = Math.cos(ang);
+          const rightZ = -Math.sin(ang);
+          let aimX = door.x;
+          let aimZ = door.z;
+          for (const s of [1, -1]) {
+            const ax = door.x + rightX * s * 1.1;
+            const az = door.z + rightZ * s * 1.1;
+            if (!q.insideSolid(ax, door.y + 1.1, az, 0.04, true)) { aimX = ax; aimZ = az; break; }
+          }
+          const lookX = aimX * 0.72 + person.x * 0.28;
+          const lookZ = aimZ * 0.72 + person.z * 0.28;
           const eyeY = gy + 1.55;
           const yaw = Math.atan2(lookX - px, -(lookZ - pz));
           const horiz = Math.hypot(lookX - px, lookZ - pz) || 1;
           const pitch = Math.atan2((door.y + 1.15) - eyeY, horiz);
           applyPose(px, pz, gy, yaw, pitch);
           const personN = ndc(person.x, person.y + 1.0, person.z);
-          const doorN = ndc(door.x, door.y + 1.05, door.z);
-          const doorTop = ndc(door.x, door.y + 2.05, door.z);
+          const doorN = ndc(aimX, door.y + 1.05, aimZ);
+          const doorTop = ndc(aimX, door.y + 2.05, aimZ);
           const on = (n, lim) => n && Math.abs(n.x) < lim && Math.abs(n.y) < 0.72;
           if (!on(personN, 0.62) || !on(doorN, 0.55)) continue;
           if (!doorTop || Math.abs(doorTop.y - doorN.y) < 0.16) continue;
@@ -664,6 +698,16 @@ try {
   }
   if (PROBE === '1' || PROBE === 'scale' || PROBE === 'dancer') {
     results.push(await scaleShot('probe-scale-ultra'));
+  }
+  if (PROBE === 'door') {
+    note('door boot medium');
+    await boot('medium');
+    results.push(await scaleShot('scale-door-car-medium'));
+    await page.evaluate(() => window.__nla.app.setQuality('ultra'));
+    await page.waitForTimeout(800);
+    await install();
+    results.push(await scaleShot('scale-door-car-ultra'));
+    writeFileSync(`${OUT}/door-log.json`, JSON.stringify(results, null, 2));
   }
   if (!PROBE) {
     note('boot medium');
