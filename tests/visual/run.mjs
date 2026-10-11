@@ -205,7 +205,7 @@ async function settle(page) {
       }
       const st = nla.stats();
       return {
-        ready: window.__idleN >= 3 && window.__camStill >= 6,
+        ready: window.__idleN >= 3 && window.__camStill >= 6 && !!nla.app?.farApplied,
         idleN: window.__idleN,
         camStill: window.__camStill,
         moved: Math.round(moved * 1000) / 1000,
@@ -216,6 +216,7 @@ async function settle(page) {
         draws: st.drawCalls,
         frame: Math.round(st.frameMs),
         frames: nla.app?.frames,
+        far: !!nla.app?.farApplied,
         err: window.__grabErr || '',
       };
     });
@@ -225,7 +226,7 @@ async function settle(page) {
       break;
     }
     if (polls % 8 === 0) {
-      trace(`wait idle=${s.idleN} cam=${s.camStill} lod0=${s.lod0} q=${s.queue} fly=${s.inflight} pend=${s.pending} draws=${s.draws} frame=${s.frame}ms frames=${s.frames} ${s.err}`);
+      trace(`wait idle=${s.idleN} cam=${s.camStill} far=${s.far ? 1 : 0} lod0=${s.lod0} q=${s.queue} fly=${s.inflight} pend=${s.pending} draws=${s.draws} frame=${s.frame}ms frames=${s.frames} ${s.err}`);
     }
     polls++;
     await sleep(400);
