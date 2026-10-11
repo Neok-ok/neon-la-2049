@@ -8,9 +8,15 @@ export class MarketAudio {
 
   constructor(ambience: Ambience) {
     this.city = new CitySound(ambience);
-    const w = window as unknown as { __nlaAudio?: { capture: () => Promise<CaptureFile[]> } };
+    const w = window as unknown as {
+      __nlaAudio?: {
+        capture: () => Promise<CaptureFile[]>;
+        measure: () => Promise<unknown>;
+      };
+    };
     w.__nlaAudio = {
       capture: () => import('./capture').then((m) => m.captureScenes()),
+      measure: () => import('./measure').then((m) => m.measurePass()),
     };
   }
 
@@ -35,8 +41,9 @@ export class MarketAudio {
     alt: number,
     sizzleAt: { x: number; y: number; z: number } | null,
     spinnerAt: { x: number; y: number; z: number; dist: number; closing?: number; heavy?: boolean } | null,
+    flying = false,
   ): void {
-    this.city.update(cam, forward, up, rain, inMarket, alt, sizzleAt, spinnerAt);
+    this.city.update(cam, forward, up, rain, inMarket, alt, sizzleAt, spinnerAt, flying);
   }
 }
 

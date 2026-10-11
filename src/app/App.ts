@@ -532,7 +532,7 @@ export class App {
     setRefineryFlame(this.quality.tier, w.windDir, w.params.wind);
     this.ambience.setTraffic(this.ground.bed);
     this.ambience.setSurf(coast.surf, coast.impact, coast.crest);
-    this.ambience.update(w.params.rain, w.params.snow, w.params.wind, alt);
+    this.ambience.update(w.params.rain, w.params.snow, w.params.wind, alt, aboveClouds);
     this.camera.updateMatrixWorld();
     const e = this.camera.matrixWorld.elements;
     const cook = marketSpots(this.query.layout).noodle?.cook ?? null;
@@ -547,6 +547,7 @@ export class App {
       alt,
       inMarket ? cook : nearHall ? hall : null,
       this.nearestSpinner(cam),
+      this.cams.mode === 'fly',
     );
 
     if (photoOn) this.photoMod!.render();

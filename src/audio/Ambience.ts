@@ -1,20 +1,125 @@
 // Procedural ambience (no music, no samples): rain hiss + patter, distant city rumble, wind.
 // Starts on the first user gesture (required by iOS Safari). A later tap resumes a
-// context that iOS suspended while the phone was locked.
+// context that iOS suspended or interrupted while the phone was locked.
 import { audioPrefs, writeAudioPrefs } from './prefs';
 
 let activeBus: Ambience | null = null;
+
+/**
+ * City-bed duck at full interior. 0.84 is the room law. If K's apartment
+ * measures louder than −32 dBFS, take this to 0.90; if quieter than −36, ease it.
+ */
+export const CITY_DUCK = 0.84;
 
 /** The one ambience the toolbar slider talks to. */
 export function activeAmbience(): Ambience | null {
   return activeBus;
 }
 
+/**
+ * A gesture may resume `suspended` or `interrupted`. Coming back to a visible
+ * tab only retries `suspended`: iOS rejects `resume()` from `visibilitychange`
+ * while the context is interrupted, and that path is not the unlock.
+ */
+export function shouldResume(state: string, fromVisibility: boolean): boolean {
+  if (fromVisibility) return state === 'suspended';
+  return state === 'suspended' || state === 'interrupted';
+}
+
+export interface BedInput {
+  rain: number;
+  snow: number;
+  wind: number;
+  altitude: number;
+  aboveClouds: number;
+  interior: number;
+  hum: number;
+  machinery: number;
+  surf: number;
+  surfImpact: number;
+  crest: number;
+  traffic: number;
+}
+
+export interface BedTargets {
+  rain: number;
+  patter: number;
+  /** Depth of the existing 13 Hz patter LFO. 0 when the patter target is 0. */
+  lfo: number;
+  city: number;
+  wind: number;
+  hum: number;
+  /** Machinery noise before the slow level wobble. */
+  mach: number;
+  tone: number;
+  surf: number;
+  impact: number;
+  tire: number;
+  rumble: number;
+  room: number;
+  muffleHz: number;
+}
+
+/** Settled bed gains. The frame loop and the offline renders share this. */
+export function ambienceTargets(p: BedInput): BedTargets {
+  const m = clamp01(p.interior);
+  const street = Math.max(0.15, 1 - p.altitude / 400);
+  // Full below 30 m, gone at 520 m. The straight ramp left a 220 m cruise
+  // 0.3 dB short of a 6 dB high-band drop, so the middle of the ramp is steeper.
+  const altLinear = p.altitude < 30 ? 1 : p.altitude < 520 ? (520 - p.altitude) / 490 : 0;
+  const altClose = altLinear ** 1.25;
+  const sky = clamp01(p.aboveClouds) * altClose;
+  const rain = p.rain;
+  const patter = rain * 0.18 * street * sky * (1 - 0.72 * m);
+  const mach = p.machinery * (1 - 0.55 * m);
+  const surf = p.surf * (1 - 0.45 * m);
+  const traffic = p.traffic * (1 - 0.62 * m);
+  const muffleHz = Math.max(280, 14000 * (260 / 14000) ** m);
+  // The city bed is already lowpassed at 260 Hz, so 419 Hz vs 577 Hz does not
+  // move RMS, and the apartment hum then outranks the court. While the room
+  // is still open between those cutoffs and about 1.6 kHz, keep a slit of city.
+  const slit = clamp01((muffleHz - 420) / 280) * clamp01((1600 - muffleHz) / 500);
+  return {
+    rain: rain * 0.22 * sky * (1 - 0.58 * m),
+    patter,
+    lfo: 0.45 * patter,
+    city: (0.18 + 0.3 * street) * (1 - CITY_DUCK * m) * (1 + 0.85 * slit),
+    wind: Math.min(0.55, 0.03 + p.wind * 0.02 + p.snow * 0.08 + (1 - street) * 0.12 + p.crest * 0.16) * (1 - 0.35 * m),
+    hum: p.hum * 0.05,
+    mach: mach * 0.04,
+    tone: mach * 0.01,
+    surf: surf * 0.075,
+    impact: surf * p.surfImpact * 0.17,
+    tire: traffic * 0.028,
+    rumble: traffic * 0.018,
+    room: m * (0.04 + 0.05 * rain),
+    muffleHz,
+  };
+}
+
+/**
+ * A few percent either side of 1, on periods that are not 6 s, so the city
+ * bed does not lock to the buffer length. Applied to the existing source.
+ */
+export function cityPlayback(time: number): number {
+  const a = Math.sin((2 * Math.PI * time) / 2.7);
+  const b = Math.sin((2 * Math.PI * time) / 5.3);
+  return 1 + 0.018 * a + 0.014 * b;
+}
+
+function clamp01(v: number): number {
+  return v < 0 ? 0 : v > 1 ? 1 : v;
+}
+
 export class Ambience {
   private ctx: AudioContext | null = null;
   private rainGain!: GainNode;
   private patterGain!: GainNode;
+  private lfoDepth: GainNode | null = null;
   private cityGain!: GainNode;
+  private cityRate: AudioParam | null = null;
+  private cityRateUntil = 0;
+  private cityRateError = '';
   private windGain!: GainNode;
   private master!: GainNode;
   private muffleFilter: BiquadFilterNode | null = null;
@@ -50,8 +155,8 @@ export class Ambience {
   private altLevel = 0;
   muted = audioPrefs.muted;
 
-  constructor() {
-    activeBus = this;
+  constructor(register = true) {
+    if (register) activeBus = this;
   }
 
   start(): void {
@@ -61,7 +166,29 @@ export class Ambience {
     }
     const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     if (!AC) return;
-    const ctx = (this.ctx = new AC());
+    const ctx = new AC();
+    this.ctx = ctx;
+    void ctx.resume();
+    this.build(ctx);
+    this.armResume();
+  }
+
+  /** Same bed on an OfflineAudioContext. Does not resume and does not arm a gesture. */
+  mountOffline(ctx: BaseAudioContext): void {
+    if (this.ctx) return;
+    this.ctx = ctx as AudioContext;
+    this.build(ctx);
+  }
+
+  /** Pin the master for an offline render. Does not write `nla.audio`. */
+  pinMaster(volume = 0.8): void {
+    this.volume = Math.max(0, Math.min(1, volume));
+    this.muted = false;
+    this.duck = 1;
+    if (this.master) this.master.gain.value = this.masterLevel();
+  }
+
+  private build(ctx: BaseAudioContext): void {
     this.master = ctx.createGain();
     this.master.gain.value = this.masterLevel();
     const muffle = ctx.createBiquadFilter();
@@ -72,22 +199,12 @@ export class Ambience {
     this.master.connect(muffle);
     muffle.connect(ctx.destination);
 
-    const noise = (kind: 'white' | 'brown', seconds = 4) => {
-      const len = ctx.sampleRate * seconds;
-      const buf = ctx.createBuffer(2, len, ctx.sampleRate);
-      for (let ch = 0; ch < 2; ch++) {
-        const d = buf.getChannelData(ch);
-        let last = 0;
-        for (let i = 0; i < len; i++) {
-          const w = Math.random() * 2 - 1;
-          if (kind === 'white') d[i] = w;
-          else { last = (last + 0.02 * w) / 1.02; d[i] = last * 3.5; }
-        }
+    const noise = (kind: 'white' | 'brown', seconds = 4, seam = false) => {
+      const src = makeNoise(ctx, kind, seconds, seam);
+      if (seam) {
+        this.cityRate = src.playbackRate;
+        this.pushCityRate(ctx.currentTime, 20);
       }
-      const src = ctx.createBufferSource();
-      src.buffer = buf;
-      src.loop = true;
-      src.start();
       return src;
     };
 
@@ -103,7 +220,7 @@ export class Ambience {
     this.rainGain.gain.value = 0;
     rain.connect(hp).connect(lp).connect(this.rainGain).connect(this.master);
 
-    // heavier drops / patter on surfaces
+    // heavier drops / patter on surfaces. The 13 Hz depth follows the patter target.
     const patter = noise('white', 3);
     const bp = ctx.createBiquadFilter();
     bp.type = 'bandpass';
@@ -114,13 +231,14 @@ export class Ambience {
     const lfo = ctx.createOscillator();
     lfo.frequency.value = 13;
     const lfoGain = ctx.createGain();
-    lfoGain.gain.value = 0.25;
+    lfoGain.gain.value = 0;
+    this.lfoDepth = lfoGain;
     lfo.connect(lfoGain).connect(this.patterGain.gain);
-    lfo.start();
+    lfo.start(ctx.currentTime);
     patter.connect(bp).connect(this.patterGain).connect(this.master);
 
-    // city rumble (traffic, machinery, distant spinners)
-    const city = noise('brown', 6);
+    // city rumble (traffic, machinery, distant spinners). 6 s, seamless at the joint.
+    const city = noise('brown', 6, true);
     const clp = ctx.createBiquadFilter();
     clp.type = 'lowpass';
     clp.frequency.value = 260;
@@ -138,7 +256,7 @@ export class Ambience {
     this.humGain = ctx.createGain();
     this.humGain.gain.value = 0;
     hum.connect(humLp).connect(this.humGain).connect(this.master);
-    hum.start();
+    hum.start(ctx.currentTime);
 
     // Low industrial bed: filtered noise plus a slow 41 Hz tone. Not music.
     const mach = noise('brown', 8);
@@ -154,7 +272,7 @@ export class Ambience {
     this.machTone = ctx.createGain();
     this.machTone.gain.value = 0;
     tone.connect(this.machTone).connect(this.master);
-    tone.start();
+    tone.start(ctx.currentTime);
 
     // wind
     const wind = noise('brown', 5);
@@ -211,21 +329,44 @@ export class Ambience {
     this.roomGain = ctx.createGain();
     this.roomGain.gain.value = 0;
     room.connect(roomLp).connect(this.roomGain).connect(this.master);
-    this.armResume();
   }
 
-  /** iOS drops a running context when the tab is backgrounded. The next tap resumes it. */
+  /** Extend the city source's rate curve. One existing AudioParam, no new node. */
+  private pushCityRate(time: number, horizon = 16): void {
+    const param = this.cityRate;
+    if (!param) return;
+    const start = Math.max(time, this.cityRateUntil);
+    const step = 0.5;
+    const n = Math.round(horizon / step);
+    try {
+      param.cancelScheduledValues(start);
+      param.setValueAtTime(cityPlayback(start), start);
+      for (let i = 1; i <= n; i++) {
+        const at = start + i * step;
+        param.linearRampToValueAtTime(cityPlayback(at), at);
+      }
+      this.cityRateUntil = start + n * step;
+      this.cityRateError = '';
+    } catch (err) {
+      this.cityRateError = err instanceof Error ? err.message : String(err);
+      this.cityRateUntil = time + 4;
+    }
+  }
+
+  /** iOS drops a running context when the phone locks. The next gesture resumes it. */
   private armResume(): void {
     if (this.resumeArmed) return;
     this.resumeArmed = true;
-    const kick = () => {
-      if (this.ctx && this.ctx.state === 'suspended') void this.ctx.resume();
+    const kick = (fromVisibility: boolean) => {
+      const ctx = this.ctx;
+      if (!ctx) return;
+      if (shouldResume(ctx.state, fromVisibility)) void ctx.resume();
     };
-    document.addEventListener('pointerdown', kick);
-    document.addEventListener('touchend', kick);
-    document.addEventListener('keydown', kick);
+    document.addEventListener('pointerdown', () => kick(false));
+    document.addEventListener('touchend', () => kick(false));
+    document.addEventListener('keydown', () => kick(false));
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') kick();
+      if (document.visibilityState === 'visible') kick(true);
     });
   }
 
@@ -246,6 +387,11 @@ export class Ambience {
   /** Master bus. Market layers connect here so mute applies to them too. */
   get output(): GainNode | null {
     return this.ctx ? this.master : null;
+  }
+
+  /** Empty when the city-rate curve scheduled. Offline renders read this. */
+  get rateError(): string {
+    return this.cityRateError;
   }
 
   setMuted(m: boolean): void {
@@ -322,31 +468,124 @@ export class Ambience {
     this.crestWind = Math.max(0, Math.min(1, crest));
   }
 
+  /** Write settled gains immediately. Offline renders use this; the frame loop uses `update`. */
+  prime(rain: number, snow: number, wind: number, altitude: number, aboveClouds = 1): BedTargets {
+    this.rainLevel = rain;
+    this.windLevel = wind;
+    this.altLevel = altitude;
+    const g = ambienceTargets(this.levels(rain, snow, wind, altitude, aboveClouds));
+    this.writeBed(g, null, 0.89);
+    return g;
+  }
+
+  /** Park the city source at a fixed rate. The live bed does not call this. */
+  holdCityRate(rate = 1): void {
+    const param = this.cityRate;
+    if (!param || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    try {
+      param.cancelScheduledValues(t);
+      param.setValueAtTime(rate, t);
+      this.cityRateUntil = t + 3600;
+      this.cityRateError = '';
+    } catch (err) {
+      this.cityRateError = err instanceof Error ? err.message : String(err);
+    }
+  }
+
+  /** City rumble alone, at a fixed gain, for the loop measurement. */
+  soloCity(gain: number): void {
+    this.writeBed({
+      rain: 0, patter: 0, lfo: 0, city: gain, wind: 0, hum: 0,
+      mach: 0, tone: 0, surf: 0, impact: 0, tire: 0, rumble: 0, room: 0,
+      muffleHz: 14000,
+    }, null, 1);
+  }
+
   /** altitude in meters above ground: street-level sounds fade when flying high. */
-  update(rain: number, snow: number, wind: number, altitude: number): void {
+  update(rain: number, snow: number, wind: number, altitude: number, aboveClouds = 1): void {
     this.rainLevel = rain;
     this.windLevel = wind;
     this.altLevel = altitude;
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
-    if (this.roomGain) this.roomGain.gain.setTargetAtTime(this.interior * 0.02, t, 0.4);
-    const m = this.interior;
-    if (this.muffleFilter) this.muffleFilter.frequency.setTargetAtTime(Math.max(280, 15000 - m * 14720), t, 0.35);
-    if (this.humGain) this.humGain.gain.setTargetAtTime(this.hum * 0.016, t, 0.45);
-    const mach = this.machinery * (1 - 0.55 * m);
     const wobble = 0.78 + 0.22 * Math.sin(t * 0.7);
-    if (this.machGain) this.machGain.gain.setTargetAtTime(mach * 0.04 * wobble, t, 0.5);
-    if (this.machTone) this.machTone.gain.setTargetAtTime(mach * 0.01, t, 0.5);
-    const surf = this.surfAmount * (1 - 0.45 * m);
-    if (this.surfGain) this.surfGain.gain.setTargetAtTime(surf * 0.075, t, 0.35);
-    if (this.impactGain) this.impactGain.gain.setTargetAtTime(surf * this.surfImpact * 0.17, t, 0.03);
-    const traffic = this.traffic * (1 - 0.62 * m);
-    if (this.tireGain) this.tireGain.gain.setTargetAtTime(traffic * 0.028, t, 0.35);
-    if (this.rumbleGain) this.rumbleGain.gain.setTargetAtTime(traffic * 0.018, t, 0.4);
-    const street = Math.max(0.15, 1 - altitude / 400);
-    this.rainGain.gain.setTargetAtTime(rain * 0.32 * (1 - 0.58 * m), t, 0.5);
-    this.patterGain.gain.setTargetAtTime(rain * 0.25 * street * (1 - 0.72 * m), t, 0.5);
-    this.cityGain.gain.setTargetAtTime((0.18 + 0.3 * street) * (1 - 0.5 * m), t, 0.8);
-    this.windGain.gain.setTargetAtTime(Math.min(0.55, 0.03 + wind * 0.02 + snow * 0.08 + (1 - street) * 0.12 + this.crestWind * 0.16) * (1 - 0.35 * m), t, 0.45);
+    this.writeBed(ambienceTargets(this.levels(rain, snow, wind, altitude, aboveClouds)), t, wobble);
+    if (this.cityRate && t + 4 >= this.cityRateUntil) this.pushCityRate(t);
   }
+
+  private levels(rain: number, snow: number, wind: number, altitude: number, aboveClouds: number): BedInput {
+    return {
+      rain, snow, wind, altitude, aboveClouds,
+      interior: this.interior,
+      hum: this.hum,
+      machinery: this.machinery,
+      surf: this.surfAmount,
+      surfImpact: this.surfImpact,
+      crest: this.crestWind,
+      traffic: this.traffic,
+    };
+  }
+
+  private writeBed(g: BedTargets, time: number | null, wobble: number): void {
+    const set = (param: AudioParam | undefined, value: number, tc: number) => {
+      if (!param) return;
+      if (time == null) param.value = value;
+      else param.setTargetAtTime(value, time, tc);
+    };
+    set(this.roomGain?.gain, g.room, 0.4);
+    set(this.muffleFilter?.frequency, g.muffleHz, 0.35);
+    set(this.humGain?.gain, g.hum, 0.45);
+    set(this.machGain?.gain, g.mach * wobble, 0.5);
+    set(this.machTone?.gain, g.tone, 0.5);
+    set(this.surfGain?.gain, g.surf, 0.35);
+    set(this.impactGain?.gain, g.impact, 0.03);
+    set(this.tireGain?.gain, g.tire, 0.35);
+    set(this.rumbleGain?.gain, g.rumble, 0.4);
+    set(this.rainGain?.gain, g.rain, 0.5);
+    set(this.patterGain?.gain, g.patter, 0.5);
+    set(this.lfoDepth?.gain, g.lfo, 0.5);
+    set(this.cityGain?.gain, g.city, 0.8);
+    set(this.windGain?.gain, g.wind, 0.45);
+  }
+}
+
+/**
+ * Looping noise. The 6 s city bed overlap-blends an 80 ms tail back into the
+ * head so the brown integrator continues across the joint. The buffer stays 6 s.
+ */
+function makeNoise(ctx: BaseAudioContext, kind: 'white' | 'brown', seconds: number, seam: boolean): AudioBufferSourceNode {
+  const rate = ctx.sampleRate;
+  const len = Math.max(1, Math.floor(rate * seconds));
+  const fade = seam ? Math.min(Math.floor(rate * 0.08), len >> 1) : 0;
+  const total = len + fade;
+  const buf = ctx.createBuffer(2, len, rate);
+  for (let ch = 0; ch < 2; ch++) {
+    const tmp = new Float32Array(total);
+    let last = 0;
+    for (let i = 0; i < total; i++) {
+      const w = Math.random() * 2 - 1;
+      if (kind === 'white') tmp[i] = w;
+      else {
+        last = (last + 0.02 * w) / 1.02;
+        tmp[i] = last * 3.5;
+      }
+    }
+    const d = buf.getChannelData(ch);
+    d.set(tmp.subarray(0, len));
+    if (fade > 1) {
+      const span = fade - 1;
+      for (let i = 0; i < fade; i++) {
+        const t = i / span;
+        const rise = Math.sin(t * Math.PI * 0.5);
+        const fall = Math.cos(t * Math.PI * 0.5);
+        d[i] = (d[i] ?? 0) * rise + (tmp[len + i] ?? 0) * fall;
+      }
+    }
+  }
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.loop = true;
+  src.start(ctx.currentTime);
+  return src;
 }

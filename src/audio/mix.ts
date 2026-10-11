@@ -93,6 +93,38 @@ export function slotLevel(
   return base * t * t * street * open;
 }
 
+export interface SpinnerHeard {
+  dist: number;
+  closing?: number;
+  heavy?: boolean;
+}
+
+/**
+ * The one spinner voice. A close flyby keeps its level and pitch. In fly mode,
+ * when nothing is louder than about 0.04, the same voice sits on the listener
+ * as a steady cockpit tone.
+ */
+export function spinnerVoice(
+  spinner: SpinnerHeard | null,
+  interior: number,
+  flying: boolean,
+): { gain: number; freq: number; onListener: boolean } {
+  const open = 1 - 0.7 * clamp01(interior);
+  let gain = 0;
+  let freq = 280;
+  if (spinner) {
+    const reach = spinner.heavy ? 950 : 700;
+    if (spinner.dist < reach) {
+      const u = 1 - spinner.dist / reach;
+      gain = u * u * (spinner.heavy ? 0.2 : 0.16) * open;
+      const doppler = Math.max(0.75, Math.min(1.3, 1 + (spinner.closing ?? 0) / 340));
+      freq = ((spinner.heavy ? 90 : 180) + u * (spinner.heavy ? 420 : 900)) * doppler;
+    }
+  }
+  if (flying && gain <= 0.04) return { gain: 0.04, freq: 160, onListener: true };
+  return { gain, freq, onListener: false };
+}
+
 /** A slow horn: attack, hold, release, then a long gap. Deterministic in audio time. */
 export function hornEnvelope(time: number, period = 41): number {
   const local = ((time % period) + period) % period;
