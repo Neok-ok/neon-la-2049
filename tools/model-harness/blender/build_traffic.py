@@ -341,17 +341,29 @@ def place_frame(part, location, x_axis, z_axis):
 
 
 def trim_mat():
-    """Steel line. Dark-on-dark seams disappear on the contact sheet."""
+    """Steel line. Dark-on-dark seams disappear once the sheet is scaled down."""
     mat = bpy.data.materials.new('trim')
     mat.use_nodes = True
     bsdf = mat.node_tree.nodes.get('Principled BSDF')
-    bsdf.inputs['Base Color'].default_value = (0.34, 0.35, 0.37, 1)
-    bsdf.inputs['Metallic'].default_value = 0.82
-    bsdf.inputs['Roughness'].default_value = 0.32
+    bsdf.inputs['Base Color'].default_value = (0.55, 0.56, 0.58, 1)
+    bsdf.inputs['Metallic'].default_value = 0.78
+    bsdf.inputs['Roughness'].default_value = 0.34
     return mat
 
 
-def trim_bar(name, a, b, mat, thick=0.036, depth=0.016):
+def emissive(name, rgb, strength):
+    mat = bpy.data.materials.new(name)
+    mat.use_nodes = True
+    bsdf = mat.node_tree.nodes.get('Principled BSDF')
+    bsdf.inputs['Base Color'].default_value = (0.01, 0.01, 0.012, 1)
+    bsdf.inputs['Metallic'].default_value = 0.0
+    bsdf.inputs['Roughness'].default_value = 0.28
+    bsdf.inputs['Emission Color'].default_value = (rgb[0], rgb[1], rgb[2], 1)
+    bsdf.inputs['Emission Strength'].default_value = strength
+    return mat
+
+
+def trim_bar(name, a, b, mat, thick=0.11, depth=0.016):
     a = Vector(a)
     b = Vector(b)
     delta = b - a
@@ -383,18 +395,43 @@ def car_shoulder(sign):
     for t, hw, belly, top in stations:
         y = half - t * CAR['length']
         rise = max(top - belly, 1e-4)
-        pts.append((sign * hw * 0.90, y, belly + rise * 0.58))
+        # Just outside the flank. The lower body is still the widest point, so the lane width holds.
+        pts.append((sign * min(0.86, hw * 0.94 + 0.02), y, belly + rise * 0.55))
     return pts
 
 
 def dress_car(kit, lod):
-    # Two openings on the nose, a band on the tail. They sit just proud of the skin
-    # so a side view sees a lamp, not the edge of a blade.
+    # Openings are large on purpose. A 4 cm blade disappears when the contact sheet is viewed whole.
+    # They sit proud of the nose and the tail, still inside the 5.6 m length and the 1.82 m width.
+    white = emissive('light-white', (1.0, 0.96, 0.88), 16)
+    red = emissive('light-red', (1.0, 0.03, 0.015), 14)
     for sign in (-1, 1):
-        place(kit, kit.seam(f'head-pocket-{sign:+d}', 0.30, 0.11, 0.02), (sign * 0.18, 2.34, 0.44), (0, 1, 0.18))
-        place(kit, kit.light_strip(f'head-{sign:+d}', 0.22, 0.072, 0.055, 'white'), (sign * 0.18, 2.36, 0.44), (0, 1, 0.18))
-    place(kit, kit.seam('tail-pocket', 0.70, 0.09, 0.018), (0, -2.34, 0.46), (0, -1, 0.12))
-    place(kit, kit.light_strip('tail', 0.58, 0.055, 0.05, 'red'), (0, -2.36, 0.46), (0, -1, 0.12))
+        hx = sign * 0.24
+        box(
+            f'head-pocket-{sign:+d}',
+            (hx - 0.20, 2.38, 0.30),
+            (hx + 0.20, 2.47, 0.56),
+            kit.recess,
+        )
+        box(
+            f'head-lamp-{sign:+d}',
+            (hx - 0.13, 2.44, 0.35),
+            (hx + 0.13, 2.53, 0.51),
+            white,
+        )
+        tx = sign * 0.30
+        box(
+            f'tail-pocket-{sign:+d}',
+            (tx - 0.11, -2.47, 0.34),
+            (tx + 0.11, -2.38, 0.56),
+            kit.recess,
+        )
+        box(
+            f'tail-lamp-{sign:+d}',
+            (tx - 0.07, -2.53, 0.39),
+            (tx + 0.07, -2.44, 0.51),
+            red,
+        )
     if lod == 'low':
         return
     # Side skin is at x=±0.89. Parts grow along +Z, so their origin sits just inboard.

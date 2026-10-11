@@ -1,17 +1,17 @@
 {
   "car": {
-    "length": 4.85,
+    "length": 5.06,
     "width": 1.78,
     "roof": 1.466,
     "tris": {
-      "high": 2264,
-      "medium": 1436,
-      "low": 652
+      "high": 2252,
+      "medium": 1424,
+      "low": 640
     },
     "iou": {
-      "side": 0.863,
-      "top": 0.893,
-      "front": 0.759
+      "side": 0.844,
+      "top": 0.894,
+      "front": 0.761
     },
     "lane": 3.55,
     "person": 1.8,

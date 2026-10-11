@@ -306,7 +306,7 @@ function anchors(): void {
   must(gen, 'const HILL_ARCHETYPE_THRESHOLD = 45', 'generator.ts');
   must(gen, 'b.y0 -= 8', 'generator.ts');
   const vehicles = src('src/vehicles/vehicleModels.ts');
-  must(vehicles, 'export const CAR_L = 4.85', 'vehicleModels.ts');
+  must(vehicles, 'export const CAR_L = 5.06', 'vehicleModels.ts');
   must(vehicles, 'export const CAR_W = 1.78', 'vehicleModels.ts');
   must(vehicles, 'export const CAR_H = 1.466', 'vehicleModels.ts');
   must(vehicles, 'export const HAULER_L = 16.159', 'vehicleModels.ts');
