@@ -80,13 +80,13 @@ for (const tier of tiers) {
         const hero = String(p.kind).startsWith('hero');
         const lantern = p.kind === 'lantern';
         // Heroes stay just off the apron ring. The lantern door sits on the open arm, away from the cross.
-        const dist = hero ? 5.2 : lantern ? 8 : 6.4;
-        const side = lantern ? -4.8 : 2.8;
+        const dist = hero ? 5.2 : lantern ? Math.max(16, (p.gap ?? 24) - 8) : 6.4;
+        const side = lantern ? -8 : 2.8;
         const nla = window.__nla;
         const q = nla.app.query;
         let cx = p.door[0] + p.normal[0] * dist + p.bx * side;
         let cz = p.door[1] + p.normal[1] * dist + p.bz * side;
-        if (q.insideSolid(cx, p.ground + 1.2, cz, 0.4)) {
+        if (!lantern && q.insideSolid(cx, p.ground + 1.2, cz, 0.4)) {
           cx = p.door[0] + p.normal[0] * dist + p.bx * -side;
           cz = p.door[1] + p.normal[1] * dist + p.bz * -side;
         }
@@ -115,11 +115,11 @@ for (const tier of tiers) {
         const w = nla.app.cams.walk;
         const hero = String(p.kind).startsWith('hero');
         const lantern = p.kind === 'lantern';
-        const dist = hero ? 5.2 : lantern ? 8 : 6.4;
-        let side = lantern ? -4.8 : 2.8;
+        const dist = hero ? 5.2 : lantern ? Math.max(16, (p.gap ?? 24) - 8) : 6.4;
+        let side = lantern ? -8 : 2.8;
         let cx = p.door[0] + p.normal[0] * dist + p.bx * side;
         let cz = p.door[1] + p.normal[1] * dist + p.bz * side;
-        if (q.insideSolid(cx, p.ground + 1.2, cz, 0.35)) {
+        if (!lantern && q.insideSolid(cx, p.ground + 1.2, cz, 0.35)) {
           side = -4.2;
           cx = p.door[0] + p.normal[0] * dist + p.bx * side;
           cz = p.door[1] + p.normal[1] * dist + p.bz * side;
