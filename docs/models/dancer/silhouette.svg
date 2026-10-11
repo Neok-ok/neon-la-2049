@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 730" width="430" height="730">
+  <title>Veil Dancer overlap plates</title>
+  <desc>
+    Original Veil House figure. Groups: #bind (close and medium target),
+    #outer (low glyph and distant shell), #side (depth blade), #guide (frame, not a mask).
+    Rasterize one group at a time. 10 user units along the figure equal 1 metre
+    inside each plate. Front plate is 150 by 680 (15 m by 68 m). Side plate is 36 by 680.
+  </desc>
+  <style>
+    .mask { fill: #fff; }
+    .guide { fill: none; stroke: #ff4d8d; stroke-width: 1; }
+    .label { fill: #ff4d8d; font: 12px sans-serif; }
+  </style>
+
+  <!--
+    Front bind. sx = uvx * 150, sy = (1 - uvy) * 680.
+    One connected body. Skirt widths step 9.0 / 13.2 / 7.2 m.
+    Waist pinches to 4.2 m. Veil is a ribbon on the left. Arm stays up.
+  -->
+  <g id="bind" class="mask" transform="translate(10,10)">
+    <polygon points="75,71 96,105 84,150 117,184 96,272 112,326 120,374 141,450 111,560 75,666 39,560 9,450 30,374 38,326 54,272 33,184 66,150 54,105"/>
+    <!-- Raised arm, to the right of the diamond, mitten above the crown. -->
+    <polygon points="108,196 120,184 130,120 118,96 114,22 100,30 106,108 98,168"/>
+    <!-- Short arm to the left, inside the skirt width. -->
+    <polygon points="40,196 28,214 16,248 28,256 46,210"/>
+    <!-- Veil ribbon, about 1.4 m wide, beside the torso and over the skirt edge. -->
+    <polygon points="8,108 24,118 22,300 18,470 16,640 6,648 10,460 12,280 6,130"/>
+  </g>
+
+  <!-- Low / distant shell. Waist filled, veil pulled into the left edge, arm as a spike. -->
+  <g id="outer" class="mask" transform="translate(180,10)">
+    <polygon points="75,71 96,105 88,150 112,170 122,40 114,22 104,36 118,160 124,190 108,272 120,374 141,450 111,560 75,666 39,560 9,450 8,180 33,184 66,150 54,105"/>
+  </g>
+
+  <!-- Side blade. 3.6 m frame, 1.8 m at the skirt, veil behind (smaller x). -->
+  <g id="side" class="mask" transform="translate(360,10)">
+    <polygon points="18,666 24,560 27,450 22,374 20,326 16,272 20,184 22,150 22,105 18,71 14,105 14,150 12,184 12,272 14,326 10,374 9,450 12,560 14,666"/>
+    <polygon points="8,140 12,200 6,470 5,630 9,640 11,460 14,200"/>
+    <polygon points="18,190 25,120 23,26 17,30 16,150"/>
+  </g>
+
+  <g id="guide">
+    <rect class="guide" x="10" y="10" width="150" height="680"/>
+    <rect class="guide" x="180" y="10" width="150" height="680"/>
+    <rect class="guide" x="360" y="10" width="36" height="680"/>
+    <text class="label" x="10" y="708">bind</text>
+    <text class="label" x="180" y="708">outer</text>
+    <text class="label" x="360" y="708">side</text>
+  </g>
+</svg>

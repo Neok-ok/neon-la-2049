@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Veil Dancer and pedestrians — reference pack</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #12100e;
+    --ink: #f3ece4;
+    --muted: #b7aa9e;
+    --line: #3a332c;
+    --pink: #ff6b9a;
+    --amber: #e4b15a;
+    --card: #1c1916;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.5 "Segoe UI", system-ui, sans-serif;
+  }
+  header, main { max-width: 980px; margin: 0 auto; padding: 32px 20px; }
+  header { padding-bottom: 8px; }
+  h1 { font-size: 1.8rem; line-height: 1.2; margin: 0 0 8px; }
+  h2 { font-size: 1.35rem; margin: 2.2rem 0 0.6rem; }
+  h3 { font-size: 1.05rem; margin: 1.4rem 0 0.4rem; }
+  a { color: var(--pink); }
+  .amber a, h2.amber { color: var(--amber); }
+  p, li { color: var(--ink); }
+  .lede { color: var(--muted); max-width: 68ch; }
+  nav { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 16px 0 8px; }
+  nav a { text-decoration: none; border-bottom: 1px solid var(--line); }
+  table { width: 100%; border-collapse: collapse; margin: 0.6rem 0 1rem; font-size: 0.92rem; }
+  th, td { border: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { background: var(--card); font-weight: 600; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .note { color: var(--muted); font-size: 0.92rem; }
+  figure { margin: 1rem 0; background: var(--card); border: 1px solid var(--line); padding: 12px; }
+  figure img { width: 100%; height: auto; background: #0c0b0a; }
+  figcaption { color: var(--muted); font-size: 0.85rem; margin-top: 8px; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 720px) { .cols { grid-template-columns: 1fr; } }
+  code { font-family: ui-monospace, monospace; font-size: 0.88em; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Veil Dancer and the sidewalk crowd</h1>
+  <p class="lede">Reference pack for a future model-harness pass. The dancer that ships is a stack of diamonds on a 68 m quad. The crowd is one mesh of boxes. These pages say what to build instead. They do not change the game.</p>
+  <nav>
+    <a href="#dancer">Dancer</a>
+    <a href="#crowd">Pedestrians</a>
+    <a href="#lod">LOD</a>
+    <a href="#harness">Harness</a>
+    <a href="#refs">References</a>
+    <a href="dancer/look-target.md">Dancer bar</a>
+    <a href="pedestrians/look-target.md">Crowd bar</a>
+  </nav>
+  <p class="note">Original designs. Diamond head, no face, no likeness, no logos, no film frames in git. Ultra and High get the full mesh, Medium a lighter one, Low a simple one. The city is not cut down to fit a phone. Triangle counts are reported, not gated.</p>
+</header>
+<main>
+
+<h2 id="dancer">Dancer</h2>
+<p>Veil House, an invented canyon ad house. Broadway <code>joi-bridge-dancer</code> is a 15 × 68 m tower-band panel, pink, rank 0, spill 36 m, seed 0.37, hem planted 0.12 m above the street. Hollywood <code>hollywood-dancer</code> is the same figure letterboxed in a 24 × 68 m skyline panel, spill 48 m, seed 0.17. The footbridge deck stays empty.</p>
+
+<div class="cols">
+  <div>
+    <h3>Now</h3>
+    <p>Nine SDF shapes and a glow ellipse. On the 15 m quad the thick middle chevron is about 7.8 m wide and the head is about 1.5 × 12 m. They read as one pink column. Two triangles, plus ghost slices 0.85 m back on the nearest five panels in the city.</p>
+  </div>
+  <div>
+    <h3>Target</h3>
+    <p>Crown 59.5 m above the hem, raised hand at 64.4 m, middle skirt 13.2 m, shoulders 8.4 m, head 4.2 × 6.8 m, depth at most 1.8 m. Three skirt steps on one body, waist pinched to 4.2 m, a veil on one side. The arm stays up.</p>
+  </div>
+</div>
+
+<figure>
+  <img src="dancer/silhouette.svg" alt="Overlap plates: bind pose, low outer contour, and side blade of the Veil Dancer">
+  <figcaption>Overlap plates. <code>#bind</code> is the close figure, <code>#outer</code> is the low and distant shell, <code>#side</code> is the 1.8 m blade. The pink frames are guides and are not part of the mask.</figcaption>
+</figure>
+
+<h3>Reads</h3>
+<table>
+  <thead><tr><th>Distance</th><th>What you should see</th></tr></thead>
+  <tbody>
+    <tr><td>5 m</td><td>Hem point, the lowest skirt step, scan bars, pink spill on the wet street. A person at the feet is a small dark mark.</td></tr>
+    <tr><td>30 m</td><td>Diamond head, arm up, pinched waist, three skirt steps, veil. Scanlines sit on the body.</td></tr>
+    <tr><td>200 m</td><td>A pink vertical, wider in the middle, a nick where the hand is, the head as a cap. Hollywood also has to read as a flare and a cap from about a kilometre.</td></tr>
+  </tbody>
+</table>
+
+<h3>Treatment she has to survive</h3>
+<table>
+  <thead><tr><th>Piece</th><th>Value</th></tr></thead>
+  <tbody>
+    <tr><td>Tint</td><td>Pink (1.00, 0.18, 0.55), core 62% toward white</td></tr>
+    <tr><td>Scan</td><td>8 lines at low detail, 32 at full, scrolling</td></tr>
+    <tr><td>Tear</td><td>A rare band, at most 0.6 m on the Broadway quad</td></tr>
+    <tr><td>Ghost</td><td>High one slice, ultra two, 0.85 m back, only if she is among the five nearest panels</td></tr>
+    <tr><td>Idle</td><td>About 5.2 s. Head ±1.1 m. She does not walk.</td></tr>
+    <tr><td>Low</td><td>Thin glyph, about 18% of the close stroke. She stays in the city.</td></tr>
+  </tbody>
+</table>
+<p class="note">Full tables: <a href="dancer/look-target.md">look-target</a>, <a href="dancer/scale.md">scale</a>, <a href="dancer/lod.md">LOD</a>.</p>
+
+<h2 id="crowd" class="amber">Pedestrians</h2>
+<p>One mesh named <code>crowd</code>. Median 1.80 m, soles on the ground, shoulders 0.48 m, long hem 0.74 m, short hem 0.96 m, knee 0.45 m. Heights 1.55–1.91 m, scaled uniformly. The boxes today put the head at half the torso width, the soles at 2 cm, and the short hem 6 cm from the long one.</p>
+
+<figure>
+  <img src="pedestrians/silhouette.svg" alt="Overlap plates: long coat, short coat, rain with umbrella, and side view">
+  <figcaption>Overlap plates. <code>#stand</code>, <code>#short</code>, <code>#rain</code>, <code>#side</code>. One centimetre is one unit. The canopy is a shallow dome, 1.05 m across, apex at 2.15 m.</figcaption>
+</figure>
+
+<h3>Coat mix, per thousand people</h3>
+<table>
+  <thead><tr><th>Hash band</th><th class="num">Share</th><th>Garments</th></tr></thead>
+  <tbody>
+    <tr><td>0–339</td><td class="num">34%</td><td>Coat only</td></tr>
+    <tr><td>340–559</td><td class="num">22%</td><td>Hood</td></tr>
+    <tr><td>560–699</td><td class="num">14%</td><td>Hat</td></tr>
+    <tr><td>700–819</td><td class="num">12%</td><td>Bag</td></tr>
+    <tr><td>820–919</td><td class="num">10%</td><td>Hood and bag</td></tr>
+    <tr><td>920–999</td><td class="num">8%</td><td>Hat</td></tr>
+  </tbody>
+</table>
+<p>Short coats are about 19%, and only when there is no hood. Coat colours: 93% the nine darks, 4% off-white, 3% pale plastic. Eight canopy colours, even mix. Umbrella fraction by rain: 0, 0.28, 0.55, 0.74, 0.90. Cooks and awning clusters hold none. Shaft colour (1.00, 0.74, 0.38).</p>
+
+<h3>Reads</h3>
+<table>
+  <thead><tr><th>Distance</th><th>What you should see</th></tr></thead>
+  <tbody>
+    <tr><td>5 m</td><td>Hem, planted foot, hand on the shaft, hood or hat. The head is a blank volume.</td></tr>
+    <tr><td>30 m</td><td>Canopy as a roof, coat colours apart, long hem versus short hem. Medium has already frozen the walk (reach 28 m). High and ultra still swing.</td></tr>
+    <tr><td>200 m</td><td>Nobody. Radius tops out at 88 m. The sheet still shows a tick and a canopy fleck, in case a shot cheats the radius.</td></tr>
+  </tbody>
+</table>
+<p class="note">Walk cycle 1.42 m, speed 1.32–1.68 m/s, bob 2 cm. Full notes: <a href="pedestrians/look-target.md">look-target</a>, <a href="pedestrians/scale.md">scale</a>, <a href="pedestrians/lod.md">LOD</a>.</p>
+
+<h2 id="lod">LOD</h2>
+<p>Bands are what a review should report. Landing outside one is a note. Missing the silhouette is a fail.</p>
+<table>
+  <thead>
+    <tr><th>Tier</th><th>Dancer</th><th class="num">Dancer tris</th><th>Crowd (market)</th><th class="num">Crowd tris</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Low</td><td>Outer shell, coarse scan, no spill</td><td class="num">180–400</td><td>56 people, 48 m, frozen pose, simple coat</td><td class="num">120–180</td></tr>
+    <tr><td>Medium</td><td>Three skirt steps, veil sheet, waist pinched</td><td class="num">1,200–2,500</td><td>160 people, 64 m, swing inside 28 m</td><td class="num">280–450</td></tr>
+    <tr><td>High</td><td>Facets, hems, veil ribbons, one ghost if she is near</td><td class="num">4,000–8,000</td><td>340 people, 78 m, swing inside 48 m</td><td class="num">700–1,100</td></tr>
+    <tr><td>Ultra</td><td>The high mesh, a second ghost</td><td class="num">same file</td><td>680 people, 88 m, swing inside 72 m, the high mesh</td><td class="num">same file</td></tr>
+  </tbody>
+</table>
+<p>The dancer's ceiling also fades to the shell between 24 m and 160 m, which is the curve the shader already uses. Past 160 m every tier is the glyph. Broadway culls with the tower band (1.2–3.2 km by tier). Hollywood culls with the skyline band (2.5–7.7 km).</p>
+
+<h2 id="harness">Harness</h2>
+<p>The spinner loop: Blender, meshopt glTF, a contact sheet, a written score, then the next round. Scripts and <code>public/models/</code> files are a later pass. Leave <code>scripts/screenshots.mjs</code> alone.</p>
+<ol>
+  <li>Block the silhouette. Low, medium, and high are the same shell. Stop if the front overlap is under 0.82.</li>
+  <li>Separate the parts the 30 m view has to name (skirts and waist, or short hem and dome).</li>
+  <li>Facets, hems, ribs on the high file only. Low stays the shell.</li>
+</ol>
+<p>Overlap is orthographic and unfogged. Street sheets are night rain at 5, 30, and 200 m. Front IoU ≥ 0.82 passes, 0.70–0.82 revises, below that fails the round. Side IoU ≥ 0.75.</p>
+
+<h3>Baseline scores, what ships today</h3>
+<table>
+  <thead><tr><th></th><th class="num">Dancer</th><th class="num">Crowd</th></tr></thead>
+  <tbody>
+    <tr><td>Silhouette</td><td class="num">3</td><td class="num">3</td></tr>
+    <tr><td>Pose or gait</td><td class="num">2</td><td class="num">5</td></tr>
+    <tr><td>Costume or variety</td><td class="num">2</td><td class="num">4</td></tr>
+    <tr><td>Material</td><td class="num">4</td><td class="num">3</td></tr>
+    <tr><td>Hologram or umbrella</td><td class="num">6</td><td class="num">4</td></tr>
+    <tr><td>Distance</td><td class="num">3</td><td class="num">4</td></tr>
+    <tr><td>Film feel or crowd</td><td class="num">4</td><td class="num">5</td></tr>
+  </tbody>
+</table>
+<p class="note">Reasons and the round tables: <a href="dancer/harness-plan.md">dancer plan</a>, <a href="pedestrians/harness-plan.md">pedestrian plan</a>.</p>
+
+<h2 id="refs">References</h2>
+<p>Links only. Nothing in this list is stored in the repo. Stills are for rain, pink spill, scan, and the size of a person against a giant figure. Photos are for wet streets, canopy width, and night contrast. Do not model a face or copy a sign.</p>
+<ul>
+  <li><a href="https://vfxblog.com/2017/10/24/more-joi-how-the-giant-blade-runner-2049-hologram-shot-was-pulled-off/">vfxblog — the giant pink street hologram</a></li>
+  <li><a href="https://www.awn.com/vfxworld/double-negative-delivers-joi-blade-runner-2049">Animation World Network — DNEG on that shot</a></li>
+  <li><a href="https://vfxblog.com/2018/01/04/blade-runner-2049-vfx-breakdown-joi-los-angeles/">vfxblog — contour lines and offset layers</a></li>
+  <li><a href="https://www.artofvfx.com/blade-runner-2049-paul-lambert-vfx-supervisor-double-negative/">Art of VFX — Paul Lambert</a></li>
+  <li><a href="https://www.artofvfx.com/blade-runner-2049-richard-hoover-vfx-supervisor-framestore/">Art of VFX — Richard Hoover</a></li>
+  <li><a href="https://news.sky.com/story/bafta-nominee-how-we-shot-that-iconic-blade-runner-scene-11251201">Sky News — pink spill on the person in front</a></li>
+  <li><a href="https://theasc.com/article/blade-runner-cronenweths-photography/">American Cinematographer — Cronenweth on the 1982 crowd and umbrella shafts</a></li>
+  <li><a href="https://msis.jsc.nasa.gov/sections/section03.htm">NASA-STD-3000 §3.3 — stature and breadth</a></li>
+  <li><a href="https://commons.wikimedia.org/wiki/File:MOCADA_80_Hanson_Place_Brooklyn_NY_assorted_photos_near_Fulton_Street_24_two_women_walking.jpg">Wikimedia — two people, rain, umbrellas (CC0)</a></li>
+  <li><a href="https://commons.wikimedia.org/wiki/File:Kagurazaka_Street_after_a_Night_Rain_(5759570482).jpg">Wikimedia — Kagurazaka after night rain</a></li>
+  <li><a href="https://commons.wikimedia.org/wiki/File:Neon-street-in-Tokyo-Japan.jpg">Wikimedia — neon street, people small (CC BY 4.0)</a></li>
+  <li><a href="https://commons.wikimedia.org/wiki/File:Rainy_evening_at_Kirjurinkatu_in_It%C3%A4-Pasila,_Helsinki,_Finland,_2021_October_-_2.jpg">Wikimedia — rainy night street, Helsinki (CC BY-SA 4.0)</a></li>
+</ul>
+<p class="note">The annotated lists are <a href="dancer/references.md">dancer references</a> and <a href="pedestrians/references.md">pedestrian references</a>.</p>
+</main>
+</body>
+</html>

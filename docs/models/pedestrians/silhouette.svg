@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 280" width="700" height="280">
+  <title>Pedestrian overlap plates</title>
+  <desc>
+    Original sidewalk figures. Groups: #stand (long coat), #short (hip coat),
+    #rain (long coat and canopy), #side (depth). #guide is the frame, not a mask.
+    Rasterize one group. Inside a group, 1 user unit is 1 centimetre.
+    Feet sit at local y = 210. Crown of the 1.80 m median is local y = 30.
+  </desc>
+  <style>
+    .mask { fill: #fff; }
+    .guide { fill: none; stroke: #e0a050; stroke-width: 1; }
+    .label { fill: #e0a050; font: 12px sans-serif; }
+  </style>
+
+  <!-- Long coat. Local y = 210 - centimetres. Centre x = 70. -->
+  <g id="stand" class="mask" transform="translate(16,20)">
+    <!-- Head 16 wide, crown 180 cm, chin 157 cm. -->
+    <polygon points="62,30 78,30 78,53 62,53"/>
+    <!-- Neck. -->
+    <polygon points="66,53 74,53 74,62 66,62"/>
+    <!-- Shoulders 48 cm at 148 cm, coat to hem 74 cm, hem 36 cm wide. -->
+    <polygon points="46,62 94,62 88,136 52,136"/>
+    <!-- Arms outside the coat, hands at 82 cm (local y 128). -->
+    <polygon points="40,66 48,64 46,128 38,128"/>
+    <polygon points="92,64 102,66 102,128 94,128"/>
+    <!-- Calves and feet. Knee is hidden under the hem. -->
+    <polygon points="56,136 68,136 66,206 54,206"/>
+    <polygon points="72,136 84,136 86,206 74,206"/>
+    <polygon points="52,206 68,206 68,210 50,210"/>
+    <polygon points="72,206 88,206 90,210 72,210"/>
+  </g>
+
+  <!-- Short coat, hem at the hip, 96 cm, local y 114. -->
+  <g id="short" class="mask" transform="translate(180,20)">
+    <polygon points="62,30 78,30 78,53 62,53"/>
+    <polygon points="66,53 74,53 74,62 66,62"/>
+    <polygon points="44,62 96,62 92,114 48,114"/>
+    <polygon points="38,66 46,64 44,128 36,128"/>
+    <polygon points="94,64 104,66 104,128 96,128"/>
+    <polygon points="56,114 68,114 66,206 54,206"/>
+    <polygon points="72,114 84,114 86,206 74,206"/>
+    <polygon points="52,206 68,206 68,210 50,210"/>
+    <polygon points="72,206 88,206 90,210 72,210"/>
+  </g>
+
+  <!-- Rain. Canopy diameter 105 cm, apex 215 cm (local y -5), underside 198 cm (local y 12). -->
+  <g id="rain" class="mask" transform="translate(340,20)">
+    <polygon points="62,30 78,30 78,53 62,53"/>
+    <polygon points="66,53 74,53 74,62 66,62"/>
+    <polygon points="46,62 94,62 88,136 52,136"/>
+    <polygon points="40,66 48,64 46,128 38,128"/>
+    <!-- Right arm bent, grip at 110 cm (local y 100). -->
+    <polygon points="92,64 100,62 104,100 96,104 90,78"/>
+    <polygon points="56,136 68,136 66,206 54,206"/>
+    <polygon points="72,136 84,136 86,206 74,206"/>
+    <polygon points="52,206 68,206 68,210 50,210"/>
+    <polygon points="72,206 88,206 90,210 72,210"/>
+    <!-- Shaft. -->
+    <polygon points="98,12 102,12 102,100 98,100"/>
+    <!-- Shallow dome. Centre x 100. -->
+    <polygon points="48,18 152,18 128,8 100,-5 72,8"/>
+  </g>
+
+  <!-- Side, chest depth 24 cm, coat depth 28 cm. Facing local +x. -->
+  <g id="side" class="mask" transform="translate(560,20)">
+    <polygon points="26,30 44,30 44,53 26,53"/>
+    <polygon points="30,53 40,53 42,62 28,62"/>
+    <polygon points="24,62 52,62 50,136 22,136"/>
+    <polygon points="48,70 58,78 52,110 44,100"/>
+    <polygon points="30,136 42,136 40,206 28,206"/>
+    <polygon points="26,206 46,206 48,210 24,210"/>
+  </g>
+
+  <g id="guide">
+    <rect class="guide" x="16" y="20" width="140" height="220"/>
+    <rect class="guide" x="180" y="20" width="140" height="220"/>
+    <rect class="guide" x="340" y="20" width="200" height="230"/>
+    <rect class="guide" x="560" y="20" width="80" height="220"/>
+    <text class="label" x="16" y="258">stand</text>
+    <text class="label" x="180" y="258">short</text>
+    <text class="label" x="340" y="258">rain</text>
+    <text class="label" x="560" y="258">side</text>
+  </g>
+</svg>
