@@ -59,6 +59,14 @@ export interface SprawlParams {
   rise?: SprawlFace;
   /** Segmented wall where a sidewalk probe hits a reserved corridor. Omitted means off. */
   walls?: boolean;
+  /** Atlas cells for strip signs. Omitted keeps the market list. */
+  phrases?: readonly number[];
+  /**
+   * One paper or stencil plate on a freeway wall near this point.
+   * The face centre often sits inside the corridor reserve, which drops the sign,
+   * so the plate is hung on the nearest clear wall segment instead.
+   */
+  notice?: { x: number; z: number; radius: number; phrase: number };
 }
 
 export interface SprawlBlock {
@@ -192,6 +200,87 @@ function anySide(s: Sides): boolean {
   return s.ap || s.am || s.bp || s.bm;
 }
 
+export interface NoticeAnchor {
+  s: number;
+  t: number;
+  face: FaceDir;
+  x: number;
+  y: number;
+  z: number;
+  /** Outward normal, the way the plate faces. */
+  nx: number;
+  nz: number;
+}
+
+/**
+ * A kind-0 plate on the outer face of a corridor wall, at a station the reserve does not swallow.
+ * `ha` and `hb` stay 0. The returned s/t already account for the generator's 0.35 m push,
+ * so the world point is the point `isReserved` was asked about.
+ */
+export function noticeAnchor(
+  layout: CityLayout,
+  block: SprawlBlock,
+  near: { x: number; z: number },
+): NoticeAnchor | null {
+  if (!block.id) return null;
+  const sides = corridorSides(layout, block);
+  if (!anySide(sides)) return null;
+  const faces: FaceDir[] = [];
+  if (sides.am) faces.push('a-');
+  if (sides.ap) faces.push('a+');
+  if (sides.bm) faces.push('b-');
+  if (sides.bp) faces.push('b+');
+  let best: NoticeAnchor | null = null;
+  let bestD = Infinity;
+  for (const face of faces) {
+    const ns = face === 'a+' ? 1 : face === 'a-' ? -1 : 0;
+    const nt = face === 'b+' ? 1 : face === 'b-' ? -1 : 0;
+    const along = face[0] === 'a' ? block.lb : block.la;
+    const span = along * 0.84;
+    const n = Math.max(2, Math.floor(span / 14));
+    const len = span / n;
+    for (let i = 0; i < n; i++) {
+      const u = -span / 2 + (i + 0.5) * len;
+      let cs = 0;
+      let ct = 0;
+      if (face === 'a+' || face === 'a-') {
+        cs = ns > 0 ? block.la / 2 - 5 : -block.la / 2 + 5;
+        ct = u;
+      } else {
+        ct = nt > 0 ? block.lb / 2 - 5 : -block.lb / 2 + 5;
+        cs = u;
+      }
+      const wx = block.cx + block.ax * cs + block.bx * ct;
+      const wz = block.cz + block.az * cs + block.bz * ct;
+      if (layout.isReserved(wx, wz, 1.5)) continue;
+      // Half of the 1.15 m wall, plus a gap so the plate is not inside the concrete.
+      const gap = 0.575 + 0.45;
+      const finalS = cs + ns * gap;
+      const finalT = ct + nt * gap;
+      const x = block.cx + block.ax * finalS + block.bx * finalT;
+      const z = block.cz + block.az * finalS + block.bz * finalT;
+      if (layout.isReserved(x, z, 1)) continue;
+      if (layout.districtAt(x, z).id !== block.id || layout.isOcean(x, z)) continue;
+      const nx = block.ax * ns + block.bx * nt;
+      const nz = block.az * ns + block.bz * nt;
+      const ox = x + nx * 9;
+      const oz = z + nz * 9;
+      if (layout.isReserved(ox, oz, 1)) continue;
+      if (layout.districtAt(ox, oz).id !== block.id || layout.isOcean(ox, oz)) continue;
+      const d = Math.hypot(x - near.x, z - near.z);
+      if (d >= bestD) continue;
+      bestD = d;
+      best = {
+        s: finalS - ns * 0.35,
+        t: finalT - nt * 0.35,
+        face,
+        x, y: block.ground + 4.15, z, nx, nz,
+      };
+    }
+  }
+  return best;
+}
+
 interface Cap { n: number }
 
 function push(
@@ -254,6 +343,7 @@ function splitLots(
 function signOn(
   signs: SprawlSign[], rng: Rng,
   s: number, t: number, lb: number, la: number, face: FaceDir,
+  phrases: readonly number[],
 ): void {
   const span = face[0] === 'a' ? lb : la;
   const w = clamp(span * 0.42, 1.8, 4.6);
@@ -266,7 +356,7 @@ function signOn(
     y, w, h,
     color: rng.pick([SignColor.Amber, SignColor.White, SignColor.Red]),
     kind: 0,
-    seed: phraseSeed(PHRASE[rng.int(0, PHRASE.length - 1)]!),
+    seed: phraseSeed(phrases[rng.int(0, phrases.length - 1)]!),
   });
 }
 
@@ -378,7 +468,7 @@ function stallsAlong(
 
 function addHub(
   boxes: SprawlBox[], signs: SprawlSign[], stalls: SprawlStall[],
-  layout: CityLayout, b: SprawlBlock, cap: Cap, rng: Rng,
+  layout: CityLayout, b: SprawlBlock, cap: Cap, rng: Rng, phrases: readonly number[],
 ): { diner: { s: number; t: number }; yard: { s: number; t: number } } {
   const doorS = b.la / 2 - 26;
   const door = { s: doorS, t: 0 };
@@ -413,8 +503,8 @@ function addHub(
   put(door.s, -1.2, 0.48, 0.6, 2.7, { style: Style.Solid, detail: 0, lit: 0.05, tint: 0.5 });
   put(door.s, 1.2, 0.48, 0.6, 2.7, { style: Style.Solid, detail: 0, lit: 0.05, tint: 0.5 });
   put(door.s, 0, 2.9, 0.45, 0.35, { style: Style.Solid, detail: 1, lit: 0.08, tint: 0.55, base: 2.45 });
-  signOn(signs, rng, door.s, 0, 2.9, 0.7, 'a-');
-  signOn(signs, rng, yard.s - 6, 0, 2.2, 1.6, 'a-');
+  signOn(signs, rng, door.s, 0, 2.9, 0.7, 'a-', phrases);
+  signOn(signs, rng, yard.s - 6, 0, 2.2, 1.6, 'a-', phrases);
   clutter(boxes, layout, b, cap, rng, -b.la / 2 + 12, 0, 8, 12, 6.8);
   clutter(boxes, layout, b, cap, rng, doorS + 5, -13, 10, 12, 6.8);
   return { diner: door, yard };
@@ -457,6 +547,7 @@ export function planSprawl(block: SprawlBlock, params: SprawlParams, layout: Cit
   const litR = params.lit ?? [0.16, 0.36];
   const tintR = params.tint ?? [0.58, 0.82];
   const rng = new Rng(block.seed);
+  const phrases = params.phrases?.length ? params.phrases : PHRASE;
   const { i, j } = gridIndex(block);
   const boxes: SprawlBox[] = [];
   const signs: SprawlSign[] = [];
@@ -481,7 +572,7 @@ export function planSprawl(block: SprawlBlock, params: SprawlParams, layout: Cit
   const isHub = !!hubCell && hubCell.i === i && hubCell.j === j;
   if (isHub && block.la >= 70 && block.lb >= 48) {
     plan.hub = true;
-    const built = addHub(boxes, signs, stalls, layout, block, cap, rng);
+    const built = addHub(boxes, signs, stalls, layout, block, cap, rng, phrases);
     plan.diner = built.diner;
     plan.yard = built.yard;
     plan.roof = { s: built.diner.s + 5, t: -13, h: 6.8 };
@@ -496,6 +587,17 @@ export function planSprawl(block: SprawlBlock, params: SprawlParams, layout: Cit
   const sides = params.walls ? corridorSides(layout, block) : { ap: false, am: false, bp: false, bm: false };
   plan.edge = anySide(sides);
   if (plan.edge) addWalls(boxes, layout, block, cap, sides);
+  if (params.notice && plan.edge && Math.hypot(block.cx - params.notice.x, block.cz - params.notice.z) < params.notice.radius) {
+    const spot = noticeAnchor(layout, block, params.notice);
+    if (spot) {
+      signs.push({
+        s: spot.s, t: spot.t, hb: 0, ha: 0, face: spot.face, along: 0,
+        y: 4.15, w: 8.4, h: 1.75,
+        color: SignColor.White, kind: 0,
+        seed: phraseSeed(params.notice.phrase),
+      });
+    }
+  }
 
   const faces = faceList(i, j, params.strips).filter((f) => !closedFace(sides, f));
   plan.strip = faces.length > 0;
@@ -555,7 +657,7 @@ export function planSprawl(block: SprawlBlock, params: SprawlParams, layout: Cit
       if (push(boxes, layout, block, cap, ps, pt, plb, pla, ph, {
         style: Style.Market, detail: 0, lit: rng.range(0.42, 0.68), tint: rng.range(0.72, 0.95),
       })) {
-        signOn(signs, rng, ps, pt, plb, pla, face);
+        signOn(signs, rng, ps, pt, plb, pla, face, phrases);
         stallsAlong(boxes, stalls, layout, block, cap, face, face[0] === 'a' ? plb : pla, edgeAt);
       }
       if (face === 'a+' || face === 'a-') { mla = Math.max(6, mla - depth * 0.75); ms += face === 'a+' ? -depth * 0.28 : depth * 0.28; }

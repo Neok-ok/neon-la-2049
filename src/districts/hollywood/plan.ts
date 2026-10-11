@@ -2,7 +2,7 @@
 // Heritage fronts are the shared kit. Heights are whole floors of 4.4 m.
 import { hash2i, Rng } from '../../core/rng';
 import { Style, SignColor, type FaceDir, type StyleId } from '../../world/fabric/types';
-import { phraseSeed } from '../../world/materials/signPhrases';
+import { Phrase, phraseSeed } from '../../world/materials/signPhrases';
 import {
   buildHeritage, faceSize, projectFace,
   type HeritageCrown, type HeritageFamily, type HeritagePlan,
@@ -94,7 +94,11 @@ export interface HwPlan {
 const FAMILIES: HeritageFamily[] = ['deco', 'marquee', 'beaux', 'roman', 'deco', 'marquee'];
 const CROWNS: HeritageCrown[] = ['steps', 'pediment', 'none', 'steps', 'clock'];
 const BLADE_COLORS = [SignColor.Pink, SignColor.Violet, SignColor.Yellow, SignColor.Amber, SignColor.Cyan];
-const BLADE_PHRASES = [2, 4, 48, 51, 53, 58, 62, 39];
+/** House ads and wayfinding. Index 4 is the heritage billboard. No food, no SECTOR 5, no BLACK OIL. */
+const BLADE_PHRASES = [
+  51, 53, 48, 62, Phrase.LIVE_TONIGHT, 2, 52, 54, 55,
+  Phrase.AMBER_FIZZ, Phrase.VELA, Phrase.CYR_VELA, Phrase.KANA_AMBER, Phrase.VEIL_HOUSE, Phrase.EN_VIVO,
+];
 
 const DOOR_HALF_T = 2.7;
 const DOOR_DEPTH = 16;
@@ -189,6 +193,7 @@ function heritageBay(
     lit: r.range(0.38, 0.58),
     tint: family === 'deco' ? 1.08 : 0.92,
     compact: true,
+    phrases: BLADE_PHRASES,
   }, out);
 }
 
@@ -229,7 +234,7 @@ function lobbyMouth(b: HwBlock, out: HwPlan): void {
   pushBox(out, b, edge + 1.6, 0, DOOR_HALF_T * 2 + 1.4, 3.2, 0.32, Style.Glow, 0.92, 1.5, 1, 3.55);
   out.signs.push({
     s: edge, t: 0, hb: 0, ha: 0, face: 'a-', along: 0, y: 4.7,
-    w: 4.2, h: 0.9, color: SignColor.Yellow, kind: 0, seed: phraseSeed(2),
+    w: 4.2, h: 0.9, color: SignColor.Yellow, kind: 0, seed: phraseSeed(Phrase.VEIL_HOUSE),
   });
 }
 

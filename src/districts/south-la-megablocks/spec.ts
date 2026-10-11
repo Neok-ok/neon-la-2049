@@ -1,5 +1,6 @@
 // South LA numbers. The shared planner stays free of this district's coordinates.
 import { geoToLocal } from '../../world/geo';
+import { Phrase } from '../../world/materials/signPhrases';
 import { faceDistance, type FaceBand, type ResidentialParams } from '../_shared/residential/plan';
 
 export const BEARING = 0;
@@ -65,4 +66,5 @@ export const SOUTH_LA_PARAMS: ResidentialParams = {
   hub: { x: hubX, z: hubZ },
   spines: { a: SPINE_A, b: SPINE_B },
   face: EAST_EDGE,
+  phrases: [Phrase.RATION, Phrase.PROTEIN, 62],
 };

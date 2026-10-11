@@ -3,7 +3,7 @@
 import { Rng } from '../../core/rng';
 import { Style, SignColor, type FaceDir, type StyleId } from '../../world/fabric/types';
 import type { CityLayout } from '../../world/layout';
-import { phraseSeed } from '../../world/materials/signPhrases';
+import { Phrase, phraseSeed } from '../../world/materials/signPhrases';
 import type { KitDetail, MassSink, FaceStyle } from '../_shared/megatower/sink';
 import { buildMegablock, type FacadeFamily, type MegablockForm, type MegablockParts } from '../_shared/megablock/build';
 import type { KitSign } from '../_shared/megatower/tower';
@@ -12,8 +12,8 @@ import {
 } from './spec';
 
 const FACE_DIR: FaceDir[] = ['a+', 'b-', 'a-', 'b+'];
-/** Atlas cells already in the sheet. No agency, carrier or building name. */
-const PHRASES = [2, 4, 39, 49, 50, 58, 62];
+/** Wash and berth stencils. No night market, no SECTOR 5. */
+const PHRASES = [Phrase.WASH, Phrase.BERTH, Phrase.HAUL, 62];
 
 export interface FabricBox {
   s: number;
@@ -146,7 +146,7 @@ function concourse(boxes: FabricBox[], signs: FabricSign[]): void {
   put(south + depth / 2, 0, width - 0.4, depth - 0.6, 0.42, H, { style: Style.Solid, lit: 0.02, tint: 0.48, detail: 1 });
   signs.push({
     s: south + 0.3, t: 0, hb: 0, ha: 0, face: 'a-', along: 0,
-    y: 4.2, w: 3.4, h: 1.1, color: SignColor.Amber, kind: 0, seed: phraseSeed(2),
+    y: 4.2, w: 3.4, h: 1.1, color: SignColor.Amber, kind: 0, seed: phraseSeed(Phrase.WASH),
   });
   signs.push({
     s: south + 0.3, t: 4.2, hb: 0, ha: 0, face: 'a-', along: 0,

@@ -191,7 +191,7 @@ function signsFor(l: Landmark, g: number, blades: HeritageSign[]): Sign[] {
       w, h, color, seed: phraseSeed(phrase), kind,
     });
   };
-  push(-6.2, 4.2, 3.4, 0.9, SignColor.Amber, 39, 0);
+  push(-6.2, 4.2, 3.4, 0.9, SignColor.Amber, 66, 0);
   push(6.2, 4.2, 3.4, 0.9, SignColor.White, 62, 0);
   for (const s of blades) push(s.x, s.y, s.w, s.h, s.color, s.phrase, s.kind === 1 ? 1 : 0);
   return out;

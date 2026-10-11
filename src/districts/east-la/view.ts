@@ -3,6 +3,7 @@ import type { CityLayout } from '../../world/layout';
 import type { FaceDir } from '../../world/fabric/types';
 import { eastLaCrossings, type Crossing } from './crossings';
 import { counterOrigin, searchSprawl, worldAt, type Found } from './locate';
+import { findGridDown } from './notice';
 import { DECK_TOP, DISTRICT, HUB } from './spec';
 
 export type EastLaView =
@@ -12,7 +13,8 @@ export type EastLaView =
   | 'river'
   | 'interior'
   | 'street'
-  | 'deck';
+  | 'deck'
+  | 'notice';
 
 export interface EastPose {
   x: number;
@@ -114,6 +116,26 @@ export function eastLaCamera(layout: CityLayout, kind: EastLaView): EastPose | n
       z: cross.z + cross.tz * along + cross.rz * side,
     };
     return fly(eye, { x: cross.x, y: g + DECK_TOP + 1.4, z: cross.z }, true);
+  }
+
+  if (kind === 'notice') {
+    const site = findGridDown(layout);
+    if (!site) return null;
+    let stand = { x: site.x + site.nx * 11, z: site.z + site.nz * 11 };
+    for (const dist of [11, 16, 22]) {
+      const x = site.x + site.nx * dist;
+      const z = site.z + site.nz * dist;
+      if (layout.districtAt(x, z).id !== DISTRICT) continue;
+      if (layout.isReserved(x, z, 1) || layout.isOcean(x, z)) continue;
+      stand = { x, z };
+      break;
+    }
+    const g = layout.heightAt(stand.x, stand.z);
+    const feet = { x: stand.x, y: g, z: stand.z };
+    const look = { x: site.x, y: site.y, z: site.z };
+    const horiz = Math.hypot(look.x - feet.x, look.z - feet.z) || 1;
+    const pitch = Math.atan2(look.y - (g + 1.7), horiz);
+    return walk(feet, look, pitch);
   }
 
   if (kind === 'river') {

@@ -5,7 +5,7 @@
 // and add a second tier. That district keeps its own copy. Stage 18 should call this.
 import { Rng } from '../../../core/rng';
 import { Style, SignColor, type FaceDir, type StyleId } from '../../../world/fabric/types';
-import { phraseSeed } from '../../../world/materials/signPhrases';
+import { Phrase, phraseSeed } from '../../../world/materials/signPhrases';
 import type { CityLayout } from '../../../world/layout';
 import { distToSegment } from '../../../world/layout';
 import { REFINERY_OFF, refineryDormant, resolveRefinery, type RefineryParams, type ResolvedRefinery } from './params';
@@ -103,8 +103,8 @@ const RED: RGB = [0.9, 0.05, 0.03];
 const NONE: RGB = [0, 0, 0];
 const ORANGE: RGB = [1.35, 0.42, 0.08];
 
-/** BLACK OIL, hanzi STEAM, 2049, kana STEAM. Existing atlas cells. No company names. */
-const PHRASES = [67, 65, 80, 10];
+/** BLACK OIL, hanzi STEAM, COLD, 2049. Real cells, not the old wrap past 64. */
+const PHRASES = [49, 47, Phrase.COLD, 62];
 
 const EMPTY: RefineryPlan = { boxes: [], signs: [], props: [], flames: [], loops: [], kind: 'empty' };
 

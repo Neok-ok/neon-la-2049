@@ -114,12 +114,12 @@ export function basinCamera(layout: CityLayout, kind: BasinView): BasinPose | nu
     const hit = list.find((f) => f.plan.stalls.length >= 3);
     const stall = hit?.plan.stalls[1] ?? hit?.plan.stalls[0];
     if (!hit || !stall) return null;
-    const out = outward(stall.face, 14);
-    const slide = stall.face[0] === 'a' ? 6 : 0;
-    const slideS = stall.face[0] === 'b' ? 6 : 0;
+    const out = outward(stall.face, 11);
+    const slide = stall.face[0] === 'a' ? 4 : 0;
+    const slideS = stall.face[0] === 'b' ? 4 : 0;
     const feet = worldAt(hit.block, stall.s + out.s + slideS, stall.t + out.t + slide, 0.04);
     if (!openStreet(layout, feet.x, feet.z)) return null;
-    const look = worldAt(hit.block, stall.s, stall.t, 3.2);
+    const look = worldAt(hit.block, stall.s, stall.t, 4.8);
     return walk(feet, look, 0.14);
   }
   if (kind === 'roof') {

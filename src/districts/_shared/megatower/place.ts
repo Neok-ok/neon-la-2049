@@ -3,6 +3,7 @@
 import { Group, Mesh, type Object3D } from 'three/webgpu';
 import { getCityMaterial } from '../../../world/materials/cityMaterial';
 import { makeSignMesh } from '../../../world/materials/signMesh';
+import { Phrase, phraseSeed } from '../../../world/materials/signPhrases';
 import { registerHologram } from '../../../world/holograms/registry';
 import type { HoloBand, HoloDesignId, HoloRank } from '../../../world/holograms/types';
 import type { LandmarkCollider, LandmarkEnv } from '../../../world/landmarks/registry';
@@ -38,6 +39,8 @@ export interface PlaceOptions {
   designs?: HoloDesignId[];
   colors?: number[];
   seed: number;
+  /** Atlas cells for kit signs. Omitted keeps the hashed seed, which can land on any cell. */
+  phrases?: readonly number[];
 }
 
 /** World yaw of a face normal (matches signs / holograms: normal = (sin yaw, cos yaw)). */
@@ -93,10 +96,22 @@ export function placeKit(parts: TowerParts, frame: KitFrame, env: LandmarkEnv, o
   });
   let signs: Object3D | null = null;
   if (parts.signs.length) {
-    const list: Sign[] = parts.signs.map((s, i) => {
+    const list: Sign[] = [];
+    let portalCompanion = false;
+    parts.signs.forEach((s, i) => {
       const [x, z] = frameToWorld(frame, s.lx, s.lz);
       const yaw = faceYaw(frame, s.face) + (s.kind === 1 ? Math.PI / 2 : 0);
-      return { x, y: frame.y + s.y, z, yaw, w: s.w, h: s.h, color: s.color, seed: (o.seed * 7.1 + i * 0.137) % 1, kind: s.kind };
+      const cell = o.phrases?.length ? phraseSeed(o.phrases[i % o.phrases.length]!) : (o.seed * 7.1 + i * 0.137) % 1;
+      list.push({ x, y: frame.y + s.y, z, yaw, w: s.w, h: s.h, color: s.color, seed: cell, kind: s.kind });
+      // A script plate just above the podium line, so the street camera sees two scripts.
+      if (o.phrases?.length && s.kind === 0 && !portalCompanion) {
+        portalCompanion = true;
+        list.push({
+          x, y: frame.y + s.y + s.h * 0.5 + 1.6, z, yaw,
+          w: Math.min(14, Math.max(8, s.w * 0.42)), h: 2.6, color: s.color,
+          seed: phraseSeed(Phrase.KANA_DEPART), kind: 0,
+        });
+      }
     });
     signs = makeSignMesh(list);
   }

@@ -53,6 +53,17 @@ export function worldToGrid(x: number, z: number): [number, number] {
   return [x * AX + z * AZ, x * BX + z * BZ];
 }
 
+/**
+ * Wider Spring-street intersection south of the footbridge.
+ * The dancer stands here, feet at grade. The deck stays on the published pin.
+ */
+export function dancerSite(x: number, z: number): { x: number; z: number; s: number; t: number } {
+  const [s, t] = worldToGrid(x, z);
+  const snap = Math.round(s / BLOCK_A) * BLOCK_A;
+  const [wx, wz] = gridToWorld(snap, t);
+  return { x: wx, z: wz, s: snap, t };
+}
+
 export function localToWorld(x: number, z: number, yaw: number, lx: number, lz: number): [number, number] {
   const c = Math.cos(yaw), s = Math.sin(yaw);
   return [x + lx * c + lz * s, z - lx * s + lz * c];

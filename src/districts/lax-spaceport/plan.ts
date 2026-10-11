@@ -2,9 +2,9 @@
 // No three.js. The chunk worker and the main thread have to agree.
 import { Rng } from '../../core/rng';
 import { Style, SignColor, type FaceDir, type StyleId } from '../../world/fabric/types';
-import { phraseSeed } from '../../world/materials/signPhrases';
+import { Phrase, phraseSeed } from '../../world/materials/signPhrases';
 import {
-  BAY, HALL_A, HALL_B, HALL_S, HANGAR_H, PYLON_H, SHED_H, TERMINAL_H,
+  BAY, DOOR_J, HALL_A, HALL_B, HALL_S, HANGAR_H, PYLON_H, SHED_H, TERMINAL_H, TERMINAL_I,
   isPad, isTerminal,
 } from './spec';
 
@@ -86,8 +86,8 @@ export interface LaxPlan {
   pools: LaxPool[];
 }
 
-/** SECTOR 5, 2049, OPEN LATE, VENDING. Atlas cells only. */
-const WAY = [39, 62, 2, 58] as const;
+/** Sector 12 wayfinding. Atlas cells only. Not SECTOR 5. */
+const WAY = [Phrase.SECTOR_12, Phrase.DEPART, Phrase.CALDERA, 62] as const;
 
 function at(b: LaxBlock, s: number, t: number): { x: number; z: number } {
   return {
@@ -141,6 +141,25 @@ export function planLax(b: LaxBlock): LaxPlan {
       face: 'a+', along: 0,
       y: 16, w: 8, h: 2.2, color: SignColor.Cyan, kind: 0, seed: phraseSeed(WAY[(Math.abs(b.j) + 1) % WAY.length]!),
     });
+    if (b.i === TERMINAL_I && b.j === DOOR_J) {
+      const faceS = HALL_S + HALL_A / 2;
+      signs.push({
+        s: faceS, t: -30, hb: 0, ha: 0, face: 'a+', along: 0,
+        y: 14, w: 11, h: 2.4, color: SignColor.White, kind: 0, seed: phraseSeed(Phrase.DEPART),
+      });
+      signs.push({
+        s: faceS, t: -30, hb: 0, ha: 0, face: 'a+', along: 0,
+        y: 11, w: 11, h: 2.2, color: SignColor.Cyan, kind: 0, seed: phraseSeed(Phrase.CALDERA),
+      });
+      signs.push({
+        s: faceS, t: -16, hb: 0, ha: 0, face: 'a+', along: 0,
+        y: 14, w: 8, h: 2.4, color: SignColor.Amber, kind: 0, seed: phraseSeed(Phrase.KANA_DEPART),
+      });
+      signs.push({
+        s: faceS, t: 52, hb: 0, ha: 0, face: 'a+', along: 0,
+        y: 46, w: 18, h: 2.2, color: SignColor.Cyan, kind: 0, seed: phraseSeed(Phrase.COLONY),
+      });
+    }
     const curb = at(b, HALL_S + HALL_A / 2 + 6, 0);
     pools.push({
       x: curb.x, y: b.ground + 0.08, z: curb.z, yaw: 0,

@@ -13,7 +13,7 @@ import { LightKind } from '../../world/landmarks/Beacons';
 import type { Landmark } from '../../world/layout';
 import { levelGroup } from '../_shared/megatower/place';
 import { Mass, type Detail } from './mass';
-import { AX, AZ, BRIDGE_YAW, localToWorld } from './spec';
+import { AX, AZ, BRIDGE_YAW, dancerSite, localToWorld } from './spec';
 
 export const BRIDGE_LOD = [160, 520];
 export const bridgeTris: number[] = [];
@@ -27,8 +27,9 @@ const TREAD = 0.34;
 
 /** Panel normal faces +A (north), so a camera up the street looks at the figure. */
 const DANCER_YAW = Math.atan2(AX, AZ);
-const DANCER_H = 46;
-const DANCER_W = 14;
+/** Canyon panel. The quad bottom sits on the intersection, not on the 11.2 m deck. */
+const DANCER_H = 72;
+const DANCER_W = 16;
 
 const concrete = { style: Style.Civic, lit: 0.06, tint: 0.62, seed: 0.31 };
 const dark = { style: Style.Solid, lit: 0.02, tint: 0.4, seed: 0.18 };
@@ -79,12 +80,14 @@ function signsFor(l: Landmark, g: number): Sign[] {
   }];
 }
 
-function placeDancer(l: Landmark, g: number): void {
+function placeDancer(l: Landmark, layout: { heightAt(x: number, z: number): number }): void {
+  const site = dancerSite(l.x, l.z);
+  const g = layout.heightAt(site.x, site.z);
   registerHologram({
     id: 'joi-bridge-dancer',
-    x: l.x,
-    y: g + DECK + DANCER_H / 2,
-    z: l.z,
+    x: site.x,
+    y: g + DANCER_H / 2,
+    z: site.z,
     yaw: DANCER_YAW,
     w: DANCER_W,
     h: DANCER_H,
@@ -93,7 +96,7 @@ function placeDancer(l: Landmark, g: number): void {
     seed: 0.37,
     rank: 0,
     band: 'tower',
-    spill: 28,
+    spill: 26,
   });
 }
 
@@ -115,9 +118,9 @@ export function buildCanyonBridge(l: Landmark, env: LandmarkEnv) {
   const object = env.lods.add(
     l.id,
     [levelGroup(full.mesh, signMesh), levels[1]!.mesh, levels[2]!.mesh],
-    BRIDGE_LOD, l.x, l.z, g, g + DECK + DANCER_H, Math.hypot(SPAN, 14),
+    BRIDGE_LOD, l.x, l.z, g, g + DECK + 2, Math.hypot(SPAN, 14),
   );
-  placeDancer(l, g);
+  placeDancer(l, env.layout);
   for (const x of [-PIER, PIER]) {
     const [wx, wz] = localToWorld(l.x, l.z, BRIDGE_YAW, x, 0);
     env.beacons.add(wx, g + DECK + 1.4, wz, LightKind.Warm, 2.2);

@@ -76,12 +76,14 @@ export function civicCamera(layout: CityLayout, kind: CivicView, lanes: readonly
   }
 
   if (kind === 'lobby') {
-    // Just inside the door, so the columns and the desk sit in front of the sign.
-    const [x, z] = localToWorld(lapd.x, lapd.z, yaw, 0, -56.6);
-    const [dx, dz] = localToWorld(lapd.x, lapd.z, yaw, 0, -44);
+    // In the aisle, far enough back that PAPER ONLY reads in full beside the directory.
+    const [x, z] = localToWorld(lapd.x, lapd.z, yaw, 0.2, -58.2);
+    const [dx, dz] = localToWorld(lapd.x, lapd.z, yaw, 3.8, -48);
     const y = g + HQ.lobbyFloor;
+    const dist = Math.hypot(dx - x, dz - z) || 1;
+    const pitch = Math.atan2((g + HQ.lobbyFloor + 1.7) - (y + 1.7), dist);
     return {
-      x, y, z, heading: headingTo(x, z, dx, dz), pitch: 0.04, mode: 'walk',
+      x, y, z, heading: headingTo(x, z, dx, dz), pitch, mode: 'walk',
       feet: { x, y, z },
     };
   }

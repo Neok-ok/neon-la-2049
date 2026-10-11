@@ -111,7 +111,7 @@ A prop is a `KitInstance` plus a `rank`. Rank 0 always draws. Rank 1 needs `qual
 
 Little Tokyo's pure dresser (`src/districts/little-tokyo-market/dress.ts`) is the pattern for "the collision boxes and the props are the same function": the archetype emits `dressBlock().boxes/signs`, and `details.ts` emits `dressBlock().props/steam/pools`. The module must stay free of `three` and DOM. `import type` from the kit is not enough if a value import sneaks in — keep the prop struct in the dresser file, as `MarketProp` does.
 
-Sign copy lives in `src/world/materials/signPhrases.ts` (64 cells). `phraseSeed(i)` is the sign seed that samples cell `i`. Pass it as the optional last argument of `ctx.sign`. Tall signs (`h > w`) turn the cell so the line runs the long way.
+Sign copy lives in `src/world/materials/signPhrases.ts` (8×16, 128 cells). Cells 0–63 are the market band and do not move. `phraseSeed(i)` is the sign seed that samples cell `i`. Pass it as the optional last argument of `ctx.sign`. Tall signs (`h > w`) turn the cell so the line runs the long way. Seeds at or above 0.9 scroll, which with 128 cells is index 115 and up; district lists stay at or below 114.
 
 Crowds, stools-you-can-sit-on, the market bed and the wet reflector are still app-level. The second dressed district should promote them to a registry instead of editing `App.ts` again.
 

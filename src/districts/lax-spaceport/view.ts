@@ -78,8 +78,9 @@ export function laxCamera(layout: CityLayout, kind: LaxView): LaxPose | null {
     return walk(feet, { x: west.x - 32, y: westG + 150, z: west.z });
   }
   if (kind === 'terminal') {
-    const feet = { x: door.x + 10, y: doorG, z: door.z - 16 };
-    return walk(feet, { x: door.x - 18, y: doorG + 26, z: door.z + 4 });
+    // In front of the wayfinding plates (DEPART / CALDERA), glyph off to the side.
+    const feet = { x: door.x - 22, y: doorG, z: door.z - 32 };
+    return walk(feet, { x: door.x - 26, y: doorG + 15, z: door.z + 1 });
   }
   if (kind === 'interior') {
     const feet = { x: door.x, y: doorG, z: door.z + 4.8 };

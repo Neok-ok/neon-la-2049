@@ -47,6 +47,8 @@ export interface ResidentialParams {
    * Pass the same point Stage 12 wants, or omit it.
    */
   hub?: { x: number; z: number };
+  /** Atlas cells. Omitted keeps the shared residential list. */
+  phrases?: readonly number[];
   /**
    * Blocks inside `radius` of this point use the seam mix (bar / podium only,
    * lower lit). Lakewood passes K's tower so the two districts read as one sector.
@@ -242,13 +244,14 @@ function push(
 function signAt(
   signs: PlannedSign[], rng: Rng, s: number, t: number, hb: number, ha: number,
   face: FaceDir, y: number, w: number, h: number, color: number,
+  phrases: readonly number[] = PHRASE,
 ): void {
   const yy = clamp(y, 2.8, 6.6);
   signs.push({
     s, t, hb, ha, face,
     along: rng.range(-4, 4),
     y: yy, w, h, color, kind: 0,
-    seed: phraseSeed(PHRASE[rng.int(0, PHRASE.length - 1)]!),
+    seed: phraseSeed(phrases[rng.int(0, phrases.length - 1)]!),
   });
 }
 
@@ -457,6 +460,7 @@ function addEdgeWalls(boxes: PlannedBox[], b: ResBlock, sides: Sides): void {
 
 function addCornerMarket(
   boxes: PlannedBox[], signs: PlannedSign[], stalls: StallMark[], rng: Rng, b: ResBlock, corner: number,
+  phrases: readonly number[] = PHRASE,
 ): void {
   const sa = corner < 2 ? 1 : -1;
   const sb = corner % 2 === 0 ? 1 : -1;
@@ -467,17 +471,18 @@ function addCornerMarket(
     push(boxes, s, t, 2.3, 1.7, 1.05, { style: Style.Solid, detail: 1, lit: 0.06, tint: 0.5 });
     stalls.push({ s, t, face });
     if (i === 0) {
-      signAt(signs, rng, s, t, 1.2, 0.9, sb > 0 ? 'b+' : 'b-', 3.4, 2.8, 1.05, SignColor.Amber);
+      signAt(signs, rng, s, t, 1.2, 0.9, sb > 0 ? 'b+' : 'b-', 3.4, 2.8, 1.05, SignColor.Amber, phrases);
     }
   }
   const vs = sa * (b.la / 2 - 6);
   const vt = sb * (b.lb / 2 + 1.15);
   push(boxes, vs, vt, 0.85, 0.8, 1.9, { style: Style.Industrial, detail: 1, lit: 0.22, tint: 0.4 });
-  signAt(signs, rng, vs, vt, 0.5, 0.45, sb > 0 ? 'b+' : 'b-', 2.6, 0.7, 1.3, SignColor.White);
+  signAt(signs, rng, vs, vt, 0.5, 0.45, sb > 0 ? 'b+' : 'b-', 2.6, 0.7, 1.3, SignColor.White, phrases);
 }
 
 function addHub(
   boxes: PlannedBox[], signs: PlannedSign[], stalls: StallMark[], rng: Rng, b: ResBlock,
+  phrases: readonly number[] = PHRASE,
 ): { s: number; t: number } {
   const shop = { s: b.la / 2 - 18, t: 0 };
   push(boxes, 6, 0, b.lb * 0.78, b.la * 0.8, 0.07, { style: Style.Solid, detail: 1, lit: 0.03, tint: 0.38 });
@@ -523,9 +528,9 @@ function addHub(
   push(boxes, shop.s, -1.55, 0.55, 0.7, 3.15, { style: Style.Solid, detail: 0, lit: 0.04, tint: 0.5 });
   push(boxes, shop.s, 1.55, 0.55, 0.7, 3.15, { style: Style.Solid, detail: 0, lit: 0.04, tint: 0.5 });
   push(boxes, shop.s, 0, 3.8, 0.55, 0.4, { style: Style.Solid, detail: 1, lit: 0.1, tint: 0.55, base: 2.7 });
-  signAt(signs, rng, shop.s, 0, 2.2, 0.4, 'a-', 4.2, 3.6, 1.15, SignColor.Amber);
-  signAt(signs, rng, ns, nt, 2.4, 0.6, 'b+', 3.6, 3.2, 1.05, SignColor.White);
-  signAt(signs, rng, -b.la / 2 + 7, 0, 1.2, 0.9, 'a-', 3.3, 4.2, 1.1, SignColor.Amber);
+  signAt(signs, rng, shop.s, 0, 2.2, 0.4, 'a-', 4.2, 3.6, 1.15, SignColor.Amber, phrases);
+  signAt(signs, rng, ns, nt, 2.4, 0.6, 'b+', 3.6, 3.2, 1.05, SignColor.White, phrases);
+  signAt(signs, rng, -b.la / 2 + 7, 0, 1.2, 0.9, 'a-', 3.3, 4.2, 1.1, SignColor.Amber, phrases);
   return shop;
 }
 
@@ -573,6 +578,7 @@ function buildCourt(
 
 export function planResidential(block: ResBlock, params: ResidentialParams, layout: CityLayout): ResidentialPlan {
   const rng = new Rng(block.seed || 1);
+  const phrases = params.phrases?.length ? params.phrases : PHRASE;
   const { i, j } = gridIndex(block);
   const hubCell = params.hub
     ? gridIndex({
@@ -627,7 +633,7 @@ export function planResidential(block: ResBlock, params: ResidentialParams, layo
   if (hub) {
     family = 'bar';
     height = m * 2;
-    shop = addHub(boxes, signs, stalls, rng, block);
+    shop = addHub(boxes, signs, stalls, rng, block, phrases);
     laundry = { s: shop.s, t: 0, ns: -1, nt: 0, y: 4 };
   } else if (edge) {
     addEdgeWalls(boxes, block, sides);
@@ -641,20 +647,20 @@ export function planResidential(block: ResBlock, params: ResidentialParams, layo
     const lb = Math.min(block.lb * 0.5, 44);
     emitMass(boxes, s, t, lb, la, height, 'bar', face, lit, tint, residential, rng.next());
     laundry = clutter(boxes, s, t, la, lb, height, lit);
-    if (rng.chance(0.7)) signAt(signs, rng, s, t, lb / 2, la / 2, 'b+', rng.range(3.2, 6.2), rng.range(2.4, 4.2), 1.05, SignColor.White);
+    if (rng.chance(0.7)) signAt(signs, rng, s, t, lb / 2, la / 2, 'b+', rng.range(3.2, 6.2), rng.range(2.4, 4.2), 1.05, SignColor.White, phrases);
   } else if (wall) {
     const la = Math.min(block.la * 0.7, 120);
     const lb = Math.min(block.lb * 0.55, 72);
     emitMass(boxes, 0, -10, lb, la, height, 'bar', face, lit * 0.82, tint, residential, rng.next());
     laundry = clutter(boxes, 0, -10, la, lb, height, lit, 'b+');
     addFaceWall(boxes, block);
-    if (rng.chance(0.28)) signAt(signs, rng, 0, -10, lb / 2, la / 2, 'b-', rng.range(3.2, 5.4), rng.range(2.2, 3.6), 1.0, SignColor.White);
+    if (rng.chance(0.28)) signAt(signs, rng, 0, -10, lb / 2, la / 2, 'b-', rng.range(3.2, 5.4), rng.range(2.2, 3.6), 1.0, SignColor.White, phrases);
   } else if (family === 'courtyard') {
     const built = buildCourt(boxes, block, height, face, lit, tint, residential, rng, blank);
     court = built.court;
     entry = built.entry;
     laundry = built.laundry;
-    if (rng.chance(0.5)) signAt(signs, rng, built.entry.s, built.entry.t, 6, 4, 'a-', 4.2, 3.2, 1.1, SignColor.Amber);
+    if (rng.chance(0.5)) signAt(signs, rng, built.entry.s, built.entry.t, 6, 4, 'a-', 4.2, 3.2, 1.1, SignColor.Amber, phrases);
   } else if (family === 'walkup') {
     const h1 = rng.int(4, 6) * m;
     const h2 = rng.int(6, 8) * m;
@@ -664,7 +670,7 @@ export function planResidential(block: ResBlock, params: ResidentialParams, layo
     emitMass(boxes, 10, block.lb * 0.18, lb, la, h2, 'bar', face, Math.min(0.35, lit + 0.04), tint, residential, rng.next());
     laundry = clutter(boxes, 10, block.lb * 0.18, la, lb, h2, lit, blank);
     height = h2;
-    signAt(signs, rng, 10, block.lb * 0.18, lb / 2, la / 2, 'b-', 4.4, 2.6, 1.0, SignColor.Amber);
+    signAt(signs, rng, 10, block.lb * 0.18, lb / 2, la / 2, 'b-', 4.4, 2.6, 1.0, SignColor.Amber, phrases);
   } else if (family === 'stepped') {
     const la = block.la * 0.7;
     const lb = block.lb * 0.78;
@@ -678,13 +684,13 @@ export function planResidential(block: ResBlock, params: ResidentialParams, layo
       style: Style.Residential, detail: 0, lit: lit, tint: tint * 0.95,
     });
     laundry = clutter(boxes, 6, 0, la, lb, height, lit, blank);
-    if (rng.chance(0.45)) signAt(signs, rng, 6, 0, lb / 2, la / 2, 'a+', 5.2, 3.4, 1.05, SignColor.White);
+    if (rng.chance(0.45)) signAt(signs, rng, 6, 0, lb / 2, la / 2, 'a+', 5.2, 3.4, 1.05, SignColor.White, phrases);
   } else if (family === 'podium') {
     const la = block.la * 0.74;
     const lb = block.lb * 0.8;
     emitMass(boxes, 0, 0, lb, la, height, 'slab-podium', face, lit, tint, residential, rng.next());
     laundry = clutter(boxes, 0, 0, la, lb, height, lit, blank);
-    if (rng.chance(0.4)) signAt(signs, rng, 0, 0, lb / 2, la / 2, 'b+', 4.8, 3.6, 1.1, SignColor.Amber);
+    if (rng.chance(0.4)) signAt(signs, rng, 0, 0, lb / 2, la / 2, 'b+', 4.8, 3.6, 1.1, SignColor.Amber, phrases);
   } else {
     const alongA = rng.chance(0.72);
     const la = alongA ? block.la * 0.86 : block.la * 0.4;
@@ -692,14 +698,14 @@ export function planResidential(block: ResBlock, params: ResidentialParams, layo
     const t = alongA ? rng.range(-block.lb * 0.12, block.lb * 0.12) : 0;
     emitMass(boxes, 0, t, lb, la, height, 'bar', face, lit, tint, residential, rng.next());
     laundry = clutter(boxes, 0, t, la, lb, height, lit, blank);
-    if (rng.chance(0.42)) signAt(signs, rng, 0, t, lb / 2, la / 2, 'b-', rng.range(3.4, 6.2), rng.range(2.6, 4.4), 1.05, rng.chance(0.75) ? SignColor.Amber : SignColor.White);
+    if (rng.chance(0.42)) signAt(signs, rng, 0, t, lb / 2, la / 2, 'b-', rng.range(3.4, 6.2), rng.range(2.6, 4.4), 1.05, rng.chance(0.75) ? SignColor.Amber : SignColor.White, phrases);
   }
 
   const onSpine = touchesSpine(i, j, params.spines);
   if (!hub && !edge && !inBand) {
     const hit = hash2i(i, j, 19) % params.marketEvery === 0;
     const corner = hit || onSpine ? hash2i(i, j, 23) % 4 : -1;
-    if (corner >= 0) addCornerMarket(boxes, signs, stalls, rng, block, corner);
+    if (corner >= 0) addCornerMarket(boxes, signs, stalls, rng, block, corner, phrases);
   }
 
   const kept = boxes.filter((box) => keepBox(layout, block, box));

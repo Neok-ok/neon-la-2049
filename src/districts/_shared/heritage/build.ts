@@ -35,6 +35,8 @@ export interface HeritagePlan {
   compact: boolean;
   /** Ornament only. The caller owns the volume, so mass, cap, jackets and tanks are skipped. */
   skin?: boolean;
+  /** Atlas cells for marquees and blades. Omitted keeps the canyon market pool. */
+  phrases?: readonly number[];
 }
 
 export interface HeritagePiece {
@@ -69,7 +71,12 @@ export interface HeritageBuild {
   signs: HeritageSign[];
 }
 
-const PHRASES = [2, 4, 3, 20, 23, 39, 48, 58, 59, 62, 1, 5, 49, 16, 19, 47];
+/** Broadway canyon pool. Sector 5 and BLACK OIL stay off this street. Index 4 is the billboard cell. */
+const PHRASES = [2, 4, 3, 20, 23, 66, 48, 58, 59, 62, 1, 5, 72, 16, 19, 47];
+
+function phrasesOf(plan: HeritagePlan): readonly number[] {
+  return plan.phrases?.length ? plan.phrases : PHRASES;
+}
 const COLORS = [SignColor.Pink, SignColor.Violet, SignColor.Amber, SignColor.Cyan, SignColor.Red, SignColor.Yellow];
 
 function hash(seed: number, i: number): number {
@@ -181,7 +188,7 @@ export function buildHeritage(plan: HeritagePlan): HeritageBuild {
     signs.push({
       x: 0, y: 4.55, w: Math.min(8.5, mw * 0.72), h: 1.15,
       color: COLORS[Math.floor(hash(seed, 2) * COLORS.length)]!, kind: 0,
-      phrase: PHRASES[Math.floor(hash(seed, 3) * PHRASES.length)]!,
+      phrase: phrasesOf(plan)[Math.floor(hash(seed, 3) * phrasesOf(plan).length)]!,
     });
   }
 
@@ -238,7 +245,7 @@ function blades(signs: HeritageSign[], plan: HeritagePlan, width: number, frontH
         x, y: y + h / 2, w, h,
         color: COLORS[Math.floor(hash(seed, 20 + s * 5 + i) * COLORS.length)]!,
         kind: 1,
-        phrase: PHRASES[Math.floor(hash(seed, 30 + i + s) * PHRASES.length)]!,
+        phrase: phrasesOf(plan)[Math.floor(hash(seed, 30 + i + s) * phrasesOf(plan).length)]!,
       });
       y += h + 0.55;
     }
@@ -254,7 +261,7 @@ function blades(signs: HeritageSign[], plan: HeritagePlan, width: number, frontH
         x, y: y + h / 2, w: 1.7, h,
         color: COLORS[Math.floor(hash(seed, 40 + i) * COLORS.length)]!,
         kind: 1,
-        phrase: PHRASES[Math.floor(hash(seed, 41 + i) * PHRASES.length)]!,
+        phrase: phrasesOf(plan)[Math.floor(hash(seed, 41 + i) * phrasesOf(plan).length)]!,
       });
       y += h + 0.7;
     }
@@ -264,7 +271,7 @@ function blades(signs: HeritageSign[], plan: HeritagePlan, width: number, frontH
       x: 0, y: frontH + (height - frontH) * 0.55, w: 16, h: 10,
       color: COLORS[Math.floor(hash(seed, 50) * COLORS.length)]!,
       kind: 2,
-      phrase: PHRASES[4]!,
+      phrase: phrasesOf(plan)[4 % phrasesOf(plan).length]!,
     });
   }
 }

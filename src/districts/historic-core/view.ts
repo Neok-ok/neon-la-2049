@@ -2,7 +2,7 @@
 import type { CityLayout } from '../../world/layout';
 import {
   AX, AZ, BRADBURY_FRONT, BRADBURY_S, BRADBURY_T, BRIDGE_S, BRIDGE_T, BX, BZ,
-  FACE_YAW, headingAlong, localToWorld,
+  FACE_YAW, dancerSite, headingAlong, localToWorld,
 } from './spec';
 
 export type BroadwayView = 'street' | 'bridge' | 'bradbury' | 'spinner' | 'atrium';
@@ -39,9 +39,15 @@ export function broadwayCamera(layout: CityLayout, kind: BroadwayView): Broadway
   }
 
   if (kind === 'bridge') {
-    // Just north of the deck, a few metres off the centreline, looking up at the figure.
-    const p = at(layout, BRIDGE_S + 26, BRIDGE_T + 3.2, 0);
-    const target = at(layout, BRIDGE_S, BRIDGE_T, 20);
+    // South of the intersection figure, far enough that the 72 m panel fits a 70° walk frame
+    // with the hem in the lower third and the head under the top edge.
+    const pin = layout.landmarkById('canyon-bridge');
+    const site = pin ? dancerSite(pin.x, pin.z) : dancerSite(
+      AX * BRIDGE_S + BX * BRIDGE_T,
+      AZ * BRIDGE_S + BZ * BRIDGE_T,
+    );
+    const p = at(layout, site.s - 64, site.t + 4.2, 0);
+    const target = at(layout, site.s, site.t, 30);
     const horiz = Math.hypot(target.x - p.x, target.z - p.z) || 1;
     const pitch = Math.atan2(target.y - (p.g + 1.7), horiz);
     return {

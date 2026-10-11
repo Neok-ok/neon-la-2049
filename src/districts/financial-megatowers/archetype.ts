@@ -4,12 +4,15 @@
 // is 150–300 m; everything taller is a hand-placed landmark).
 import { registerArchetype } from '../../world/fabric/registry';
 import { Style, SignColor, type FabricCtx, type LotRect } from '../../world/fabric/types';
+import { Phrase, phraseSeed } from '../../world/materials/signPhrases';
 import { buildTower, type CrownKind, type TowerForm } from '../_shared/megatower/tower';
 import { FabricSink } from '../_shared/megatower/fabricSink';
 
 const FORMS: TowerForm[] = ['slab', 'slab', 'stepped', 'stack', 'blade', 'cross'];
 const CROWNS: CrownKind[] = ['hammer', 'stepped', 'stepped', 'lantern', 'flare', 'blade'];
 const PAL = [SignColor.Cyan, SignColor.Pink, SignColor.White, SignColor.Violet, SignColor.Amber];
+/** Off-world lease band. Explicit seeds so a podium cannot roll a market cell. */
+const LEASE = [Phrase.NINTH_RING, Phrase.DEPART, 62, Phrase.COLONY];
 
 /** Tallest fabric structure, mast included (CityQuery.FABRIC_CEILING is 320 m). */
 const MAX_TOP = 305;
@@ -33,7 +36,7 @@ function tower(ctx: FabricCtx, l: LotRect): boolean {
     lit: r.range(0.3, 0.55), tint: r.range(0.72, 1.08), holo: r.int(1, 2), compact: true,
     mechEvery: r.range(90, 130),
   }, sink);
-  sink.signs(parts.signs);
+  sink.signs(parts.signs, LEASE);
   sink.holoPanels(parts, PAL, r.next());
   return true;
 }
@@ -54,7 +57,7 @@ function megablock(ctx: FabricCtx, l: LotRect): void {
   for (const f of ['a+', 'a-', 'b+', 'b-'] as const) {
     const len = f[0] === 'a' ? l.lb : l.la;
     for (let n = Math.floor(len / 18); n > 0; n--) {
-      ctx.sign(l.s, l.t, l.lb * inset / 2, l.la * inset / 2, f, r.range(-len / 2.6, len / 2.6), r.range(4, 9), r.range(3, 8), r.range(1, 2.4), r.pick(PAL), 0);
+      ctx.sign(l.s, l.t, l.lb * inset / 2, l.la * inset / 2, f, r.range(-len / 2.6, len / 2.6), r.range(4, 9), r.range(3, 8), r.range(1, 2.4), r.pick(PAL), 0, phraseSeed(LEASE[n % LEASE.length]!));
     }
   }
 }

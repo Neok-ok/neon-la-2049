@@ -8,7 +8,7 @@ import { GeoWriter } from '../../world/landmarks/GeoWriter';
 import { getCityMaterial } from '../../world/materials/cityMaterial';
 import { makeSignMesh } from '../../world/materials/signMesh';
 import { Style, SignColor, type Sign } from '../../world/fabric/types';
-import { phraseSeed } from '../../world/materials/signPhrases';
+import { Phrase, phraseSeed } from '../../world/materials/signPhrases';
 import { registerLandmarkType, type LandmarkEnv } from '../../world/landmarks/registry';
 import { LightKind } from '../../world/landmarks/Beacons';
 import type { Landmark } from '../../world/layout';
@@ -243,6 +243,10 @@ function signsFor(l: Landmark, yaw: number): Sign[] {
     // over the door, readable from the steps. Atlas cell is the invented "SECTOR 5", not a badge.
     at(0, 9.4, -HQ.podiumD / 2 - 0.5, 9.2, 1.55, out, phraseSeed(39), 0),
     at(0, 8.4, -42.7, 6.4, 1.2, out, phraseSeed(39), 0),
+    // Paper plate beside the directory, in the aisle, clear of the wing wall and the columns.
+    at(3.8, HQ.lobbyFloor + 1.7, -48, 5.2, 1.45, out, phraseSeed(Phrase.PAPER_ONLY), 0),
+    // The shaft face that used to carry a glyph loop.
+    at(0, 42, -HQ.shaftD / 2 - 0.6, 14, 2.4, out, phraseSeed(Phrase.BASELINE), 0),
   ];
 }
 

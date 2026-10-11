@@ -244,7 +244,7 @@ export class App {
     setSeats([...(spots.noodle?.seats ?? []), ...(spots.bibi?.seats ?? [])]);
 
     this.input = new Input(this.canvas);
-    if (TouchControls.wanted()) this.touch = new TouchControls(this.input.touch);
+    if (params.ui && TouchControls.wanted()) this.touch = new TouchControls(this.input.touch);
     this.hud = new HUD(params.hud);
 
     const fly = new FlyController(this.camera, this.input, this.query, this.scene);

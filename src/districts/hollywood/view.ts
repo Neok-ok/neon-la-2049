@@ -59,8 +59,12 @@ export function hollywoodCamera(layout: CityLayout, kind: HollywoodView): Hollyw
     return fly({ x: dancer.x + 180, y: dancerG + 1000, z: strip.z + 720 }, look);
   }
   if (kind === 'street') {
-    const feet = { x: dancer.x + 78, y: dancerG, z: strip.z + 6.5 };
-    return walk(feet, { x: dancer.x, y: dancerG + 24, z: dancer.z }, 0.22);
+    // South of the arcade door, on the boulevard, framing the VEIL HOUSE plate and the house blades.
+    const feet = { x: door.x + 8, y: doorG, z: door.z + 16 };
+    const look = { x: door.x, y: doorG + 8, z: door.z };
+    const dist = Math.hypot(look.x - feet.x, look.z - feet.z) || 1;
+    const pitch = Math.atan2(look.y - (feet.y + 1.7), dist);
+    return walk(feet, look, pitch);
   }
   if (kind === 'holo') {
     // South side of the boulevard, in the intersection, looking up the figure.

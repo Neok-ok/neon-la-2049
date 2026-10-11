@@ -1,9 +1,9 @@
 // Broadway canyon fabric. Heritage bays on the street faces, named theatres where the real
 // houses stand, a hole where the Bradbury landmark owns the lot. Boxes only.
 import { registerArchetype } from '../../world/fabric/registry';
-import { Style, type FaceDir, type StyleId } from '../../world/fabric/types';
+import { Style, SignColor, type FaceDir, type StyleId } from '../../world/fabric/types';
 import type { FabricCtx } from '../../world/fabric/types';
-import { phraseSeed } from '../../world/materials/signPhrases';
+import { Phrase, phraseSeed } from '../../world/materials/signPhrases';
 import {
   buildHeritage, faceSize, projectFace,
   type HeritageCrown, type HeritageFamily, type HeritagePlan,
@@ -11,6 +11,8 @@ import {
 import { BLOCK_A, BRADBURY_HOLE, BRADBURY_I, BRADBURY_J, BROADWAY_J } from './spec';
 import { SITES, type TheatreSite } from './sites';
 
+/** Cross-street blades stay in the canyon pool. Sector 5 and BLACK OIL are not on this street. */
+const CROSS = [2, 4, 3, 48, Phrase.SECTOR_9, Phrase.CLOSED, 62, 1, 5];
 const FAMILIES: HeritageFamily[] = ['beaux', 'deco', 'baroque', 'gothic', 'roman', 'marquee'];
 const CROWNS: HeritageCrown[] = ['none', 'pediment', 'steps', 'none', 'pediment'];
 
@@ -128,7 +130,7 @@ registerArchetype('historic-core', (ctx) => {
       if (r.chance(0.7)) {
         const signS = geom.along === 's' ? r.range(-w * 0.2, w * 0.2) : geom.plane;
         const signT = geom.along === 't' ? r.range(-w * 0.2, w * 0.2) : geom.plane;
-        ctx.sign(signS, signT, 0, 0, geom.face, 0, r.range(8, 16), 1.6, r.range(6, 9), r.int(0, 5), 1, phraseSeed(r.int(0, 63)));
+        ctx.sign(signS, signT, 0, 0, geom.face, 0, r.range(8, 16), 1.6, r.range(6, 9), r.int(0, 5), 1, phraseSeed(CROSS[r.int(0, CROSS.length - 1)]!));
       }
       continue;
     }
@@ -147,6 +149,13 @@ registerArchetype('historic-core', (ctx) => {
       const local = site.s - (b.i + 0.5) * BLOCK_A;
       const { centerS, centerT } = placeCenter(geom.along, local);
       emitPlan(ctx, geom.face, centerS, centerT, geom.plane, sitePlan(site, r.next()));
+      if (site.id === 'million') {
+        // On the shutter, under the marquee, so the canopy does not cover the left of the plate.
+        const anchor = projectFace(geom.face, centerS, centerT, geom.plane, 0, 0);
+        const ss = geom.face === 'a+' || geom.face === 'a-' ? geom.plane : anchor.s;
+        const tt = geom.face === 'a+' || geom.face === 'a-' ? anchor.t : geom.plane;
+        ctx.sign(ss, tt, 0, 0, geom.face, 0, 2.35, 5.4, 1.15, SignColor.White, 0, phraseSeed(Phrase.CURFEW));
+      }
       occupied.push([local - site.width / 2 - 0.8, local + site.width / 2 + 0.8]);
       if (site.billboard) billed = true;
     }

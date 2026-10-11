@@ -2,7 +2,7 @@
 // Container stacks and crane gantries are instanced elsewhere. They are not these boxes.
 import { Rng } from '../../core/rng';
 import { Style, SignColor, type Detail, type FaceDir, type SignKind, type StyleId } from '../../world/fabric/types';
-import { phraseSeed } from '../../world/materials/signPhrases';
+import { Phrase, phraseSeed } from '../../world/materials/signPhrases';
 import type { CityLayout } from '../../world/layout';
 import type { HarborBlock } from './spec';
 import { blockSeed } from './spec';
@@ -75,7 +75,7 @@ export function planHarbor(block: HarborBlock, layout: CityLayout): HarborPlan {
         s: 0, t: 0, hb: lb / 2, ha: la / 2, face: 'a-', along: 0,
         y: Math.min(8, h - 2), w: 1.4, h: 6,
         color: SignColor.Amber, kind: 1,
-        seed: phraseSeed(r.pick([47, 49, 62])),
+        seed: phraseSeed(r.pick([Phrase.BERTH, Phrase.HAUL, Phrase.WASH, 62])),
       });
     }
   } else if (roll < 0.62) {

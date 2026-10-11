@@ -4,6 +4,7 @@
 //
 // Kit frame → block frame: kit +Z (front) = block +A (s), kit +X = block −B (−t).
 import type { FabricCtx, FaceDir, StyleId } from '../../../world/fabric/types';
+import { phraseSeed } from '../../../world/materials/signPhrases';
 import type { Face, KitSign, TowerParts } from './tower';
 import type { FaceStyle, KitDetail, MassSink } from './sink';
 
@@ -31,13 +32,17 @@ export class FabricSink implements MassSink {
     if (b) this.boxes++;
   }
 
-  /** Neon slots from the kit become fabric signs. */
-  signs(list: KitSign[]): void {
-    for (const s of list) this.sign(s.lx, s.lz, s.face, s.y, s.w, s.h, s.color, s.kind);
+  /** Neon slots from the kit become fabric signs. `phrases` pins each slot to an atlas cell. */
+  signs(list: KitSign[], phrases?: readonly number[]): void {
+    for (let i = 0; i < list.length; i++) {
+      const s = list[i]!;
+      const seed = phrases?.length ? phraseSeed(phrases[i % phrases.length]!) : undefined;
+      this.sign(s.lx, s.lz, s.face, s.y, s.w, s.h, s.color, s.kind, seed);
+    }
   }
 
-  sign(lx: number, lz: number, face: Face, y: number, w: number, h: number, color: number, kind: 0 | 1 | 2): void {
-    this.ctx.sign(this.s0 + lz, this.t0 - lx, 0, 0, FACE_DIR[face], 0, this.base + y, w, h, color, kind);
+  sign(lx: number, lz: number, face: Face, y: number, w: number, h: number, color: number, kind: 0 | 1 | 2, seed?: number): void {
+    this.ctx.sign(this.s0 + lz, this.t0 - lx, 0, 0, FACE_DIR[face], 0, this.base + y, w, h, color, kind, seed);
   }
 
   /** Hologram slots in a fabric tower cannot register holograms (worker); they become big sign panels. */
