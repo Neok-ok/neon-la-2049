@@ -326,6 +326,85 @@ async function install() {
       }
       return best;
     }
+    H.composeDoor = () => {
+      // Freeze first. Moving the camera retargets the crowd and the person beside the door leaves.
+      H.holdCrowd(true);
+      H.holdWalk(true);
+      const a = app();
+      const origin = a.cams.walk.pos;
+      const doors = [];
+      a.scene.traverse((o) => {
+        if (o.name !== 'arch-door-leaf') return;
+        o.updateWorldMatrix(true, false);
+        const e = o.matrixWorld.elements;
+        const x = e[12], y = e[13], z = e[14];
+        if (Math.hypot(x - origin.x, z - origin.z) > 48) return;
+        const gy = a.query.groundHeight(x, z);
+        if (y - gy > 1.7 || y < gy - 0.5) return;
+        doors.push({ x, y, z });
+      });
+      const folks = people().filter((p) => Math.abs(p.y - origin.y) < 4);
+      const cars = carsNear(origin.x, origin.z, 40).filter((c) => (
+        Math.abs(c.y - origin.y) < 4 && (c.name === 'ground-car' || c.name === 'ground-van')
+      ));
+      const q = a.query;
+      let best = null;
+      for (const door of doors) {
+        let person = null;
+        let pd = 1e9;
+        for (const p of folks) {
+          if (Math.abs(p.y - door.y) > 2.4) continue;
+          const d = Math.hypot(p.x - door.x, p.z - door.z);
+          if (d < 8 && d < pd) { pd = d; person = p; }
+        }
+        if (!person) continue;
+        for (const c of cars) {
+          const cd = Math.hypot(c.x - door.x, c.z - door.z);
+          if (cd < 5 || cd > 22) continue;
+          const fl = Math.hypot(c.fx, c.fz) || 1;
+          const ux = c.fx / fl, uz = c.fz / fl;
+          for (const dir of [1, -1]) {
+            const px = c.x + ux * dir * 11;
+            const pz = c.z + uz * dir * 11;
+            const gy = q.groundHeight(px, pz);
+            if (Math.abs(gy - person.y) > 2) continue;
+            if (!clearSpot(px, pz, gy)) continue;
+            const lookX = (door.x + person.x) * 0.5;
+            const lookZ = (door.z + person.z) * 0.5;
+            const eyeY = gy + 1.55;
+            const yaw = Math.atan2(lookX - px, -(lookZ - pz));
+            const horiz = Math.hypot(lookX - px, lookZ - pz) || 1;
+            const pitch = Math.atan2((door.y + 1.1) - eyeY, horiz);
+            applyPose(px, pz, gy, yaw, pitch);
+            const personN = ndc(person.x, person.y + 1.0, person.z);
+            const doorN = ndc(door.x, door.y + 1.05, door.z);
+            const carN = ndc(c.x, c.y + 0.7, c.z);
+            const on = (n, lim) => n && Math.abs(n.x) < lim && Math.abs(n.y) < 0.82;
+            if (!on(personN, 0.78) || !on(doorN, 0.78) || !on(carN, 0.88)) continue;
+            if (Math.abs(personN.x - doorN.x) < 0.06) continue;
+            if (Math.abs(carN.x - personN.x) < 0.16) continue;
+            const camDoor = Math.hypot(px - door.x, pz - door.z);
+            const score = Math.abs(personN.x) + Math.abs(doorN.x) + Math.abs(carN.x) * 0.35 + Math.abs(camDoor - 8) * 0.04;
+            if (!best || score < best.score) {
+              best = {
+                ok: true, score, car: c.name, pd: Math.round(pd * 10) / 10, cd: Math.round(cd * 10) / 10,
+                camDoor: Math.round(camDoor * 10) / 10, personN, doorN, carN, doors: doors.length,
+                px, pz, gy, yaw, pitch,
+              };
+            }
+          }
+        }
+      }
+      if (!best) {
+        H.holdCrowd(false);
+        H.holdWalk(false);
+        return { ok: false, doors: doors.length, people: folks.length, cars: cars.length };
+      }
+      applyPose(best.px, best.pz, best.gy, best.yaw, best.pitch);
+      H.holdCrowd(true);
+      H.holdWalk(true);
+      return best;
+    };
     H.composeScale = () => {
       const w = app().cams.walk.pos;
       const folks = people().filter((p) => Math.abs(p.y - w.y) < 3 && Math.hypot(p.x - w.x, p.z - w.z) < 28);
@@ -507,7 +586,8 @@ async function dancerStrip(name, id, dist) {
 }
 
 async function scaleShot(name) {
-  for (const [fn, kind] of SCALE_PLACES) {
+  const places = [['broadwayView', 'bradbury'], ['broadwayView', 'street'], ['civicView', 'steps'], ...SCALE_PLACES];
+  for (const [fn, kind] of places) {
     let where;
     try { where = await go(fn, kind); } catch (err) {
       note('scale go fail', { fn, kind, err: String(err).slice(0, 140) });
@@ -515,7 +595,8 @@ async function scaleShot(name) {
     }
     if (where?.fly) continue;
     const settled = await pump(3500);
-    const found = await page.evaluate(() => window.__human.composeScale());
+    let found = await page.evaluate(() => window.__human.composeDoor());
+    if (!found?.ok) found = await page.evaluate(() => window.__human.composeScale());
     note('scale try', { fn, kind, settled, found });
     if (!found?.ok) continue;
     await page.waitForTimeout(250);

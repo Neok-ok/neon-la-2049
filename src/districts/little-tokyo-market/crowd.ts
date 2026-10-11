@@ -16,7 +16,8 @@ import { U } from '../../atmosphere/uniforms';
 import { authoredLiftU } from '../../lighting/shade.ts';
 import type { CrowdLifeSpot } from '../../world/crowdLife';
 import { allHolograms } from '../../world/holograms/registry';
-import { streetGraph, visitBins } from '../../vehicles/streetGraph';
+import { CURB_H, CURB_W, ROAD_LIFT, streetProfile } from '../../roads/profile';
+import { streetGraph, visitBins, type StreetGraph } from '../../vehicles/streetGraph';
 import { axisLamp } from '../../vehicles/trafficSignals';
 import { dressBlock, pedestrianLoops, stallFrontLoop, type MarketBlock } from './dress';
 import { marketSpots } from './spots';
@@ -464,6 +465,101 @@ function gather(blocks: PackedBlock[], query: CityQuery, x: number, z: number, r
   return { loops, life };
 }
 
+const WALK_LIFT = ROAD_LIFT + CURB_H;
+
+interface WalkHit { edge: number; t: number; dist: number }
+
+/** Street edges whose span actually passes the point. Endpoint-only hits are corners of another road. */
+function walkHits(g: StreetGraph, x: number, z: number, maxDist: number): WalkHit[] {
+  const found: WalkHit[] = [];
+  const max2 = maxDist * maxDist;
+  visitBins(x, z, maxDist + 130, (key) => {
+    const list = g.bins.get(key);
+    if (!list) return;
+    for (const idx of list) {
+      const e = g.edges[idx]!;
+      if (e.kind === 'freeway') continue;
+      const a = g.nodes[e.a]!, b = g.nodes[e.b]!;
+      const along = (x - a.x) * e.fx + (z - a.z) * e.fz;
+      if (along < -1.2 || along > e.length + 1.2) continue;
+      const dx = b.x - a.x, dz = b.z - a.z;
+      const L2 = dx * dx + dz * dz || 1;
+      let t = ((x - a.x) * dx + (z - a.z) * dz) / L2;
+      t = Math.max(0, Math.min(1, t));
+      const px = a.x + dx * t, pz = a.z + dz * t;
+      const d2 = (px - x) ** 2 + (pz - z) ** 2;
+      if (d2 > max2) continue;
+      found.push({ edge: idx, t, dist: Math.sqrt(d2) });
+    }
+  });
+  found.sort((p, q) => p.dist - q.dist);
+  const out: WalkHit[] = [];
+  const seen = new Set<number>();
+  for (const h of found) {
+    if (seen.has(h.edge)) continue;
+    seen.add(h.edge);
+    out.push(h);
+    if (out.length === 4) break;
+  }
+  return out;
+}
+
+/**
+ * Keep a pedestrian on the sidewalk slab. Points past the building line (market aisles,
+ * plazas, lots) stay where they were authored. Asphalt and curb samples move to the
+ * walk on the same side of the street they were already on.
+ */
+function placeOnWalk(
+  query: CityQuery, x: number, z: number, salt: number, yaw: number, preferYaw: boolean,
+): { x: number; z: number; lift: number } {
+  const g = streetGraph(query.layout);
+  const hits = walkHits(g, x, z, 28);
+  if (!hits.length) return { x, z, lift: 0 };
+  const tx = Math.sin(yaw), tz = Math.cos(yaw);
+  let hit = hits[0]!;
+  if (preferYaw) {
+    let best = 1e9;
+    for (const h of hits) {
+      const e = g.edges[h.edge]!;
+      const align = Math.abs(e.fx * tx + e.fz * tz);
+      const score = h.dist + (1 - align) * 6;
+      if (score < best) { best = score; hit = h; }
+    }
+  }
+  const e = g.edges[hit.edge]!;
+  const a = g.nodes[e.a]!, b = g.nodes[e.b]!;
+  const px = a.x + (b.x - a.x) * hit.t;
+  const pz = a.z + (b.z - a.z) * hit.t;
+  const rx = e.fz, rz = -e.fx;
+  const side = (x - px) * rx + (z - pz) * rz;
+  const absSide = Math.abs(side);
+  const street = query.layout.districtAt(px, pz).grid.street;
+  const profile = streetProfile(street, e.lane, e.kind === 'canyon' ? 'canyon' : 'street');
+  if (profile.sidewalk < 1.2) return { x, z, lift: 0 };
+  const curbOuter = profile.carriageHalf + CURB_W;
+  const outer = curbOuter + profile.sidewalk;
+  if (absSide > outer + 0.35) return { x, z, lift: 0 };
+  if (absSide > outer) return { x, z, lift: 0 };
+  if (absSide >= curbOuter + 0.28) return { x, z, lift: WALK_LIFT };
+  const lamp = Math.min(0.7, profile.sidewalk * 0.4);
+  const inner = curbOuter + lamp + 0.28;
+  const far = Math.max(inner + 0.2, outer - 0.35);
+  const mid = (inner + far) * 0.5;
+  const sign = absSide < 0.35 ? (unit(salt, 20) < 0.5 ? -1 : 1) : Math.sign(side) || 1;
+  const room = Math.max(0.1, far - inner);
+  const spread = (unit(salt, 19) - 0.5) * Math.min(0.7, room);
+  const clampLat = (v: number) => Math.max(inner, Math.min(far, v));
+  const gy = query.groundHeight(x, z);
+  const candidates = [sign * clampLat(mid + spread), sign * inner, sign * far, sign * mid, -sign * mid];
+  for (const lat of candidates) {
+    const nx = px + rx * lat;
+    const nz = pz + rz * lat;
+    if (!query.insideSolid(nx, gy + 1.1, nz, 0.15)) return { x: nx, z: nz, lift: WALK_LIFT };
+  }
+  const lat = sign * mid;
+  return { x: px + rx * lat, z: pz + rz * lat, lift: WALK_LIFT };
+}
+
 function pointOn(loop: Loop, u: number): { x: number; z: number; yaw: number } {
   let d = ((u % 1) + 1) % 1 * loop.len;
   for (let i = 0; i < loop.seg.length; i++) {
@@ -825,17 +921,28 @@ export class CrowdField {
       if (a.role !== 'walk' && a.x < 1e5) idle++;
       let px = a.x;
       let pz = a.z;
+      let lift = 0;
       const far = a.x > 1e5;
-      if (!far && a.role !== 'vendor' && dist < 1.05) {
-        const side = unit(i, 21) < 0.5 ? -1 : 1;
-        const lat = 1.2 + unit(i, 22) * 0.85;
-        const fwd = 0.35 + unit(i, 23) * 1.8;
-        const fx = Math.sin(this.lookHeading);
-        const fz = -Math.cos(this.lookHeading);
-        px = x + Math.cos(this.lookHeading) * side * lat + fx * fwd;
-        pz = z + Math.sin(this.lookHeading) * side * lat + fz * fwd;
+      if (!far && a.role !== 'vendor') {
+        const placed = placeOnWalk(query, px, pz, i, a.yaw, a.role === 'walk');
+        px = placed.x;
+        pz = placed.z;
+        lift = placed.lift;
+        if (Math.hypot(px - x, pz - z) < 1.05) {
+          const side = unit(i, 21) < 0.5 ? -1 : 1;
+          const lat = 1.2 + unit(i, 22) * 0.85;
+          const fwd = 0.35 + unit(i, 23) * 1.8;
+          const fx = Math.sin(this.lookHeading);
+          const fz = -Math.cos(this.lookHeading);
+          const sx = x + Math.cos(this.lookHeading) * side * lat + fx * fwd;
+          const sz = z + Math.sin(this.lookHeading) * side * lat + fz * fwd;
+          const shoved = placeOnWalk(query, sx, sz, i, a.yaw, true);
+          px = shoved.x;
+          pz = shoved.z;
+          lift = shoved.lift;
+        }
       }
-      const gy = far ? 0 : query.groundHeight(px, pz);
+      const gy = far ? 0 : query.groundHeight(px, pz) + lift;
       _p.set(px, gy, pz);
       _q.setFromAxisAngle(_up, a.yaw);
       coat.set(a.coat, i * 3);
@@ -1036,11 +1143,10 @@ export class CrowdField {
 
   private pickLoop(i: number): number {
     const h = hash2i(i, 2049, 15) % 1000;
-    if (h < 90 && this.crossIdx.length) return this.crossIdx[i % this.crossIdx.length]!;
+    // Crossings sit in the carriageway. Leave them in the graph; do not assign walkers to them.
     if (h < 300 && this.extraIdx.length) return this.extraIdx[i % this.extraIdx.length]!;
     if (this.mainIdx.length) return this.mainIdx[i % this.mainIdx.length]!;
     if (this.extraIdx.length) return this.extraIdx[i % this.extraIdx.length]!;
-    if (this.crossIdx.length) return this.crossIdx[i % this.crossIdx.length]!;
     return 0;
   }
 
