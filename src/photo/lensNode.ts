@@ -223,9 +223,10 @@ export function createLensRig(
       const wideUv = T.clamp(uv0.add(dir.mul(reach).div(pxPerTexel).mul(uDofTexel)).add(vel.mul(along)), T.vec2(0, 0), T.vec2(1, 1));
       const dist = viewDist(wideUv);
       const sampleCoc = cocAt(dist);
-      // A sharper sample must not stamp a focused edge into this pixel's blur.
-      const sharper = T.smoothstep(T.float(1.5), T.float(6), centerCoc.sub(sampleCoc));
-      const closer = T.smoothstep(T.float(0.35), T.float(1.8), center.sub(dist));
+      // A much sharper or much closer sample must not stamp a focused edge into this blur.
+      // A fraction of a metre is normal across a wide disc, so the gate starts at a few metres.
+      const sharper = T.smoothstep(T.float(4), T.float(14), centerCoc.sub(sampleCoc));
+      const closer = T.smoothstep(T.float(2.5), T.float(8), center.sub(dist));
       const radial = T.length(T.vec2(T.float(ox), T.float(oy))).div(rings);
       const rim = T.mix(T.float(0.84), T.float(1.16), T.smoothstep(T.float(0.4), T.float(1), radial));
       const w = gate.mul(rim).mul(T.float(1).sub(sharper.mul(0.94))).mul(T.float(1).sub(closer.mul(0.8)));
