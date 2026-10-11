@@ -9,6 +9,7 @@ import * as TSL from 'three/tsl';
 import { spinnerGeometries, spinnerMaterials } from './spinnerModel';
 import { transportGeometries } from './transportModel';
 import { U } from '../atmosphere/uniforms';
+import { authoredLiftU } from '../lighting/shade.ts';
 import { fogDepth } from '../atmosphere/SkyFog';
 import type { CityQuery } from '../world/CityQuery';
 import { Rng } from '../core/rng';
@@ -79,7 +80,7 @@ export class LaneTraffic {
       const policeCol = T.mix(T.vec3(1.0, 0.08, 0.1), T.vec3(0.15, 0.3, 1.0), police);
       const col = T.select(mode.lessThan(0.5), c.xyz, T.select(mode.lessThan(1.5), policeCol, c.xyz.add(T.vec3(1.2, 1.25, 1.3).mul(navFlash.mul(1.4)))));
       const att = T.exp(fogDepth(T.cameraPosition, T.positionWorld).mul(-0.26));
-      return T.vec4(col.mul(fall).mul(att).mul(2.2), T.float(1));
+      return T.vec4(col.mul(fall).mul(att).mul(2.2).mul(authoredLiftU), T.float(1));
     })();
     this.glow = new InstancedMesh(glowGeo, gm, max);
     const all = [this.spinBody, this.spinLights, this.trBody, this.trLights, this.glow];

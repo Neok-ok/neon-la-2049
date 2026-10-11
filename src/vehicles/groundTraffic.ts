@@ -10,6 +10,7 @@ import type { CityQuery } from '../world/CityQuery';
 import type { Tier } from '../core/quality';
 import { Rng, trueRandomSeed } from '../core/rng';
 import { U } from '../atmosphere/uniforms';
+import { authoredLiftU } from '../lighting/shade.ts';
 import { getPoolMaterial } from '../districts/_shared/kit/materials';
 import { advanceGraph, edgeIdsNear, edgeNear, graphBinKey, poseOn, streetGraph, visitBins, type GraphEdge, type StreetGraph } from './streetGraph';
 import { MESH_LEN, setVehicleLod, vehicleGeometry, vehicleMaterial, type MeshId } from './vehicleModels';
@@ -195,7 +196,7 @@ export class GroundTraffic {
     const lamp = T.attribute('iLamp', 'vec3');
     const dist = T.length(T.positionWorld.sub(T.cameraPosition));
     const fade = T.smoothstep(T.float(520), T.float(70), dist);
-    headMat.colorNode = lamp.mul(T.mix(T.float(0.4), T.float(1.65), U.night)).mul(fade);
+    headMat.colorNode = lamp.mul(T.mix(T.float(0.4), T.float(1.65), U.night)).mul(fade).mul(authoredLiftU);
     this.heads = new InstancedMesh(headGeo, headMat, HEAD_CAP);
     this.heads.name = 'traffic-heads';
     this.heads.frustumCulled = false;

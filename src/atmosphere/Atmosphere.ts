@@ -1,8 +1,10 @@
 // Drives day/night + weather -> shared uniforms, lights, exposure and environment reflections.
 import {
-  Color, DirectionalLight, EquirectangularReflectionMapping, HemisphereLight, CanvasTexture, SRGBColorSpace, Vector3,
+  Color, EquirectangularReflectionMapping, CanvasTexture, SRGBColorSpace, Vector3,
   type Scene, type WebGPURenderer,
 } from 'three/webgpu';
+import { authoredLift, skyLux, stepExposure, sunLux } from '../lighting/exposure.ts';
+import { createSkyLights } from '../lighting/sky.ts';
 import { U } from './uniforms';
 import { Weather, type WeatherId } from './Weather';
 import { installSkyAndFog } from './SkyFog';
@@ -54,8 +56,8 @@ const smoothstep = (a: number, b: number, x: number) => {
 export class Atmosphere {
   readonly dayNight: DayNight;
   readonly weather: Weather;
-  readonly hemi: HemisphereLight;
-  readonly sun: DirectionalLight;
+  readonly hemi: ReturnType<typeof createSkyLights>['hemi'];
+  readonly sun: ReturnType<typeof createSkyLights>['sun'];
   exposure = 1;
   private sunV = new Vector3();
   private lightningT = 0;
@@ -63,10 +65,9 @@ export class Atmosphere {
   constructor(private scene: Scene, opts: { hours?: number; weather?: WeatherId }) {
     this.dayNight = new DayNight(opts.hours ?? 22.5);
     this.weather = new Weather(opts.weather ?? 'rain');
-    this.hemi = new HemisphereLight(0x9a8070, 0x101014, 0.5);
-    this.sun = new DirectionalLight(0xfff0e0, 1);
-    this.sun.position.set(0, 1, 0);
-    scene.add(this.hemi, this.sun, this.sun.target);
+    const sky = createSkyLights(scene);
+    this.hemi = sky.hemi;
+    this.sun = sky.sun;
     installSkyAndFog(scene);
     scene.environment = makeEnvTexture();
     scene.environmentIntensity = 0.3;
@@ -148,17 +149,33 @@ export class Atmosphere {
       U.lightning.value = this.lightningT > 0 ? Math.max(0, Math.sin(this.lightningT * 60)) * (this.lightningT / 0.35) : 0;
     }
 
-    this.hemi.color.copy(U.skyHorizon.value as Color).multiplyScalar(1.4);
-    this.hemi.groundColor.setRGB(0.05, 0.045, 0.05).lerp(c(0.18, 0.1, 0.06), night * 0.6);
-    const bolt = sky?.storm ? U.lightning.value * (sky.gentle ? 0.85 : 1.6) : U.lightning.value * 3;
-    this.hemi.intensity = 0.55 + 1.3 * dayF + bolt;
-    this.sun.position.copy(sd).multiplyScalar(1000);
-    this.sun.intensity = Math.max(0, e) > 0 ? 2.4 * dayF * (1 - w.overcast * 0.75) : 0;
-    this.sun.color.copy(U.sunColor.value as Color);
-    this.scene.environmentIntensity = 0.25 + 0.6 * dayF;
+    // Chromaticity stays peak-1. Lux lives on intensity. Copy the horizon before the grade is lifted into nits.
+    const horizon = U.skyHorizon.value as Color;
+    this.hemi.color.copy(horizon);
+    const hemiPeak = Math.max(this.hemi.color.r, this.hemi.color.g, this.hemi.color.b, 1e-4);
+    this.hemi.color.multiplyScalar(1 / hemiPeak);
+    this.hemi.groundColor.setRGB(0.04, 0.035, 0.04).lerp(tmpB.setRGB(0.16, 0.09, 0.05), night * 0.6);
+    this.hemi.intensity = skyLux(dayF, night, w.overcast) + Number(U.lightning.value) * 8000;
 
-    this.exposure = 1.15 - 0.25 * dayF;
-    renderer.toneMappingExposure = this.exposure;
+    this.sun.color.copy(sun);
+    const sunPeak = Math.max(this.sun.color.r, this.sun.color.g, this.sun.color.b, 1e-4);
+    this.sun.color.multiplyScalar(1 / sunPeak);
+    if (!this.sun.castShadow) this.sun.position.copy(sd).multiplyScalar(1000);
+    this.sun.intensity = sunLux(Number(U.daylight.value), w.overcast);
+
+    const exposure = stepExposure(dt, e, w.overcast, Number(U.lightning.value));
+    this.exposure = exposure;
+    const lift = authoredLift(exposure);
+    // The painted night grade is a mid brown. At this exposure that fills the sky slot.
+    // Night keeps the hue and drops the level; day stays on the painted grade. Rain still reads fogColor.
+    const nightGrade = 0.42 + 0.58 * dayF;
+    (U.skyZenith.value as Color).multiplyScalar(lift * nightGrade);
+    (U.skyHorizon.value as Color).multiplyScalar(lift * nightGrade);
+    (U.fogColor.value as Color).multiplyScalar(lift * nightGrade);
+    (U.deckColor.value as Color).multiplyScalar(lift * nightGrade);
+    // Night IBL is a fraction of the exposure lift. A full lift turns the equirect into a flat colored floor.
+    this.scene.environmentIntensity = (0.25 + 0.6 * dayF) * lift * (0.35 + 0.65 * dayF);
+    renderer.toneMappingExposure = exposure;
     stormSnap.flash = U.lightning.value;
     return { strike, delay: thunderDelayS, amount: thunderAmt };
   }

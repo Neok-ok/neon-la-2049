@@ -14,6 +14,7 @@ import * as TSL from 'three/tsl';
 import type { Tier } from '../core/quality';
 import { resources } from '../core/memory/resources';
 import { U } from '../atmosphere/uniforms';
+import { authoredLiftU } from '../lighting/shade.ts';
 
 const T = TSL as any;
 
@@ -291,7 +292,7 @@ export function vehicleMaterial(): MeshStandardNodeMaterial {
     const emit = T.attribute('emit', 'float');
     const lamp = T.step(T.float(0.5), emit);
     m.colorNode = col.mul(T.mix(T.float(1), T.float(0.58), U.wetness.mul(T.float(1).sub(lamp))));
-    m.emissiveNode = col.mul(lamp).mul(T.mix(T.float(0.42), T.float(1.7), U.night));
+    m.emissiveNode = col.mul(lamp).mul(T.mix(T.float(0.42), T.float(1.7), U.night)).mul(authoredLiftU);
     m.roughnessNode = T.mix(T.mix(T.float(0.4), T.float(0.15), U.wetness), T.float(0.48), lamp);
     m.metalnessNode = T.mix(T.float(0.64), T.float(0.02), lamp);
     return m;

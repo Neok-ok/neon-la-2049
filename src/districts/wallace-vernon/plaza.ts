@@ -1,6 +1,8 @@
 // North forecourt: stone court, a stair onto the Stage 3 plinth, a walled causeway,
 // and a human door in front of the sealed portal. The Stage 3 pylons and glow stay.
 import { Group, InstancedBufferAttribute, InstancedMesh, Matrix4, Mesh, PlaneGeometry, Quaternion, Vector3 } from 'three/webgpu';
+import { retainChunk } from '../../lighting/registry.ts';
+import type { PunctualInput } from '../../lighting/validate.ts';
 import { GeoWriter, type FaceStyle } from '../../world/landmarks/GeoWriter';
 import { getCityMaterial } from '../../world/materials/cityMaterial';
 import { getPoolMaterial } from '../_shared/kit/materials';
@@ -161,6 +163,21 @@ export function buildPlaza(f: PlazaFrame, lod0: Mesh): { colliders: LandmarkColl
   const mesh = new Mesh(w.build(), getCityMaterial());
   mesh.name = 'wallace-plaza-mesh';
   g.add(mesh);
+  // The plaza is on the lamp skip list, so the court had no practical inside the shade range.
+  // These sit on the existing pylons and the processional line. No new poles.
+  const spots: Array<[number, number, number]> = [
+    [0, 5.6, -2062],
+    [16, 6.4, -2044],
+    [-14, 6.4, -2024],
+    [12, 6.4, -2002],
+    [-10, 6.2, -1980],
+    [18, 6.4, -1956],
+  ];
+  const lights: PunctualInput[] = spots.map(([lx, y, lz]) => {
+    const [x, z] = localToWorld(f.x, f.z, f.yaw, lx, lz);
+    return { preset: 'street-sodium', x, y: f.y + y, z, dx: 0, dy: -1, dz: 0 };
+  });
+  g.userData.releaseLights = retainChunk('wallace-plaza', lights);
   puddles(f, g);
   lod0.add(g);
 

@@ -2,6 +2,7 @@
 // structures (Wallace pyramid, megatowers) rise out of a dense ground-level smog layer, as in the film.
 import type { Scene } from 'three/webgpu';
 import * as TSL from 'three/tsl';
+import { authoredLiftU, practicalInscatter } from '../lighting/shade.ts';
 import { U } from './uniforms';
 
 const T = TSL as any;
@@ -9,9 +10,9 @@ const { Fn, float, vec3, vec2, exp, clamp, mix, max, pow, dot, normalize, smooth
 
 /** Shared fog colour for a view direction: base fog + forward sun scatter + warm city under-glow. */
 const fogColorFor = (dir: any) => {
-  const sunScatter = pow(max(dot(dir, U.sunDir), 0.0), 6.0).mul(U.daylight).mul(0.35);
-  const lowGlow = smoothstep(-0.05, 0.25, dir.y).oneMinus().mul(U.night).mul(0.35);
-  return (U.fogColor as any).add(U.sunColor.mul(sunScatter)).add(U.fogColor.mul(lowGlow)).add(vec3(U.lightning.mul(0.5)));
+  const sunScatter = pow(max(dot(dir, U.sunDir), 0.0), 6.0).mul(U.daylight).mul(0.35).mul(authoredLiftU);
+  const lowGlow = smoothstep(-0.05, 0.25, dir.y).oneMinus().mul(U.night).mul(0.12);
+  return (U.fogColor as any).add(U.sunColor.mul(sunScatter)).add(U.fogColor.mul(lowGlow)).add(vec3(U.lightning.mul(authoredLiftU).mul(0.5)));
 };
 
 /** erf(x), Winitzki's approximation (max error ~1e-4). */
@@ -71,13 +72,13 @@ export function installSkyAndFog(scene: Scene): void {
     col = col.mul(mix(float(1), shelf, U.stormSky));
     // sun/moon glow through smog
     const sd = max(dot(dir, U.sunDir), 0.0);
-    col = col.add(U.sunColor.mul(pow(sd, 64.0).mul(0.6).add(pow(sd, 8.0).mul(0.12))).mul(U.daylight));
+    col = col.add(U.sunColor.mul(pow(sd, 64.0).mul(0.6).add(pow(sd, 8.0).mul(0.12))).mul(U.daylight).mul(authoredLiftU));
     // High deck: looking up leaves the black zenith and picks up the murk the tower tops melt into.
     col = mix(col, U.deckColor, smoothstep(0.08, 0.55, up).mul(U.deckTint));
     // blend into the same colour the fog converges to so geometry melts into the horizon
     const fogC = fogColorFor(dir);
     col = mix(col, fogC, smoothstep(-0.02, 0.18, up).oneMinus());
-    return col.add(vec3(U.lightning.mul(0.35)));
+    return col.add(vec3(U.lightning.mul(authoredLiftU).mul(0.35)));
   })();
 
   const factor = Fn(() => {
@@ -98,7 +99,7 @@ export function installSkyAndFog(scene: Scene): void {
     col = mix(col, tinted, low.mul(U.airTintMix));
     const high = smoothstep(U.deckY.sub(U.deckW), U.deckY.add(U.deckW.mul(0.15)), y);
     col = mix(col, U.deckColor, high.mul(U.deckTint));
-    return col;
+    return col.add(practicalInscatter(positionWorld));
   })();
   s.fogNode = fog(color, factor);
 }

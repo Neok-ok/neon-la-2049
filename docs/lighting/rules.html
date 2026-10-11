@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Neon LA 2049 — lighting rules</title>
+<style>
+  body { font: 16px/1.45 Georgia, serif; max-width: 42rem; margin: 2rem auto; padding: 0 1rem; color: #1a1a1a; background: #f6f3ee; }
+  h1 { font-size: 1.6rem; }
+  h2 { font-size: 1.15rem; margin-top: 1.6rem; }
+  code { font-family: ui-monospace, monospace; font-size: 0.9em; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+  th, td { text-align: left; padding: 0.3rem 0.45rem; border-bottom: 1px solid #d9d2c8; vertical-align: top; }
+  a { color: #6a3418; }
+</style>
+</head>
+<body>
+<h1>Lighting rules</h1>
+<p>The city is lit in candela and nits, with one camera exposure for every district. A new light that skips this page fails <code>npm run lighting:check</code> and, at runtime, throws <code>LightingError</code>.</p>
+
+<h2>Units</h2>
+<ul>
+  <li>Distances are metres. One nit is one candela per square metre.</li>
+  <li>A practical is luminous intensity in candela. A glowing surface is luminance in nits.</li>
+  <li>Streets, signs, windows, and rooms are not three.js punctual lights. The sun and the sky hemisphere are the only scene lights, and their intensity is lux.</li>
+  <li>Falloff is the Frostbite window: <code>(saturate(1 − (d / range)^4))^2 / d^2</code>, with a source radius so a tube does not divide by zero. It is zero at <code>range</code>.</li>
+  <li>Colour temperature is a blackbody chromaticity, peak 1. Neon, holograms, and police bars are discharges: pass a linear RGB. Do not invent a kelvin for a gas tube. Low-pressure sodium at 589 nm is <code>sodiumLineLinear()</code>. The street default is high-pressure sodium at 2000 K. White LED streets are 4000 K.</li>
+</ul>
+
+<h2>Exposure</h2>
+<p>Night is f/2, 1/48 s, ISO 1000 (about EV 4.26). Day is f/5.6, 1/125 s, ISO 100. Exposure is <code>1 / (1.2 × 2^EV100)</code>. The iris adapts with the sun. <code>?ev=</code> locks it for a screenshot.</p>
+<p>Sky, fog, and rain were painted at exposure 1. Those uniforms are multiplied by <code>1 / exposure</code> after the sun and sky lights have copied them, so the grade holds. Glare sprites use the same lift. Signs, windows, and lamp heads are true nits, so they dim when the sun is up.</p>
+<p>Do not raise the night hemisphere to lift a dark wall. Night skyglow is about 12 lux. A face that is too dark needs its own emissive, inside the nit cap.</p>
+
+<h2>Registry</h2>
+<p>Create every practical with <code>retainChunk</code> (a streamed chunk) or <code>setEphemeral</code> (signs, holograms, the open room). Both call <code>checkPunctual</code>.</p>
+<table>
+  <tr><th>Preset</th><th>Use</th></tr>
+  <tr><td><code>street-sodium</code></td><td>2000 K cutoff lantern, aimed down</td></tr>
+  <tr><td><code>street-led</code></td><td>4000 K lantern, the occasional white head</td></tr>
+  <tr><td><code>neon-sign</code></td><td>Discharge. Override <code>rgb</code> with the sign face</td></tr>
+  <tr><td><code>window-warm</code> / <code>window-cool</code></td><td>2700 K and 5000 K glass</td></tr>
+  <tr><td><code>hologram</code></td><td>Cyan discharge, unless the panel has its own rgb</td></tr>
+  <tr><td><code>beacon-red</code> / <code>beacon-white</code> / <code>beacon-amber</code></td><td>Obstruction and pad lights</td></tr>
+  <tr><td><code>flare</code></td><td>Stack fire</td></tr>
+  <tr><td><code>interior-fluorescent</code> / <code>interior-tungsten</code> / <code>interior-sodium</code></td><td>Room fixtures while that room is open</td></tr>
+  <tr><td><code>spinner-headlight</code> / <code>spinner-lightbar</code></td><td>For the vehicle pass. Do not spawn them here</td></tr>
+  <tr><td><code>harbor-mast</code></td><td>For the sea-wall pass. Do not spawn them here</td></tr>
+</table>
+<p>The guard rejects a non-finite position, candela outside the preset band, nits outside 0..20000, kelvin outside 1000..20000, and a range outside 0.2..500 m.</p>
+<p>Bloom runs on nits, before the tone map, on high and ultra only. The threshold sits above a dim window and below a neon face. The default curve is AgX. <code>?tonemap=aces</code> and <code>?tonemap=neutral</code> are the comparison. Neutral is the product curve, not the night default.</p>
+
+<h2>Tiers</h2>
+<table>
+  <tr><th>Tier</th><th>Shaded practicals</th><th>What else</th></tr>
+  <tr><td>Ultra</td><td>4 per depth slice (8 slots)</td><td>Contact discs, probes, haze in-scatter, bloom, one daylight sun shadow</td></tr>
+  <tr><td>High</td><td>4 per slice</td><td>Contact, probes, haze, bloom. No sun shadow</td></tr>
+  <tr><td>Medium</td><td>2 per slice</td><td>Contact and haze. No probes, no bloom, no shadows</td></tr>
+  <tr><td>Low</td><td>none</td><td>A flat sodium nit on upward surfaces. Signs and windows stay emissive</td></tr>
+</table>
+<p>The shader reads individual uniforms, not a cluster texture. A float index texture mis-samples on the WebGL2 fallback.</p>
+
+<h2>Memory</h2>
+<p>Lighting does not allocate a cluster texture or a shadow map per practical. Contact shadows are analytic discs. The only shadow map is the daylight sun on ultra, and it is disposed when the tier drops or the sun sets.</p>
+<table>
+  <tr><th>Tier</th><th>Render targets</th><th>Shadow maps</th><th>Env maps</th><th>Added at 1920×1080, scale 1</th></tr>
+  <tr><td>Low</td><td>0</td><td>0</td><td>0 (keeps the atmosphere equirect)</td><td>0</td></tr>
+  <tr><td>Medium</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+  <tr><td>High</td><td>12 (1 half-float scene color + depth, 11 bloom targets)</td><td>0</td><td>1, replacing the atmosphere map</td><td>40,077,120 bytes (38.2 MiB)</td></tr>
+  <tr><td>Ultra, night</td><td>same as high</td><td>0</td><td>1</td><td>38.2 MiB</td></tr>
+  <tr><td>Ultra, day</td><td>same as high</td><td>1 at 1024²</td><td>1</td><td>48,465,728 bytes (46.2 MiB)</td></tr>
+</table>
+<p>On a 390×844 phone at the tier pixel-ratio cap that is 0 on low and medium, 25,444,240 bytes (24.3 MiB) at high (ratio 2), 57,249,520 bytes (54.6 MiB) for ultra night (ratio 3), and 65,638,128 bytes (62.6 MiB) for ultra day.</p>
+<p>The memory governor (<a href="../perf/MEMORY-RULES.html">MEMORY-RULES.html</a>) shrinks the drawing buffer to 0.75 at pressure level 3. Bloom, the sun shadow, and the probe are sized from that buffer, so they follow it once. <code>setLightingResolutionScale</code> (0.25 to 1) is a further cut of those targets only, not a second multiply on the pixel ratio. At 0.5 the 1080p high budget falls to 10,017,600 bytes (9.6 MiB). The scene pass is not MSAA. The wet-street probe is a <code>resources.texture</code>. Lamp poles and heads are shared geometries and materials. Dropping a tier disposes the targets that tier does not use. Entering photo mode disposes the play chain before the photo chain is built.</p>
+
+<h2>What you may not do</h2>
+<ul>
+  <li><code>new PointLight</code>, <code>SpotLight</code>, <code>DirectionalLight</code>, <code>HemisphereLight</code>, <code>RectAreaLight</code>, or <code>AmbientLight</code> outside <code>src/lighting</code>.</li>
+  <li><code>emissive</code>, <code>emissiveNode</code>, or <code>emissiveIntensity</code> in a new file that does not import <code>src/lighting</code>.</li>
+  <li>A second exposure per district. Interiors use the street exposure. The unlit bake is scaled into nits so the room does not go black.</li>
+  <li>Copied shader code from Filament, Frostbite, or three.js. Use the published formula, or the library function (<code>agxToneMapping</code>, <code>neutralToneMapping</code>, <code>acesFilmicToneMapping</code>).</li>
+</ul>
+<p>Harbor, weather, the sea wall, and vehicles stay on their own allowlist until those passes adopt <code>harborMast</code>, <code>spinnerHeadlight</code>, and <code>spinnerLightbar</code>. A new district file is not allowlisted.</p>
+</body>
+</html>

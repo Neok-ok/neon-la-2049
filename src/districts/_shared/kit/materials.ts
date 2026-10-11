@@ -2,10 +2,12 @@
 import { AdditiveBlending, DoubleSide, MeshBasicNodeMaterial, MeshStandardNodeMaterial, NormalBlending } from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import { U } from '../../../atmosphere/uniforms';
+import { NITS } from '../../../lighting/presets.ts';
+import { authoredLiftU, practicalLit } from '../../../lighting/shade.ts';
 import { hologramSpill } from '../../../world/holograms/spill';
 
 const T = TSL as any;
-const { attribute, float, mix, smoothstep, abs, uv, vec3, vec4, positionLocal, sin, fract, cameraPosition, positionWorld, length } = T;
+const { attribute, float, mix, smoothstep, abs, uv, vec3, vec4, positionLocal, sin, fract, cameraPosition, positionWorld, normalWorld, normalize, length } = T;
 
 export type KitPass = 'opaque' | 'fade' | 'add';
 
@@ -21,8 +23,11 @@ function kitSurface(m: MeshStandardNodeMaterial, transparent: boolean): void {
   const alpha = attribute('alpha', 'float');
   // wet cloth/metal darkens like the city fabric
   const dark = mix(float(1), float(0.62), U.wetness.mul(float(transparent ? 0.3 : 0.85)));
-  m.colorNode = col.mul(dark);
-  m.emissiveNode = emi.mul(U.signPower).mul(U.night.mul(0.65).add(0.35)).add(hologramSpill());
+  const albedo = col.mul(dark);
+  m.colorNode = albedo;
+  m.emissiveNode = emi.mul(U.signPower).mul(U.night.mul(0.65).add(0.35)).mul(NITS.kit)
+    .add(hologramSpill())
+    .add(practicalLit(positionWorld, normalWorld, normalize(cameraPosition.sub(positionWorld)), albedo));
   m.roughnessNode = mix(float(0.78), float(0.35), metal).mul(mix(float(1), float(0.55), U.wetness));
   m.metalnessNode = metal.mul(0.85);
   m.side = DoubleSide;
@@ -44,7 +49,7 @@ export function getKitMaterial(pass: KitPass): MeshStandardNodeMaterial | MeshBa
       add.fog = true;
       const emi = attribute('emissive', 'vec3');
       const a = attribute('alpha', 'float');
-      add.colorNode = vec4(emi.mul(U.signPower).mul(U.wetness.mul(0.65).add(0.35)).mul(U.night.mul(0.75).add(0.25)), a);
+      add.colorNode = vec4(emi.mul(U.signPower).mul(U.wetness.mul(0.65).add(0.35)).mul(U.night.mul(0.75).add(0.25)).mul(NITS.kit), a);
     }
     return add;
   }
@@ -81,7 +86,7 @@ export function getSteamMaterial(): MeshBasicNodeMaterial {
   steam.positionNode = positionLocal.add(vec3(drift, life.mul(1.7), drift.mul(0.6)));
   const fade = sin(life.mul(Math.PI));
   const dist = length(positionWorld.sub(cameraPosition));
-  const col = mix(vec3(0.78, 0.8, 0.82), U.fogColor.mul(2.4), float(0.4));
+  const col = mix(vec3(0.78, 0.8, 0.82).mul(authoredLiftU), U.fogColor.mul(2.4), float(0.4));
   steam.colorNode = vec4(col, fade.mul(0.32).mul(smoothstep(36.0, 5.0, dist)));
   return steam;
 }
@@ -106,7 +111,7 @@ export function getPoolMaterial(): MeshBasicNodeMaterial {
   // when the planar reflector is on, keep the pools as a coloured boost rather than a second mirror
   const strength = mix(float(1), float(0.45), U.reflMix);
   pool.colorNode = vec4(
-    light.xyz.mul(light.w).mul(fade).mul(U.wetness).mul(U.night.mul(0.85).add(0.15)).mul(U.signPower).mul(strength),
+    light.xyz.mul(light.w).mul(fade).mul(U.wetness).mul(U.night.mul(0.85).add(0.15)).mul(U.signPower).mul(strength).mul(NITS.pool),
     fade.mul(U.wetness).mul(0.85),
   );
   return pool;

@@ -9,6 +9,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import * as TSL from 'three/tsl';
 import { U } from '../atmosphere/uniforms';
+import { authoredLiftU } from '../lighting/shade.ts';
 import type { Tier } from '../core/quality';
 import spinnerHighUrl from '../../public/models/spinner/spinner-high.glb?url';
 import spinnerMediumUrl from '../../public/models/spinner/spinner-medium.glb?url';
@@ -79,7 +80,7 @@ export function spinnerMaterials() {
     const s = T.step(0.5, T.fract(U.time.mul(2.5)));
     const isBar = T.step(1.5, c.x.add(c.z)).mul(T.step(c.y, 0.5));
     const k = T.mix(T.float(1), T.mix(s, T.float(1).sub(s), T.step(c.z, c.x)), isBar);
-    return c.mul(k.mul(0.85).add(0.15));
+    return c.mul(k.mul(0.85).add(0.15)).mul(authoredLiftU);
   })();
   mats = { body, glass, lights };
   return mats;

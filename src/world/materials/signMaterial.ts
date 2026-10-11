@@ -4,6 +4,7 @@
 import { DoubleSide, MeshBasicNodeMaterial, Color } from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import { U } from '../../atmosphere/uniforms';
+import { NITS } from '../../lighting/presets.ts';
 import { lutColor } from './lut';
 import { getSignAtlas } from './signAtlas';
 import { SIGN_ATLAS_COLS, SIGN_ATLAS_ROWS } from './signPhrases';
@@ -60,7 +61,8 @@ export function getSignMaterial(): MeshBasicNodeMaterial {
     const av = float(SIGN_ATLAS_ROWS - 1).sub(row).add(sv).div(SIGN_ATLAS_ROWS);
     const sample = T.texture(getSignAtlas(), vec2(au, av));
     const lum = sample.r.max(sample.g).max(sample.b);
-    const panel = color.mul(lum.mul(2.4).add(0.045));
+    // 1.65× keeps a full glyph near 34 nits: just over the bloom threshold, under the AgX shoulder.
+    const panel = color.mul(lum.mul(1.65).add(0.04));
 
     // billboard: animated gradient bands + scanlines ("hologram ad", still no logos)
     const t = U.time;
@@ -74,7 +76,7 @@ export function getSignMaterial(): MeshBasicNodeMaterial {
 
     const isBillboard = step(1.5, kind);
     const out = mix(panel, billboard.mul(1.35), isBillboard);
-    return vec3(out).mul(U.signPower).mul(flick).mul(1.65);
+    return vec3(out).mul(U.signPower).mul(flick).mul(NITS.sign);
   })();
   shared = m;
   return m;

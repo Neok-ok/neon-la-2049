@@ -2,6 +2,7 @@
 import { AdditiveBlending, BufferAttribute, BufferGeometry, Mesh, MeshBasicNodeMaterial } from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import { U } from '../../atmosphere/uniforms';
+import { authoredLiftU } from '../../lighting/shade.ts';
 
 const T = TSL as any;
 const { Fn, attribute, vec3, vec4, normalize, cross, cameraPosition, sin, smoothstep, length, exp, mx_noise_float, float } = T;
@@ -56,7 +57,7 @@ export class Flares {
       const col = vec3(1.0, 0.45, 0.1).mul(core).add(vec3(1.0, 0.85, 0.5).mul(smoothstep(0.0, 0.45, r).oneMinus()));
       const d = length(c.xyz.sub(cameraPosition));
       const att = exp(d.mul(U.fogDensity).mul(-0.35));
-      return vec4(col.mul(att).mul(3.0), float(1));
+      return vec4(col.mul(att).mul(3.0).mul(authoredLiftU), float(1));
     })();
     const mesh = new Mesh(g, m);
     mesh.frustumCulled = false;

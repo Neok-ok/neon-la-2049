@@ -3,6 +3,7 @@
 // and flickers in the shader from the clock, not from the weather.
 import { BufferGeometry, Float32BufferAttribute } from 'three/webgpu';
 import { resources } from '../../core/memory/resources';
+import { bakeInteriorVertex } from '../../lighting/interiorBake.ts';
 import type { InteriorBox, InteriorDetail, InteriorLight, RGB } from './types';
 
 const FACES: Array<{ n: [number, number, number]; c: Array<[number, number, number]> }> = [
@@ -15,24 +16,23 @@ const FACES: Array<{ n: [number, number, number]; c: Array<[number, number, numb
 ];
 
 function shade(nx: number, ny: number, nz: number, wx: number, wy: number, wz: number, lights: InteriorLight[], ambient: RGB): RGB {
-  let r = ambient[0], g = ambient[1], b = ambient[2];
-  for (const L of lights) {
-    const dx = L.x - wx, dy = L.y - wy, dz = L.z - wz;
-    const dist = Math.hypot(dx, dy, dz);
-    if (dist < 1e-3 || dist >= L.range) continue;
-    const att = 1 - dist / L.range;
-    const ndl = Math.max(0, (nx * dx + ny * dy + nz * dz) / dist);
-    const k = (ndl * 0.72 + 0.28) * att * att * L.intensity;
-    r += L.color[0] * k;
-    g += L.color[1] * k;
-    b += L.color[2] * k;
-  }
-  const m = Math.max(r, g, b);
-  if (m > 1.7) {
-    const s = 1.7 / m;
-    r *= s; g *= s; b *= s;
-  }
-  return [r, g, b];
+  return bakeInteriorVertex(nx, ny, nz, wx, wy, wz, lights, ambient);
+}
+
+/** Large faces are one quad. A lamp in the middle of a wall never reached a vertex, so the room stayed flat. */
+function splits(span: number): number {
+  if (span <= 1.1) return 1;
+  return Math.min(6, Math.ceil(span / 1.35));
+}
+
+function faceSpans(n: readonly [number, number, number], w: number, h: number, d: number): [number, number] {
+  if (n[0] !== 0) return [d, h];
+  if (n[1] !== 0) return [w, d];
+  return [w, h];
+}
+
+function mix3(a: readonly [number, number, number], b: readonly [number, number, number], t: number): [number, number, number] {
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 }
 
 export function trisOf(g: BufferGeometry): number {
@@ -64,21 +64,40 @@ function assembleInteriorGeometry(
       const nx = f.n[0], ny = f.n[1], nz = f.n[2];
       const wnx = nx * c + nz * s;
       const wnz = -nx * s + nz * c;
-      const base = v;
-      for (const corn of f.c) {
-        const lx = corn[0] * hx, ly = corn[1] * hy, lz = corn[2] * hz;
-        const wx = cx + lx * c + lz * s;
-        const wy = cy + ly;
-        const wz = cz - lx * s + lz * c;
-        const lit = shade(wnx, ny, wnz, wx, wy, wz, lights, ambient);
-        pos.push(wx, wy, wz);
-        nrm.push(wnx, ny, wnz);
-        col.push(b.color[0] * lit[0], b.color[1] * lit[1], b.color[2] * lit[2]);
-        emi.push(em[0], em[1], em[2]);
-        flick.push(fl);
-        v++;
+      const [spanU, spanV] = faceSpans(f.n, b.w, b.h, b.d);
+      const nu = splits(spanU);
+      const nv = splits(spanV);
+      const at = (u: number, vParam: number): [number, number, number] => {
+        const ab = mix3(f.c[0], f.c[1], u);
+        const dc = mix3(f.c[3], f.c[2], u);
+        return mix3(ab, dc, vParam);
+      };
+      for (let iv = 0; iv < nv; iv++) {
+        for (let iu = 0; iu < nu; iu++) {
+          const base = v;
+          const corners: Array<[number, number]> = [
+            [iu / nu, iv / nv],
+            [(iu + 1) / nu, iv / nv],
+            [(iu + 1) / nu, (iv + 1) / nv],
+            [iu / nu, (iv + 1) / nv],
+          ];
+          for (const [u, vParam] of corners) {
+            const corn = at(u, vParam);
+            const lx = corn[0] * hx, ly = corn[1] * hy, lz = corn[2] * hz;
+            const wx = cx + lx * c + lz * s;
+            const wy = cy + ly;
+            const wz = cz - lx * s + lz * c;
+            const lit = shade(wnx, ny, wnz, wx, wy, wz, lights, ambient);
+            pos.push(wx, wy, wz);
+            nrm.push(wnx, ny, wnz);
+            col.push(b.color[0] * lit[0], b.color[1] * lit[1], b.color[2] * lit[2]);
+            emi.push(em[0], em[1], em[2]);
+            flick.push(fl);
+            v++;
+          }
+          idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+        }
       }
-      idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
     }
   }
 

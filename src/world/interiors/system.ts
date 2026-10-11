@@ -11,7 +11,7 @@ import { buildInteriorGeometry, trisOf } from './geom';
 import { interiorMaterial } from './material';
 import { buildPortalGeometry, portalMaterial } from './portal';
 import { buildRainGeometry, rainMaterial } from './rain';
-import type { InteriorDetail, InteriorRide, InteriorSpec } from './types';
+import type { InteriorDetail, InteriorLight, InteriorRide, InteriorSpec } from './types';
 import { boxVolume, containsBox, distToBox } from './volume';
 
 export interface ExteriorHosts {
@@ -31,6 +31,7 @@ interface Run {
   rain: Mesh | null;
   mounted: boolean;
   shown: boolean;
+  lights: InteriorLight[];
   meshTris: number;
   portalTris: number;
   rainTris: number;
@@ -237,6 +238,14 @@ export class InteriorSystem {
     };
   }
 
+  /** Baked fixtures of the room the walker is inside. Empty on the street. */
+  lightSpill(): InteriorLight[] {
+    if (!this.occluded || !this.activeId) return [];
+    const run = this.runs.get(this.activeId);
+    if (!run?.shown) return [];
+    return run.lights;
+  }
+
   hudLabel(): string {
     const s = this.stats;
     if (!s.interior) return `outside · mounted ${s.interiorMounted}`;
@@ -337,7 +346,7 @@ export class InteriorSystem {
     group.add(mesh, portal);
     this.group.add(group);
     return {
-      spec, group, mesh, portal, rain: null, mounted: false, shown: false,
+      spec, group, mesh, portal, rain: null, mounted: false, shown: false, lights: [],
       meshTris: 0, portalTris: 0, rainTris: 0, built: false,
     };
   }
@@ -363,6 +372,7 @@ export class InteriorSystem {
     const built = run.spec.build(this.detail);
     run.built = true;
     run.mesh.geometry.dispose();
+    run.lights = built.lights;
     run.mesh.geometry = buildInteriorGeometry(built.boxes, built.lights, built.ambient, this.detail);
     resources.tag(run.mesh.geometry, { label: run.spec.id, owner: 'interiors', evictable: true });
     run.meshTris = trisOf(run.mesh.geometry);
