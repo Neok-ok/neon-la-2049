@@ -1,6 +1,6 @@
 // Side views of a walker, four frames, plus the dancer and the doorway scale shot.
 import { chromium } from 'playwright';
-import { mkdirSync, renameSync, unlinkSync } from 'node:fs';
+import { mkdirSync, renameSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 
 const OUT = '/workspace/docs/humans/after';
@@ -460,12 +460,7 @@ async function shoot(id, tier) {
     const tmp0 = `${OUT}/.tmp-${id}-${tier}-f0.png`;
     await page.screenshot({ path: tmp0, timeout: 180000, animations: 'disabled' });
     const stats = bodyStats(tmp0, locked.box);
-    note('body', { id, tier, attempt, std: Math.round(stats.std * 10) / 10, span: Math.round(stats.span), mean: Math.round(stats.mean) });
-    if ((stats.std < 4.5 && stats.span < 16) && attempt < 5) {
-      unlinkSync(tmp0);
-      await page.evaluate(() => window.__retry.release());
-      continue;
-    }
+    note('body', { id, tier, attempt, std: Math.round((stats.std || 0) * 10) / 10, span: Math.round(stats.span || 0), mean: Math.round(stats.mean || 0) });
     renameSync(tmp0, `${OUT}/${id}-${tier}-f0.png`);
     for (let f = 1; f < 4; f++) {
       await page.evaluate(() => window.__retry.step(0.42));
