@@ -3,6 +3,7 @@ import {
   Color, EquirectangularReflectionMapping, CanvasTexture, SRGBColorSpace, Vector3,
   type Scene, type WebGPURenderer,
 } from 'three/webgpu';
+import { Rng, visualSeed } from '../core/rng';
 import { authoredLift, skyLux, stepExposure, sunLux } from '../lighting/exposure.ts';
 import { createSkyLights } from '../lighting/sky.ts';
 import { U } from './uniforms';
@@ -197,11 +198,14 @@ function makeEnvTexture(): CanvasTexture {
   g.fillStyle = grad;
   g.fillRect(0, 0, W, H);
   const neon = ['#ff2d8c', '#20d8ff', '#ff8a1e', '#a040ff', '#30ffb0'];
+  const seeded = visualSeed('env-blotches');
+  const rng = seeded === undefined ? null : new Rng(seeded);
+  const roll = () => (rng ? rng.next() : Math.random());
   for (let i = 0; i < 40; i++) {
     g.fillStyle = neon[i % neon.length];
-    g.globalAlpha = 0.25 + Math.random() * 0.4;
-    const x = Math.random() * W, y = H * (0.44 + Math.random() * 0.1);
-    g.fillRect(x, y, 2 + Math.random() * 8, 2 + Math.random() * 6);
+    g.globalAlpha = 0.25 + roll() * 0.4;
+    const x = roll() * W, y = H * (0.44 + roll() * 0.1);
+    g.fillRect(x, y, 2 + roll() * 8, 2 + roll() * 6);
   }
   g.globalAlpha = 1;
   const tex = new CanvasTexture(cv);

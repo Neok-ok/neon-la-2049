@@ -1,6 +1,7 @@
 // Top-level wiring: renderer, scene, streaming city, landmarks, traffic, atmosphere, cameras, UI, audio.
 import { MathUtils, NoToneMapping, PerspectiveCamera, Scene, Timer, Vector2, Vector3, WebGPURenderer } from 'three/webgpu';
 import { params } from '../core/params';
+import { pinVisualSeed, VISUAL_CLOCK_SEC } from '../core/rng';
 import { autoTier, probeDevice, settingsFor, stepAutoGuard, storedTier, storeTier, TIERS, type QualitySettings, type Tier } from '../core/quality';
 import { Atmosphere } from '../atmosphere/Atmosphere';
 import { setCityWindowDetail } from '../world/materials/cityMaterial';
@@ -198,6 +199,7 @@ export class App {
   }
 
   async init(): Promise<void> {
+    pinVisualSeed(params.seed);
     const hints = await readUaHints();
     if (hints.platform || hints.model) {
       this.budget = detectBudget({
@@ -613,14 +615,16 @@ export class App {
     if (this.input.wasPressed('KeyP')) this.togglePhoto();
     if (this.photoMod?.active && this.input.wasPressed('Escape')) this.exitPhoto();
     const photoOn = this.photoMod?.active ?? false;
-    const simDt = photoOn ? 0 : dt;
+    const seeded = params.seed !== undefined;
+    const simDt = photoOn || seeded ? 0 : dt;
     if (this.frames === 0) {
       this.loopStart = performance.now();
       this.boot.firstFrameMs = this.loopStart - this.startMs;
     } else if (this.frames > 2 && !photoOn) {
       this.sessionWorstMs = Math.max(this.sessionWorstMs, raw * 1000);
     }
-    if (!photoOn) this.elapsed += dt;
+    if (seeded) this.elapsed = VISUAL_CLOCK_SEC;
+    else if (!photoOn) this.elapsed += dt;
     this.frames++;
 
     if (this.started && !photoOn) this.handleKeys();
@@ -1513,6 +1517,8 @@ export class App {
       stats: () => ({
         ...this.streamer.stats,
         fps: this.hud.fps,
+        simTime: this.elapsed,
+        seed: params.seed ?? null,
         frameMs: this.hud.frameMs,
         worstMs: this.hud.worstMs,
         backend: this.backend,

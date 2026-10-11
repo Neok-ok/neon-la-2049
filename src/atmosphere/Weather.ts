@@ -1,5 +1,5 @@
 // Self-driving weather state machine (Markov chain with timed, cross-faded transitions).
-import { Rng, trueRandomSeed } from '../core/rng';
+import { Rng, trueRandomSeed, visualUnit } from '../core/rng';
 
 export type WeatherId = 'clear' | 'overcast' | 'drizzle' | 'rain' | 'downpour' | 'storm' | 'fog' | 'smog' | 'snow' | 'sleet';
 
@@ -48,7 +48,7 @@ export class Weather {
   readonly params: WeatherParams;
   wetness = 0.85;
   snowCover = 0;
-  windDir = Math.random() * Math.PI * 2;
+  windDir = (visualUnit('weather-wind') ?? Math.random()) * Math.PI * 2;
   private rng = new Rng(trueRandomSeed());
 
   constructor(initial: WeatherId = 'rain') {

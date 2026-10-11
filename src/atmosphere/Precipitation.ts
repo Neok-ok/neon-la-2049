@@ -2,6 +2,7 @@
 import { BufferGeometry, BufferAttribute, Mesh, MeshBasicNodeMaterial, AdditiveBlending, NormalBlending, Vector3 } from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import { BOKEH } from '../photo/bokeh';
+import { Rng, visualSeed } from '../core/rng';
 import { U } from './uniforms';
 import { lightGain, lightTint } from './airLights';
 
@@ -36,8 +37,12 @@ export class Precipitation {
     const pos = new Float32Array(max * 4 * 3);
     const idx = new Uint32Array(max * 6);
     const cs = [-0.5, 0, 0.5, 0, 0.5, 1, -0.5, 1];
+    const seeded = visualSeed(`precip-${kind}`);
+    const rng = seeded === undefined ? null : new Rng(seeded);
     for (let i = 0; i < max; i++) {
-      const r = [Math.random(), Math.random(), Math.random(), Math.random()];
+      const r = rng
+        ? [rng.next(), rng.next(), rng.next(), rng.next()]
+        : [Math.random(), Math.random(), Math.random(), Math.random()];
       for (let k = 0; k < 4; k++) {
         corner.set([cs[k * 2], cs[k * 2 + 1]], (i * 4 + k) * 2);
         rand.set(r, (i * 4 + k) * 4);
