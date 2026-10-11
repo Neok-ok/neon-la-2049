@@ -60,7 +60,7 @@ When sources disagree, the higher one wins:
 | Body | 1.80 m tall, 0.32 m radius | collision capsule |
 | Walk / run | 1.5 / 4.2 m/s | real human speeds |
 | Step-up | 0.45 m | kerbs, stall platforms |
-| Floor-to-floor, megablock residential | 3.1–3.6 m | window cell height per style in `cityMaterial.ts` |
+| Floor-to-floor, megablock residential | 3.1–3.6 m | window cell height per style in `src/world/windows/facade.ts` |
 | Floor-to-floor, office / civic | 4.0–5.5 m | |
 | Market stall | 2.4–4.2 m wide, 2.0 m deep, 2.4–3.4 m tall | Little Tokyo stalls |
 | Street lamp | 7.5 m pole, 1.6 m arm, every ~32 m | `_shared/streetLamps.ts` |
@@ -547,6 +547,7 @@ It rains most of the time, and it **snows** in the finale. The weather state mac
 * On top of that sits an **inversion layer**: a gaussian band of extra density, centred at **150–320 m** with a 115 m half-width (peak 0.0004–0.0012 /m by weather; 0.0007 in dry haze, 0.0011 in toxic smog). Looking across from above, the canyon and podiums sink into a flat brown sea and only the upper half of the megatowers stands clear, which is the film's daytime skyline. Aviation lights see 30% of the fog depth, so beacons punch through it.
 * Wetness and snow cover build up and dry out over time (puddles, darkened concrete, white roofs).
 * A day lasts 30 real minutes by default. The window-lit fraction rises after dusk and the neon gets stronger at night.
+* Lit residential and office glass is an interior-mapped room (Detail Pass D4): invented apartment, kitchen, office, stair, storage and empty interiors, plus one hero room. Not a film set. The art is a runtime atlas in the facade shader. `confidence: invented`.
 
 ## 10. Rules for inventing unseen areas
 

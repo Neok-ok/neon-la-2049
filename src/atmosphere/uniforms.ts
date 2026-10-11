@@ -30,6 +30,8 @@ export const U = {
   sunColor: uniform(new Color(1, 0.9, 0.8)),
   /** multiplier on lit-window probability (time of day) */
   windowLit: uniform(1),
+  /** 0..1 rain intensity. Window glass reads this; it does not drive the weather. */
+  rain: uniform(0),
   /** multiplier on neon sign brightness */
   signPower: uniform(1),
   /** 0..1 flash */
