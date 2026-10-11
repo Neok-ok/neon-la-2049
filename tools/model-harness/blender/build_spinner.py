@@ -17,6 +17,7 @@
 #   8  front-only nose slot, filled roof, door grooves, louver deck, worn gunmetal
 #   9  dark panel gaps, louver field, calm gunmetal, clearcoat, no rim speckle
 #  10  shallow smoked glass, inset louver fins, panel seams, worn paint, flat normal
+#  11  those parts sit on the body: no cabin fins, no roof rod, no hanging rear plate
 import math
 import os
 import shutil
@@ -487,13 +488,27 @@ def place_bar(kit, canopy, length=0.84, height=0.046):
     return part
 
 
-def place_decal(kit, sign, x=1.02, width=1.28, height=0.22):
+def place_decal(kit, hull, sign, width=1.28, height=0.22):
     part = kit.livery_decal(f'police-{sign:+d}', width, height)
-    # Standing outside the flank, left-to-right reads with local +X.
+    # A single ray falls into the door groove and the card ends up inside the hull.
+    # Take the outermost hit, then sit the card just proud of that skin.
+    best = None
+    for dy in (-0.40, -0.15, 0.10, 0.35):
+        for dz in (-0.06, 0.04, 0.12):
+            loc, _nor = ray_hit(hull, (sign * 1.55, dy, 0.48 + dz), (sign, 0.0, 0.0))
+            if loc is None:
+                continue
+            if best is None or abs(loc.x) > abs(best.x):
+                best = loc
+    if best is None:
+        print('MISS decal', sign)
+        discard(part)
+        return None
+    seat = (best.x + sign * 0.012, -0.12, 0.48)
     if sign > 0:
-        frame(part, (x, -0.15, 0.52), (0, 1, 0), (0, 0, 1), (1, 0, 0))
+        frame(part, seat, (0, 1, 0), (0, 0, 1), (1, 0, 0))
     else:
-        frame(part, (-x, -0.15, 0.52), (0, -1, 0), (0, 0, 1), (-1, 0, 0))
+        frame(part, seat, (0, -1, 0), (0, 0, 1), (-1, 0, 0))
     return part
 
 
@@ -1053,6 +1068,93 @@ def _flatten_maps(rough, metal, size):
     metal.pixels.foreach_set(raw_m)
 
 
+def discard(part):
+    for obj in list(part.meshes):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    if part.root and part.root.name in bpy.data.objects:
+        bpy.data.objects.remove(part.root, do_unlink=True)
+
+
+def ray_hit(target, guess, normal):
+    n = Vector(normal)
+    if n.length < 1e-8:
+        n = Vector((0, 0, 1))
+    n.normalize()
+    for start, dist in ((0.55, 1.4), (2.6, 5.5)):
+        origin = Vector(guess) + n * start
+        ok, loc, nor, _idx = target.ray_cast(origin, -n, distance=dist)
+        if ok:
+            if nor.dot(n) < 0:
+                nor.negate()
+            return loc, nor
+    return None, None
+
+
+def lay_gullwing(kit, hull, sign):
+    """Diagonal flank cut, in short pieces sat on the hull. One long plate hung off the rear quarter."""
+    y0, y1 = -0.88, 0.98
+    z0, z1 = 0.36, 0.84
+    steps = 4
+    for i in range(steps):
+        t0 = i / steps
+        t1 = (i + 1) / steps
+        ya = y0 + (y1 - y0) * t0
+        yb = y0 + (y1 - y0) * t1
+        za = z0 + (z1 - z0) * t0
+        zb = z0 + (z1 - z0) * t1
+        part = kit.panel_slash(
+            f'door-{sign:+d}-{i}',
+            abs(yb - ya) * 0.94,
+            (zb - za) * 0.94,
+            0.11,
+            depth=0.02,
+        )
+        y = (ya + yb) * 0.5
+        z = (za + zb) * 0.5
+        loc, _nor = ray_hit(hull, (sign * 1.35, y, z), (sign, 0.0, 0.0))
+        if loc is None:
+            print('MISS door', sign, i)
+            discard(part)
+            continue
+        frame(part, (loc.x, y, z), (0, 1, 0), (0, 0, 1), (sign, 0, 0))
+
+
+def lay_belt(kit, hull, sign):
+    part = kit.seam(f'belt-{sign:+d}', 1.45, 0.028, 0.012)
+    loc, _nor = ray_hit(hull, (sign * 1.35, 0.08, 0.36), (sign, 0.0, 0.0))
+    if loc is None:
+        print('MISS belt', sign)
+        discard(part)
+        return
+    frame(part, loc, (0, 1, 0), (0, 0, 1), (sign, 0, 0))
+
+
+def lay_jamb(kit, hull, sign):
+    part = kit.seam(f'door-jamb-{sign:+d}', 0.42, 0.026, 0.012)
+    loc, _nor = ray_hit(hull, (sign * 1.35, 0.82, 0.52), (sign, 0.0, 0.0))
+    if loc is None:
+        print('MISS jamb', sign)
+        discard(part)
+        return
+    frame(part, loc, (0, 0, 1), (0, 1, 0), (sign, 0, 0))
+
+
+def place_flush_louvers(kit, hull, lod):
+    """Short banks sunk into the deck. One rigid plate rode above the slope and read as a loose slab."""
+    banks = (
+        (-1.68, 1.02, 0.56, 0.38, 0.34, 6 if lod == 'high' else 4),
+        (-2.10, 0.86, 0.50, 0.30, 0.24, 4 if lod == 'high' else 3),
+    )
+    for i, (y, z, width, along, slope, slats) in enumerate(banks):
+        depth = 0.04
+        part = kit.vent(f'louver-deck-{i}', width, along, depth, slats, inset=True)
+        stick(kit, part, hull, (0.0, y, z), (0.0, -slope, 1.0), lift=-depth * 0.8)
+    depth = 0.034
+    tail_n = 8 if lod == 'high' else (5 if lod == 'medium' else 3)
+    tail = kit.vent('louver-tail', 0.84, 0.24, depth, tail_n, inset=True)
+    stick(kit, tail, hull, (0.0, -2.46, 0.50), (0.0, -1.0, 0.16), lift=-depth * 0.78)
+
+
 def build(round_n, lod, out_path):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     try:
@@ -1070,7 +1172,9 @@ def build(round_n, lod, out_path):
     split = round_n >= 7
     filled = round_n >= 8
     seamed = round_n >= 10
-    print(f'BUILD round {round_n} lod {lod} detail {detail} rich {rich} bake {bake} faired {faired} loud {loud} split {split} filled {filled} seamed {seamed}')
+    # Round 11 keeps the round-10 surface, and deletes the parts that stood off it.
+    flush = round_n >= 11
+    print(f'BUILD round {round_n} lod {lod} detail {detail} rich {rich} bake {bake} faired {faired} loud {loud} split {split} filled {filled} seamed {seamed} flush {flush}')
 
     stations = list(HULL)
     if split:
@@ -1142,7 +1246,7 @@ def build(round_n, lod, out_path):
     else:
         place_skirt(kit, 1)
         place_skirt(kit, -1)
-    place_bar(kit, canopy, 1.05 if loud else 0.84, 0.058 if loud else 0.046)
+    place_bar(kit, canopy, 0.84 if flush else (1.05 if loud else 0.84), 0.07 if flush else (0.058 if loud else 0.046))
     if seamed:
         red = bpy.data.materials.get('light-red')
         if red is not None:
@@ -1151,25 +1255,28 @@ def build(round_n, lod, out_path):
     head_h = 0.05 if loud else 0.028
     tail_len = 1.45 if loud else 1.05
     tail_h = 0.08 if loud else 0.03
+    bezel = kit.recess if flush else None
     if split:
         for sign in (1, -1):
             stick(
-                kit, kit.light_strip(f'head-{sign:+d}', 0.26, head_h, 0.016, 'white'),
+                kit, kit.light_strip(f'head-{sign:+d}', 0.26, head_h, 0.016, 'white', bezel=bezel),
                 hull, (sign * 0.78, 2.28, 0.55), (0, 0.35, 1),
             )
     else:
-        stick(kit, kit.light_strip('head', 0.72 if loud else 0.55, head_h, 0.016, 'white'), hull, (0, 2.52, 0.42), (0, 1, 0.08))
-    stick(kit, kit.light_strip('tail', tail_len, tail_h, 0.016, 'red'), hull, (0, -2.45, 0.46), (0, -1, 0.2))
+        stick(kit, kit.light_strip('head', 0.72 if loud else 0.55, head_h, 0.016, 'white', bezel=bezel), hull, (0, 2.52, 0.42), (0, 1, 0.08))
+    stick(kit, kit.light_strip('tail', tail_len, tail_h, 0.016, 'red', bezel=bezel), hull, (0, -2.45, 0.46), (0, -1, 0.2))
     amber_len = 0.36 if loud else (0.28 if faired else 0.14)
     amber_h = 0.07 if loud else (0.042 if faired else 0.022)
     for sign, y in ((1, 1.85), (-1, 1.85), (1, -2.15), (-1, -2.15)):
         stick(
-            kit, kit.light_strip(f'amber-{sign:+d}-{y:+.2f}', amber_len, amber_h, 0.012, 'amber'),
+            kit, kit.light_strip(f'amber-{sign:+d}-{y:+.2f}', amber_len, amber_h, 0.012, 'amber', bezel=bezel),
             hull, (sign * 0.95, y, 0.48), (sign, 0.15, 0.2),
         )
     if detail:
         if faired:
-            if seamed:
+            if seamed and flush:
+                place_flush_louvers(kit, hull, lod)
+            elif seamed:
                 deck_n = 16 if lod == 'high' else (9 if lod == 'medium' else 5)
                 tail_n = 10 if lod == 'high' else (6 if lod == 'medium' else 4)
                 stick(
@@ -1212,10 +1319,21 @@ def build(round_n, lod, out_path):
         else:
             for i, y in enumerate((-1.55, -1.85, -2.15)):
                 stick(kit, kit.vent(f'louver-{i}', 0.72, 0.11, 0.022, 4 if lod == 'high' else 2), hull, (0, y, 0.78), (0, -0.35, 1))
-        stick(kit, kit.seam('hinge', 1.3, 0.012, 0.008), canopy, (0, -0.2, 1.30), (0, 0, 1))
+        if not flush:
+            # A bar across the glass. The ends cleared the canopy and read as a rod behind the lamp.
+            stick(kit, kit.seam('hinge', 1.3, 0.012, 0.008), canopy, (0, -0.2, 1.30), (0, 0, 1))
         for sign in (1, -1):
             if faired:
-                if filled:
+                if filled and flush:
+                    lay_gullwing(kit, hull, sign)
+                    lay_belt(kit, hull, sign)
+                    lay_jamb(kit, hull, sign)
+                    if seamed:
+                        cheek = kit.panel_inset(f'cheek-{sign:+d}', 0.48, 0.18, rim=0.018)
+                        stick(kit, cheek, hull, (sign * 0.82, 1.55, 0.50), (sign, 0.15, 0.45))
+                        quarter = kit.panel_inset(f'quarter-{sign:+d}', 0.36, 0.14, rim=0.014)
+                        stick(kit, quarter, hull, (sign * 0.95, -1.05, 0.62), (sign, -0.1, 0.35))
+                elif filled:
                     part = kit.panel_slash(f'door-{sign:+d}', 2.2, 0.72, 0.13, depth=0.026)
                     frame(part, (sign * 1.00, 0.02, 0.60), (0, 1, 0), (0, 0, 1), (sign, 0, 0))
                     belt = kit.seam(f'belt-{sign:+d}', 2.35, 0.042, 0.018)
@@ -1256,43 +1374,47 @@ def build(round_n, lod, out_path):
                 )):
                     flake = kit.chip_flake(f'chip-{i}', 0.055, 0.016)
                     stick(kit, flake, hull, guess, (guess[0], 0.0, 0.35))
-            for sign in (1, -1):
-                # Gasket on the glass shoulder. Kept under the roof line so the side outline stays.
-                box(
-                    f'seal-{sign:+d}',
-                    (sign * 0.58, -1.48, 0.82),
-                    (sign * 0.66, 0.72, 0.90),
-                    kit.rubber,
-                )
-            box('seal-front', (-0.46, 0.74, 0.78), (0.46, 0.82, 0.88), kit.rubber)
+            if not flush:
+                # Axis-aligned slabs beside the glass. They read as fins, and the left one collapsed to a sheet.
+                for sign in (1, -1):
+                    box(
+                        f'seal-{sign:+d}',
+                        (sign * 0.58, -1.48, 0.82),
+                        (sign * 0.66, 0.72, 0.90),
+                        kit.rubber,
+                    )
+                box('seal-front', (-0.46, 0.74, 0.78), (0.46, 0.82, 0.88), kit.rubber)
         if faired:
             y0, y1 = (-0.35, 0.55) if loud else (-1.15, 0.95)
             half = 0.025 if loud else 0.04
             for sign in (1, -1):
                 x = sign * 0.62
+                # Overlaps the skirt. A strip under the skirt, clear of the skin, read as a loose bar.
                 box(
                     f'rocker-{sign:+d}',
-                    (x - half, y0, 0.02),
-                    (x + half, y1, 0.045),
+                    (x - half, y0, 0.06),
+                    (x + half, y1, 0.10),
                     kit.lights['underglow'],
                 )
         if rich:
             stick(kit, kit.bolt_cluster('bolts-door-r', 0.08, 0.05, 4, 3), hull, (0.9, 0.55, 0.7), (1, 0, 0.2))
             stick(kit, kit.bolt_cluster('bolts-door-l', 0.08, 0.05, 4, 4), hull, (-0.9, 0.55, 0.7), (-1, 0, 0.2))
-            for sign in (1, -1):
-                kit.place(kit.cable(
-                    f'skirt-cable-{sign:+d}',
-                    ((0, 0, 0), (0, 0.08, 0.04), (sign * 0.06, 0.16, 0.02)),
-                    radius=0.008,
-                ), (sign * 0.8, -0.9, 0.32))
+            if not flush:
+                for sign in (1, -1):
+                    kit.place(kit.cable(
+                        f'skirt-cable-{sign:+d}',
+                        ((0, 0, 0), (0, 0.08, 0.04), (sign * 0.06, 0.16, 0.02)),
+                        radius=0.008,
+                    ), (sign * 0.8, -0.9, 0.32))
     if dressed:
         for sign in (1, -1):
             if filled:
-                place_decal(kit, sign, x=1.06, width=1.55, height=0.30)
+                place_decal(kit, hull, sign, width=1.55, height=0.30)
             else:
-                place_decal(kit, sign, x=1.05 if faired else 1.02)
+                place_decal(kit, hull, sign)
         if not detail:
-            box('underglow', (-0.28, -0.55, 0.05), (0.28, 0.35, 0.07), kit.lights['underglow'])
+            # Sits in the belly. The old strip hung below the hull and failed the loose-part check.
+            box('underglow', (-0.28, -0.55, 0.12), (0.28, 0.35, 0.18), kit.lights['underglow'])
 
     livery_dir = os.path.join(HARNESS, 'reviews', 'm2')
     os.makedirs(livery_dir, exist_ok=True)

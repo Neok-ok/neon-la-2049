@@ -13,7 +13,8 @@
     "textures": "node scripts/encode-ktx2.mjs",
     "map": "node scripts/gen-map.mjs",
     "screenshots": "node scripts/screenshots.mjs",
-    "turntable": "node scripts/model-turntable.mjs"
+    "turntable": "node scripts/model-turntable.mjs",
+    "stray": "node tools/model-harness/scripts/test-stray.mjs"
   },
   "dependencies": {
     "three": "^0.186.1"

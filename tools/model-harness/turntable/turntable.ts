@@ -49,7 +49,10 @@ declare global {
         spinner: { length: number; width: number; height: number };
         ratios: { heightOverFigure: number; widthOverLane: number; heightOverDoor: number; heightOverStorey: number };
       } | null;
+      shot?: number;
+      label?: string;
     };
+    __harnessShow?: (index: number) => void;
   }
 }
 
@@ -355,6 +358,10 @@ async function main(): Promise<void> {
     await renderScale(renderer, scene, model, size, tris);
     return;
   }
+  if (mode === 'closeups') {
+    await renderCloseups(renderer, scene, model, size, tris);
+    return;
+  }
   await renderSheet(renderer, scene, model, size, tris);
 }
 
@@ -501,6 +508,106 @@ async function renderSheet(
     panels: [],
     scale: null,
   };
+}
+
+const CLOSE_W = 1280;
+const CLOSE_H = 1024;
+
+async function renderCloseups(
+  renderer: WebGPURenderer, scene: Scene, model: Group, size: Vector3, tris: number,
+): Promise<void> {
+  const shots = sheetShots();
+  layout(1, 1, CLOSE_W, CLOSE_H);
+  const labels = document.getElementById('labels')!;
+  labels.style.display = 'block';
+  labels.replaceChildren();
+  const cell = document.createElement('div');
+  cell.className = 'cell';
+  const span = document.createElement('span');
+  cell.appendChild(span);
+  labels.appendChild(cell);
+
+  renderer.setSize(CLOSE_W, CLOSE_H, false);
+  renderer.setScissorTest(false);
+  const camera = new PerspectiveCamera(30, CLOSE_W / CLOSE_H, 0.05, 80);
+  scene.add(camera);
+  const hemi = new HemisphereLight(0x6e7c90, 0x1a120e, 0.7);
+  scene.add(hemi);
+  scene.environment = sheetEnv();
+  const rigs = buildLights(camera);
+  const nightGround = new Mesh(
+    new PlaneGeometry(48, 48),
+    new MeshStandardNodeMaterial({ color: 0x07080c, metalness: 0.55, roughness: 0.2 }),
+  );
+  nightGround.material.roughnessNode = T.mix(T.float(0.4), T.float(0.07), U.wetness);
+  nightGround.rotation.x = -Math.PI / 2;
+  nightGround.position.y = -0.004;
+  const studioGround = nightGround.clone();
+  studioGround.material = new MeshStandardNodeMaterial({ color: 0xb4b6b8, metalness: 0, roughness: 0.62 });
+  const rimGround = nightGround.clone();
+  rimGround.material = new MeshStandardNodeMaterial({ color: 0x05060a, metalness: 0.35, roughness: 0.55 });
+  const streakMat = new MeshBasicNodeMaterial({ color: new Color(1.4, 0.12, 0.85) });
+  const streak = new Mesh(new BoxGeometry(0.12, 0.01, 22), streakMat);
+  streak.scale.set(1, 1, 0.08);
+  streak.position.set(-6.4, 0.001, 0.4);
+  const streak2 = streak.clone();
+  streak2.material = new MeshBasicNodeMaterial({ color: new Color(0.15, 0.85, 1.3) });
+  streak2.position.set(6.6, 0.001, -0.8);
+  scene.add(nightGround, studioGround, rimGround, streak, streak2);
+  const grid = new GridHelper(8, 8, 0x9aa0a6, 0x8e949a);
+  grid.position.y = 0.001;
+  scene.add(grid);
+  const nightFog = new FogExp2(0x100e16, 0.016);
+  U.time.value = 0.22;
+
+  const show = (index: number) => {
+    const shot = shots[((index % shots.length) + shots.length) % shots.length];
+    const light = shot.light;
+    rigs.night.visible = light === 'night';
+    rigs.rim.visible = light === 'rim';
+    rigs.studio.visible = light === 'studio';
+    nightGround.visible = light === 'night';
+    rimGround.visible = light === 'rim';
+    studioGround.visible = light === 'studio';
+    streak.visible = light === 'night';
+    streak2.visible = light === 'night';
+    grid.visible = light === 'studio';
+    hemi.intensity = light === 'night' ? 1.55 : light === 'rim' ? 0.32 : 0.62;
+    scene.environmentIntensity = light === 'night' ? 0.4 : light === 'rim' ? 0.5 : 0.22;
+    hemi.color.set(light === 'studio' ? 0xc8c8c8 : light === 'rim' ? 0x1a2740 : 0x243044);
+    hemi.groundColor.set(light === 'studio' ? 0x9a9a9a : 0x0c0a10);
+    scene.fog = light === 'night' ? nightFog : null;
+    scene.background = new Color(light === 'night' ? 0x09080d : light === 'rim' ? 0x04060c : 0xb9bbbe);
+    U.wetness.value = light === 'night' ? 1 : light === 'rim' ? 0.2 : 0;
+    span.textContent = shot.label;
+    document.getElementById('dims')!.textContent =
+      `${shot.label} · L ${size.z.toFixed(2)} × W ${size.x.toFixed(2)} × H ${size.y.toFixed(2)} m · ${tris} tris · ${CLOSE_W}×${CLOSE_H}`;
+    renderer.setViewport(0, 0, CLOSE_W, CLOSE_H);
+    renderer.setClearColor(scene.background, 1);
+    shot.pose(camera);
+    camera.aspect = CLOSE_W / CLOSE_H;
+    camera.updateProjectionMatrix();
+    renderer.render(scene, camera);
+    if (window.__harness) {
+      window.__harness.shot = index;
+      window.__harness.label = shot.label;
+    }
+  };
+
+  window.__harness = {
+    done: true,
+    error: null,
+    size: { x: size.x, y: size.y, z: size.z },
+    tris,
+    mode,
+    tiles: shots.map((shot) => ({ label: shot.label, light: shot.light, angle: shot.angle })),
+    panels: [],
+    scale: null,
+    shot: 0,
+    label: shots[0].label,
+  };
+  window.__harnessShow = show;
+  show(0);
 }
 
 async function renderSilhouette(

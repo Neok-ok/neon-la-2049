@@ -308,9 +308,11 @@ class Kit:
         mesh = _box(name, (-length / 2, -width / 2, 0.001), (length / 2, width / 2, depth), self.recess, self.collection)
         return self._root(name, [mesh])
 
-    def light_strip(self, name, length, height=0.03, depth=0.012, kind='white'):
+    def light_strip(self, name, length, height=0.03, depth=0.012, kind='white', bezel=None):
         col = self.collection
-        bezel = _box(name + '-bezel', (-length / 2, -height / 2, 0.0), (length / 2, height / 2, depth * 0.7), self.body, col)
+        # A dark surround reads as the lamp slot. A body-coloured sliver reads as a loose plate.
+        bezel_mat = self.body if bezel is None else bezel
+        bezel = _box(name + '-bezel', (-length / 2, -height / 2, 0.0), (length / 2, height / 2, depth * 0.7), bezel_mat, col)
         lamp = _box(
             name + '-lamp',
             (-length / 2 + height * 0.25, -height / 2 * 0.55, depth * 0.45),
@@ -539,9 +541,13 @@ class Kit:
         meshes = []
         if covered:
             # Same outer radius as the old lip, so the side bulge does not move.
-            # The face lands on the body material and bakes with the hull.
+            # The barrel runs from inside the skirt out through the cover, so the
+            # face is part of the drum instead of a disc sitting in front of it.
+            inner = -0.18
+            outer = width * 0.995
             meshes.append(_cylinder(
-                name + '-drum', radius * 0.98, width * 0.70, segments, self.body, col, (0, 0, width * 0.30),
+                name + '-drum', radius * 0.98, outer - inner, segments, self.body, col,
+                (0, 0, (inner + outer) * 0.5),
             ))
             if panel:
                 # Flush cover, a thin dark ring, centre almost level. A deep cap read as an open bore.
@@ -591,7 +597,8 @@ class Kit:
         """Low red/blue bar. Local +X long, +Y across, +Z up. Not a fin."""
         col = self.collection
         meshes = [
-            _box(name + '-housing', (-length / 2, -width / 2, 0.0), (length / 2, width / 2, height * 0.55), self.body, col),
+            # The shell fills the bar. A 3 cm housing under a metre-long lamp was a thin plate.
+            _box(name + '-housing', (-length / 2, -width / 2, 0.0), (length / 2, width / 2, height * 0.82), self.body, col),
         ]
         gap = length * 0.06
         meshes.append(_box(

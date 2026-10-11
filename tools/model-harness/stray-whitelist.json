@@ -1,0 +1,286 @@
+{
+  "touchM": 0.02,
+  "thinM": 0.02,
+  "aspect": 20,
+  "protrusionM": 0.03,
+  "lengthFraction": 0.01,
+  "minRegionPx": 3,
+  "rules": [
+    {
+      "material": "livery",
+      "allowGapM": 0.08,
+      "reason": "Original POLICE lettering on the flank. A flat card on the curved side sits a few centimetres off the skin at the corners."
+    },
+    {
+      "material": "fin",
+      "reason": "Louver fins. The film car has them in the rear deck, and they have to sit in the body."
+    },
+    {
+      "material": "light-white",
+      "allowGapM": 0.2,
+      "reason": "White nose strip."
+    },
+    {
+      "material": "light-red",
+      "allowGapM": 0.2,
+      "reason": "Red tail strip."
+    },
+    {
+      "material": "light-amber",
+      "allowGapM": 0.2,
+      "reason": "Amber marker lamps."
+    },
+    {
+      "material": "light-strobe-red",
+      "allowGapM": 0.2,
+      "reason": "Low red/blue roof bar."
+    },
+    {
+      "material": "light-strobe-blue",
+      "allowGapM": 0.2,
+      "reason": "Low red/blue roof bar."
+    },
+    {
+      "material": "light-underglow",
+      "allowGapM": 0.2,
+      "reason": "Cool underglow along the skirt."
+    },
+    {
+      "material": "light-blue",
+      "allowGapM": 0.2,
+      "reason": "Blue practical lamp."
+    },
+    {
+      "material": "light-nozzle",
+      "allowGapM": 0.2,
+      "reason": "Nozzle lamp."
+    },
+    {
+      "material": "chip",
+      "reason": "Paint chips on the shell."
+    },
+    {
+      "material": "satin",
+      "reason": "Bright lip of the gullwing cut. It has to lie on the flank."
+    },
+    {
+      "material": "recess",
+      "reason": "Dark gaps and cavities in the shell: gullwing slot, panel seams, lamp bezels, louver pockets."
+    },
+    {
+      "material": "drum",
+      "allowGapM": 0.15,
+      "reason": "Covered drum face. The housings in the film are flat discs on the drum, not on the hull skin."
+    },
+    {
+      "material": "glass",
+      "allowGapM": 0.08,
+      "reason": "Canopy glass bedded in the roof."
+    },
+    {
+      "material": "body",
+      "minThicknessM": 0.08,
+      "reason": "Hull and skirt. A thick shell is not a plate."
+    },
+    {
+      "material": "body",
+      "maxExtentM": 0.62,
+      "reason": "Small fittings on the shell: grille slats, cheek rims, bolts. A longer body plate is not one of these."
+    },
+    {
+      "material": "body",
+      "minThicknessM": 0.025,
+      "maxExtentM": 0.9,
+      "reason": "Covered drum face. The flat ring is a housing from the film, and its diameter over its depth is just over 20:1."
+    },
+    {
+      "material": "body",
+      "maxExtentM": 0.5,
+      "allowGapM": 0.08,
+      "reason": "Centre cap of a covered drum. It sits on the drum face, a few centimetres out from the hull skin."
+    }
+  ],
+  "justified": [
+    {
+      "view": "side",
+      "u0": -3.3,
+      "u1": 3.3,
+      "v0": -0.25,
+      "v1": 0.5,
+      "reason": "The side trace cuts a wheel arch. The film skirt is a continuous bar under the doors, and that trace is a perspective estimate. Stops at mid-height so a cabin fin still fails."
+    },
+    {
+      "view": "side",
+      "u0": 1.55,
+      "u1": 3.3,
+      "v0": -0.25,
+      "v1": 0.76,
+      "reason": "Nose underside and the upper nose cheek sit outside the perspective side trace. The cabin roof is not in this box."
+    },
+    {
+      "view": "side",
+      "u0": -3.3,
+      "u1": -2.0,
+      "v0": -0.25,
+      "v1": 0.76,
+      "reason": "Lower tail corner sits outside the perspective side trace. Stops below the rear deck so a hanging slab still fails."
+    },
+    {
+      "view": "front",
+      "u0": 0.93,
+      "u1": 1.6,
+      "v0": -0.25,
+      "v1": 0.76,
+      "reason": "Covered drum housings are wider than the perspective front trace. The cabin, the roof centre, and the upper drum corner where a fin would land are not included."
+    },
+    {
+      "view": "front",
+      "u0": -1.6,
+      "u1": -0.93,
+      "v0": -0.25,
+      "v1": 0.76,
+      "reason": "Covered drum housings are wider than the perspective front trace. The cabin, the roof centre, and the upper drum corner where a fin would land are not included."
+    },
+    {
+      "view": "rear",
+      "u0": 0.93,
+      "u1": 1.6,
+      "v0": -0.25,
+      "v1": 0.76,
+      "reason": "Covered drum housings are wider than the rear visual hull. The cabin and the roof centre are not included."
+    },
+    {
+      "view": "rear",
+      "u0": -1.6,
+      "u1": -0.93,
+      "v0": -0.25,
+      "v1": 0.76,
+      "reason": "Covered drum housings are wider than the rear visual hull. The cabin and the roof centre are not included."
+    },
+    {
+      "view": "front",
+      "u0": -0.8,
+      "u1": 0.8,
+      "v0": -0.25,
+      "v1": 0.35,
+      "reason": "The skirt and the belly fill the gap the perspective front trace leaves between the drums. The roof and the cabin are above this box."
+    },
+    {
+      "view": "rear",
+      "u0": -0.8,
+      "u1": 0.8,
+      "v0": -0.25,
+      "v1": 0.35,
+      "reason": "The skirt and the belly fill the gap the rear visual hull leaves between the drums. The roof and the cabin are above this box."
+    },
+    {
+      "view": "front",
+      "u0": -0.5,
+      "u1": 0.5,
+      "v0": 1.33,
+      "v1": 1.55,
+      "reason": "Canopy peak on the high tier. The perspective front trace flattens it. The box is only the centre of the peak, above the rod that failed round 10."
+    },
+    {
+      "view": "rear",
+      "u0": -0.5,
+      "u1": 0.5,
+      "v0": 1.33,
+      "v1": 1.55,
+      "reason": "Canopy peak on the high tier. The rear visual hull flattens it. The box is only the centre of the peak, above the rod that failed round 10."
+    },
+    {
+      "view": "front",
+      "u0": 0.84,
+      "u1": 0.96,
+      "v0": 0.76,
+      "v1": 0.95,
+      "reason": "Inner shoulder of the covered drum, above the perspective front trace. Stops below the cabin fin line."
+    },
+    {
+      "view": "front",
+      "u0": -0.96,
+      "u1": -0.84,
+      "v0": 0.76,
+      "v1": 0.95,
+      "reason": "Inner shoulder of the covered drum, above the perspective front trace. Stops below the cabin fin line."
+    },
+    {
+      "view": "rear",
+      "u0": 0.84,
+      "u1": 0.96,
+      "v0": 0.76,
+      "v1": 0.95,
+      "reason": "Inner shoulder of the covered drum, above the rear visual hull. Stops below the cabin fin line."
+    },
+    {
+      "view": "rear",
+      "u0": -0.96,
+      "u1": -0.84,
+      "v0": 0.76,
+      "v1": 0.95,
+      "reason": "Inner shoulder of the covered drum, above the rear visual hull. Stops below the cabin fin line."
+    },
+    {
+      "view": "top",
+      "u0": 0.15,
+      "u1": 0.8,
+      "v0": 1.02,
+      "v1": 1.25,
+      "reason": "Cabin flank is a little wider than the plan taper. The plan was narrowed to the photo width. The roof centre is not in this box."
+    },
+    {
+      "view": "top",
+      "u0": 0.15,
+      "u1": 0.8,
+      "v0": -1.25,
+      "v1": -1.02,
+      "reason": "Cabin flank is a little wider than the plan taper. The plan was narrowed to the photo width. The roof centre is not in this box."
+    },
+    {
+      "view": "top",
+      "u0": 1.5,
+      "u1": 3.3,
+      "v0": -1.6,
+      "v1": 1.6,
+      "reason": "Nose cheeks are wider than the published plan, which was narrowed to the photo width. The open channel stays a notch. The cabin band is not in this box."
+    },
+    {
+      "view": "top",
+      "u0": 1.0,
+      "u1": 1.5,
+      "v0": 1.0,
+      "v1": 1.35,
+      "reason": "Cheek beside the open channel, wider than the plan taper. The roof centre is not in this box."
+    },
+    {
+      "view": "top",
+      "u0": 1.0,
+      "u1": 1.5,
+      "v0": -1.35,
+      "v1": -1.0,
+      "reason": "Cheek beside the open channel, wider than the plan taper. The roof centre is not in this box."
+    },
+    {
+      "view": "top",
+      "u0": -3.3,
+      "u1": -1.5,
+      "v0": 0.7,
+      "v1": 1.6,
+      "reason": "Tail corners and the rear drums are wider than the plan taper. The cabin band is not in this box."
+    },
+    {
+      "view": "top",
+      "u0": -3.3,
+      "u1": -1.5,
+      "v0": -1.6,
+      "v1": -0.7,
+      "reason": "Tail corners and the rear drums are wider than the plan taper. The cabin band is not in this box."
+    },
+    {
+      "view": "oblique",
+      "maxM": 0.22,
+      "reason": "The visual hull of the perspective traces sits inside the drums and the skirt, so a three-quarter view reports that hull disagreement. Orthographic views keep the 3 cm rule. A part that sticks out further than the drums still fails."
+    }
+  ]
+}
