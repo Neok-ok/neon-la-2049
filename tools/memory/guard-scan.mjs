@@ -14,6 +14,7 @@ const FILES = [
   'src/world/windows/atlas.ts',
   'src/world/materials/signAtlas.ts',
   'src/world/materials/cityMaterial.ts',
+  'src/world/buildings/kitMesh.ts',
   'src/world/materials/signMaterial.ts',
   'src/roads/detail.ts',
   'src/roads/material.ts',

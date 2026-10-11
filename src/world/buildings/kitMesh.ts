@@ -3,10 +3,9 @@
 import {
   BufferAttribute, BufferGeometry, InstancedBufferAttribute, InstancedMesh, Matrix4, Quaternion, Vector3,
 } from 'three/webgpu';
+import { resources } from '../../core/memory/resources';
 import { KIT_STRIDE } from './kitBudget';
 import { getKitMaterial } from '../materials/cityMaterial';
-
-let template: BufferGeometry | null = null;
 
 function pushQuad(
   pos: number[], nor: number[], fac: number[], faceA: number[], idx: number[],
@@ -25,7 +24,7 @@ function pushQuad(
 
 /** Unit box. X is width (B), Y is up from the base, Z is depth (A). Scale goes on the instance. */
 export function kitTemplate(): BufferGeometry {
-  if (template) return template;
+  return resources.sharedGeometry('b1-kit-box', () => {
   const pos: number[] = [];
   const nor: number[] = [];
   const fac: number[] = [];
@@ -55,8 +54,8 @@ export function kitTemplate(): BufferGeometry {
   g.setIndex(new BufferAttribute(new Uint16Array(idx), 1));
   g.computeBoundingSphere();
   g.name = 'b1-kit-box';
-  template = g;
   return g;
+  });
 }
 
 const _m = new Matrix4();
@@ -73,7 +72,13 @@ const _up = new Vector3(0, 1, 0);
 export function buildKitMesh(records: Float32Array, name: string): InstancedMesh | null {
   const n = Math.floor(records.length / KIT_STRIDE);
   if (n <= 0) return null;
-  const geo = kitTemplate().clone();
+  const geo = resources.geometry(() => {
+    const g = kitTemplate().clone();
+    // clone() shares the template's userData object. A fresh bag keeps the template shared
+    // and lets chunk unload dispose this copy's instance buffers.
+    g.userData = { sharedGeometry: false };
+    return g;
+  }, { label: name, owner: 'towers', evictable: true });
   const bdata = new Float32Array(n * 4);
   const kit = new Float32Array(n * 4);
   const mesh = new InstancedMesh(geo, getKitMaterial(), n);
@@ -96,12 +101,14 @@ export function buildKitMesh(records: Float32Array, name: string): InstancedMesh
   mesh.matrixAutoUpdate = false;
   mesh.name = name;
   mesh.userData.kitInstances = n;
+  mesh.userData.sharedGeometry = false;
   return mesh;
 }
 
 /** Drop a kit mesh created by buildKitMesh. The shared template and the city material stay. */
 export function disposeKitMesh(mesh: InstancedMesh): void {
   mesh.removeFromParent();
-  mesh.geometry.dispose();
+  const geo = mesh.geometry;
+  if (geo && !resources.release(geo)) geo.dispose();
   mesh.dispose();
 }

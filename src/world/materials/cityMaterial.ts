@@ -58,7 +58,7 @@ export function getCityMaterial(): MeshStandardNodeMaterial {
  */
 export function getKitMaterial(): MeshStandardNodeMaterial {
   if (kitShared) return kitShared;
-  const m = new MeshStandardNodeMaterial();
+  const m = resources.material('b1-kit', () => new MeshStandardNodeMaterial());
   m.name = 'CityKit';
   compose(m, detail, true);
   kitShared = m;

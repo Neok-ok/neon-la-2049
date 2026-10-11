@@ -6,6 +6,7 @@
 import { Mesh, type InstancedMesh, type Object3D } from 'three/webgpu';
 import { hashString } from '../../core/rng';
 import type { Tier } from '../../core/quality';
+import { resources } from '../../core/memory/resources';
 import { archDetailFromLod } from '../architecture/scale';
 import { openDoorLeaf } from '../architecture/trim';
 import { bearingToDir } from '../geo';
@@ -84,13 +85,14 @@ function attachLeaf(slot: HeroSlot, mesh: InstancedMesh): void {
   const [hx, hz] = worldOf(slot.x, slot.z, slot.bearing, door.s - 0.12, door.t + DOOR_W / 2);
   leaf.position.set(hx, slot.ground + 0.02, hz);
   leaf.rotation.y = slot.yaw + 1.15;
+  resources.tag(leaf.geometry, { label: 'b1-door-leaf', owner: 'towers', evictable: true });
   mesh.add(leaf);
 }
 
 function releaseMesh(mesh: InstancedMesh): void {
   const leaf = mesh.getObjectByName('arch-door-leaf');
   if (leaf instanceof Mesh) {
-    leaf.geometry.dispose();
+    if (!resources.release(leaf.geometry)) leaf.geometry.dispose();
     leaf.removeFromParent();
   }
   disposeKitMesh(mesh);
