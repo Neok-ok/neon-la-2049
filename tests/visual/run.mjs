@@ -12,7 +12,7 @@
 //   GPU=1        real GPU instead of SwiftShader. Refuses --update (baselines are SwiftShader).
 //   REPEAT=2     capture each image twice and fail if the two frames disagree
 import { spawn } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
@@ -48,6 +48,62 @@ function pick(list, allowed, label) {
   const bad = list.filter((name) => !allowed.includes(name));
   if (bad.length) throw new Error(`unknown ${label}: ${bad.join(', ')}`);
   return list;
+}
+
+/**
+ * Headless Chrome stops delivering requestAnimationFrame once the page is occluded,
+ * which freezes chunk upload. A timer keeps the loop alive. ?seed= holds the sim
+ * clock, so the extra frames do not move rain, traffic or the ocean.
+ *
+ * Page.captureScreenshot never returns on this SwiftShader headless build. The
+ * grab flag reads the canvas in the same turn as the frame that drew it.
+ */
+async function keepFrames(context) {
+  await context.addInitScript(() => {
+    window.__visualFrames = true;
+    window.__rafIdle = true;
+    window.__grabFrame = false;
+    window.__lastPng = '';
+    window.__grabErr = '';
+    window.__held = null;
+    const run = (cb) => {
+      window.__held = null;
+      window.__rafIdle = false;
+      try {
+        cb(performance.now());
+        if (window.__grabFrame) {
+          const canvas = window.__nla?.app?.canvas ?? document.querySelector('canvas');
+          window.__lastPng = canvas ? canvas.toDataURL('image/png') : '';
+          window.__grabFrame = false;
+          window.__visualFrames = false;
+        }
+      } catch (err) {
+        window.__grabErr = err instanceof Error ? err.message : String(err);
+        window.__grabFrame = false;
+        window.__visualFrames = false;
+      } finally {
+        window.__rafIdle = true;
+      }
+    };
+    window.requestAnimationFrame = (cb) => window.setTimeout(() => {
+      if (!window.__visualFrames) {
+        window.__rafIdle = true;
+        window.__held = cb;
+        return;
+      }
+      run(cb);
+    }, 16);
+    window.cancelAnimationFrame = (id) => window.clearTimeout(id);
+    window.setInterval(() => {
+      const held = window.__held;
+      if (!held || !window.__visualFrames) return;
+      run(held);
+    }, 32);
+    const hide = { configurable: true, get: () => false };
+    const show = { configurable: true, get: () => 'visible' };
+    try { Object.defineProperty(Document.prototype, 'hidden', hide); } catch { /* native getter stays */ }
+    try { Object.defineProperty(Document.prototype, 'visibilityState', show); } catch { /* native getter stays */ }
+  });
 }
 
 function sleep(ms) {
@@ -92,6 +148,7 @@ function startPreview() {
 }
 
 async function settle(page) {
+  await page.evaluate(() => { window.__visualFrames = true; });
   await page.waitForFunction(() => window.__nla?.stats, null, { timeout: 120_000 });
   await page.evaluate(() => {
     window.__idleN = 0;
@@ -171,12 +228,38 @@ function markdown(rows, started) {
   return `${lines.join('\n')}\n`;
 }
 
+function writeDataUrl(dest, dataUrl) {
+  const comma = String(dataUrl).indexOf(',');
+  if (comma < 0) throw new Error('canvas readback was empty');
+  writeFileSync(dest, Buffer.from(String(dataUrl).slice(comma + 1), 'base64'));
+}
+
+async function grabCanvas(page, dest) {
+  await page.evaluate(() => {
+    window.__lastPng = '';
+    window.__grabErr = '';
+    window.__visualFrames = true;
+    window.__grabFrame = true;
+  });
+  await page.waitForFunction(() => !!(window.__lastPng || window.__grabErr), null, { timeout: 240_000 });
+  const dataUrl = await page.evaluate(() => {
+    if (window.__grabErr) throw new Error(window.__grabErr);
+    return window.__lastPng;
+  });
+  writeDataUrl(dest, dataUrl);
+}
+
 async function captureOne(page, dest) {
   await settle(page);
   const stats = await readStats(page);
   mkdirSync(dirname(dest), { recursive: true });
-  await page.screenshot({ path: dest, timeout: 120_000, animations: 'disabled' });
+  await grabCanvas(page, dest);
   return stats;
+}
+
+function trace(line) {
+  appendFileSync(join(OUT, 'run.log'), `${line}\n`);
+  console.log(line);
 }
 
 async function main() {
@@ -202,9 +285,14 @@ async function main() {
   }
   if (!url.endsWith('/')) url += '/';
 
-  const args = gpu
-    ? ['--enable-unsafe-webgpu', '--ignore-gpu-blocklist']
-    : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
+  const args = [
+    '--disable-background-timer-throttling',
+    '--disable-backgrounding-occluded-windows',
+    '--disable-renderer-backgrounding',
+    ...(gpu
+      ? ['--enable-unsafe-webgpu', '--ignore-gpu-blocklist']
+      : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist']),
+  ];
   const browser = await chromium.launch({
     executablePath: process.env.CHROME || undefined,
     headless: true,
@@ -260,7 +348,7 @@ async function main() {
         seconds: Math.round((Date.now() - t0) / 100) / 10,
       };
       rows.push(row);
-      console.log(`${name}: ${row.reason}${row.ratio == null ? '' : ` ${pct(row.ratio)}`} ${row.seconds}s  frame ${row.frameMs} ms  draws ${row.draws}`);
+      trace(`${name}: ${row.reason}${row.ratio == null ? '' : ` ${pct(row.ratio)}`} ${row.seconds}s  frame ${row.frameMs} ms  draws ${row.draws}`);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       rows.push({ id: shot.id, view, quality, place: shot.place, ok: false, reason: message, ratio: null });
@@ -274,6 +362,7 @@ async function main() {
         const share = shot.mode === 'walk' && views.length > 1;
         if (share) {
           const ctx = await browser.newContext({ viewport: VIEWS[views[0]], deviceScaleFactor: 1 });
+          await keepFrames(ctx);
           const page = await ctx.newPage();
           const errors = [];
           page.on('pageerror', (err) => errors.push(String(err)));
@@ -287,6 +376,7 @@ async function main() {
         } else {
           for (const view of views) {
             const ctx = await browser.newContext({ viewport: VIEWS[view], deviceScaleFactor: 1 });
+            await keepFrames(ctx);
             const page = await ctx.newPage();
             const errors = [];
             page.on('pageerror', (err) => errors.push(String(err)));
