@@ -24,28 +24,45 @@ const phone = {
 
 const only = new Set((process.env.ONLY ?? '').split(',').map((s) => s.trim()).filter(Boolean));
 
-/** @type {Array<{name:string, ctx:object, q:string, after?:Function, tier?:boolean}>} */
-const shots = [
-  { name: 'little-tokyo', ctx: desktop, q: `mode=walk&at=noodle-bar&quality=high&${common}`, after: () => window.__nla.marketView('street') },
-  { name: 'little-tokyo-phone', ctx: phone, q: `mode=walk&at=noodle-bar&quality=medium&touch=1&${common}`, after: () => window.__nla.marketView('street') },
-  { name: 'historic-core', ctx: desktop, q: `mode=walk&at=bradbury&quality=high&${common}`, after: () => window.__nla.broadwayView('street') },
-  { name: 'historic-core-phone', ctx: phone, q: `mode=walk&at=bradbury&quality=medium&touch=1&${common}`, after: () => window.__nla.broadwayView('street') },
-  { name: 'dtla', ctx: desktop, q: `mode=walk&at=dtla-canyon&quality=high&${common}`, after: () => window.__nla.dtlaView('street') },
-  { name: 'financial', ctx: desktop, q: `mode=walk&at=megatower-1&quality=high&${common}`, after: () => window.__nla.megaView('street') },
-  { name: 'civic', ctx: desktop, q: `mode=walk&at=lapd-steps&quality=high&${common}`, after: () => window.__nla.civicView('steps') },
-  { name: 'hollywood', ctx: desktop, q: `mode=walk&at=hollywood-lobby&quality=high&${common}`, after: () => window.__nla.hollywoodView('street') },
-  { name: 'k-megablock', ctx: desktop, q: `mode=walk&at=k-megablock-tower&quality=high&${common}`, after: () => window.__nla.kView('market') },
-  { name: 'arts-district', ctx: desktop, q: `mode=walk&at=arts-foundry&quality=high&${common}`, after: () => window.__nla.artsView('street') },
-  { name: 'east-la', ctx: desktop, q: `mode=walk&at=east-la-market&quality=high&${common}`, after: () => window.__nla.eastLaView('market') },
-  { name: 'wallace', ctx: desktop, q: `mode=walk&at=wallace-plaza&quality=high&${common}`, after: () => window.__nla.wallaceView('plaza') },
-  { name: 'interior-court', ctx: desktop, q: `mode=walk&at=bradbury&quality=high&${common}`, after: () => window.__nla.interiorView('court') },
-  { name: 'interior-phone', ctx: phone, q: `mode=walk&at=bradbury&quality=medium&touch=1&${common}`, after: () => window.__nla.interiorView('court') },
-  { name: 'interior-apartment', ctx: desktop, q: `mode=walk&at=k-megablock-tower&quality=high&${common}`, after: () => window.__nla.kView('apartment') },
-  { name: 'tier-low', ctx: desktop, q: `mode=walk&at=noodle-bar&quality=low&${common}`, after: () => window.__nla.marketView('street'), tier: true },
-  { name: 'tier-medium', ctx: desktop, q: `mode=walk&at=noodle-bar&quality=medium&${common}`, after: () => window.__nla.marketView('street'), tier: true },
-  { name: 'tier-high', ctx: desktop, q: `mode=walk&at=noodle-bar&quality=high&${common}`, after: () => window.__nla.marketView('street'), tier: true },
-  { name: 'tier-ultra', ctx: desktop, q: `mode=walk&at=noodle-bar&quality=ultra&${common}`, after: () => window.__nla.marketView('street'), tier: true },
+/** Night stills: every district, plus a neon close-up and a wet street, on ultra and medium. */
+const places = [
+  ['little-tokyo', () => window.__nla.marketView('street')],
+  ['historic-core', () => window.__nla.broadwayView('street')],
+  ['dtla', () => window.__nla.dtlaView('street')],
+  ['financial', () => window.__nla.megaView('street')],
+  ['civic', () => window.__nla.civicView('steps')],
+  ['hollywood', async () => { await window.__nla.hollywoodView('street'); }],
+  ['k-megablock', () => window.__nla.kView('street')],
+  ['arts-district', () => window.__nla.artsView('street')],
+  ['east-la', async () => { await window.__nla.eastLaView('street'); }],
+  ['wallace', () => window.__nla.wallaceView('plaza')],
+  ['lakewood', async () => { await window.__nla.lakewoodView('street'); }],
+  ['south-la', async () => { await window.__nla.southLaView('street'); }],
+  ['westside', async () => { await window.__nla.westsideView('street'); }],
+  ['basin', async () => { await window.__nla.basinView('street'); }],
+  ['southeast', async () => { await window.__nla.southeastView('street'); }],
+  ['lax', async () => { await window.__nla.laxView('terminal'); }],
+  ['south-bay', async () => { await window.__nla.southBayView('street'); }],
+  ['harbor', async () => { await window.__nla.harborView('street'); }],
+  ['long-beach', async () => { await window.__nla.longBeachView('canyon'); }],
+  ['coastal', () => window.__nla.coastView('blocks')],
+  ['neon-closeup', () => window.__nla.holoView('street')],
+  ['wet-street', () => window.__nla.trafficView('rain')],
 ];
+
+/** @type {Array<{name:string, ctx:object, q:string, after?:Function}>} */
+const shots = [];
+for (const quality of ['ultra', 'medium']) {
+  for (const [name, after] of places) {
+    shots.push({
+      name: `${name}-${quality}`,
+      ctx: desktop,
+      q: `mode=walk&quality=${quality}&${common}`,
+      after,
+    });
+  }
+}
+
 
 const tonemap = process.env.TONEMAP;
 const args = GPU
@@ -85,7 +102,7 @@ for (const group of groups) {
   await page.waitForFunction(() => {
     const st = window.__nla?.stats?.();
     return st && st.drawCalls > 30 && st.fps > 0 && (st.lod0 >= 4 || st.queryPending === 0);
-  }, null, { timeout: 120_000, polling: 400 }).catch(() => log(`${first.name}: stream slow`));
+  }, null, { timeout: 240_000, polling: 400 }).catch(() => log(`${first.name}: stream slow`));
   await page.evaluate(() => {
     const native = window.requestAnimationFrame.bind(window);
     let paused = false;
@@ -116,7 +133,7 @@ for (const group of groups) {
       await page.waitForFunction(() => {
         const st = window.__nla?.stats?.();
         return st && st.inFlight === 0 && st.queryPending === 0 && st.fps > 0 && (st.lod0 >= 4 || st.drawCalls > 20);
-      }, null, { timeout: 90_000, polling: 400 }).catch(() => log(`${s.name}: still streaming`));
+      }, null, { timeout: 180_000, polling: 400 }).catch(() => log(`${s.name}: still streaming`));
       await page.evaluate(() => new Promise((resolve) => {
         requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
       }));
