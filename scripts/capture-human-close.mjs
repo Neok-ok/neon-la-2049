@@ -238,6 +238,9 @@ async function install() {
       const yaw = Math.atan2(p.x - best.px, -(p.z - best.pz));
       const horiz = Math.hypot(p.x - best.px, p.z - best.pz) || 1;
       const pitch = Math.atan2(aimY - eyeY, horiz);
+      // Freeze before the camera jumps so the crowd does not retarget off the person.
+      H.holdCrowd(true);
+      H.holdWalk(true);
       applyPose(best.px, best.pz, best.gy, yaw, pitch);
       return { ok: true, dist: Math.round(best.dist * 10) / 10, pitch: Math.round(pitch * 100) / 100 };
     };
@@ -392,6 +395,10 @@ async function install() {
 }
 
 async function go(fn, kind) {
+  await page.evaluate(() => {
+    window.__human?.holdCrowd(false);
+    window.__human?.holdWalk(false);
+  });
   return page.evaluate(async ({ fn, kind }) => {
     const a = window.__nla.app;
     const r = window.__nla[fn](kind);
@@ -426,10 +433,6 @@ async function shot(path) {
   await page.waitForTimeout(80);
   const t0 = Date.now();
   await page.screenshot({ path, timeout: 180000, animations: 'disabled' });
-  await page.evaluate(() => {
-    window.__human.holdCrowd(false);
-    window.__human.holdWalk(false);
-  });
   return Date.now() - t0;
 }
 
