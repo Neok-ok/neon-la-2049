@@ -195,8 +195,8 @@ class Kit:
         self.glass = _principled('glass', (0.010, 0.011, 0.012), 0.78, 0.20)
         self.rubber = _principled('rubber', (0.008, 0.008, 0.009), 0.0, 0.94)
         self.satin = _principled('satin', (0.018, 0.019, 0.022), 0.82, 0.22)
-        # Dark fin. Satin slats caught the rim and turned into white slabs.
-        self.fin = _principled('fin', (0.028, 0.029, 0.031), 0.28, 0.66)
+        # Dark metal bar. Near-black fins vanished into the cavity; satin ones flashed white.
+        self.fin = _principled('fin', (0.15, 0.152, 0.160), 0.58, 0.40)
         self.chip = _principled('chip', (0.46, 0.47, 0.49), 0.62, 0.36)
         self.livery = _principled('livery', (0.62, 0.60, 0.56), 0.08, 0.55)
         # Matte cover. A shiny drum face mirrors the night practicals into a turbine ring.
@@ -243,7 +243,8 @@ class Kit:
         cavity_z = depth * (0.85 if inset else 0.45)
         meshes.append(_box(f'{name}-cavity', (-width / 2, -height / 2, 0.0), (width / 2, height / 2, cavity_z), self.recess, col))
         rim = max(0.005 if inset else 0.008, min(width, height) * (0.045 if inset else 0.12))
-        z0, z1 = (depth * 0.55, depth * 0.78) if inset else (depth * 0.35, depth)
+        # Inset mouth sits at the skin. Callers use lift=-depth*0.98 so the rim is flush.
+        z0, z1 = (depth * 0.72, depth * 0.98) if inset else (depth * 0.35, depth)
         frames = [
             ((-width / 2, -height / 2, z0), (width / 2, -height / 2 + rim, z1)),
             ((-width / 2, height / 2 - rim, z0), (width / 2, height / 2, z1)),
@@ -258,9 +259,11 @@ class Kit:
         if slats > 0 and inner_h > 0.01:
             gap = inner_h / slats
             if inset:
-                slat_t = min(gap * 0.22, 0.010)
+                # A thin buried fin read as a flat black rectangle. The bar fills
+                # about half the pitch and its top sits in the mouth.
+                slat_t = min(max(gap * 0.46, 0.012), 0.022)
                 slat_mat = self.fin
-                z_a, z_b = depth * 0.22, depth * 0.58
+                z_a, z_b = depth * 0.62, depth * 0.94
             else:
                 slat_t = min(gap * (0.62 if contrast else 0.42), 0.046 if contrast else 0.012)
                 slat_mat = self.satin if contrast else self.body

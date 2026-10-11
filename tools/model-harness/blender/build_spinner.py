@@ -512,56 +512,44 @@ def place_decal(kit, hull, sign, width=1.28, height=0.22):
     return part
 
 
-LETTERS = {
-    'P': ['####', '#  #', '#  #', '####', '#   ', '#   '],
-    'O': ['####', '#  #', '#  #', '#  #', '#  #', '####'],
-    'L': ['#   ', '#   ', '#   ', '#   ', '#   ', '####'],
-    'I': ['### ', ' #  ', ' #  ', ' #  ', ' #  ', '### '],
-    'C': ['####', '#   ', '#   ', '#   ', '#   ', '####'],
-    'E': ['####', '#   ', '### ', '#   ', '#   ', '####'],
-}
-
-
 def paint_livery(path):
-    w, h = 512, 128
-    img = bpy.data.images.new('livery-police', width=w, height=h, alpha=True, float_buffer=False)
-    img.colorspace_settings.name = 'sRGB'
-    px = array.array('f', [0.045, 0.048, 0.052, 1.0] * (w * h))
-    word = 'POLICE'
-    cols, rows = 4, 6
-    cell = 16
-    gap = 6
-    word_w = len(word) * (cols * cell + gap) - gap
-    x0 = (w - word_w) // 2
-    y0 = (h - rows * cell) // 2
-    ink = (0.86, 0.84, 0.78, 1.0)
-    rule = (0.55, 0.53, 0.48, 1.0)
-    for y in (y0 - 8, y0 + rows * cell + 4):
-        for x in range(x0, x0 + word_w):
-            if 0 <= x < w and 0 <= y < h:
-                i = (y * w + x) * 4
-                px[i:i + 4] = array.array('f', rule)
-    for li, ch in enumerate(word):
-        grid = LETTERS[ch]
-        ox = x0 + li * (cols * cell + gap)
-        for ry, row in enumerate(grid):
-            for cx, bit in enumerate(row[:cols]):
-                if bit != '#':
-                    continue
-                for yy in range(cell - 2):
-                    for xx in range(cell - 2):
-                        x = ox + cx * cell + xx
-                        # Blender pixels are bottom-up.
-                        y = y0 + (rows - 1 - ry) * cell + yy
-                        if 0 <= x < w and 0 <= y < h:
-                            i = (y * w + x) * 4
-                            px[i:i + 4] = array.array('f', ink)
-    img.pixels.foreach_set(px)
-    img.pack()
+    """Original POLICE word, set in a bold sans. The 4x6 bitmap read as pixels."""
     os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
-    img.filepath_raw = path
-    img.file_format = 'PNG'
-    img.save()
+    subprocess.check_call([
+        '/usr/bin/python3', '-c',
+        (
+            'from PIL import Image, ImageDraw, ImageFont\n'
+            'import sys\n'
+            'path = sys.argv[1]\n'
+            'w, h = 1024, 198\n'
+            'img = Image.new("RGBA", (w, h), (11, 12, 14, 255))\n'
+            'draw = ImageDraw.Draw(img)\n'
+            'font = ImageFont.truetype("/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf", 156)\n'
+            'word = "POLICE"\n'
+            'tracking = 72\n'
+            'widths = [font.getbbox(ch)[2] - font.getbbox(ch)[0] for ch in word]\n'
+            'word_w = sum(widths) + tracking * (len(word) - 1)\n'
+            'x = (w - word_w) // 2\n'
+            'bbox = font.getbbox(word)\n'
+            'y = (h - (bbox[3] - bbox[1])) // 2 - bbox[1]\n'
+            'ink = (220, 214, 200, 255)\n'
+            'rule = (132, 126, 116, 255)\n'
+            'top = y + bbox[1] - 10\n'
+            'bot = y + bbox[3] + 6\n'
+            'draw.line((x, top, x + word_w, top), fill=rule, width=2)\n'
+            'draw.line((x, bot, x + word_w, bot), fill=rule, width=2)\n'
+            'cx = x\n'
+            'for ch, cw in zip(word, widths):\n'
+            '    draw.text((cx, y), ch, font=font, fill=ink)\n'
+            '    cx += cw + tracking\n'
+            'img.save(path)\n'
+        ),
+        path,
+    ])
+    img = bpy.data.images.load(path)
+    img.name = 'livery-police'
+    img.colorspace_settings.name = 'sRGB'
+    img.pack()
     print('livery', path)
     return img
 
@@ -793,7 +781,7 @@ def _surface_tone(co, normal):
     z = co.z
     x = abs(co.x)
     y = co.y
-    panel = 0.90 + 0.12 * _hash(int(math.floor(y * 0.5)), int(math.floor(z * 1.1 + x)))
+    panel = 0.82 + 0.22 * _hash(int(math.floor(y * 0.5)), int(math.floor(z * 1.1 + x)))
     mul = panel
     if z < 0.36:
         mul *= 0.70 + 0.30 * max(0.0, z) / 0.36
@@ -891,8 +879,10 @@ def _grade(ao_img, size, tuned, loud=False, worn=False, flat=False):
         blur_n = min(1.0, blur[i] / hi)
         wide_n = min(1.0, wide[i] / hi)
         if flat:
-            # Smooth curvature in the AO was painting wood grain. Only real cavities go dark.
-            shade = 0.55 + 0.45 * (ao_n / 0.35) if ao_n < 0.35 else 1.0
+            # An absolute AO cutoff painted the hull's curvature as concentric swirls.
+            # A gap is darker than the surface around it. A smooth gradient is not.
+            cavity = wide_n - ao_n
+            shade = 1.0 if cavity < 0.10 else max(0.42, 1.0 - (cavity - 0.10) * 2.4)
         else:
             shade = (0.62 + 0.38 * ao_n) if worn else ((0.48 + 0.52 * ao_n) if loud else (0.62 + 0.38 * ao_n))
         # Soft exposed-edge lift. A one-pixel neighbour test sparkled under the rim.
@@ -998,8 +988,9 @@ def connect_pbr(obj, albedo, rough, metal, normal, worn=False):
     bsdf.inputs['Metallic'].default_value = 1.0
     bsdf.inputs['Roughness'].default_value = 1.0
     if worn and 'Coat Weight' in bsdf.inputs:
-        bsdf.inputs['Coat Weight'].default_value = 0.62
-        bsdf.inputs['Coat Roughness'].default_value = 0.32
+        # A sharp coat turned the loft's loops into a machined swirl.
+        bsdf.inputs['Coat Weight'].default_value = 0.16
+        bsdf.inputs['Coat Roughness'].default_value = 0.82
 
 
 def pack_uv_trim(obj):
@@ -1060,7 +1051,7 @@ def _flatten_maps(rough, metal, size):
     for i in range(n):
         o = i * ch_r
         for c in range(min(3, ch_r)):
-            raw_r[o + c] = 0.46
+            raw_r[o + c] = 0.52
         o = i * ch_m
         for c in range(min(3, ch_m)):
             raw_m[o + c] = 0.40
@@ -1140,19 +1131,19 @@ def lay_jamb(kit, hull, sign):
 
 
 def place_flush_louvers(kit, hull, lod):
-    """Short banks sunk into the deck. One rigid plate rode above the slope and read as a loose slab."""
+    """Louver bars in the mouth of the deck. A buried pocket read as a flat black inset."""
     banks = (
-        (-1.68, 1.02, 0.56, 0.38, 0.34, 6 if lod == 'high' else 4),
-        (-2.10, 0.86, 0.50, 0.30, 0.24, 4 if lod == 'high' else 3),
+        (-1.70, 0.98, 0.92, 0.46, 0.30, 8 if lod == 'high' else 5),
+        (-2.14, 0.82, 1.00, 0.40, 0.46, 7 if lod == 'high' else 4),
     )
+    depth = 0.05
     for i, (y, z, width, along, slope, slats) in enumerate(banks):
-        depth = 0.04
         part = kit.vent(f'louver-deck-{i}', width, along, depth, slats, inset=True)
-        stick(kit, part, hull, (0.0, y, z), (0.0, -slope, 1.0), lift=-depth * 0.8)
-    depth = 0.034
-    tail_n = 8 if lod == 'high' else (5 if lod == 'medium' else 3)
-    tail = kit.vent('louver-tail', 0.84, 0.24, depth, tail_n, inset=True)
-    stick(kit, tail, hull, (0.0, -2.46, 0.50), (0.0, -1.0, 0.16), lift=-depth * 0.78)
+        stick(kit, part, hull, (0.0, y, z), (0.0, -slope, 1.0), lift=-depth * 0.98)
+    depth = 0.042
+    tail_n = 6 if lod == 'high' else (4 if lod == 'medium' else 3)
+    tail = kit.vent('louver-tail', 0.90, 0.22, depth, tail_n, inset=True)
+    stick(kit, tail, hull, (0.0, -2.42, 0.58), (0.0, -1.0, 0.22), lift=-depth * 0.98)
 
 
 def build(round_n, lod, out_path):
