@@ -119,7 +119,9 @@ export async function captureShot(shot: Shot, req: CaptureRequest, stem: string)
 
 function planTiles(shot: Shot, cropW: number, cropH: number, viewW: number, viewH: number, box: LetterboxId): Tile[] {
   const cap = CAPTURE_CAPS[shot.tier];
-  let overlap = shot.pipeline.heavyBloom ? 48 : 24;
+  // The kept core must sit inside the tile by a stretched disc, plus the half-res upsample.
+  // Anamorphic squeeze lengthens the gather vertically, so the overlap is wider than dofPx.
+  let overlap = Math.max(shot.pipeline.heavyBloom ? 48 : 24, Math.ceil(cap.dofPx * 1.5) + 4);
   let core = cap.tile - overlap * 2;
   if (core < 64) {
     overlap = Math.floor(cap.tile / 8);

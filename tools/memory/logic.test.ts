@@ -8,6 +8,7 @@ import { installResourceGuard, resources } from '../../src/core/memory/resources
 import { noteCreation, resetScopeCounts, runTracked, setStrict } from '../../src/core/memory/scope';
 import { pickLod, screenSpaceError } from '../../src/core/memory/sse';
 import { mipChainBytes, texelBytes } from '../../src/core/memory/estimate';
+import { lensTargetMemory, phoneLensReport } from '../../src/photo/limits';
 
 const MB = 1024 * 1024;
 
@@ -141,10 +142,34 @@ const rgba = texelBytes(256, 256);
 assert(rgba === 256 * 256 * 4, 'rgba8 byte count');
 assert(mipChainBytes(rgba, 9) > rgba && mipChainBytes(rgba, 9) < rgba * 1.4, 'mip chain is about 4/3');
 
+const phoneLens = phoneLensReport(android.targetBytes, 1);
+for (const row of phoneLens) {
+  assert(row.bytes <= android.targetBytes, `${row.tier} phone lens ${row.bytes} exceeds target ${android.targetBytes}`);
+  assert(row.bytes < 80 * MB, `${row.tier} phone lens ${row.bytes} is still near the rejected ultra cap`);
+  assert(row.viewW <= row.governorW + 1 && row.viewH <= row.governorH + 1, `${row.tier} lens is not larger than the governor buffer`);
+}
+const tightLens = phoneLensReport(lowRam.targetBytes, 1);
+for (const row of tightLens) {
+  assert(row.bytes <= lowRam.targetBytes, `${row.tier} 2GB phone lens ${row.bytes} exceeds ${lowRam.targetBytes}`);
+}
+const rawUltra = lensTargetMemory('ultra', 1280 * 3, 720 * 3);
+assert(rawUltra.bytes > 150 * MB, 'the raw ultra pixel-ratio cap is the oversized figure');
+const ultraPhone = phoneLens.find((row) => row.tier === 'ultra');
+assert(ultraPhone && ultraPhone.bytes * 2 < rawUltra.bytes, 'phone ultra lens is well under the raw cap');
+assert(ultraPhone && ultraPhone.governorW < 1280 * 3, 'phone ultra is not sized from the raw pixel-ratio cap');
+
 console.log('memory logic ok');
 console.log(JSON.stringify({
   androidMB: Math.round(android.totalBytes / MB),
   geometryMB: Math.round(android.geometryBytes / MB),
   desktopMB: Math.round(desk.totalBytes / MB),
   ultraFit: fitted,
+  phoneLensMiB: phoneLens.map((row) => ({
+    tier: row.tier,
+    buffer: `${row.viewW}x${row.viewH}`,
+    governor: `${row.governorW}x${row.governorH}`,
+    budgetScale: Number(row.budgetScale.toFixed(3)),
+    dofMiB: Number((row.dofBytes / MB).toFixed(2)),
+    totalMiB: Number((row.bytes / MB).toFixed(2)),
+  })),
 }, null, 2));
