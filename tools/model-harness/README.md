@@ -21,7 +21,7 @@ blender --background --python tools/model-harness/blender/build_spinner.py -- \
 | 2 | Bevel, panels, vents, intakes, nozzles, canopy frame, spine. Low stays the round-1 shell |
 | 3 | High: one subdivision level, bolts, cables, greebles, 1024 AO bake. Medium: greebles and a 512 bake, no subdivision. Low: the simple shell |
 
-The script is the source of truth. Blender is Z-up with the nose on +Y; the glTF is Y-up with the nose on -Z, origin on the ground-contact centre. The target box is 5.0 × 2.3 × 1.45 m.
+The script is the source of truth. Blender is Z-up with the nose on +Y; the glTF is Y-up with the nose on -Z, origin on the ground-contact centre. The M2 target box is 5.45 × 2.32 × 1.36 m (K's spinner: long, low, slab-sided, no roof fin, no wheel-like thrusters). The bar is `spinner-look-target.md`.
 
 ## LODs and the quality menu
 
@@ -53,7 +53,7 @@ BASE_URL=http://127.0.0.1:5173/ \
 
 ## Critic loop
 
-`spinner-look-target.md` is the bar. After each meaningful change, render a sheet, score it 1–10 on silhouette, surface detail, lighting, material, and film feel, and write the fix list next to that sheet before editing the script. "Boxy primitive" is a fail. Scores live in `tools/model-harness/reviews/` with the PNGs.
+`spinner-look-target.md` is the bar. After each meaningful change, render a sheet, score it 1–10 on silhouette, surface detail, lighting, material, film feel, and whether it reads as K's spinner, and write the fix list next to that sheet before editing the script. "Generic sci-fi car" and "has wheels" are fails. M1 sheets stay in `reviews/` as the baseline. M2 sheets and scores live in `reviews/m2/`.
 
 ## Kit of parts
 

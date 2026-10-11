@@ -1,33 +1,44 @@
 # Spinner look-target
 
-Original police spinner. Not a Peugeot, not an LAPD badge, no logos, no ripped mesh. The silhouette is a dart, not a van and not a box.
+Officer K's police spinner from Blade Runner 2049. Our own mesh, built in the harness from the kit. Not a Peugeot, not an LAPD badge, no lion, no ripped film mesh, no copied decal, no real car-brand badge.
 
-## Silhouette and proportions
+Checked against the film, not against the M1 dart. Early George Hull sketches were louder: more police graphics, a taller emergency rack. The hero car that was built and shot is quieter than those sketches. The Budapest paint notes call the body dull graphite with silver where the paint breaks on the edges. The doors swing up on hydraulics (gullwing / scissor; the cut on the body is the gullwing line). The brick toys add round side discs; those are not on the car. M1 followed the toy read and grew a roof spine. Both are fails.
 
-5.0 m long, 2.3 m wide, 1.45 m tall. Forward is the long low nose. The side view is a wedge: rocker at the belly, canopy hump in the middle third, tail tucked. The nose is wider than it is tall, with one slit, not round lamps. The canopy is narrower than the shoulders. Four ducts sit inside the plan: small front pods, larger rear haunches. Skids, not wheels. One blade antenna, and a short whip is allowed. Nothing on the roof may push the height past 1.45 m.
+## Proportions
 
-## Panels
+5.45 m long, 2.32 m wide, 1.36 m tall, inside the band 5.3–5.6 × 2.2–2.4 × 1.3–1.4. Forward is −Z in the game, +Y in Blender. Origin on the ground-contact centre.
 
-Break the hull into nose, hood, sills, flanks, deck, and pods. Insets have a raised rim and a darker recess. Seams are gaps, not painted stripes. Bolts, when the LOD has them, sit at panel corners, not in a grid across a flat face.
+The side view is a long low sedan, about four times as long as it is tall. Long hood, shallow glass, short squared deck. The roof is flat. Nothing on the roof is a fin, a spine, or a blade. A light bar may sit on the roof only if it stays inside the 1.40 m box and reads as a bar, not a mast.
 
-## Intakes and thrusters
+## Silhouette
 
-Shoulder intakes are dark inside, with a lip and a few vanes. Rear nozzles are larger than the front ducts. Each nozzle is a ring, vanes, and a dim hot core, and the opening has to be visible from a chase camera about 16° above the tail. A closed cylinder is a fail.
+- **Plan.** Parallel slab sides for most of the length. The nose is a heavy wedge, sharp in side view and wide in front view, not a needle and not a van face. The tail is cut square and stays nearly as wide as the hips.
+- **Front.** Low, wide, angular. One thin horizontal white strip across the fascia. No round lamps. No light rings around an arch.
+- **Side.** High beltline. Crisp creases. Flat flanks. A wide wraparound canopy, laid-back windshield, flat roof, raked rear glass. Gullwing doors are panel lines: a roof hinge line and a door cut on the flank. Not an open door.
+- **Roof.** Flat and low. Red and blue elements live in one low bar. No antenna tall enough to change the outline at 30 m.
+- **Skirts.** Big flat-faced side pods run low along the body and house the lift fans. They are slabs, wedge at the front, square at the back. The fans are recessed and covered with straight slats. From the side and from the rear quarter there is no round disc, no radial vane, no orange wheel. Underglow leaks from the covered fans as a cool line, not a hot circle.
+- **Rear.** Squared face, one red horizontal strip. The pod tails are rectangular covered ducts.
+
+## Surface
+
+Charcoal and gunmetal. Matte hull, satin on a few panels (hood, door), so the body is not one highlight. Seams are gaps. Grime stays in the gaps. Rain streaks run down the flanks. Edges are scuffed back to metal. It is a working police car, not a studio pebble and not a showroom concept.
+
+Livery is original block lettering that reads POLICE, painted, both flanks, small enough to be a marking and large enough to read at 5 m. No department shield, no city name, no manufacturer mark.
 
 ## Lights
 
-Warm-white head slit across the nose. Red tail slit. Short amber strips on the flanks. Red and blue strobes sit on the canopy, not floating above it. Nozzle cores stay dimmer than the markers.
-
-## Wear
-
-Blue-black metal, not plastic grey. Edge wear on the nose, sills, skid, and pod lips. Grime stays in the recesses. Do not lift the whole panel to "show detail".
+- Thin white strip on the nose.
+- Thin red strip on the tail.
+- Small amber markers at the pod corners.
+- Low roof bar, red one side and blue the other, alternating.
+- Cool underglow in the fan recesses. Dimmer than the strips. Not orange.
 
 ## How it should read
 
-- **200 m.** Wedge, four pods, the two slits, a blink on the roof.
-- **30 m.** Intakes, nozzle rings, panel breaks, canopy facets.
-- **5 m.** Bolts, the pod cable, grime in the gaps, vane count.
+- **200 m.** Long low wedge, the two strips, the light bar. No wheels, no fin.
+- **30 m.** Side pods, canopy, light bar, squared tail. Still no wheels.
+- **5 m.** Panel lines, gullwing cut, covered fan slats, POLICE, grime in the gaps, scuffed edges.
 
 ## Fail
 
-A box. One-tone plastic. Floating light cubes. No difference between nose and tail. Pods that are raw boxes. A canopy that is a bubble or a van roof.
+A generic sci-fi car. A manta. A van. A roof fin or spine. Round thrusters, radial vanes, or anything that reads as a wheel. A crystal canopy. A needle nose. A pebble tail. One-tone plastic. Orange discs on the haunches. A light bar that is a mast.
