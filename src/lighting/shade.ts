@@ -65,10 +65,11 @@ function oneLight(i: number, world: any, N: any, V: any, albedo: any): any {
   const diffuse = albedo.mul(E).mul(ndl).mul(shade).div(Math.PI);
   const H = normalize(L.add(V));
   const wet = U.wetness;
-  // Wet asphalt in a photo is an oval, not a one-pixel glint. Walls keep a tight highlight.
-  const wetGloss = mix(float(96), float(24), up);
-  const gloss = mix(float(16), wetGloss, wet);
-  const specW = mix(float(0.025), mix(float(0.2), float(0.22), up), wet);
+  // A broad lobe (gloss ~24, weight ~0.22) turned a nearby lantern into an orange plate.
+  // Keep a tight streak: the pool is the diffuse, the highlight is a line toward the lamp.
+  const wetGloss = mix(float(88), float(64), up);
+  const gloss = mix(float(32), wetGloss, wet);
+  const specW = mix(float(0.018), mix(float(0.03), float(0.038), up), wet);
   const spec = pow(max(dot(N, H), 0), gloss).mul(E).mul(specW);
   return col[i]!.mul(diffuse.add(spec));
 }

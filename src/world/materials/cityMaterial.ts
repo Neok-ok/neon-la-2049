@@ -134,6 +134,9 @@ function compose(m: MeshStandardNodeMaterial, living: boolean): void {
   const glowFar = glowC.mul(glowLevel).mul(winW.mul(winH).mul(0.8).add(0.2));
   const glow = mix(glowNear, glowFar, farFade);
   const windows = mix(mix(nearWindows, avgWindows, farFade).mul(1.1), glow, isGlow).mul(isWall);
+  // A few nits on the wall around a lit pane, so the window is a source and not a sticker.
+  const paneSpill = smoothstep(0.62, 0.16, abs(f.x.sub(0.5))).mul(smoothstep(0.7, 0.18, abs(f.y.sub(0.55))));
+  const windowSpill = winColor.mul(paneSpill).mul(float(1).sub(winMask)).mul(isWall).mul(litForWindows).mul(U.night).mul(3.4);
 
   // ---- ground sprawl lights (far LOD: low-rise city rendered as a carpet of lights) ----
   const gcell = floor(wpos.xz.add(100000).div(7.0));
@@ -206,5 +209,5 @@ function compose(m: MeshStandardNodeMaterial, living: boolean): void {
   const snowCover = float(1).sub(clamp(snowAmt, 0, 1));
   const spill = hologramSpill();
   const pools = practicalLit(wpos, normalWorld, viewToCam, baseColor);
-  m.emissiveNode = Fn(() => windows.mul(NITS.window).mul(snowCover.mul(0.6).add(0.4)).add(groundLights).add(neonRefl.mul(snowCover).mul(NITS.neonReflection)).add(spill).add(pools))();
+  m.emissiveNode = Fn(() => windows.mul(NITS.window).mul(snowCover.mul(0.6).add(0.4)).add(windowSpill).add(groundLights).add(neonRefl.mul(snowCover).mul(NITS.neonReflection)).add(spill).add(pools))();
 }

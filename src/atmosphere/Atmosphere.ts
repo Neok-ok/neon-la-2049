@@ -40,7 +40,7 @@ export class DayNight {
 }
 
 const c = (r: number, g: number, b: number) => new Color(r, g, b);
-const NIGHT = { zenith: c(0.006, 0.007, 0.011), horizon: c(0.085, 0.056, 0.04), fog: c(0.05, 0.037, 0.03) };
+const NIGHT = { zenith: c(0.004, 0.006, 0.014), horizon: c(0.026, 0.034, 0.06), fog: c(0.014, 0.018, 0.032) };
 const DUSK = { zenith: c(0.07, 0.07, 0.09), horizon: c(0.5, 0.28, 0.16), fog: c(0.36, 0.23, 0.15) };
 // Cold steel grey-blue. Orange stays on DUSK and on the smog weather, not on a clear noon.
 const DAY = { zenith: c(0.22, 0.31, 0.42), horizon: c(0.40, 0.49, 0.58), fog: c(0.36, 0.44, 0.52) };
@@ -154,7 +154,7 @@ export class Atmosphere {
     this.hemi.color.copy(horizon);
     const hemiPeak = Math.max(this.hemi.color.r, this.hemi.color.g, this.hemi.color.b, 1e-4);
     this.hemi.color.multiplyScalar(1 / hemiPeak);
-    this.hemi.groundColor.setRGB(0.04, 0.035, 0.04).lerp(tmpB.setRGB(0.16, 0.09, 0.05), night * 0.6);
+    this.hemi.groundColor.setRGB(0.045, 0.05, 0.062).lerp(tmpB.setRGB(0.1, 0.075, 0.06), night * 0.28);
     this.hemi.intensity = skyLux(dayF, night, w.overcast) + Number(U.lightning.value) * 8000;
 
     this.sun.color.copy(sun);
