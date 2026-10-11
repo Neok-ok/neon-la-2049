@@ -8,6 +8,7 @@ import { resources } from '../core/memory';
 import { registerDetail } from '../world/detail/registry';
 import { buildRoadChunk, chunkDraws, type Stamp } from './buildChunk';
 import { roadFancy, roadMarkMaterial, roadPuddleMaterial, roadSignMaterial, roadSurfaceMaterial } from './material';
+import { retainChunk } from '../lighting/registry.ts';
 
 const _m = new Matrix4();
 const _q = new Quaternion();
@@ -119,5 +120,11 @@ registerDetail('roads', '*', (ctx) => {
   group.userData.tris = chunk.tris;
   group.userData.bytes = bytes;
   group.userData.draws = chunkDraws(tier, chunk);
+  if (chunk.lamps.length) {
+    group.userData.releaseLights = retainChunk(
+      `road:${ctx.x0}:${ctx.z0}`,
+      chunk.lamps.map((p) => ({ preset: 'street-sodium' as const, x: p.x, y: p.y, z: p.z, dx: 0, dy: -1, dz: 0 })),
+    );
+  }
   return group;
 });

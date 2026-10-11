@@ -84,6 +84,7 @@ import { U } from '../atmosphere/uniforms';
 import { GroundHaze } from '../atmosphere/GroundHaze';
 import { WetReflector } from '../atmosphere/WetReflector';
 import { cameraOverRoad } from '../roads/mirror';
+import { roadPoses } from '../roads/report';
 import { prepareRoadTextures, roadTexturesReady } from '../roads/textures';
 import { Ambience } from '../audio/Ambience';
 import { MarketAudio } from '../audio/MarketAudio';
@@ -1059,6 +1060,17 @@ export class App {
       setMode: (m: ModeId) => this.cams.setMode(m),
       setPose: (x: number, y: number, z: number, yawDeg = 0, pitchDeg = 0) =>
         this.cams.setPose({ position: new Vector3(x, y, z), heading: yawDeg * DEG, pitch: pitchDeg * DEG }),
+      /** Street-level camera on a real carriageway. `id` is a district id from `roadPoses()`. */
+      roadView: (id = 'historic-core') => {
+        const pose = roadPoses().find((p) => p.id === id);
+        if (!pose) return false;
+        return this.applyDistrictPose({
+          x: pose.x, y: pose.y, z: pose.z,
+          heading: pose.yaw * DEG, pitch: pose.pitch * DEG,
+          mode: 'walk',
+          feet: { x: pose.x, y: pose.y - 1.7, z: pose.z },
+        });
+      },
       setTime: (h: number) => (this.atmosphere.dayNight.hours = h),
       setWeather: (w: WeatherId, instant = true) => this.atmosphere.weather.set(w, instant),
       cut: () => this.cams.cine.cut(),

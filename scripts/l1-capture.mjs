@@ -46,6 +46,7 @@ const places = [
   ['harbor', async () => { await window.__nla.harborView('street'); }],
   ['long-beach', async () => { await window.__nla.longBeachView('canyon'); }],
   ['coastal', () => window.__nla.coastView('blocks')],
+  ['road', () => window.__nla.roadView('historic-core')],
   ['neon-closeup', () => window.__nla.holoView('street')],
   ['wet-street', () => window.__nla.trafficView('rain')],
 ];

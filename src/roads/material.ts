@@ -7,6 +7,8 @@ import * as TSL from 'three/tsl';
 import type { Tier } from '../core/quality';
 import { resources } from '../core/memory';
 import { U } from '../atmosphere/uniforms';
+import { NITS, SODIUM_RGB } from '../lighting/presets.ts';
+import { practicalLit } from '../lighting/shade.ts';
 import { roadMaps, roadTextureMode } from './textures';
 
 const T = TSL as any;
@@ -34,6 +36,18 @@ function kindAttr(): unknown {
   return attribute('kind', 'float');
 }
 
+/** Sodium shell of a road lamp head, in nits. The practical that lights the street is registered separately. */
+function lampShell(head: any): any {
+  const sodium = vec3(SODIUM_RGB[0], SODIUM_RGB[1], SODIUM_RGB[2]);
+  return sodium.mul(NITS.lampHead).mul(float(0.18).add(U.night.mul(0.82))).mul(head);
+}
+
+function roadLit(albedo: any, head: any): any {
+  const wpos = positionWorld;
+  const view = normalize(cameraPosition.sub(wpos));
+  return practicalLit(wpos, normalWorld, view, albedo).mul(float(1).sub(head));
+}
+
 function flatSolid(): MeshStandardNodeMaterial {
   if (flatMat) return flatMat;
   const m = resources.material('road-flat', () => new MeshStandardNodeMaterial()) as MeshStandardNodeMaterial;
@@ -52,8 +66,15 @@ function flatSolid(): MeshStandardNodeMaterial {
   })();
   m.roughnessNode = mix(float(0.9), float(0.45), step(2.5, kindAttr()));
   m.metalnessNode = mix(float(0.02), float(0.7), step(3.5, kindAttr()));
-  const headOn = step(2.5, kindAttr()).mul(step(kindAttr(), 3.5));
-  m.emissiveNode = vec3(1.0, 0.62, 0.28).mul(float(0.6).add(U.night.mul(5.0))).mul(headOn);
+  m.emissiveNode = Fn(() => {
+    const k = kindAttr();
+    const head = step(2.5, k).mul(step(k, 3.5));
+    const asphalt = vec3(0.045, 0.044, 0.048);
+    const walk = vec3(0.2, 0.19, 0.175);
+    const concrete = vec3(0.28, 0.27, 0.25);
+    const albedo = mix(asphalt, mix(walk, concrete, step(1.5, k)), step(0.5, k));
+    return lampShell(head).add(roadLit(albedo, head));
+  })();
   flatMat = m;
   return m;
 }
@@ -127,7 +148,10 @@ function richSolid(): MeshStandardNodeMaterial {
     const k = kindAttr();
     const wpos = positionWorld;
     const head = step(2.5, k).mul(step(k, 3.5));
-    const lamp = vec3(1.0, 0.62, 0.28).mul(float(0.6).add(U.night.mul(5.0))).mul(head);
+    const asphalt = vec3(0.045, 0.044, 0.048);
+    const walk = vec3(0.2, 0.19, 0.175);
+    const concrete = vec3(0.28, 0.27, 0.25);
+    const albedo = mix(asphalt, mix(walk, concrete, step(1.5, k)), step(0.5, k));
     const view = normalize(cameraPosition.sub(wpos));
     const ndv = max(dot(normalize(vec3(0, 1, 0)), view), float(0));
     const fres = pow(float(1).sub(ndv), float(3));
@@ -143,7 +167,7 @@ function richSolid(): MeshStandardNodeMaterial {
     const sheenAmt = puddleAmt().mul(0.16).add(wet.mul(0.025));
     const glow = local.mul(fres).mul(sheenAmt).mul(U.night).mul(U.neonWet)
       .mul(U.signPower).mul(mix(float(1), float(0.28), U.reflMix)).mul(altFade).mul(step(k, 0.5));
-    return lamp.add(glow);
+    return lampShell(head).add(roadLit(albedo, head)).add(glow);
   })();
   richMat = m;
   return m;
