@@ -71,9 +71,9 @@ export function coastCamera(
 
   if (kind === 'crest') {
     // On the crest road, looking along it so the sheet on the walkway is in frame.
-    const feet = at(-1, -10, H + 0.02);
-    const look = at(4, 36, H + 0.2);
-    return walk(feet, look, -0.22);
+    const feet = at(0, -6, H + 0.02);
+    const look = at(3, 24, H - 1.4);
+    return walk(feet, look, -0.38);
   }
   if (kind === 'terraces') {
     // Off the steep face, not on the flat collider (that box sits inside the slope).
@@ -112,8 +112,8 @@ export function coastCamera(
   }
   if (kind === 'offshore') {
     // Low over the water, so the swell profile and the wall share the frame.
-    const eye = at(plan.across1 + 36, -16, 9);
-    const look = at(14, 12, 5);
+    const eye = at(plan.across1 + 24, -10, 7.5);
+    const look = at(plan.across1 - 18, 22, 8.2);
     return fly(eye, look);
   }
   const eye = at(-90, -520, 260);

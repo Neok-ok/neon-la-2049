@@ -25,7 +25,7 @@ import { seawardAcross, type StormDrive } from './storm';
 
 const T = TSL as any;
 const {
-  Fn, attribute, cameraPosition, cos, dot, exp, float, max, mix, normalize, positionLocal, positionWorld, pow, sin, smoothstep, step, uniform, vec3,
+  Fn, attribute, cameraPosition, cos, dot, exp, float, length, max, mix, normalize, positionLocal, positionWorld, pow, sin, smoothstep, step, uniform, uv, vec3,
 } = T;
 
 const uTime = uniform(0);
@@ -127,7 +127,7 @@ function waveNodes() {
 }
 
 function foamOf(w: { j: any; dy: any; p: any; edge: any }) {
-  const jac = float(1).sub(smoothstep(float(0.4), float(0.88), w.j));
+  const jac = float(1).sub(smoothstep(float(0.55), float(0.98), w.j));
   const crest = smoothstep(float(-0.08), max(uAmp.mul(0.2), float(0.25)), w.dy);
   const shore = float(1).sub(smoothstep(float(1.4), float(28), w.p.z)).mul(smoothstep(float(-0.5), float(5), w.p.z));
   return max(jac.mul(crest), shore.mul(float(0.4).add(uImpact.mul(0.6)))).mul(w.edge);
@@ -141,7 +141,7 @@ let sprayMat: MeshStandardNodeMaterial | null = null;
 function swellMaterial(): MeshStandardNodeMaterial {
   if (swellMat) return swellMat;
   const m = new MeshStandardNodeMaterial();
-  m.roughness = 0.55;
+  m.roughness = 0.28;
   m.metalness = 0.02;
   m.transparent = true;
   m.depthWrite = false;
@@ -167,11 +167,17 @@ function swellMaterial(): MeshStandardNodeMaterial {
     const fres = float(0.02).add(float(0.98).mul(pow(float(1).sub(ndv), float(5))));
     const mirror = mix(U.fogColor, U.skyHorizon, float(0.7));
     const lit = mix(beer, mirror, fres.mul(0.45));
-    return mix(lit, vec3(0.8, 0.85, 0.88), foamOf(w));
+    const moon = normalize(vec3(float(0.22), float(0.62), float(-0.28)));
+    const spec = pow(max(dot(nW, normalize(vW.add(moon))), float(0)), float(26)).mul(float(0.42).add(uStorm.mul(0.4)));
+    return mix(lit.add(vec3(spec)), vec3(0.84, 0.88, 0.9), foamOf(w));
   })();
   m.emissiveNode = Fn(() => {
     const w = waveNodes();
-    return vec3(0.75, 0.82, 0.86).mul(foamOf(w)).mul(float(0.28).add(uImpact.mul(0.7)).add(uStorm.mul(0.15)));
+    const nW = normalize(vec3(w.nx, w.ny, w.nz));
+    const vW = normalize(cameraPosition.sub(positionWorld));
+    const moon = normalize(vec3(float(0.22), float(0.62), float(-0.28)));
+    const spec = pow(max(dot(nW, normalize(vW.add(moon))), float(0)), float(26)).mul(float(0.35).add(uStorm.mul(0.3)));
+    return vec3(0.78, 0.84, 0.88).mul(foamOf(w)).mul(float(0.45).add(uImpact.mul(0.7))).add(vec3(spec));
   })();
   m.opacityNode = Fn(() => {
     const edge = attribute('edge', 'float');
@@ -200,12 +206,11 @@ function overtopMaterial(): MeshStandardNodeMaterial {
   m.polygonOffset = true;
   m.polygonOffsetFactor = -2;
   m.polygonOffsetUnits = -4;
-  m.colorNode = Fn(() => mix(vec3(0.1, 0.12, 0.13), vec3(0.84, 0.88, 0.9), sheetBand()))();
-  m.emissiveNode = Fn(() => vec3(0.72, 0.78, 0.82).mul(sheetBand()).mul(float(0.18).add(uImpact.mul(0.62))))();
+  m.colorNode = Fn(() => mix(vec3(0.16, 0.18, 0.19), vec3(0.86, 0.9, 0.92), sheetBand()))();
+  m.emissiveNode = Fn(() => vec3(0.75, 0.82, 0.86).mul(sheetBand()).mul(float(0.12).add(uImpact.mul(0.4))))();
   m.opacityNode = Fn(() => {
     const band = sheetBand();
-    const sheet = float(0.16).add(band.mul(0.46)).add(uImpact.mul(0.28));
-    return sheet.mul(uOvertop);
+    return band.mul(float(0.22).add(uImpact.mul(0.38))).mul(uOvertop);
   })();
   sheetMat = m;
   return m;
@@ -241,9 +246,11 @@ function sprayMaterial(): MeshStandardNodeMaterial {
   m.fog = true;
   m.side = DoubleSide;
   m.roughness = 0.45;
+  const centered = uv().sub(0.5);
+  const puff = float(1).sub(smoothstep(float(0.02), float(0.48), length(centered)));
   m.colorNode = vec3(0.94, 0.96, 0.97);
-  m.emissiveNode = vec3(0.92, 0.95, 0.97).mul(uImpact.mul(0.9).add(uStorm.mul(0.28)));
-  m.opacityNode = uImpact.mul(0.78).add(uStorm.mul(0.14));
+  m.emissiveNode = vec3(0.9, 0.94, 0.96).mul(puff).mul(uImpact.mul(0.7).add(uStorm.mul(0.16)));
+  m.opacityNode = puff.mul(uImpact.mul(0.5).add(uStorm.mul(0.08)));
   sprayMat = m;
   return m;
 }
@@ -626,11 +633,11 @@ export function updateWaves(
     for (let i = 0; i < sprayLocal.length; i++) {
       const s = sprayLocal[i]!;
       const travel = Math.max(0, Math.min(1, (state.phase - start - s.seed * 0.05) / span));
-      const y = 1.2 + travel * climb.rise * (0.55 + s.seed * 0.45);
+      const y = 1.4 + travel * climb.rise * (0.28 + s.seed * 0.95);
       const faceZ = seawardAcross(sprayProfile, SEA_Y + y) - across;
-      const z = faceZ + 2.6 + s.seed * 0.9;
+      const z = faceZ + 3.2 + s.seed * 1.4;
       const x = s.x + alongWind * travel * 0.35;
-      const sc = (4.2 + state.storm * 1.4 + state.impact * 3.2) * (0.62 + s.seed * 0.7) * (0.45 + travel * 0.7);
+      const sc = (3.1 + state.storm * 0.8 + state.impact * 1.8) * (0.55 + s.seed * 0.85) * (0.4 + travel * 0.85);
       _p.set(x, y, z);
       _s.set(sc, sc * (1.15 + state.impact * 0.35), sc);
       spray.setMatrixAt(i, _m.compose(_p, _q.identity(), _s));
@@ -641,7 +648,7 @@ export function updateWaves(
   }
 
   const nearApron = dApron < 650 && dApron < hit.dist + 80;
-  const wantCrest = overtop > 0 && budget.sheets >= 1 && !nearApron && hit.dist < 900;
+  const wantCrest = overtop > 0 && hit.dist < 900 && (budget.sheets >= 2 || (budget.sheets >= 1 && !nearApron));
   const wantApronSheet = overtop > 0 && dApron < 1100 && (nearApron || budget.sheets >= 2);
   if (wantCrest) {
     const along = budget.sheets >= 2 ? 84 : 46;
