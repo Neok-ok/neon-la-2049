@@ -9,7 +9,7 @@ import { crowdAudioSnap, crowdShareOf } from '../districts/little-tokyo-market/c
 import type { Ambience } from './Ambience';
 import './beds';
 import { makeSlot, mountCityGraph, type CityGraph, type StreetSlot } from './graph';
-import { hornEnvelope, mixTargets, slotLevel } from './mix';
+import { hornEnvelope, mixTargets, slotLevel, spinnerVoice } from './mix';
 import { SLOT_KINDS, VOICE_CAP, bedOrQuiet, blendBeds, type DistrictBed, type SlotKind } from './registry';
 import { setListener, setPos } from './synth';
 
@@ -69,6 +69,7 @@ export class CitySound {
     alt: number,
     sizzleAt: Vec3 | null,
     spinnerAt: SpinnerAt | null,
+    flying = false,
   ): void {
     const now = performance.now();
     const dt = this.lastMs ? Math.min(0.1, (now - this.lastMs) / 1000) : 0.016;
@@ -126,7 +127,7 @@ export class CitySound {
     }
 
     this.placeStreet(cam, alt, rain, sizzleAt, mix.street, mix.open, presence, bed, t);
-    this.placeSpinner(spinnerAt, interior, t);
+    this.placeSpinner(spinnerAt, interior, flying, cam, t);
     setListener(ctx, cam, forward, up);
 
     let n = this.ambience.bedVoices();
@@ -292,20 +293,16 @@ export class CitySound {
     return best;
   }
 
-  private placeSpinner(spinnerAt: SpinnerAt | null, interior: number, t: number): void {
+  private placeSpinner(spinnerAt: SpinnerAt | null, interior: number, flying: boolean, cam: Vec3, t: number): void {
     const g = this.graph;
     if (!g) return;
-    const reach = spinnerAt?.heavy ? 950 : 700;
-    const open = 1 - 0.7 * interior;
-    if (spinnerAt && spinnerAt.dist < reach) {
-      setPos(g.spinnerPan, spinnerAt.x, spinnerAt.y, spinnerAt.z);
-      const u = 1 - spinnerAt.dist / reach;
-      const level = u * u * (spinnerAt.heavy ? 0.2 : 0.16) * open;
-      aim(g.spinner.gain, level, t, 0.08);
-      const doppler = Math.max(0.75, Math.min(1.3, 1 + (spinnerAt.closing ?? 0) / 340));
-      const freq = ((spinnerAt.heavy ? 90 : 180) + u * (spinnerAt.heavy ? 420 : 900)) * doppler;
-      aim(g.spinnerFilter.frequency, freq, t, 0.05);
-      this.spinnerOn = level > HEARD ? 1 : 0;
+    const voice = spinnerVoice(spinnerAt, interior, flying);
+    if (voice.gain > 0) {
+      if (voice.onListener) setPos(g.spinnerPan, cam.x, cam.y, cam.z);
+      else if (spinnerAt) setPos(g.spinnerPan, spinnerAt.x, spinnerAt.y, spinnerAt.z);
+      aim(g.spinner.gain, voice.gain, t, voice.onListener ? 0.25 : 0.08);
+      aim(g.spinnerFilter.frequency, voice.freq, t, 0.05);
+      this.spinnerOn = voice.gain > HEARD ? 1 : 0;
     } else {
       aim(g.spinner.gain, 0, t, 0.1);
       this.spinnerOn = 0;
