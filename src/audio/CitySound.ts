@@ -1,18 +1,39 @@
 // District bus, street pool, PA and the harbor horn. Ticked from MarketAudio.update,
 // which the frame loop already calls. No per-district branch in App.ts.
-import { CityLayout } from '../world/layout';
+import { CityLayout, distToPolyline } from '../world/layout';
+import { bearingToDir, bearingToYaw } from '../world/geo';
 import { U } from '../atmosphere/uniforms';
 import { allHolograms } from '../world/holograms/registry';
 import type { Tier } from '../core/quality';
 import { hash2i } from '../core/rng';
-import { crowdAudioSnap, crowdShareOf } from '../districts/little-tokyo-market/crowd';
+import { crowdAudioSnap, crowdShareOf, umbrellaFraction } from '../districts/little-tokyo-market/crowd';
+import { edgeNear, streetGraph } from '../vehicles/streetGraph';
+import { freewayRoutes } from '../vehicles/trafficRegistry';
 import type { Ambience } from './Ambience';
 import './beds';
-import { makeSlot, mountCityGraph, type CityGraph, type StreetSlot } from './graph';
+import { ensureSlotOccluder, makeSlot, mountCityGraph, type CityGraph, type StreetSlot } from './graph';
 import { canyonDelay, canyonFeedback, cityPlaceOf, hornEnvelope, mixTargets, slotLevel, spinnerVoice } from './mix';
 import { scheduleParam } from './param';
 import { SLOT_KINDS, VOICE_CAP, bedOrQuiet, blendBeds, type DistrictBed, type SlotKind } from './registry';
-import { setListener, setPos } from './synth';
+import { setListener, setPanningModel, setPos } from './synth';
+import { LivingSound } from './living';
+import {
+  TIER_PLAN,
+  bufferBytes,
+  columnSolid,
+  crowdDensity,
+  evaluateLiving,
+  gridLotSolid,
+  hearDefaults,
+  memoryFor,
+  nearbyPeople,
+  occlusionHits,
+  occlusionOf,
+  type Column,
+  type HearInput,
+  type MemoryTier,
+  type Occlusion,
+} from './livingModel';
 
 interface Vec3 { x: number; y: number; z: number }
 interface SpinnerAt extends Vec3 { dist: number; closing?: number; heavy?: boolean }
@@ -58,8 +79,27 @@ export class CitySound {
     drone: 0, murmur: 0, industrial: 0, pa: 0, canyon: 0, awning: 0, horn: 0, street: 1, open: 1,
   };
   private layout: CityLayout | null = null;
+  private readonly living = new LivingSound();
+  private tier: Tier = 'medium';
+  private readonly columns: Column[] = [];
+  private columnsAt = 0;
+  private readonly occMemo = new Map<number, { at: number; gain: number; hz: number }>();
 
   constructor(private ambience: Ambience) {}
+
+  /** Decoded bytes for every tier. The living layer adds none. Runtime bytes are the mounted buffers. */
+  memoryReport(): { tiers: MemoryTier[]; runtimeBytes: number; livingBytes: number } {
+    const rate = this.ambience.context?.sampleRate ?? 44100;
+    const buffers = [
+      ...this.ambience.decodedBuffers,
+      ...(this.graph?.buffers ?? []),
+    ];
+    return {
+      tiers: (['low', 'medium', 'high', 'ultra'] as const).map((tier) => memoryFor(tier, rate)),
+      runtimeBytes: bufferBytes(buffers),
+      livingBytes: 0,
+    };
+  }
 
   update(
     cam: Vec3,
@@ -86,14 +126,21 @@ export class CitySound {
       return;
     }
     const tier = liveTier();
+    this.tier = tier;
     this.voiceCap = VOICE_CAP[tier];
     if (!this.graph) this.graph = mountCityGraph(ctx, master, this.voiceCap);
+    this.living.mount(ctx, master, this.graph.white, tier);
     this.syncSlots(ctx, master, this.voiceCap);
+    const plan = TIER_PLAN[tier];
+    for (const s of this.graph.slots) setPanningModel(s.pan, plan.hrtf);
+    setPanningModel(this.graph.spinnerPan, plan.hrtf);
 
     const bedA = bedOrQuiet(this.aId);
     const bedB = bedOrQuiet(this.bId || this.aId);
     const bed = blendBeds(bedA, bedB, this.aW, this.bW, this.bedMix);
-    const presence = this.aW * presenceOf(this.aId) + this.bW * presenceOf(this.bId || this.aId);
+    const rawPresence = this.aW * presenceOf(this.aId) + this.bW * presenceOf(this.bId || this.aId);
+    const near = nearbyPeople(crowdAudioSnap().life, cam.x, cam.z, 18);
+    const presence = crowdDensity(rawPresence, near);
     const g = this.graph;
     const t = ctx.currentTime;
     const interior = this.ambience.interiorAmount;
@@ -129,13 +176,14 @@ export class CitySound {
 
     this.placeStreet(cam, alt, rain, sizzleAt, mix.street, mix.open, presence, bed, t);
     this.placeSpinner(spinnerAt, interior, flying, cam, t);
+    this.living.update(evaluateLiving(this.hear(cam, alt, rain, interior, near, bed), tier), t);
     setListener(ctx, cam, forward, up);
 
     let n = this.ambience.bedVoices();
     n += heard(mix.drone) + heard(mix.murmur) + heard(mix.industrial) + heard(mix.awning) + heard(mix.horn);
     if (mix.pa > HEARD) n += 1;
     for (const s of g.slots) if (s.connected && s.target > HEARD) n += 1;
-    this.voices = n + this.spinnerOn;
+    this.voices = n + this.spinnerOn + this.living.voices;
   }
 
   private follow(x: number, z: number, dt: number): void {
@@ -182,15 +230,18 @@ export class CitySound {
     }
     for (let i = 0; i < g.slots.length; i++) {
       const slot = g.slots[i]!;
-      const on = i < cap;
-      if (on && !slot.connected) {
+      if (i >= cap) {
+        if (slot.connected) {
+          slot.target = 0;
+          aim(slot.gain.gain, 0, ctx.currentTime, 0.08, 'slot');
+          try { slot.pan.disconnect(); } catch { /* already out */ }
+          slot.connected = false;
+        }
+        slot.parked = false;
+        this.living.attachSend(slot.gain, false);
+      } else if (!slot.parked && !slot.connected) {
         slot.pan.connect(master);
         slot.connected = true;
-      } else if (!on && slot.connected) {
-        slot.target = 0;
-        aim(slot.gain.gain, 0, ctx.currentTime, 0.08, 'slot');
-        slot.pan.disconnect();
-        slot.connected = false;
       }
     }
   }
@@ -200,7 +251,8 @@ export class CitySound {
     street: number, open: number, presence: number, bed: DistrictBed, t: number,
   ): void {
     const g = this.graph;
-    if (!g) return;
+    const master = this.ambience.output;
+    if (!g || !master) return;
     this.candN = 0;
     const ground = cam.y - alt;
     let awningD = 18;
@@ -243,19 +295,36 @@ export class CitySound {
     let usedN = 0;
     for (let i = 0; i < g.slots.length; i++) {
       const slot = g.slots[i]!;
-      if (!slot.connected) continue;
+      if (i >= this.voiceCap) continue;
       const best = this.nearest(slot, used, usedN);
       if (!best) {
         slot.key = 0;
         slot.target = 0;
         aim(slot.gain.gain, 0, t, 0.12, 'slot');
+        this.living.attachSend(slot.gain, false);
+        if (slot.connected && slot.gain.gain.value < 0.002) {
+          try { slot.pan.disconnect(); } catch { /* already out */ }
+          slot.connected = false;
+          slot.parked = true;
+        }
         continue;
+      }
+      if (!slot.connected) {
+        slot.pan.connect(master);
+        slot.connected = true;
+        slot.parked = false;
       }
       used[usedN++] = best.key;
       slot.key = best.key;
       setPos(slot.pan, best.x, best.y, best.z);
-      slot.target = slotLevel(slot.kind, bed, Math.sqrt(best.d2), rain, street, open, presence);
+      const dist = Math.sqrt(best.d2);
+      const plan = TIER_PLAN[this.tier];
+      const occ = this.occlusionAt(best.x, best.y, best.z, cam, dist);
+      if (plan.occlusion === 'lowpass') ensureSlotOccluder(slot, this.ambience.context!);
+      slot.target = slotLevel(slot.kind, bed, dist, rain, street, open, presence) * (plan.occlusion === 'off' ? 1 : occ.gain);
       aim(slot.gain.gain, slot.target, t, 0.1, 'slot');
+      if (slot.occlude) aim(slot.occlude.frequency, plan.occlusion === 'lowpass' ? occ.hz : 18000, t, 0.12, 'occlude', 1);
+      this.living.attachSend(slot.gain, plan.combs > 0 && slot.target > HEARD);
     }
   }
 
@@ -311,15 +380,140 @@ export class CitySound {
     if (!g) return;
     const voice = spinnerVoice(spinnerAt, interior, flying);
     if (voice.gain > 0) {
+      const plan = TIER_PLAN[this.tier];
+      let gain = voice.gain;
+      let freq = voice.freq;
       if (voice.onListener) setPos(g.spinnerPan, cam.x, cam.y, cam.z);
-      else if (spinnerAt) setPos(g.spinnerPan, spinnerAt.x, spinnerAt.y, spinnerAt.z);
-      aim(g.spinner.gain, voice.gain, t, voice.onListener ? 0.25 : 0.08, 'spinner');
-      aim(g.spinnerFilter.frequency, voice.freq, t, 0.05, 'spinnerFreq', 1);
-      this.spinnerOn = voice.gain > HEARD ? 1 : 0;
+      else if (spinnerAt) {
+        setPos(g.spinnerPan, spinnerAt.x, spinnerAt.y, spinnerAt.z);
+        if (plan.occlusion !== 'off') {
+          const occ = this.occlusionAt(spinnerAt.x, spinnerAt.y, spinnerAt.z, cam, spinnerAt.dist);
+          gain *= occ.gain;
+          if (plan.occlusion === 'lowpass') freq = Math.min(freq, occ.hz);
+        }
+      }
+      aim(g.spinner.gain, gain, t, voice.onListener ? 0.25 : 0.08, 'spinner');
+      aim(g.spinnerFilter.frequency, freq, t, 0.05, 'spinnerFreq', 1);
+      this.spinnerOn = gain > HEARD ? 1 : 0;
     } else {
       aim(g.spinner.gain, 0, t, 0.1, 'spinner');
       this.spinnerOn = 0;
     }
+  }
+
+  private hear(cam: Vec3, alt: number, rain: number, interior: number, near: number, bed: DistrictBed): HearInput {
+    const layout = this.layout ?? new CityLayout();
+    this.layout = layout;
+    const here = layout.districtAt(cam.x, cam.z);
+    const graph = streetGraph(layout);
+    const edge = edgeNear(graph, cam.x, cam.z, 48);
+    let edgeKind: HearInput['edgeKind'] = 'none';
+    let laneDist = 80;
+    let deck = 0;
+    if (edge) {
+      const row = graph.edges[edge.edge];
+      if (row) {
+        edgeKind = row.kind;
+        laneDist = edge.dist;
+        deck = row.deck;
+      }
+    }
+    let freewayDist = 800;
+    let freewayWidth = 70;
+    let freewayDepth = 0;
+    for (const line of layout.freeways) {
+      const d = distToPolyline(cam.x, cam.z, line);
+      if (d >= freewayDist) continue;
+      freewayDist = d;
+      freewayWidth = line.width;
+      freewayDepth = freewayRoutes().find((r) => r.id === line.id)?.depth ?? 0;
+    }
+    let signNear = 0;
+    let signX = cam.x;
+    let signY = cam.y;
+    let signZ = cam.z;
+    for (let i = 0; i < this.holos.length; i++) {
+      const h = this.holos[i]!;
+      const d = Math.hypot(h.x - cam.x, h.y - cam.y, h.z - cam.z);
+      if (d >= 16) continue;
+      const n = 1 - d / 16;
+      if (n > signNear) {
+        signNear = n;
+        signX = h.x;
+        signY = h.y;
+        signZ = h.z;
+      }
+    }
+    const cloth = Math.max(
+      umbrellaFraction(rain) * Math.min(1, near / 3),
+      rain > 0.45 && alt < 4 && this.awningNear < 0.4 && interior < 0.3 ? 0.4 : 0,
+    );
+    const surf = this.ambience.surfLevel;
+    return hearDefaults({
+      x: cam.x, z: cam.z, y: cam.y, alt, rain, interior,
+      streetWidth: here.grid.street,
+      laneDist, edgeKind, deck,
+      freewayDist, freewayWidth, freewayDepth,
+      canyon: bed.canyon,
+      industrial: bed.industrial,
+      neon: bed.neon,
+      awningNear: this.awningNear,
+      umbrella: cloth,
+      storm: surf,
+      surf,
+      signNear, signX, signY, signZ,
+      district: this.districtId || here.id,
+      time: this.ambience.context?.currentTime ?? 0,
+    });
+  }
+
+  private refreshColumns(cam: Vec3): void {
+    const now = nowMs();
+    if (now - this.columnsAt < 400) return;
+    this.columnsAt = now;
+    const layout = this.layout;
+    if (!layout) return;
+    this.columns.length = 0;
+    for (const lm of layout.landmarks) {
+      if (Math.hypot(lm.x - cam.x, lm.z - cam.z) > 170) continue;
+      const yaw = bearingToYaw(lm.bearingDeg);
+      this.columns.push({
+        x: lm.x,
+        z: lm.z,
+        hw: lm.baseWidth * 0.5,
+        hd: (lm.baseDepth ?? lm.baseWidth) * 0.5,
+        c: Math.cos(yaw),
+        s: Math.sin(yaw),
+        top: lm.height,
+      });
+    }
+  }
+
+  private occlusionAt(x: number, y: number, z: number, cam: Vec3, dist: number): Occlusion {
+    const plan = TIER_PLAN[this.tier];
+    if (plan.occSteps <= 0) return occlusionOf(0, dist, 'off');
+    const key = hash2i(Math.round(x * 0.5), Math.round(z * 0.5), Math.round(y));
+    const now = nowMs();
+    const cached = this.occMemo.get(key);
+    if (cached && now - cached.at < 220) return { gain: cached.gain, hz: cached.hz, hits: 0 };
+    this.refreshColumns(cam);
+    const hits = occlusionHits(cam.x, cam.y, cam.z, x, y, z, plan.occSteps, (px, py, pz) => this.solidAt(px, py, pz));
+    const occ = occlusionOf(hits, dist, plan.occlusion);
+    this.occMemo.set(key, { at: now, gain: occ.gain, hz: occ.hz });
+    if (this.occMemo.size > 48) this.occMemo.clear();
+    return occ;
+  }
+
+  private solidAt(x: number, y: number, z: number): boolean {
+    if (y > 80) return false;
+    for (const col of this.columns) if (columnSolid(col, x, y, z)) return true;
+    const layout = this.layout;
+    if (!layout || layout.isOcean(x, z) || layout.isReserved(x, z, 0)) return false;
+    const d = layout.districtAt(x, z);
+    const [ax, az] = bearingToDir(d.grid.bearingDeg);
+    const [bx, bz] = bearingToDir(d.grid.bearingDeg + 90);
+    if (y > 28 + d.grid.block[0] * 0.15) return false;
+    return gridLotSolid(x, z, ax, az, bx, bz, d.grid.block[0], d.grid.block[1], d.grid.street);
   }
 }
 
@@ -380,4 +574,8 @@ function liveTier(): Tier {
 
 function nowSec(): number {
   return performance.now() / 1000;
+}
+
+function nowMs(): number {
+  return performance.now();
 }

@@ -1,0 +1,12 @@
+<!doctype html>
+<meta charset="utf-8">
+<link rel="icon" href="data:,">
+<title>A1 living sound render</title>
+<script type="module">
+import { captureLiving } from './livingCapture.ts';
+try {
+  window.__a1 = await captureLiving();
+} catch (err) {
+  window.__a1 = { check: [String(err)], memory: [], runtimeBytes: 0, planBytes: 0, files: [] };
+}
+</script>

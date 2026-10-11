@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A1 — Living city sound</title>
+<style>
+  :root { color-scheme: light; }
+  body { margin: 0; font: 16px/1.5 "Iowan Old Style", Palatino, Georgia, serif; color: #1c1915; background: #f6f3ec; }
+  header, main { max-width: 920px; margin: 0 auto; padding: 28px 20px 64px; }
+  h1 { font-size: 2rem; margin: 0 0 8px; }
+  h2 { font-size: 1.4rem; margin: 2.2rem 0 0.4rem; }
+  h3 { font-size: 1.05rem; margin: 1.4rem 0 0.3rem; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.84em; }
+  nav { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 16px 0; }
+  nav a { color: #134e4a; }
+  table { width: 100%; border-collapse: collapse; background: #fff; margin: 12px 0 8px; font-size: 0.92rem; }
+  th, td { border-bottom: 1px solid #e4dfd4; text-align: left; padding: 7px 8px; vertical-align: top; }
+  th { background: #efeae0; }
+  audio { width: min(100%, 420px); height: 32px; margin: 4px 0 12px; }
+  .note { color: #5c564c; font-size: 0.92rem; }
+  figure { margin: 0.4rem 0 1.2rem; }
+  figcaption { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>A1 — Living city sound</h1>
+  <p>Rain that changes with the surface, a street that answers back, and a city that keeps its distance. Everything on this bus is generated in the audio graph. No film stems, no downloaded samples.</p>
+  <nav>
+    <a href="#listen">Listen</a>
+    <a href="#surfaces">Surfaces</a>
+    <a href="#space">Streets</a>
+    <a href="#city">Sirens, spinners, signs</a>
+    <a href="#storm">The sea wall</a>
+    <a href="#memory">Memory</a>
+    <a href="#tiers">Tiers</a>
+    <a href="#methods">Methods</a>
+  </nav>
+</header>
+<main>
+  <h2 id="listen">Listen</h2>
+  <p>These are offline renders of the same nodes the game uses. Surface clips are a solo at a fixed level so the material is easy to hear. In the city the living rain sits under the existing bed, and the Little Tokyo downpour below peaks at <strong>−3.2 dBFS</strong> with <strong>0 clipped samples</strong>.</p>
+
+  <h3>Rain on a material</h3>
+  <figure>
+    <figcaption>Metal. A short ring near 4 kHz. The hits sit about 22 dB above the steady hiss.</figcaption>
+    <audio controls src="clips/rain-metal.wav"></audio>
+  </figure>
+  <figure>
+    <figcaption>Glass. Thinner, and the air above 8 kHz is still present.</figcaption>
+    <audio controls src="clips/rain-glass.wav"></audio>
+  </figure>
+  <figure>
+    <figcaption>Concrete. Midrange, the body of a wet street.</figcaption>
+    <audio controls src="clips/rain-concrete.wav"></audio>
+  </figure>
+  <figure>
+    <figcaption>Puddle. The energy sits under 250 Hz.</figcaption>
+    <audio controls src="clips/rain-puddle.wav"></audio>
+  </figure>
+  <figure>
+    <figcaption>Fabric awning. A muffled hiss, almost no air.</figcaption>
+    <audio controls src="clips/rain-fabric.wav"></audio>
+  </figure>
+  <figure>
+    <figcaption>Umbrella, close to the ear. Tighter than the awning.</figcaption>
+    <audio controls src="clips/rain-umbrella.wav"></audio>
+  </figure>
+
+  <h3>Where you are standing</h3>
+  <figure>
+    <figcaption>Alley, about 7 m across. A 50 ms slap, and the top end is dulled.</figcaption>
+    <audio controls src="clips/space-alley.wav"></audio>
+  </figure>
+  <figure>
+    <figcaption>Boulevard, about 38 m across. One quieter slap at 220 ms, and the air stays open.</figcaption>
+    <audio controls src="clips/space-boulevard.wav"></audio>
+  </figure>
+  <figure>
+    <figcaption>Under a freeway deck. The rain is low-passed hard.</figcaption>
+    <audio controls src="clips/space-freeway.wav"></audio>
+  </figure>
+  <figure>
+    <figcaption>Indoors. The street is outside; what leaks in is dull.</figcaption>
+    <audio controls src="clips/space-interior.wav"></audio>
+  </figure>
+
+  <h3>The rest of the city</h3>
+  <figure>
+    <figcaption>A siren pass at the level the game uses, a few hundred metres out. Turn it up. It is supposed to sit under the rain.</figcaption>
+    <audio controls src="clips/siren-pass.wav"></audio>
+  </figure>
+  <figure>
+    <figcaption>Spinner flyby. It crosses from the left ear to the right, swells as it passes, and the whine falls from 1166 Hz to 841 Hz.</figcaption>
+    <audio controls src="clips/spinner-flyby.wav"></audio>
+  </figure>
+  <figure>
+    <figcaption>A sign in the open, with a 120 Hz transformer hum, then the same sign behind a building. The hiss dies. A little of the hum remains.</figcaption>
+    <audio controls src="clips/neon-open.wav"></audio>
+    <audio controls src="clips/neon-behind.wav"></audio>
+  </figure>
+  <figure>
+    <figcaption>Little Tokyo in the rain: the existing bed, the street voices, and this living layer together.</figcaption>
+    <audio controls src="clips/market-mix.wav"></audio>
+  </figure>
+
+  <h2 id="surfaces">Surfaces</h2>
+  <p>One looping noise buffer, already allocated by the city bed, feeds a biquad per material and a short impact envelope. The impact is a gain shape into a bandpass. It is not a sample. Cloth gets a low-pass and a soft hit. Metal is a narrow ring near 4 kHz, kept quieter than the tick so the drop reads. Glass keeps the most air. A puddle is the low end.</p>
+  <table>
+    <thead><tr><th>Clip</th><th>Peak</th><th>RMS</th><th>Low</th><th>High</th><th>Air</th></tr></thead>
+    <tbody>
+      <tr><td>Metal</td><td>−11.5 dB</td><td>−34.0</td><td>−50.5</td><td>3.0</td><td>−12.4</td></tr>
+      <tr><td>Glass</td><td>−11.3</td><td>−30.5</td><td>−47.6</td><td>5.4</td><td>0.5</td></tr>
+      <tr><td>Concrete</td><td>−16.2</td><td>−31.4</td><td>−12.6</td><td>1.0</td><td>−7.5</td></tr>
+      <tr><td>Puddle</td><td>−17.3</td><td>−34.4</td><td>−2.1</td><td>−17.8</td><td>−25.2</td></tr>
+      <tr><td>Fabric</td><td>−16.7</td><td>−32.0</td><td>−3.0</td><td>−11.3</td><td>−31.4</td></tr>
+      <tr><td>Umbrella</td><td>−11.9</td><td>−30.8</td><td>−27.0</td><td>4.4</td><td>−5.9</td></tr>
+    </tbody>
+  </table>
+  <p class="note">Band columns are relative levels inside the clip, not absolute loudness. Air is everything above 8 kHz. None of these clips clipped.</p>
+
+  <h2 id="space">Streets</h2>
+  <p>The direct rain goes through one low-pass whose cutoff follows the place: about 5 kHz in an alley, 12.5 kHz on a boulevard, 460 Hz under a freeway deck, 880 Hz indoors. A single early reflection is the façade slap. On a boulevard that slap is the round trip <code>2 × width / 340</code>, here 220 ms, and it shows up as a correlation of 0.19. On a 7 m alley the same formula is 41 ms. A delay that short was collapsing into the direct sound in this graph, so the alley slap is held at 50 ms, which is the round trip of an 8.5 m gap. That 50 ms copy correlates at 0.46. The boulevard does not.</p>
+  <p>Past the slap, medium and above run damped feedback combs. The delay times scale with the street. They are not a concert-hall preset. An alley uses the slap and skips the extra combs, so the flutter stays one short repeat instead of a wash. A freeway and a room also damp the comb loop.</p>
+  <table>
+    <thead><tr><th>Place</th><th>Peak</th><th>RMS</th><th>High</th><th>Air</th><th>Slap</th></tr></thead>
+    <tbody>
+      <tr><td>Alley</td><td>−14.2 dB</td><td>−33.6</td><td>−0.7</td><td>−23.3</td><td>0.46 at 50 ms</td></tr>
+      <tr><td>Boulevard</td><td>−17.1</td><td>−34.9</td><td>−2.6</td><td>−10.7</td><td>0.19 at 220 ms</td></tr>
+      <tr><td>Under a freeway</td><td>−24.9</td><td>−40.9</td><td>−32.8</td><td>−56.5</td><td>the lid, not a slap</td></tr>
+      <tr><td>Interior</td><td>−20.2</td><td>−38.4</td><td>−22.6</td><td>−53.8</td><td>short and dull</td></tr>
+    </tbody>
+  </table>
+  <p class="note">The freeway air band is about 46 dB under the boulevard. The interior’s high band is about 20 dB under it. Same concrete rain, same impact rate.</p>
+
+  <h2 id="city">Sirens, spinners, signs, crowds</h2>
+  <p>A distant siren is a sawtooth through a soft clip, panned, with the pitch scaled by the closing speed. The wail itself moves slowly between 620 and 780 Hz. Doppler is applied on top. The clip is the real in-game gain, so it is quiet.</p>
+  <p>Spinner flybys already existed. The pitch law is now <code>f = f0 × 340 / (340 − v)</code> with the closing speed clamped, instead of a small linear bend. On this pass the bandpass centre falls from 1166 Hz to 841 Hz. Web Audio no longer applies velocity on the panner, so the ratio is written onto the filter by hand.</p>
+  <p>A transformer hum is a 120 Hz sine that only comes up within about 16 m of a sign, and it rolls off quickly. Occlusion is a ray march through lots and landmark footprints. Medium cuts the gain. High and Ultra also drop a low-pass into the voice. The two neon clips are the same noise plus a 120 Hz hum and a quiet 240 Hz harmonic. Open, the clip peaks at −24.6 dB. Behind the building the hiss is low-passed at 700 Hz, the peak falls to −41.9 dB, and the high band falls from −0.8 to −27. The hum is quieter, and it is still there.</p>
+  <p>Crowd murmur still follows the district fill. When people are actually standing within 18 m, the level can rise, and it never falls below that district fill or above full. Umbrellas come from the crowd’s own fraction, and from the player walking in rain with no awning overhead.</p>
+
+  <h2 id="storm">The sea wall</h2>
+  <p>Surf wash, breaker impact, crest wind, and thunder are untouched. They still live on the ambience bed. This bus only reads how hard the wash is, and it turns its own puddle and street rain down while that wash is up. The living compressor, on medium and above, sits on this bus alone. It cannot pump the surf.</p>
+
+  <h2 id="memory">Memory</h2>
+  <p>The living layer allocates <strong>no new AudioBuffer</strong>. It starts one extra player on the white-noise buffer the city already holds. Distant street voices are disconnected, not merely silenced, so the audio thread stops pulling them. Browser HRTF, where High and Ultra ask for it, is the engine’s own data and is not counted in the table below.</p>
+  <p>Decoded audio is the same on every tier, because the beds do not change size when the graph gets simpler. At 44.1 kHz that is <strong>21,873,600 bytes (20.9 MiB)</strong>. <code>CitySound.memoryReport()</code> and <code>__nlaAudio.memory()</code> return the same split.</p>
+  <table>
+    <thead><tr><th></th><th>Bytes</th><th>What it is</th></tr></thead>
+    <tbody>
+      <tr><td>Beds</td><td>13,406,400</td><td>Rain hiss, patter, rumble, machinery, wind, tyre, traffic, room tone</td></tr>
+      <tr><td>Sea wall</td><td>3,880,800</td><td>Surf wash, breaker, thunder. Left as they were</td></tr>
+      <tr><td>City loops</td><td>4,586,400</td><td>Shared white and brown noise, four PA tongues</td></tr>
+      <tr><td>Living layer</td><td>0</td><td>Filters, delays, two oscillators</td></tr>
+      <tr><td>Total</td><td>21,873,600</td><td>Every tier</td></tr>
+    </tbody>
+  </table>
+  <p class="note">The capture counted the runtime buffers and got the same 21,873,600 bytes. Float32, so a buffer is seconds × channels × 4 × sample rate.</p>
+
+  <h2 id="tiers">Tiers</h2>
+  <p>The graphics tier is the audio CPU budget. Low is the direct rain through one filter, with no reverb, no siren, no hum, and no occlusion. Medium groups the six materials into three filters, keeps one comb, and ducks occluded voices by gain. High and Ultra run all six materials, four combs, the siren, the hum, HRTF, and a low-pass occlusion. Ultra adds a second allpass and a longer march. One impact voice covers drips on every tier that has them. The rate changes with the surface. A second envelope was not worth the extra scheduler.</p>
+  <table>
+    <thead><tr><th></th><th>Low</th><th>Medium</th><th>High</th><th>Ultra</th></tr></thead>
+    <tbody>
+      <tr><td>Surface filters</td><td>1</td><td>3</td><td>6</td><td>6</td></tr>
+      <tr><td>Combs</td><td>0</td><td>1</td><td>4</td><td>4</td></tr>
+      <tr><td>Allpasses</td><td>0</td><td>0</td><td>1</td><td>2</td></tr>
+      <tr><td>Siren and hum</td><td>off</td><td>on</td><td>on</td><td>on</td></tr>
+      <tr><td>Impact voice</td><td>off</td><td>1</td><td>1</td><td>1</td></tr>
+      <tr><td>Panning</td><td>equal power</td><td>equal power</td><td>HRTF</td><td>HRTF</td></tr>
+      <tr><td>Occlusion</td><td>off</td><td>gain, 4 steps</td><td>low-pass, 8 steps</td><td>low-pass, 12 steps</td></tr>
+      <tr><td>Decoded bytes</td><td>21,873,600</td><td>21,873,600</td><td>21,873,600</td><td>21,873,600</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="methods">Methods and sources</h2>
+  <p>These are the techniques the graph is built from. The code is original. The papers and books are where the shapes come from.</p>
+  <ul>
+    <li>Manfred R. Schroeder, “Natural Sounding Artificial Reverberation,” Journal of the Audio Engineering Society, 1962. Damped feedback combs.</li>
+    <li>M. R. Schroeder and B. F. Logan, “Colorless Artificial Reverberation,” IRE Transactions on Audio, 1961. The same comb idea, and the reason the delays here follow the street instead of a fixed hall.</li>
+    <li>James A. Moorer, “About This Reverberation Business,” Computer Music Journal, 1979. A low-pass inside the comb loop so the tail darkens.</li>
+    <li>Jezar at Dreampoint, Freeverb. The well known eight-comb, four-allpass hall. The delay table is not used. Our allpasses are short biquads, not Freeverb’s long allpass delays.</li>
+    <li>Jian Kang, <em>Urban Sound Environment</em>, Taylor &amp; Francis, 2007. Flutter between façades as a round trip <code>2W/c</code>.</li>
+    <li>Andy Farnell, <em>Designing Sound</em>, MIT Press, 2010. Rain as filtered noise plus impacts that ring a material.</li>
+    <li>Richard Stevens and Dave Raybould, <em>The Game Audio Tutorial</em>, Focal Press, 2011. Occlusion as a gain cut and a low-pass, not a convolution.</li>
+    <li>W3C Web Audio, <code>PannerNode</code> <code>distanceModel: inverse</code> and <code>panningModel: HRTF</code>. The current spec removed source velocity. The Doppler ratio is the old stationary-listener form, applied by us.</li>
+    <li>MDN, Web Audio API: <code>DelayNode</code>, <code>BiquadFilterNode</code>, <code>DynamicsCompressorNode</code>.</li>
+  </ul>
+  <p>Convolution reverb was set aside on purpose. An impulse response would be another decoded buffer, and the memory budget is already the crash on Android phones. Algorithmic combs and one early delay do the street with no extra samples.</p>
+  <p class="note">Clips were rendered in headless Chrome through <code>OfflineAudioContext</code> at 44.1 kHz, from <code>src/audio/a1-render.html</code>, with the noise seeded so the numbers on this page match the files.</p>
+</main>
+</body>
+</html>

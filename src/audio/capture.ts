@@ -85,7 +85,7 @@ async function renderScene(scene: Scene): Promise<CaptureFile> {
   return { id: scene.id, peak: peakOf(audio), rms: rmsOf(audio), wav: bytesToBase64(encodeWav(audio)) };
 }
 
-function peakOf(buf: AudioBuffer): number {
+export function peakOf(buf: AudioBuffer): number {
   let m = 0;
   for (let c = 0; c < buf.numberOfChannels; c++) {
     const d = buf.getChannelData(c);
@@ -95,7 +95,7 @@ function peakOf(buf: AudioBuffer): number {
 }
 
 /** Same mono full-sample RMS as the offline full-bus meter. A per-channel step read sits about 2 dB hotter. */
-function rmsOf(buf: AudioBuffer): number {
+export function rmsOf(buf: AudioBuffer): number {
   const ch0 = buf.getChannelData(0);
   const ch1 = buf.numberOfChannels > 1 ? buf.getChannelData(1) : ch0;
   let s = 0;
@@ -106,7 +106,7 @@ function rmsOf(buf: AudioBuffer): number {
   return Math.round(Math.sqrt(s / Math.max(1, ch0.length)) * 1000) / 1000;
 }
 
-function encodeWav(buffer: AudioBuffer): Uint8Array {
+export function encodeWav(buffer: AudioBuffer): Uint8Array {
   const ch = buffer.numberOfChannels;
   const len = buffer.length;
   const sr = buffer.sampleRate;
@@ -142,7 +142,7 @@ function encodeWav(buffer: AudioBuffer): Uint8Array {
   return new Uint8Array(out);
 }
 
-function bytesToBase64(bytes: Uint8Array): string {
+export function bytesToBase64(bytes: Uint8Array): string {
   let bin = '';
   const chunk = 0x1000;
   for (let i = 0; i < bytes.length; i += chunk) {

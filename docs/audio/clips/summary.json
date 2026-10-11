@@ -1,0 +1,377 @@
+{
+  "errors": [],
+  "check": [],
+  "memory": [
+    {
+      "tier": "low",
+      "decodedBytes": 21873600,
+      "livingDecodedBytes": 0,
+      "stormDecodedBytes": 3880800,
+      "bedDecodedBytes": 13406400,
+      "cityDecodedBytes": 4586400,
+      "extraSources": 1,
+      "plan": {
+        "surfaces": 1,
+        "combs": 0,
+        "allpasses": 0,
+        "siren": false,
+        "hum": false,
+        "drips": 0,
+        "hrtf": false,
+        "occlusion": "off",
+        "occSteps": 0
+      }
+    },
+    {
+      "tier": "medium",
+      "decodedBytes": 21873600,
+      "livingDecodedBytes": 0,
+      "stormDecodedBytes": 3880800,
+      "bedDecodedBytes": 13406400,
+      "cityDecodedBytes": 4586400,
+      "extraSources": 1,
+      "plan": {
+        "surfaces": 3,
+        "combs": 1,
+        "allpasses": 0,
+        "siren": true,
+        "hum": true,
+        "drips": 1,
+        "hrtf": false,
+        "occlusion": "gain",
+        "occSteps": 4
+      }
+    },
+    {
+      "tier": "high",
+      "decodedBytes": 21873600,
+      "livingDecodedBytes": 0,
+      "stormDecodedBytes": 3880800,
+      "bedDecodedBytes": 13406400,
+      "cityDecodedBytes": 4586400,
+      "extraSources": 1,
+      "plan": {
+        "surfaces": 6,
+        "combs": 4,
+        "allpasses": 1,
+        "siren": true,
+        "hum": true,
+        "drips": 1,
+        "hrtf": true,
+        "occlusion": "lowpass",
+        "occSteps": 8
+      }
+    },
+    {
+      "tier": "ultra",
+      "decodedBytes": 21873600,
+      "livingDecodedBytes": 0,
+      "stormDecodedBytes": 3880800,
+      "bedDecodedBytes": 13406400,
+      "cityDecodedBytes": 4586400,
+      "extraSources": 1,
+      "plan": {
+        "surfaces": 6,
+        "combs": 4,
+        "allpasses": 2,
+        "siren": true,
+        "hum": true,
+        "drips": 1,
+        "hrtf": true,
+        "occlusion": "lowpass",
+        "occSteps": 12
+      }
+    }
+  ],
+  "runtimeBytes": 21873600,
+  "planBytes": 21873600,
+  "files": [
+    {
+      "id": "rain-metal",
+      "seconds": 1.1499773242630384,
+      "peak": 0.265,
+      "rms": 0.02,
+      "peakDb": -11.5,
+      "rmsDb": -34,
+      "clips": 0,
+      "bands": {
+        "sub": -59.3,
+        "low": -50.5,
+        "mid": -21.2,
+        "high": 3,
+        "air": -12.4,
+        "slap50": 0.009,
+        "slap220": 0.001
+      },
+      "bytes": 202900
+    },
+    {
+      "id": "rain-glass",
+      "seconds": 1.1499773242630384,
+      "peak": 0.272,
+      "rms": 0.03,
+      "peakDb": -11.3,
+      "rmsDb": -30.5,
+      "clips": 0,
+      "bands": {
+        "sub": -57.8,
+        "low": -47.6,
+        "mid": -23.9,
+        "high": 5.4,
+        "air": 0.5,
+        "slap50": -0.007,
+        "slap220": -0.006
+      },
+      "bytes": 202900
+    },
+    {
+      "id": "rain-concrete",
+      "seconds": 1.1499773242630384,
+      "peak": 0.154,
+      "rms": 0.027,
+      "peakDb": -16.2,
+      "rmsDb": -31.4,
+      "clips": 0,
+      "bands": {
+        "sub": -23.1,
+        "low": -12.6,
+        "mid": 2.2,
+        "high": 1,
+        "air": -7.5,
+        "slap50": 0.004,
+        "slap220": -0.006
+      },
+      "bytes": 202900
+    },
+    {
+      "id": "rain-puddle",
+      "seconds": 1.1499773242630384,
+      "peak": 0.136,
+      "rms": 0.019,
+      "peakDb": -17.3,
+      "rmsDb": -34.4,
+      "clips": 0,
+      "bands": {
+        "sub": -5.7,
+        "low": -2.1,
+        "mid": -1.9,
+        "high": -17.8,
+        "air": -25.2,
+        "slap50": -0.003,
+        "slap220": -0.027
+      },
+      "bytes": 202900
+    },
+    {
+      "id": "rain-fabric",
+      "seconds": 1.1499773242630384,
+      "peak": 0.147,
+      "rms": 0.025,
+      "peakDb": -16.7,
+      "rmsDb": -32,
+      "clips": 0,
+      "bands": {
+        "sub": -4.7,
+        "low": -3,
+        "mid": 2.4,
+        "high": -11.3,
+        "air": -31.4,
+        "slap50": 0.009,
+        "slap220": 0.017
+      },
+      "bytes": 202900
+    },
+    {
+      "id": "rain-umbrella",
+      "seconds": 1.1499773242630384,
+      "peak": 0.253,
+      "rms": 0.029,
+      "peakDb": -11.9,
+      "rmsDb": -30.8,
+      "clips": 0,
+      "bands": {
+        "sub": -39.7,
+        "low": -27,
+        "mid": -5,
+        "high": 4.4,
+        "air": -5.9,
+        "slap50": -0.006,
+        "slap220": 0.019
+      },
+      "bytes": 202900
+    },
+    {
+      "id": "space-alley",
+      "seconds": 1.6,
+      "peak": 0.195,
+      "rms": 0.021,
+      "peakDb": -14.2,
+      "rmsDb": -33.6,
+      "clips": 0,
+      "bands": {
+        "sub": -27.5,
+        "low": -13.4,
+        "mid": 0.2,
+        "high": -0.7,
+        "air": -23.3,
+        "slap50": 0.458,
+        "slap220": -0.014
+      },
+      "bytes": 282284
+    },
+    {
+      "id": "space-boulevard",
+      "seconds": 1.6,
+      "peak": 0.139,
+      "rms": 0.018,
+      "peakDb": -17.1,
+      "rmsDb": -34.9,
+      "clips": 0,
+      "bands": {
+        "sub": -29.4,
+        "low": -17,
+        "mid": -0.8,
+        "high": -2.6,
+        "air": -10.7,
+        "slap50": 0.004,
+        "slap220": 0.19
+      },
+      "bytes": 282284
+    },
+    {
+      "id": "space-freeway",
+      "seconds": 1.6,
+      "peak": 0.057,
+      "rms": 0.009,
+      "peakDb": -24.9,
+      "rmsDb": -40.9,
+      "clips": 0,
+      "bands": {
+        "sub": -27.3,
+        "low": -14.6,
+        "mid": -4.9,
+        "high": -32.8,
+        "air": -56.5,
+        "slap50": -0.06,
+        "slap220": -0.019
+      },
+      "bytes": 282284
+    },
+    {
+      "id": "space-interior",
+      "seconds": 1.6,
+      "peak": 0.098,
+      "rms": 0.012,
+      "peakDb": -20.2,
+      "rmsDb": -38.4,
+      "clips": 0,
+      "bands": {
+        "sub": -28,
+        "low": -16.3,
+        "mid": -1.9,
+        "high": -22.6,
+        "air": -53.8,
+        "slap50": 0.038,
+        "slap220": 0.009
+      },
+      "bytes": 282284
+    },
+    {
+      "id": "siren-pass",
+      "seconds": 2.4,
+      "peak": 0.05,
+      "rms": 0.008,
+      "peakDb": -26,
+      "rmsDb": -41.9,
+      "clips": 0,
+      "bands": {
+        "sub": -45.4,
+        "low": -40.8,
+        "mid": -6.7,
+        "high": -14.1,
+        "air": -24,
+        "slap50": 0.077,
+        "slap220": -0.026
+      },
+      "bytes": 423404
+    },
+    {
+      "id": "spinner-flyby",
+      "seconds": 1.6,
+      "peak": 0.132,
+      "rms": 0.015,
+      "peakDb": -17.6,
+      "rmsDb": -36.5,
+      "clips": 0,
+      "bands": {
+        "sub": -46,
+        "low": -31.7,
+        "mid": -5.4,
+        "high": -14.1,
+        "air": -24.4,
+        "slap50": -0.023,
+        "slap220": 0.003,
+        "approach": 1166,
+        "leave": 841
+      },
+      "bytes": 282284
+    },
+    {
+      "id": "neon-open",
+      "seconds": 1,
+      "peak": 0.059,
+      "rms": 0.016,
+      "peakDb": -24.6,
+      "rmsDb": -35.9,
+      "clips": 0,
+      "bands": {
+        "sub": -42.3,
+        "low": -14.6,
+        "mid": -11.2,
+        "high": -0.8,
+        "air": -10.2,
+        "slap50": 0.057,
+        "slap220": -0.026
+      },
+      "bytes": 176444
+    },
+    {
+      "id": "neon-behind",
+      "seconds": 1,
+      "peak": 0.008,
+      "rms": 0.002,
+      "peakDb": -41.9,
+      "rmsDb": -54,
+      "clips": 0,
+      "bands": {
+        "sub": -47,
+        "low": -22.2,
+        "mid": -19.6,
+        "high": -27,
+        "air": -58,
+        "slap50": 0.276,
+        "slap220": -0.207
+      },
+      "bytes": 176444
+    },
+    {
+      "id": "market-mix",
+      "seconds": 1.5,
+      "peak": 0.692,
+      "rms": 0.145,
+      "peakDb": -3.2,
+      "rmsDb": -16.8,
+      "clips": 0,
+      "bands": {
+        "sub": 3,
+        "low": 5.4,
+        "mid": 8.7,
+        "high": 16.2,
+        "air": 15.1,
+        "slap50": 0.002,
+        "slap220": -0.001
+      },
+      "bytes": 264644
+    }
+  ]
+}

@@ -118,6 +118,12 @@ export function panner(ctx: BaseAudioContext, ref: number, max: number, roll: nu
   return p;
 }
 
+/** HRTF on high and ultra. Medium and low stay equal-power, which is cheaper on a phone. */
+export function setPanningModel(node: PannerNode, hrtf: boolean): void {
+  const model: PanningModelType = hrtf ? 'HRTF' : 'equalpower';
+  if (node.panningModel !== model) node.panningModel = model;
+}
+
 export function setPos(node: PannerNode, x: number, y: number, z: number): void {
   const ax = node.positionX;
   if (ax) {
