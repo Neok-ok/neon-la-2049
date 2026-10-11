@@ -535,7 +535,8 @@ export class PhotoMode {
     let best: { d: number; off: number } | null = null;
     for (const [x, y] of samples) {
       const d = this.distanceAt(x, y);
-      if (d == null || d < 3.5 || d > 42) continue;
+      // 78 m still reaches a near canyon wall. The receding wall past that stays out of the lock.
+      if (d == null || d < 3.5 || d > 78) continue;
       const off = Math.hypot(x, y);
       if (!best || off < best.off - 0.025 || (Math.abs(off - best.off) <= 0.025 && d < best.d)) best = { d, off };
     }
