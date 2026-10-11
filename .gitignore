@@ -3,3 +3,7 @@ dist
 .DS_Store
 *.log
 /screenshots-tmp
+__pycache__/
+*.pyc
+public/models/spinner/_review.glb
+public/models/spinner/*.raw.glb

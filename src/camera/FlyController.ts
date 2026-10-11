@@ -5,7 +5,8 @@ import type { Controller, Pose } from './types';
 import { forwardOf } from './types';
 import type { Input } from '../input/Input';
 import { CityQuery } from '../world/CityQuery';
-import { createSpinnerMesh } from '../vehicles/spinnerModel';
+import { createSpinnerMesh, mountSpinnerLod } from '../vehicles/spinnerModel';
+import type { Tier } from '../core/quality';
 
 const v1 = new Vector3(), v2 = new Vector3(), v3 = new Vector3();
 /** Chase camera sits off the tail so the nose does not cover the thing you flew in to see. */
@@ -29,10 +30,15 @@ export class FlyController implements Controller {
   /** Extra solids (interior volumes). Walk mode does not use this. */
   blocksExtra: (x: number, y: number, z: number) => boolean = () => false;
 
-  constructor(private camera: PerspectiveCamera, private input: Input, private query: CityQuery, scene: Scene) {
-    this.spinner = createSpinnerMesh();
+  constructor(private camera: PerspectiveCamera, private input: Input, private query: CityQuery, scene: Scene, tier: Tier = 'high') {
+    this.spinner = createSpinnerMesh(tier);
     this.spinner.visible = false;
     scene.add(this.spinner);
+  }
+
+  /** Quality menu and the auto-drop path both land here. Ultra and high share one mesh. */
+  setSpinnerTier(tier: Tier): void {
+    mountSpinnerLod(this.spinner, tier);
   }
 
   enter(from: Pose): void {

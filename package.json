@@ -10,7 +10,8 @@
     "preview": "vite preview --host",
     "typecheck": "tsc --noEmit",
     "map": "node scripts/gen-map.mjs",
-    "screenshots": "node scripts/screenshots.mjs"
+    "screenshots": "node scripts/screenshots.mjs",
+    "turntable": "node scripts/model-turntable.mjs"
   },
   "dependencies": {
     "three": "^0.186.1"
