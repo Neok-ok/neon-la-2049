@@ -135,7 +135,12 @@ export function createLensRig(
     const cocMm = f.mul(f).div(nStop.mul(T.max(sMm.sub(f), T.float(1)))).mul(T.abs(sMm.sub(dMm))).div(dMm);
     const physical = cocMm.div(T.max(uSensor, T.float(1))).mul(T.max(uViewH, T.float(1)));
     const rel = T.abs(distM.sub(focusM)).div(T.max(focusM, T.float(1)));
-    const falloff = T.smoothstep(T.float(0.2), T.float(0.95), rel);
+    // The near wall and the end of the street sit at similar sensor circles. Open the
+    // background first so the focused signs stay readable while the canyon melts.
+    const farther = T.smoothstep(T.float(0), T.float(0.02), distM.sub(focusM));
+    const nearFall = T.smoothstep(T.float(0.32), T.float(1.05), rel);
+    const farFall = T.smoothstep(T.float(0.08), T.float(0.4), rel);
+    const falloff = T.mix(nearFall, farFall, farther);
     const stop = T.smoothstep(T.float(11), T.float(2), nStop);
     const focalW = T.smoothstep(T.float(32), T.float(58), f);
     const shaped = falloff.mul(stop).mul(focalW).mul(uMaxPx);
@@ -158,8 +163,8 @@ export function createLensRig(
   prefilter.updateBeforeType = NodeUpdateType.NONE;
   prefilter.name = 'dof-prefilter';
 
-  // A small plate already blurred by about ten pixels. Wide taps read this, so they cannot
-  // reprint a sharp sign at each sample.
+  // A round plate already blurred by about two dozen pixels. Wide taps read this, so they
+  // overlap into one disc instead of reprinting a sign.
   const softNode = T.Fn(() => {
     const uv = T.uv();
     const texel = T.vec2(1, 1).div(T.max(uDrawSize, T.vec2(1, 1)));
@@ -210,8 +215,8 @@ export function createLensRig(
     disc.forEach(([ox, oy], i) => {
       const along = cap.motion ? (i / n - 0.5) : 0;
       const distPx = T.length(T.vec2(ox, oy)).div(rings).mul(reach);
-      const edge = T.max(reach.mul(0.22), T.float(pxPerTexel));
-      const gate = T.float(1).sub(T.smoothstep(T.max(reach.sub(edge), T.float(0)), reach.add(edge.mul(0.2)), distPx));
+      const edge = T.max(reach.mul(0.7), T.float(2));
+      const gate = T.float(1).sub(T.smoothstep(reach.mul(0.18), reach.add(edge.mul(0.2)), distPx));
       const dir = T.vec2(T.float(ox), T.float(oy).mul(squeeze)).div(rings);
       const tightReach = T.min(reach, T.float(4));
       const tightUv = T.clamp(uv0.add(dir.mul(tightReach).div(pxPerTexel).mul(uDofTexel)).add(vel.mul(along)), T.vec2(0, 0), T.vec2(1, 1));
@@ -224,7 +229,7 @@ export function createLensRig(
       const radial = T.length(T.vec2(T.float(ox), T.float(oy))).div(rings);
       const rim = T.mix(T.float(0.84), T.float(1.16), T.smoothstep(T.float(0.4), T.float(1), radial));
       const w = gate.mul(rim).mul(T.float(1).sub(sharper.mul(0.94))).mul(T.float(1).sub(closer.mul(0.8)));
-      const useWide = T.smoothstep(T.float(2.2), T.float(5.5), reach);
+      const useWide = T.smoothstep(T.float(1.4), T.float(3.8), reach);
       const rgb = T.mix(prefilter.sample(tightUv).rgb, soft.sample(wideUv).rgb, useWide);
       const luma = rgb.dot(T.vec3(0.2126, 0.7152, 0.0722));
       const hot = T.smoothstep(T.float(0.9), T.float(2.6), luma);
@@ -260,7 +265,7 @@ export function createLensRig(
     for (const [ix, iy, wx, wy] of corners) {
       const uv = T.clamp(origin.add(T.vec2(ix + 0.5, iy + 0.5)).mul(uDofTexel), T.vec2(0, 0), T.vec2(1, 1));
       const sample = gather.sample(uv);
-      const agree = T.float(1).sub(T.smoothstep(T.float(0.5), T.float(2.5), T.abs(sample.a.sub(centerCoc))));
+      const agree = T.float(1).sub(T.smoothstep(T.float(3), T.float(12), T.abs(sample.a.sub(centerCoc))));
       const w = wx.mul(wy).mul(agree);
       acc = acc.add(sample.rgb.mul(w));
       wsum = wsum.add(w);
@@ -511,8 +516,9 @@ function finishRig(
 function softDisc(): Array<[number, number, number]> {
   const pts: Array<[number, number, number]> = [[0, 0, 1]];
   const rings: Array<{ r: number; n: number; w: number }> = [
-    { r: 7, n: 8, w: 0.62 },
-    { r: 13, n: 10, w: 0.34 },
+    { r: 8, n: 8, w: 0.7 },
+    { r: 16, n: 10, w: 0.42 },
+    { r: 24, n: 12, w: 0.2 },
   ];
   for (const ring of rings) {
     for (let i = 0; i < ring.n; i++) {
