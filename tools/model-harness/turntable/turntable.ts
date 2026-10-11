@@ -137,13 +137,13 @@ function buildLights(camera: PerspectiveCamera): { night: Group; rim: Group; stu
   night.add(new PointLight(0x3dfff0, 60, 0, 2).translateX(3.6).translateY(1.5).translateZ(0.2));
   night.add(new PointLight(0xff8a32, 28, 0, 2).translateY(0.4).translateZ(2.4));
   // Camera looks down its -Z. Lights past the subject (more negative Z) rim the far edges.
-  dir(rim, 0xd5e6ff, 34, new Vector3(1.7, 1.9, -6.2), new Vector3(0, 0.45, -2));
-  dir(rim, 0xa9c4f5, 22, new Vector3(-2.1, 0.35, -5.4), new Vector3(0, 0.4, -2));
-  dir(rim, 0xf0f6ff, 11, new Vector3(0.2, 2.4, -4.8), new Vector3(0, 0.7, -2));
+  dir(rim, 0xd5e6ff, 14, new Vector3(1.7, 1.9, -6.2), new Vector3(0, 0.45, -2));
+  dir(rim, 0xa9c4f5, 9, new Vector3(-2.1, 0.35, -5.4), new Vector3(0, 0.4, -2));
+  dir(rim, 0xf0f6ff, 6, new Vector3(0.2, 2.4, -4.8), new Vector3(0, 0.7, -2));
   dir(rim, 0xffe4c6, 2.2, new Vector3(-0.3, 0.45, 0.6), new Vector3(0, 0.4, -2));
-  dir(studio, 0xffffff, 5.5, new Vector3(-2.2, 2.6, 0.6), new Vector3(0, 0.3, -1));
-  dir(studio, 0xd5d8de, 2.0, new Vector3(2.0, 0.6, 0.2), new Vector3(0, 0.2, -1));
-  dir(studio, 0xffffff, 2.6, new Vector3(0.4, 1.8, -2.4), new Vector3(0, 0.4, -1));
+  dir(studio, 0xffffff, 8.0, new Vector3(-2.2, 2.6, 0.6), new Vector3(0, 0.3, -1));
+  dir(studio, 0xd5d8de, 3.2, new Vector3(2.0, 0.6, 0.2), new Vector3(0, 0.2, -1));
+  dir(studio, 0xffffff, 3.6, new Vector3(0.4, 1.8, -2.4), new Vector3(0, 0.4, -1));
   return { night, rim, studio };
 }
 
@@ -352,11 +352,11 @@ async function renderSheet(
   rimGround.material = new MeshStandardNodeMaterial({ color: 0x05060a, metalness: 0.35, roughness: 0.55 });
   const streakMat = new MeshBasicNodeMaterial({ color: new Color(1.4, 0.12, 0.85) });
   const streak = new Mesh(new BoxGeometry(0.12, 0.01, 22), streakMat);
-  streak.scale.z = 0.22;
-  streak.position.set(-4.2, 0.001, 6.5);
+  streak.scale.set(1, 1, 0.08);
+  streak.position.set(-6.4, 0.001, 0.4);
   const streak2 = streak.clone();
   streak2.material = new MeshBasicNodeMaterial({ color: new Color(0.15, 0.85, 1.3) });
-  streak2.position.set(4.2, 0.001, -6.5);
+  streak2.position.set(6.6, 0.001, -0.8);
   scene.add(nightGround, studioGround, rimGround, streak, streak2);
   const grid = new GridHelper(8, 8, 0x9aa0a6, 0x8e949a);
   grid.position.y = 0.001;
@@ -404,7 +404,7 @@ async function renderSheet(
     streak.visible = light === 'night';
     streak2.visible = light === 'night';
     grid.visible = light === 'studio';
-    hemi.intensity = light === 'night' ? 1.05 : light === 'rim' ? 0.18 : 0.35;
+    hemi.intensity = light === 'night' ? 1.45 : light === 'rim' ? 0.18 : 0.55;
     hemi.color.set(light === 'studio' ? 0xc8c8c8 : light === 'rim' ? 0x1a2740 : 0x243044);
     hemi.groundColor.set(light === 'studio' ? 0x9a9a9a : 0x0c0a10);
     scene.fog = light === 'night' ? nightFog : null;

@@ -139,7 +139,7 @@ const LAMP: Record<string, Color> = {
   white: new Color(1.6, 1.5, 1.3),
   red: new Color(2.2, 0.08, 0.05),
   blue: new Color(0.15, 0.35, 2.5),
-  amber: new Color(1.35, 0.42, 0.08),
+  amber: new Color(2.6, 0.85, 0.12),
   nozzle: new Color(0.85, 0.22, 0.04),
 };
 
@@ -163,10 +163,10 @@ function dressMaterial(src: Material): Material {
   if (kind === 'body' || kind === 'recess' || kind === 'satin' || kind === 'livery' || kind === 'drum') {
     const paint = {
       body: { color: 0x1a1c1f, metalness: 0.72, roughness: 0.4, wet: 0.12 },
-      satin: { color: 0x2a2d33, metalness: 0.42, roughness: 0.46, wet: 0.12 },
+      satin: { color: 0x8a9098, metalness: 0.16, roughness: 0.58, wet: 0.14 },
       recess: { color: 0x0a0b0c, metalness: 0.28, roughness: 0.72, wet: 0.18 },
       livery: { color: 0xd5d2cc, metalness: 0.05, roughness: 0.58, wet: 0.2 },
-      drum: { color: 0x1c1e22, metalness: 0.22, roughness: 0.78, wet: 0.22 },
+      drum: { color: 0x3a3e44, metalness: 0.12, roughness: 0.84, wet: 0.22 },
     }[kind];
     const m = new MeshStandardNodeMaterial({
       color: tex.map ? 0xffffff : paint.color,
@@ -195,7 +195,7 @@ function dressMaterial(src: Material): Material {
   }
   const basic = new MeshBasicNodeMaterial({ name: src.name });
   if (kind === 'underglow') {
-    basic.colorNode = T.vec3(0.55, 0.95, 1.45);
+    basic.colorNode = T.vec3(0.22, 0.4, 0.62);
     return basic;
   }
   if (kind === 'strobe-red' || kind === 'strobe-blue') {

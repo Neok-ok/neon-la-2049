@@ -12,6 +12,7 @@
 #   3  bevel normal, AO, roughness/metal maps, subdivision on the high hull
 #   4  tuned grade on the round-3 mesh (the first bake sparkled; sheet is that pass)
 #   5  drums faired into a wider shoulder, diagonal door cut, clean PBR grade
+#   6  thicker door cut, louver field, pressed drum ring, lamps that read at sheet size
 import math
 import os
 import shutil
@@ -391,8 +392,8 @@ def sit_and_scale(objs):
     return ok
 
 
-def place_wheel(kit, name, sign, y, radius, width, segments, slots, x=0.78):
-    part = kit.wheel_housing(name, radius=radius, width=width, segments=segments, slots=slots)
+def place_wheel(kit, name, sign, y, radius, width, segments, slots, x=0.78, pressed=False):
+    part = kit.wheel_housing(name, radius=radius, width=width, segments=segments, slots=slots, pressed=pressed)
     # local +Z out the cover, +Y up, +X toward the nose. Left side is a mirror; normals are fixed later.
     frame(part, (sign * x, y, radius + 0.02), (0, 1, 0), (0, 0, 1), (sign, 0, 0))
     return part
@@ -405,8 +406,8 @@ def place_skirt(kit, sign, x=0.78, width=0.30, height=0.20, z=0.16):
     return part
 
 
-def place_bar(kit, canopy):
-    part = kit.light_bar('light-bar', 0.84, 0.12, 0.046)
+def place_bar(kit, canopy, length=0.84, height=0.046):
+    part = kit.light_bar('light-bar', length, 0.14, height)
     loc = stick(kit, part, canopy, (0.0, -0.35, 1.34), (0, 0, 1), lift=0.0)
     # local +X is the long axis and runs across the roof. +Z up. A few centimetres, not a fin.
     frame(part, (loc.x, loc.y, loc.z + 0.004), (1, 0, 0), (0, 1, 0), (0, 0, 1))
@@ -614,7 +615,7 @@ def _box_blur(src, size, radius):
     return out
 
 
-def _grade(ao_img, size, tuned):
+def _grade(ao_img, size, tuned, loud=False):
     raw = _image_floats(ao_img)
     aos = array.array('f', raw[0::4])
     # Open panels are the bright end of the bake. Scale to that, or a dim AO
@@ -626,28 +627,39 @@ def _grade(ao_img, size, tuned):
     rough = array.array('f', [0.0]) * (size * size * 4)
     metal = array.array('f', [0.0]) * (size * size * 4)
     # Charcoal that still shows a panel in studio. Near-black (0.01) read as empty.
-    paint = (0.062, 0.064, 0.070) if tuned else (0.045, 0.047, 0.050)
+    # Loud is a step lighter so the studio row is not a black hole, with a wider cavity.
+    if loud:
+        paint = (0.14, 0.145, 0.155)
+    elif tuned:
+        paint = (0.062, 0.064, 0.070)
+    else:
+        paint = (0.045, 0.047, 0.050)
     for i, ao in enumerate(aos):
         ao_n = min(1.0, ao / hi)
         blur_n = min(1.0, blur[i] / hi)
-        shade = 0.62 + 0.38 * ao_n
+        shade = (0.48 + 0.52 * ao_n) if loud else (0.62 + 0.38 * ao_n)
         # Soft exposed-edge lift. A one-pixel neighbour test sparkled under the rim.
         edge = ao_n - blur_n
+        edge_lift = 0.12 if loud else 0.22
         if tuned and edge > 0.035:
-            shade *= 1.0 + min(0.22, (edge - 0.035) * 2.4)
+            shade *= 1.0 + min(edge_lift, (edge - 0.035) * (1.4 if loud else 2.4))
         if ao_n < 0.5:
-            shade *= 0.7 + 0.3 * (ao_n / 0.5)
+            shade *= 0.55 + 0.45 * (ao_n / 0.5) if loud else 0.7 + 0.3 * (ao_n / 0.5)
         o = i * 4
         base[o] = min(1.0, paint[0] * shade)
         base[o + 1] = min(1.0, paint[1] * shade)
         base[o + 2] = min(1.0, paint[2] * shade)
         base[o + 3] = 1.0
-        r = 0.46 + 0.28 * (1.0 - ao_n)
-        if tuned and edge > 0.035:
-            r = max(0.34, r - 0.08)
-        m = 0.28 + 0.30 * ao_n
-        if tuned and edge > 0.035:
-            m = min(0.72, m + 0.08)
+        if loud:
+            r = 0.58 + 0.22 * (1.0 - ao_n)
+            m = 0.18 + 0.16 * ao_n
+        else:
+            r = 0.46 + 0.28 * (1.0 - ao_n)
+            if tuned and edge > 0.035:
+                r = max(0.34, r - 0.08)
+            m = 0.28 + 0.30 * ao_n
+            if tuned and edge > 0.035:
+                m = min(0.72, m + 0.08)
         rough[o:o + 4] = array.array('f', (r, r, r, 1))
         metal[o:o + 4] = array.array('f', (m, m, m, 1))
     def finish(name, buf, space):
@@ -709,14 +721,14 @@ def pack_uv_trim(obj):
             uv[li].uv = (0.01 + (u % 1) * 0.07, 0.92 + (v % 1) * 0.07)
 
 
-def bake_body(obj, size, tuned):
+def bake_body(obj, size, tuned, loud=False):
     if bpy.context.scene.world is None:
         bpy.context.scene.world = bpy.data.worlds.new('World')
     smart_uv(obj)
     pack_uv_trim(obj)
     normal = bake_normal(obj, size)
     ao = bake_ao(obj, size)
-    albedo, rough, metal = _grade(ao, size, tuned)
+    albedo, rough, metal = _grade(ao, size, tuned, loud=loud)
     connect_pbr(obj, albedo, rough, metal, normal)
 
 
@@ -733,7 +745,8 @@ def build(round_n, lod, out_path):
     tuned = round_n >= 4
     dressed = round_n >= 2
     faired = round_n >= 5
-    print(f'BUILD round {round_n} lod {lod} detail {detail} rich {rich} bake {bake} faired {faired}')
+    loud = round_n >= 6
+    print(f'BUILD round {round_n} lod {lod} detail {detail} rich {rich} bake {bake} faired {faired} loud {loud}')
 
     hull = loft(
         [hull_section(*row, flare=faired) for row in HULL],
@@ -767,7 +780,7 @@ def build(round_n, lod, out_path):
         width = 0.40 if abs(y) > 1 else 0.36
         place_wheel(
             kit, f'drum-{sign:+d}-{y:+.2f}', sign, y, radius, width, seg,
-            slots if y > 0 or detail else 0, x=drum_x,
+            slots if y > 0 or detail else 0, x=drum_x, pressed=loud,
         )
     if faired:
         place_skirt(kit, 1, x=0.60, width=0.20, height=0.12, z=0.07)
@@ -775,12 +788,15 @@ def build(round_n, lod, out_path):
     else:
         place_skirt(kit, 1)
         place_skirt(kit, -1)
-    place_bar(kit, canopy)
+    place_bar(kit, canopy, 1.05 if loud else 0.84, 0.058 if loud else 0.046)
 
-    stick(kit, kit.light_strip('head', 0.55, 0.028, 0.016, 'white'), hull, (0, 2.52, 0.42), (0, 1, 0.08))
-    stick(kit, kit.light_strip('tail', 1.05, 0.03, 0.014, 'red'), hull, (0, -2.45, 0.46), (0, -1, 0.2))
-    amber_len = 0.28 if faired else 0.14
-    amber_h = 0.042 if faired else 0.022
+    head_h = 0.05 if loud else 0.028
+    tail_len = 1.45 if loud else 1.05
+    tail_h = 0.08 if loud else 0.03
+    stick(kit, kit.light_strip('head', 0.72 if loud else 0.55, head_h, 0.016, 'white'), hull, (0, 2.52, 0.42), (0, 1, 0.08))
+    stick(kit, kit.light_strip('tail', tail_len, tail_h, 0.016, 'red'), hull, (0, -2.45, 0.46), (0, -1, 0.2))
+    amber_len = 0.36 if loud else (0.28 if faired else 0.14)
+    amber_h = 0.07 if loud else (0.042 if faired else 0.022)
     for sign, y in ((1, 1.85), (-1, 1.85), (1, -2.15), (-1, -2.15)):
         stick(
             kit, kit.light_strip(f'amber-{sign:+d}-{y:+.2f}', amber_len, amber_h, 0.012, 'amber'),
@@ -788,13 +804,21 @@ def build(round_n, lod, out_path):
         )
     if detail:
         if faired:
-            for i, y in enumerate((-1.55, -1.88, -2.18)):
+            louver_h = 0.34 if loud else 0.18
+            louver_n = 3 if loud else (5 if lod == 'high' else 3)
+            for i, y in enumerate((-1.48, -1.86, -2.20)):
                 stick(
-                    kit, kit.vent(f'louver-{i}', 1.15, 0.18, 0.055, 5 if lod == 'high' else 3),
+                    kit, kit.vent(
+                        f'louver-{i}', 1.25 if loud else 1.15, louver_h, 0.06 if loud else 0.055,
+                        louver_n, contrast=loud,
+                    ),
                     hull, (0, y, 0.70), (0, -0.55, 1),
                 )
             stick(
-                kit, kit.vent('louver-tail', 0.95, 0.22, 0.05, 4 if lod == 'high' else 2),
+                kit, kit.vent(
+                    'louver-tail', 1.15 if loud else 0.95, 0.32 if loud else 0.22, 0.06 if loud else 0.05,
+                    3 if loud else (4 if lod == 'high' else 2), contrast=loud,
+                ),
                 hull, (0, -2.48, 0.50), (0, -1, 0.2),
             )
         else:
@@ -803,23 +827,26 @@ def build(round_n, lod, out_path):
         stick(kit, kit.seam('hinge', 1.3, 0.012, 0.008), canopy, (0, -0.2, 1.30), (0, 0, 1))
         for sign in (1, -1):
             if faired:
-                part = kit.panel_slash(f'door-{sign:+d}', 1.8, 0.42, 0.018)
+                part = kit.panel_slash(f'door-{sign:+d}', 1.9, 0.48, 0.055 if loud else 0.018)
                 frame(part, (sign * 1.04, -0.05, 0.72), (0, 1, 0), (0, 0, 1), (sign, 0, 0))
             else:
                 part = kit.gullwing_lines(f'door-{sign:+d}', 1.7, 0.52, 0.028)
                 stick(kit, part, hull, (sign * 0.95, -0.05, 0.55), (sign, 0, 0.15))
             stick(
-                kit, kit.fan_grille(f'fan-{sign:+d}', 0.55, 0.18, 0.028, 4 if lod == 'high' else 2, glow=True),
+                kit, kit.fan_grille(f'fan-{sign:+d}', 0.55, 0.18, 0.028, 4 if lod == 'high' else 2, glow=not loud),
                 hull, (sign * 0.55, -0.15, 0.12), (0, 0, -1),
             )
         if faired:
-            stick(kit, kit.satin_plate('hood-satin', 0.46, 0.28), hull, (0, 1.72, 0.62), (0, 0.82, 0.35))
+            stick(kit, kit.recess_plate('hood-gap', 0.62, 0.40), hull, (0, 1.70, 0.62), (0, 0.82, 0.35), lift=0.0)
+            stick(kit, kit.satin_plate('hood-satin', 0.44, 0.24), hull, (0, 1.70, 0.64), (0, 0.82, 0.35), lift=0.004)
+            y0, y1 = (-0.35, 0.55) if loud else (-1.15, 0.95)
+            half = 0.025 if loud else 0.04
             for sign in (1, -1):
                 x = sign * 0.62
                 box(
                     f'rocker-{sign:+d}',
-                    (x - 0.04, -1.15, 0.012),
-                    (x + 0.04, 0.95, 0.04),
+                    (x - half, y0, 0.02),
+                    (x + half, y1, 0.045),
                     kit.lights['underglow'],
                 )
         else:
@@ -856,7 +883,7 @@ def build(round_n, lod, out_path):
     if bake:
         body = bpy.data.objects.get('body')
         if body:
-            bake_body(body, TEX[lod], tuned)
+            bake_body(body, TEX[lod], tuned, loud=loud)
         # Livery UVs were authored on the card. smart_project would put the word on the edge.
     objs = meshes()
     ok = sit_and_scale(objs)

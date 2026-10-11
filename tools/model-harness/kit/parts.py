@@ -200,7 +200,7 @@ class Kit:
             root.scale = Vector(scale)
         return part
 
-    def vent(self, name, width, height, depth=0.02, slats=5):
+    def vent(self, name, width, height, depth=0.02, slats=5, contrast=False):
         col = self.collection
         meshes = []
         meshes.append(_box(f'{name}-cavity', (-width / 2, -height / 2, 0.0), (width / 2, height / 2, depth * 0.45), self.recess, col))
@@ -218,14 +218,15 @@ class Kit:
         inner_h = height - rim * 2
         if slats > 0 and inner_h > 0.01:
             gap = inner_h / slats
-            slat_t = min(gap * 0.42, 0.012)
+            slat_t = min(gap * (0.55 if contrast else 0.42), 0.028 if contrast else 0.012)
+            slat_mat = self.satin if contrast else self.body
             for i in range(slats):
                 y = -inner_h / 2 + gap * (i + 0.5)
                 meshes.append(_box(
                     f'{name}-slat-{i}',
                     (-inner_w / 2, y - slat_t / 2, depth * 0.55),
                     (inner_w / 2, y + slat_t / 2, depth * 1.05),
-                    self.body, col,
+                    slat_mat, col,
                 ))
         return self._root(name, meshes)
 
@@ -482,14 +483,16 @@ class Kit:
             ))
         return self._root(name, meshes)
 
-    def wheel_housing(self, name, radius=0.36, width=0.34, segments=24, slots=3):
+    def wheel_housing(self, name, radius=0.36, width=0.34, segments=24, slots=3, pressed=False):
         """Enclosed drum. Local +Z is out of the cover, circle in XY. Face is a cap, not a rotor."""
         col = self.collection
         meshes = []
+        lip_mat = self.satin if pressed else self.drum
+        slot_half = 0.016 if pressed else 0.007
         meshes.append(_cylinder(name + '-drum', radius, width * 0.82, segments, self.drum, col, (0, 0, width * 0.38)))
         meshes.append(_annulus(
-            name + '-lip', radius * 1.01, radius * 0.90,
-            width * 0.72, width * 0.80, max(12, segments // 2), self.drum, col,
+            name + '-lip', radius * 1.02, radius * (0.78 if pressed else 0.90),
+            width * 0.70, width * 0.84, max(12, segments // 2), lip_mat, col,
         ))
         meshes.append(_cylinder(
             name + '-cap', radius * 0.86, width * 0.045, segments, self.drum, col, (0, 0, width * 0.80),
@@ -504,8 +507,8 @@ class Kit:
                 y = -span / 2 + step * (i + 0.5)
                 meshes.append(_box(
                     f'{name}-slot-{i}',
-                    (-radius * 0.55, y - 0.007, width * 0.72),
-                    (radius * 0.55, y + 0.007, width),
+                    (-radius * 0.55, y - slot_half, width * 0.72),
+                    (radius * 0.55, y + slot_half, width),
                     self.recess, col,
                 ))
         return self._root(name, meshes)
@@ -593,6 +596,15 @@ class Kit:
         except ValueError:
             pass
         mesh = _finish(bm, name, self.body, self.collection)
+        return self._root(name, [mesh])
+
+    def recess_plate(self, name, width, height, depth=0.006):
+        mesh = _box(
+            name,
+            (-width / 2, -height / 2, 0.0),
+            (width / 2, height / 2, depth),
+            self.recess, self.collection,
+        )
         return self._root(name, [mesh])
 
     def satin_plate(self, name, width, height, depth=0.01):
