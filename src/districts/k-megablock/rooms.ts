@@ -125,7 +125,9 @@ export function apartmentExtras(detail: InteriorDetail): InteriorBox[] {
   push(boxes, -(R.width / 2 - 0.38), 1.02, rZ + 0.15, 0.66, 0.05, 2.2, DARK);
   push(boxes, -(R.width / 2 - 0.55), 1.15, rZ - 0.55, 0.28, 0.16, 0.28, [0.55, 0.5, 0.42], { detail: 1 });
   // warm practical over the table. The shell stays cool; this is the amber lamp.
-  push(boxes, -0.35, 1.55, tableZ, 0.16, 0.28, 0.16, [0.4, 0.24, 0.12], { emissive: AMBER, flick: -1 });
+  push(boxes, -0.35, 1.55, tableZ, 0.16, 0.28, 0.16, [0.06, 0.03, 0.015], {
+    emissive: [0.85, 0.42, 0.14], flick: -1,
+  });
   // bench along the south (local −Z is south when yaw is π — the far wall)
   const benchZ = -C.length - R.length + 0.55;
   push(boxes, 0.35, 0.12, benchZ, 1.5, 0.4, 0.55, CLOTH);

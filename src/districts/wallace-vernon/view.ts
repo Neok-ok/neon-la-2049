@@ -109,10 +109,10 @@ export function wallaceCamera(layout: CityLayout, kind: WallaceView): WallacePos
   }
   const frame: PlaceFrame | null = atriumFrame(layout);
   if (!frame) return null;
-  // Off the centre line and nearly level, so the gold water sits above the sticks
-  // and the shaft stays in the upper half of a tall phone.
-  const feetL = { x: -3.2, y: 0.16, z: -3.2 };
-  const lookL = { x: 1.2, y: 2.4, z: -18 };
+  // Near the door, off to the side, so the far wall, the shaft and the gold water
+  // share the frame. Phone sticks cover the lower third; the water sits above them.
+  const feetL = { x: -7.2, y: 0.16, z: -2.2 };
+  const lookL = { x: 2, y: 2.6, z: -18 };
   const [fx, fz] = xformXZ(frame, feetL.x, feetL.z);
   const [lx, lz] = xformXZ(frame, lookL.x, lookL.z);
   const feet = { x: fx, y: frame.y + feetL.y, z: fz };

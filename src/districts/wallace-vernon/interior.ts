@@ -11,11 +11,11 @@ import {
 import type { PlaceFrame } from '../../world/interiors';
 import { COURT, localToWorld } from './spec';
 
-const STONE: RGB = [0.035, 0.032, 0.03];
-const STONE_HI: RGB = [0.07, 0.062, 0.05];
-const WATER: RGB = [0.05, 0.032, 0.012];
-const GOLD: RGB = [0.48, 0.26, 0.07];
-const SHAFT: RGB = [0.22, 0.12, 0.04];
+const STONE: RGB = [0.1, 0.09, 0.08];
+const STONE_HI: RGB = [0.2, 0.16, 0.11];
+const WATER: RGB = [0.62, 0.4, 0.12];
+const GOLD: RGB = [0.28, 0.14, 0.03];
+const SHAFT: RGB = [0.62, 0.34, 0.1];
 
 export function atriumFrame(layout: CityLayout): PlaceFrame | null {
   const l = layout.landmarkById('wallace-pyramid');
@@ -71,6 +71,11 @@ export function buildAtrium(detail: InteriorDetail): AtriumPlan {
   box(boxes, 0, 0, far, halfW * 2, H, th, STONE);
   wall(cols, 0, far, halfW * 2, th, 0, H);
 
+  // A stone skirting so the black walls meet the water as a room, not a void.
+  box(boxes, 0, 0.12, far + 0.45, halfW * 2 - 1.6, 0.7, 0.22, STONE_HI);
+  box(boxes, -halfW + 0.4, 0.12, far / 2, 0.22, 0.7, depth - 2.2, STONE_HI);
+  box(boxes, halfW - 0.4, 0.12, far / 2, 0.22, 0.7, depth - 2.2, STONE_HI);
+
   const sideW = halfW - open;
   const sideX = open + sideW / 2;
   box(boxes, -sideX, 0, -0.1, sideW, H, th, STONE);
@@ -91,8 +96,8 @@ export function buildAtrium(detail: InteriorDetail): AtriumPlan {
   // One shaft, mid-hall. The column is emissive geometry; the light is baked, not a scene light.
   const sz = -14;
   box(boxes, 0, H - 0.06, sz, 2.6, 0.08, 2.6, STONE_HI, { emissive: [0.55, 0.3, 0.08], flick: -1 });
-  box(boxes, 0, 0.2, sz, 1.15, H - 0.45, 0.04, [0.01, 0.008, 0.006], { emissive: SHAFT, flick: -1 });
-  box(boxes, 0, 0.2, sz, 0.04, H - 0.45, 1.15, [0.01, 0.008, 0.006], { emissive: [0.16, 0.09, 0.03], flick: -1 });
+  box(boxes, 0, 0.2, sz, 0.42, H - 0.45, 0.04, [0.01, 0.008, 0.006], { emissive: SHAFT, flick: -1 });
+  box(boxes, 0, 0.2, sz, 0.04, H - 0.45, 0.42, [0.01, 0.008, 0.006], { emissive: [0.16, 0.09, 0.03], flick: -1 });
   const glints = detail === 0 ? 3 : detail === 1 ? 5 : 7;
   for (let i = 0; i < glints; i++) {
     const a = (i / glints) * Math.PI * 2;
@@ -102,7 +107,7 @@ export function buildAtrium(detail: InteriorDetail): AtriumPlan {
   }
 
   const lights: InteriorLight[] = [
-    { x: 0, y: H - 1.4, z: sz, color: [1, 0.58, 0.22], intensity: 2.4, range: 16 },
+    { x: 0, y: H - 1.4, z: sz, color: [1, 0.62, 0.24], intensity: 5.5, range: 18 },
   ];
   return {
     boxes,
