@@ -102,8 +102,8 @@ for (const group of groups) {
   await page.goto(`${BASE}?${q}`);
   await page.waitForFunction(() => {
     const st = window.__nla?.stats?.();
-    return st && st.drawCalls > 30 && st.fps > 0 && (st.lod0 >= 4 || st.queryPending === 0);
-  }, null, { timeout: 240_000, polling: 400 }).catch(() => log(`${first.name}: stream slow`));
+    return st && st.drawCalls > 30 && st.fps > 0 && st.lod0 >= 4;
+  }, null, { timeout: 120_000, polling: 400 }).catch(() => log(`${first.name}: stream slow`));
   await page.evaluate(() => {
     const native = window.requestAnimationFrame.bind(window);
     let paused = false;
@@ -133,8 +133,9 @@ for (const group of groups) {
       await page.evaluate(s.after);
       await page.waitForFunction(() => {
         const st = window.__nla?.stats?.();
-        return st && st.inFlight === 0 && st.queryPending === 0 && st.fps > 0 && (st.lod0 >= 4 || st.drawCalls > 20);
-      }, null, { timeout: 180_000, polling: 400 }).catch(() => log(`${s.name}: still streaming`));
+        return st && st.fps > 0 && st.drawCalls > 20 && st.lod0 >= 4;
+      }, null, { timeout: 75_000, polling: 400 }).catch(() => log(`${s.name}: still streaming`));
+      await page.waitForTimeout(1200);
       await page.evaluate(() => new Promise((resolve) => {
         requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
       }));
