@@ -1,0 +1,30 @@
+{
+  "done": true,
+  "error": null,
+  "size": {
+    "x": 2.319984118496,
+    "y": 1.359921863552,
+    "z": 5.449999973232
+  },
+  "tris": 3788,
+  "mode": "scale",
+  "tiles": [],
+  "panels": [],
+  "scale": {
+    "figure": 1.75,
+    "lane": 3.7,
+    "door": 2,
+    "storey": 3.4,
+    "spinner": {
+      "length": 5.449999973232,
+      "width": 2.319984118496,
+      "height": 1.359921863552
+    },
+    "ratios": {
+      "heightOverFigure": 0.7770982077440001,
+      "widthOverLane": 0.6270227347286486,
+      "heightOverDoor": 0.679960931776,
+      "heightOverStorey": 0.3999770186917647
+    }
+  }
+}

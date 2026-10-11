@@ -1,59 +1,112 @@
 # Model harness
 
-Reusable path for a vehicle or a building prop: model it in headless Blender, dress it from a kit of parts, export a meshopt glTF, and judge it from a turntable contact sheet. The pilot is the player's spinner.
+Reusable path for a vehicle: gather comparison stills, model it in headless Blender, export a meshopt glTF with PBR maps, and judge it from a contact sheet, an overlap score, a blind critic, and a scale rig. The pilot is the player's spinner. Traffic cars and police variants should reuse these steps rather than inventing a second review path.
 
-Traffic does not use these files. NPC spinners stay on the merged shell in `src/vehicles/spinnerModel.ts` (`spinnerGeometries` / `spinnerMaterials`), one instanced draw. Only the craft the player flies loads `public/models/spinner/spinner-{high,medium,low}.glb`.
+Traffic does not use these files. NPC spinners stay on the merged shell in `src/vehicles/spinnerModel.ts` (`spinnerGeometries` / `spinnerMaterials`). Only the craft the player flies loads `public/models/spinner/spinner-{high,medium,low}.glb`.
 
-## Regenerating the spinner
+## 1. Reference board
+
+`refs/manifest.json` lists the stills and what not to copy (wordmarks, drum graphics, plates). The pixels stay out of git:
+
+```bash
+python3 tools/model-harness/scripts/fetch_refs.py
+```
+
+That writes `tools/model-harness/.refs/`, which is gitignored and is not part of the production build. `npm run dev` serves them at `/harness-refs/` for the contact sheet only.
+
+There is no orthographic top still. `silhouettes/k-spinner.json` records that the top outline is reconstructed from the side and front.
+
+## 2. Build
 
 Blender 4.0 or newer, and [gltfpack 1.1](https://github.com/zeux/meshoptimizer/releases/tag/v1.1) on `PATH` (the same meshopt version three.js decodes). Apt Blender has no Draco library, so the export is meshopt, not Draco.
 
 ```bash
 blender --background --python tools/model-harness/blender/build_spinner.py -- \
-  --round 3 --lod all --out public/models/spinner
+  --round 5 --lod all --out public/models/spinner
 ```
 
 `--lod high` (or `medium` / `low`) with `--out` a file path writes one glTF. `--round` is the critic cut:
 
 | Round | What the script builds |
 |---|---|
-| 1 | Lofted hull, faceted canopy, plain pods, skids, light strips |
-| 2 | Bevel, panels, vents, intakes, nozzles, canopy frame, spine. Low stays the round-1 shell |
-| 3 | High: one subdivision level, bolts, cables, greebles, 1024 AO bake. Medium: greebles and a 512 bake, no subdivision. Low: the simple shell |
+| 1 | Wedge hull, raked canopy, enclosed drums, raised skirt, nose and tail strips, amber, low light bar |
+| 2 | Louvers, gullwing cuts, POLICE decal, underglow, satin nose panel. Low keeps the round-1 shell plus the decal and a small underglow |
+| 3 | Bevel normal, AO, roughness and metal maps. High adds one subdivision. Maps are 1024 / 512 / 256 |
+| 4 | Same mesh as 3. The first tuned grade used a one-pixel wear test that sparkled under the rim light |
+| 5 | Drums set into the slab, shoulder flared toward the drum, diagonal door cut, deeper louvers, clean grade. This is the shipping cut |
 
-The script is the source of truth. Blender is Z-up with the nose on +Y; the glTF is Y-up with the nose on -Z, origin on the ground-contact centre. The M2 target box is 5.45 × 2.32 × 1.36 m (K's spinner: long, low, slab-sided, no roof fin, no wheel-like thrusters). The bar is `spinner-look-target.md`.
+The script is the source of truth. Blender is Z-up with the nose on +Y; the glTF is Y-up with the nose on -Z, origin on the ground-contact centre. The M2 box is 5.45 × 2.32 × 1.36 m. The bar is `spinner-look-target.md`.
 
-## LODs and the quality menu
+Textures are trim-sheet friendly: unique paint on the body islands, and any face smaller than a bolt is packed into an 8% corner cell. Roughness is stored in every channel so the glTF G slot and the metalness B slot both read the right value. The POLICE card is an original block word, authored on the decal, not a film logo.
 
-| Tier | File | What you get |
-|---|---|---|
-| Ultra, High | `spinner-high.glb` | Full mesh, subdivision, bolts, cables, 1024 albedo |
-| Medium | `spinner-medium.glb` | Bevel and kit, fewer greebles, 512 albedo, no subdivision |
-| Low | `spinner-low.glb` | Hull, canopy, pods, skids, lights |
+The grade normalises ambient occlusion to the open panels, darkens crevices, and lifts exposed edges with a blurred difference so a single texel cannot become a spark. Rain streaks are a world-space shader on the flanks, not a hash in the albedo. Medium and low run the same bake at 512 and 256.
 
-`FlyController.setSpinnerTier` runs from `App.applyTier`, so the quality menu and the automatic drop both swap the player mesh. Ultra on a phone (pixel ratio 3, the full glTF, a 1024 albedo) is the heavy combination. The menu already steps the craft down. Do not strip the high mesh to make that combination cheap.
+Scratch glbs for a round that is not shipping go in `tools/model-harness/.rounds/` (gitignored). The dev server exposes that folder at `/harness-models/`.
 
-## Turntable
+## 3. Contact sheet
 
 With `npm run dev` already serving the repo:
 
 ```bash
 BASE_URL=http://127.0.0.1:5173/ \
-  SRC=legacy TITLE="legacy shell" \
-  OUT=tools/model-harness/reviews/legacy.png \
-  npm run turntable
-
-BASE_URL=http://127.0.0.1:5173/ \
-  SRC=/models/spinner/spinner-high.glb TITLE="round 3 high" \
-  OUT=tools/model-harness/reviews/round3.png \
+  SRC=/harness-models/r2/spinner-high.glb TITLE="round 2" \
+  OUT=tools/model-harness/reviews/m2/round2.png \
   npm run turntable
 ```
 
-`SRC` is `legacy` or a URL path to a glTF under `public/`. The sheet is eight orbit angles plus a nose close-up and a thruster close-up, once in night rain (neon, wet ground, fog) and once in a grey studio. Open the PNG before changing the model. The page is `tools/model-harness/turntable/` and the capture script is `scripts/model-turntable.mjs` (leave `scripts/screenshots.mjs` alone).
+`SRC` is `legacy`, a `/models/...` path under `public/`, or a `/harness-models/...` path. `MODE` defaults to `sheet`.
 
-## Critic loop
+The sheet is eight orbit angles plus a nose close-up and a rear-drum close-up. Three rows: night rain, a low-key cool rim (shape has to read in the dark), and a grey studio. The matching still sits to the right of each angle (`side`, `front`, or `rear` from the manifest). The capture script writes a `.json` sidecar of the tile list next to the PNG. The page is `tools/model-harness/turntable/` and the capture script is `scripts/model-turntable.mjs` (leave `scripts/screenshots.mjs` alone).
 
-`spinner-look-target.md` is the bar. After each meaningful change, render a sheet, score it 1–10 on silhouette, surface detail, lighting, material, film feel, and whether it reads as K's spinner, and write the fix list next to that sheet before editing the script. "Generic sci-fi car" and "has wheels" are fails. M1 sheets stay in `reviews/` as the baseline. M2 sheets and scores live in `reviews/m2/`.
+## 4. Silhouette score
+
+```bash
+BASE_URL=http://127.0.0.1:5173/ MODE=silhouette \
+  SRC=/harness-models/r2/spinner-high.glb TITLE="round 2" \
+  OUT=tools/model-harness/reviews/m2/round2-mask.png \
+  npm run turntable
+
+python3 tools/model-harness/scripts/iou.py \
+  --render tools/model-harness/reviews/m2/round2-mask.png \
+  --meta tools/model-harness/reviews/m2/round2-mask.json \
+  --out tools/model-harness/reviews/m2/round2-iou.json \
+  --overlay tools/model-harness/reviews/m2/round2-iou.png
+```
+
+The mask is three orthographic views (side, front, top) in the metre window in `silhouettes/frustum.json`. The model is not stretched to the reference box. Side and top put the nose on the right and the ground or the centreline on the shared origin. Front puts the ground and the centre on the shared origin. White in the overlay is overlap, red is reference only, cyan is model only.
+
+Targets: side IoU ≥ 0.85, front and top ≥ 0.80. Side and front traces are perspective estimates from three-quarter photographs, so a miss of a few centimetres at the nose or the drums gets explained, not silently rescaled. Top IoU is against the reconstruction, not a photograph, and has to be labeled that way.
+
+Run the current shipping mesh through this once before trusting a high score. A dart with a roof spine should land well under the side target.
+
+## 5. Scale rig
+
+```bash
+BASE_URL=http://127.0.0.1:5173/ MODE=scale \
+  SRC=/harness-models/r2/spinner-high.glb TITLE="round 2" \
+  OUT=tools/model-harness/reviews/m2/round2-scale.png \
+  npm run turntable
+```
+
+The same scene holds the model, a 1.75 m figure, a 3.70 m lane (two lines), a 2.00 m doorway, and a 3.40 m wall (one city storey). The ground grid is 1 m. The header is the measured bounding box and the ratios. The `.json` sidecar repeats those numbers. This replaces a distance-only check.
+
+In the game, park the craft beside the crowd, in a street, and next to a doorway, and write the same ratios down. A real car of this length is about 5.5 m against 1.75 m people, lanes about 3.5–3.7 m, and storeys about 3–4 m.
+
+## 6. Blind critic
+
+`critic/RUBRIC.md` is the only brief the scorer gets. The scorer is a fresh pass: the contact sheet, the three stills, and the rubric. No build notes, no earlier scores, no IoU. Official numbers live in `reviews/m2/roundN-critic.md`. Whatever the person who edited the mesh thought goes in `reviews/m2/roundN-notes.md` and does not replace the critic.
+
+M1 sheets stay in `reviews/` as the baseline (silhouette 7, surface 6, lighting 6, material 5, film 6). M2 sheets live in `reviews/m2/`. Stop when "reads as K's spinner" is at least 7 and no rubric column has fallen below that M1 row.
+
+## LODs and the quality menu
+
+| Tier | File | What you get |
+|---|---|---|
+| Ultra, High | `spinner-high.glb` | Full mesh, subdivision, bolts, cables, 1024 maps |
+| Medium | `spinner-medium.glb` | Bevel and kit, fewer greebles, 512 maps, no subdivision |
+| Low | `spinner-low.glb` | Hull, canopy, drums, skirt, lights, decal, 256 maps |
+
+`FlyController.setSpinnerTier` runs from `App.applyTier`, so the quality menu and the automatic drop both swap the player mesh. The lighter tiers carry the smaller textures. Do not strip the high mesh to make Ultra on a phone cheap.
 
 ## Kit of parts
 
@@ -73,12 +126,21 @@ kit.place(part, location=(1, 2, 3), normal=(0, 1, 0), lift=0.002)
 | `seam(name, length, width=0.01, depth=0.006)` | A dark gap |
 | `light_strip(name, length, height=0.03, depth=0.012, kind='white')` | Bezel plus an emissive lamp. `kind` is `white`, `red`, `blue`, `amber`, `strobe-red`, `strobe-blue` |
 | `intake(name, width, height, depth=0.06, vanes=3)` | Dark cavity, lip, vanes |
-| `thruster_nozzle(name, radius=0.16, depth=0.07, vanes=8, segments=16)` | Tube, ring, vanes, dim core. The bore stays open |
+| `thruster_nozzle(name, radius=0.16, depth=0.07, vanes=8, segments=16)` | Tube, ring, vanes, dim core. The bore stays open. The spinner does not use this |
 | `antenna(name, height=0.28, kind='blade')` | `blade` or `whip` |
 | `cable(name, points, radius=0.008, segments=5)` | Tube through local-space points |
 | `pipe(name, points, radius=0.016, segments=6)` | A thicker cable |
 | `bolt_cluster(name, width, height, count=6, seed=1)` | A small bolt field |
 | `greeble_cluster(name, width, height, depth=0.04, count=8, seed=1)` | Boxes and stumps |
+| `side_pod(name, length, width, height, nose, tail)` | Flat skirt. Local +X toward the nose, +Y up, +Z out |
+| `fan_grille(name, width, height, depth, slats, glow=False)` | Rectangular recess. Not a disc |
+| `wheel_housing(name, radius, width, segments, slots)` | Enclosed drum. Local +Z out of the cover |
+| `light_bar(name, length, width, height)` | Low red/blue bar. Not a fin |
+| `gullwing_lines(name, length, height, gap)` | Rectangular door cut, shut |
+| `panel_slash(name, length, rise, thick)` | Diagonal door cut: dark gap plus a satin lip |
+| `fender_cheek(name, length, depth, height)` | Upper arm from the slab onto an enclosed drum |
+| `satin_plate(name, width, height, depth=0.01)` | Lighter panel that sits on a host |
+| `livery_decal(name, width, height)` | Flat card for original lettering |
 | `place(part, location, normal=None, rotation=None, scale=None, lift=0.0)` | Parents the part to an empty and aims it |
 
-Materials the game keys off: `body`, `recess`, `glass`, `light-white`, `light-red`, `light-blue`, `light-amber`, `light-strobe-red`, `light-strobe-blue`, `light-nozzle`.
+Materials the game keys off: `body`, `satin`, `drum`, `recess`, `glass`, `livery`, `light-white`, `light-red`, `light-blue`, `light-amber`, `light-strobe-red`, `light-strobe-blue`, `light-underglow`, `light-nozzle`. Body, satin, drum, recess, and livery keep base color, normal, roughness, and metalness maps when the glTF has them.

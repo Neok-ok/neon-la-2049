@@ -2,7 +2,7 @@
 // Forward = -Z. Origin at the ground contact centre.
 import {
   BoxGeometry, BufferGeometry, Color, ExtrudeGeometry, Float32BufferAttribute, Group, Mesh, MeshBasicNodeMaterial,
-  MeshStandardNodeMaterial, Shape, type Material, type Object3D, type Texture,
+  MeshStandardNodeMaterial, Shape, Vector2, type Material, type Object3D, type Texture,
 } from 'three/webgpu';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -121,12 +121,16 @@ function kindOf(name: string): string {
   const n = name.toLowerCase();
   if (n.includes('strobe-red')) return 'strobe-red';
   if (n.includes('strobe-blue')) return 'strobe-blue';
+  if (n.includes('underglow')) return 'underglow';
   if (n.includes('nozzle')) return 'nozzle';
   if (n.includes('amber')) return 'amber';
   if (n.includes('white')) return 'white';
   if (n.includes('blue')) return 'blue';
   if (n.includes('red')) return 'red';
   if (n.includes('glass')) return 'glass';
+  if (n.includes('livery')) return 'livery';
+  if (n.includes('drum')) return 'drum';
+  if (n.includes('satin')) return 'satin';
   if (n.includes('recess')) return 'recess';
   return 'body';
 }
@@ -139,30 +143,64 @@ const LAMP: Record<string, Color> = {
   nozzle: new Color(0.85, 0.22, 0.04),
 };
 
+type PbrMat = Material & {
+  map?: Texture | null;
+  normalMap?: Texture | null;
+  roughnessMap?: Texture | null;
+  metalnessMap?: Texture | null;
+};
+
+function flankStreak() {
+  const flank = T.smoothstep(0.5, 0.88, T.abs(T.normalLocal.x));
+  const band = T.fract(T.positionLocal.x.mul(2.6).add(T.positionLocal.z.mul(1.15)));
+  const drop = T.smoothstep(0.18, 0.82, T.positionLocal.y);
+  return flank.mul(T.smoothstep(0.8, 0.97, band)).mul(drop);
+}
+
 function dressMaterial(src: Material): Material {
   const kind = kindOf(src.name);
-  const map = (src as Material & { map?: Texture | null }).map ?? null;
-  if (kind === 'body' || kind === 'recess') {
+  const tex = src as PbrMat;
+  if (kind === 'body' || kind === 'recess' || kind === 'satin' || kind === 'livery' || kind === 'drum') {
+    const paint = {
+      body: { color: 0x1a1c1f, metalness: 0.72, roughness: 0.4, wet: 0.12 },
+      satin: { color: 0x2a2d33, metalness: 0.42, roughness: 0.46, wet: 0.12 },
+      recess: { color: 0x0a0b0c, metalness: 0.28, roughness: 0.72, wet: 0.18 },
+      livery: { color: 0xd5d2cc, metalness: 0.05, roughness: 0.58, wet: 0.2 },
+      drum: { color: 0x1c1e22, metalness: 0.22, roughness: 0.78, wet: 0.22 },
+    }[kind];
     const m = new MeshStandardNodeMaterial({
-      color: map ? 0xffffff : kind === 'body' ? 0x1a1c1f : 0x0a0b0c,
-      metalness: kind === 'body' ? 0.72 : 0.28,
-      roughness: kind === 'body' ? 0.4 : 0.72,
+      color: tex.map ? 0xffffff : paint.color,
+      metalness: tex.metalnessMap ? 1 : paint.metalness,
+      roughness: tex.roughnessMap ? 1 : paint.roughness,
       name: src.name,
     });
-    if (map && kind === 'body') {
-      m.colorNode = T.texture(map);
+    if (tex.map) m.map = tex.map;
+    if (tex.normalMap) {
+      m.normalMap = tex.normalMap;
+      m.normalScale = new Vector2(0.65, 0.65);
     }
-    const dry = kind === 'body' ? 0.4 : 0.72;
-    m.roughnessNode = T.mix(T.float(dry), T.float(0.12), U.wetness);
+    if (tex.roughnessMap) m.roughnessMap = tex.roughnessMap;
+    if (tex.metalnessMap) m.metalnessMap = tex.metalnessMap;
+    if (kind === 'body' || kind === 'satin' || kind === 'drum') {
+      const streak = flankStreak();
+      m.colorNode = T.materialColor.mul(T.mix(T.float(1), T.float(0.72), streak));
+      m.roughnessNode = T.mix(T.materialRoughness.add(streak.mul(0.06)), T.float(paint.wet), U.wetness);
+    } else {
+      m.roughnessNode = T.mix(T.materialRoughness, T.float(paint.wet), U.wetness);
+    }
     return m;
   }
   if (kind === 'glass') {
     return new MeshStandardNodeMaterial({ color: 0x07090b, metalness: 0.9, roughness: 0.06, name: src.name });
   }
   const basic = new MeshBasicNodeMaterial({ name: src.name });
+  if (kind === 'underglow') {
+    basic.colorNode = T.vec3(0.55, 0.95, 1.45);
+    return basic;
+  }
   if (kind === 'strobe-red' || kind === 'strobe-blue') {
     const on = kind === 'strobe-red' ? T.vec3(2.2, 0.08, 0.05) : T.vec3(0.15, 0.35, 2.5);
-    const off = T.vec3(0.12, 0.02, 0.02);
+    const off = kind === 'strobe-red' ? T.vec3(0.45, 0.04, 0.03) : T.vec3(0.03, 0.08, 0.5);
     const pulse = T.step(0.5, T.fract(U.time.mul(2.5)));
     const k = kind === 'strobe-red' ? pulse : T.float(1).sub(pulse);
     basic.colorNode = T.mix(off, on, k);

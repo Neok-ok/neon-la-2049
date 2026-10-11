@@ -1,0 +1,7 @@
+{
+  "ppm": 120,
+  "note": "Shared by the silhouette page and iou.py. Metres. Do not stretch a render to the reference box.",
+  "side": { "x0": -3.05, "x1": 3.05, "z0": -0.05, "z1": 1.85 },
+  "front": { "x0": -1.45, "x1": 1.45, "z0": -0.05, "z1": 1.85 },
+  "top": { "x0": -3.05, "x1": 3.05, "y0": -1.45, "y1": 1.45 }
+}

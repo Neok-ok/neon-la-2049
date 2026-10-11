@@ -1,0 +1,39 @@
+{
+  "done": true,
+  "error": null,
+  "size": {
+    "x": 2.319984118496,
+    "y": 1.359921863552,
+    "z": 5.449999973232
+  },
+  "tris": 4236,
+  "mode": "silhouette",
+  "tiles": [],
+  "panels": [
+    {
+      "id": "side",
+      "x": 0,
+      "y": 0,
+      "w": 732,
+      "h": 228,
+      "note": "nose to the right, ground at the bottom. Trace is a perspective estimate."
+    },
+    {
+      "id": "front",
+      "x": 0,
+      "y": 228,
+      "w": 348,
+      "h": 228,
+      "note": "right of the car to the right. Trace is a perspective estimate."
+    },
+    {
+      "id": "top",
+      "x": 0,
+      "y": 456,
+      "w": 732,
+      "h": 348,
+      "note": "nose to the right. Reference outline is reconstructed, not a photograph."
+    }
+  ],
+  "scale": null
+}

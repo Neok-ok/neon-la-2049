@@ -1,0 +1,40 @@
+{
+  "subject": "Officer K's police spinner, Blade Runner 2049",
+  "use": "Comparison only. These files are downloaded into tools/model-harness/.refs/ and are gitignored. They are not shipped, not baked into textures, and not traced for logos, plates, or brand marks.",
+  "fetch": "python3 tools/model-harness/scripts/fetch_refs.py",
+  "stills": [
+    {
+      "id": "side",
+      "file": "side.jpg",
+      "angles": ["90", "270", "pod"],
+      "url": "https://hips.hearstapps.com/autoweek/assets/s3fs-public/futurePeugeot.jpg",
+      "page": "https://www.autoweek.com/car-life/a1832126/surprise-only-major-automaker-appear-blade-runner-2049-french/",
+      "what": "Trailer still. Rear three-quarter, close to a side view, with a standing figure. Best side outline. The nose is farther from the camera, so the front drum is foreshortened.",
+      "doNotCopy": ["any nameplate", "the plate on the tail"]
+    },
+    {
+      "id": "front",
+      "file": "front.jpg",
+      "angles": ["0", "45", "315", "nose"],
+      "url": "https://upload.wikimedia.org/wikipedia/commons/4/4f/Blade_Runner_-_47102814774.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Blade_Runner_-_47102814774.jpg",
+      "what": "Museum photograph of the 2049 prop (Petersen, 2019, CC-BY). Front three-quarter. Best front outline and drum-face read. The near drum is enlarged by perspective.",
+      "doNotCopy": ["the wordmark on the nose", "the graphic on the drum face", "the interior"]
+    },
+    {
+      "id": "rear",
+      "file": "rear.jpg",
+      "angles": ["135", "180", "225"],
+      "url": "https://hips.hearstapps.com/autoweek/assets/s3fs-public/BR2049.jpg",
+      "page": "https://www.autoweek.com/car-life/a1832126/surprise-only-major-automaker-appear-blade-runner-2049-french/",
+      "what": "Trailer still. Rear three-quarter, door up, louvered deck, red tail lamp, one rear drum. Best rear outline.",
+      "doNotCopy": ["the plate and its number", "the open-door mechanism as a copied part"]
+    }
+  ],
+  "missing": [
+    {
+      "id": "top",
+      "what": "No orthographic top still turned up in Commons, the Autoweek trailer frames, or the Petersen set. The top silhouette in silhouettes/k-spinner.json is reconstructed from the side and front stills. Top IoU is against that reconstruction, not a photograph."
+    }
+  ]
+}

@@ -1,0 +1,165 @@
+{
+  "done": true,
+  "error": null,
+  "size": {
+    "x": 2.299945058688,
+    "y": 1.449978632408,
+    "z": 4.999999986264
+  },
+  "tris": 6296,
+  "mode": "sheet",
+  "tiles": [
+    {
+      "label": "night · 0°",
+      "light": "night",
+      "angle": "0"
+    },
+    {
+      "label": "night · 45°",
+      "light": "night",
+      "angle": "45"
+    },
+    {
+      "label": "night · 90°",
+      "light": "night",
+      "angle": "90"
+    },
+    {
+      "label": "night · 135°",
+      "light": "night",
+      "angle": "135"
+    },
+    {
+      "label": "night · 180°",
+      "light": "night",
+      "angle": "180"
+    },
+    {
+      "label": "night · 225°",
+      "light": "night",
+      "angle": "225"
+    },
+    {
+      "label": "night · 270°",
+      "light": "night",
+      "angle": "270"
+    },
+    {
+      "label": "night · 315°",
+      "light": "night",
+      "angle": "315"
+    },
+    {
+      "label": "night · nose",
+      "light": "night",
+      "angle": "nose"
+    },
+    {
+      "label": "night · pod",
+      "light": "night",
+      "angle": "pod"
+    },
+    {
+      "label": "rim · 0°",
+      "light": "rim",
+      "angle": "0"
+    },
+    {
+      "label": "rim · 45°",
+      "light": "rim",
+      "angle": "45"
+    },
+    {
+      "label": "rim · 90°",
+      "light": "rim",
+      "angle": "90"
+    },
+    {
+      "label": "rim · 135°",
+      "light": "rim",
+      "angle": "135"
+    },
+    {
+      "label": "rim · 180°",
+      "light": "rim",
+      "angle": "180"
+    },
+    {
+      "label": "rim · 225°",
+      "light": "rim",
+      "angle": "225"
+    },
+    {
+      "label": "rim · 270°",
+      "light": "rim",
+      "angle": "270"
+    },
+    {
+      "label": "rim · 315°",
+      "light": "rim",
+      "angle": "315"
+    },
+    {
+      "label": "rim · nose",
+      "light": "rim",
+      "angle": "nose"
+    },
+    {
+      "label": "rim · pod",
+      "light": "rim",
+      "angle": "pod"
+    },
+    {
+      "label": "studio · 0°",
+      "light": "studio",
+      "angle": "0"
+    },
+    {
+      "label": "studio · 45°",
+      "light": "studio",
+      "angle": "45"
+    },
+    {
+      "label": "studio · 90°",
+      "light": "studio",
+      "angle": "90"
+    },
+    {
+      "label": "studio · 135°",
+      "light": "studio",
+      "angle": "135"
+    },
+    {
+      "label": "studio · 180°",
+      "light": "studio",
+      "angle": "180"
+    },
+    {
+      "label": "studio · 225°",
+      "light": "studio",
+      "angle": "225"
+    },
+    {
+      "label": "studio · 270°",
+      "light": "studio",
+      "angle": "270"
+    },
+    {
+      "label": "studio · 315°",
+      "light": "studio",
+      "angle": "315"
+    },
+    {
+      "label": "studio · nose",
+      "light": "studio",
+      "angle": "nose"
+    },
+    {
+      "label": "studio · pod",
+      "light": "studio",
+      "angle": "pod"
+    }
+  ],
+  "panels": [],
+  "scale": null
+}

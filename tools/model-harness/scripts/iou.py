@@ -1,0 +1,180 @@
+#!/usr/bin/env python3
+"""Overlap the orthographic silhouette render with the traced K outlines.
+
+Uniform scale, in metres. The render is not stretched to the reference box.
+Side and front traces are perspective estimates. The top trace is reconstructed.
+
+  python3 tools/model-harness/scripts/iou.py \
+    --render tools/model-harness/reviews/m2/round0-mask.png \
+    --meta tools/model-harness/reviews/m2/round0-mask.json \
+    --out tools/model-harness/reviews/m2/round0-iou.json \
+    --overlay tools/model-harness/reviews/m2/round0-iou.png
+"""
+import argparse
+import json
+import os
+
+from PIL import Image, ImageDraw
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+HARNESS = os.path.dirname(HERE)
+TRACE = os.path.join(HARNESS, 'silhouettes', 'k-spinner.json')
+FRUSTUM = os.path.join(HARNESS, 'silhouettes', 'frustum.json')
+
+
+def load_json(path):
+    with open(path, encoding='utf-8') as f:
+        return json.load(f)
+
+
+def raster(points, project, size):
+    img = Image.new('L', size, 0)
+    draw = ImageDraw.Draw(img)
+    draw.polygon([project(p) for p in points], fill=255)
+    return img
+
+
+def proj_xz(bounds, key_x0, key_x1, key_z0, key_z1, size):
+    w, h = size
+    span_x = bounds[key_x1] - bounds[key_x0]
+    span_z = bounds[key_z1] - bounds[key_z0]
+
+    def project(point):
+        x, z = point
+        u = (x - bounds[key_x0]) / span_x * w
+        v = (bounds[key_z1] - z) / span_z * h
+        return (u, v)
+
+    return project
+
+
+def proj_top(bounds, size):
+    w, h = size
+    span_x = bounds['x1'] - bounds['x0']
+    span_y = bounds['y1'] - bounds['y0']
+
+    def project(point):
+        x, y = point
+        u = (x - bounds['x0']) / span_x * w
+        v = (bounds['y1'] - y) / span_y * h
+        return (u, v)
+
+    return project
+
+
+def model_mask(crop, thresh):
+    gray = crop.convert('L')
+    return gray.point(lambda p: 255 if p >= thresh else 0)
+
+
+def iou(ref, model):
+    r = ref.tobytes()
+    m = model.tobytes()
+    if len(r) != len(m):
+        raise SystemExit(f'mask size mismatch {len(r)} vs {len(m)}')
+    inter = union = 0
+    only_ref = only_model = 0
+    for a, b in zip(r, m):
+        inside_a = a > 127
+        inside_b = b > 127
+        if inside_a and inside_b:
+            inter += 1
+            union += 1
+        elif inside_a or inside_b:
+            union += 1
+            if inside_a:
+                only_ref += 1
+            else:
+                only_model += 1
+    return {
+        'iou': (inter / union) if union else 0.0,
+        'intersection': inter,
+        'union': union,
+        'onlyRef': only_ref,
+        'onlyModel': only_model,
+    }
+
+
+def overlay(ref, model):
+    w, h = ref.size
+    out = Image.new('RGB', (w, h), (8, 8, 10))
+    rp, mp = ref.load(), model.load()
+    px = out.load()
+    for y in range(h):
+        for x in range(w):
+            a = rp[x, y] > 127
+            b = mp[x, y] > 127
+            if a and b:
+                px[x, y] = (236, 232, 220)
+            elif a:
+                px[x, y] = (196, 64, 54)
+            elif b:
+                px[x, y] = (64, 168, 196)
+    return out
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--render', required=True)
+    parser.add_argument('--meta', required=True)
+    parser.add_argument('--out', required=True)
+    parser.add_argument('--overlay', required=True)
+    parser.add_argument('--thresh', type=int, default=40)
+    args = parser.parse_args()
+
+    trace = load_json(TRACE)
+    frustum = load_json(FRUSTUM)
+    meta = load_json(args.meta)
+    render = Image.open(args.render).convert('RGB')
+    panels = {panel['id']: panel for panel in meta['panels']}
+    if render.size[0] < 32:
+        raise SystemExit(f'render is unexpectedly small: {render.size}')
+
+    views = {}
+    strips = []
+    for name, bounds_key, projector in (
+        ('side', 'side', lambda b, s: proj_xz(b, 'x0', 'x1', 'z0', 'z1', s)),
+        ('front', 'front', lambda b, s: proj_xz(b, 'x0', 'x1', 'z0', 'z1', s)),
+        ('top', 'top', lambda b, s: proj_top(b, s)),
+    ):
+        panel = panels[name]
+        size = (panel['w'], panel['h'])
+        crop = render.crop((panel['x'], panel['y'], panel['x'] + panel['w'], panel['y'] + panel['h']))
+        if crop.size != size:
+            raise SystemExit(f'{name} crop {crop.size} != panel {size}. The mask screenshot is not the canvas.')
+        ref = raster(trace['views'][name]['points'], projector(frustum[bounds_key], size), size)
+        model = model_mask(crop, args.thresh)
+        score = iou(ref, model)
+        score['source'] = trace['views'][name].get('source')
+        score['photo'] = bool(trace['views'][name].get('photo'))
+        score['note'] = trace['views'][name].get('orthographic') or trace['views'][name].get('note') or ''
+        views[name] = score
+        strips.append(overlay(ref, model))
+        print(f"{name:5} IoU {score['iou']:.3f}  ref-only {score['onlyRef']}  model-only {score['onlyModel']}")
+
+    gap = 8
+    width = max(im.width for im in strips)
+    height = sum(im.height for im in strips) + gap * (len(strips) - 1)
+    sheet = Image.new('RGB', (width, height), (12, 12, 14))
+    y = 0
+    for im in strips:
+        sheet.paste(im, (0, y))
+        y += im.height + gap
+    os.makedirs(os.path.dirname(os.path.abspath(args.overlay)) or '.', exist_ok=True)
+    sheet.save(args.overlay)
+    payload = {
+        'views': views,
+        'targets': {'side': 0.85, 'front': 0.80, 'top': 0.80},
+        'legend': 'White is overlap. Red is reference only. Cyan is model only.',
+        'alignment': trace['alignment'],
+        'topIsReconstructed': True,
+    }
+    os.makedirs(os.path.dirname(os.path.abspath(args.out)) or '.', exist_ok=True)
+    with open(args.out, 'w', encoding='utf-8') as f:
+        json.dump(payload, f, indent=2)
+    print('WROTE', args.out)
+    print('WROTE', args.overlay)
+
+
+if __name__ == '__main__':
+    main()

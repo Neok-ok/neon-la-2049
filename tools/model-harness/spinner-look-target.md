@@ -1,44 +1,45 @@
 # Spinner look-target
 
-Officer K's police spinner from Blade Runner 2049. Our own mesh, built in the harness from the kit. Not a Peugeot, not an LAPD badge, no lion, no ripped film mesh, no copied decal, no real car-brand badge.
+Officer K's police spinner from Blade Runner 2049. Our own mesh, built in the harness from the kit. Not a Peugeot, not an LAPD badge, no lion, no claw mark, no ripped film mesh, no copied decal, no real plate number, no real car-brand badge.
 
-Checked against the film, not against the M1 dart. Early George Hull sketches were louder: more police graphics, a taller emergency rack. The hero car that was built and shot is quieter than those sketches. The Budapest paint notes call the body dull graphite with silver where the paint breaks on the edges. The doors swing up on hydraulics (gullwing / scissor; the cut on the body is the gullwing line). The brick toys add round side discs; those are not on the car. M1 followed the toy read and grew a roof spine. Both are fails.
+The comparison stills are listed in `refs/manifest.json` and cached in gitignored `.refs/`. They are the check. Two corrections to the first M2 draft, after those stills:
+
+- The car is not a flat-skirted shape with the wheels deleted. The side and front outlines are a long wedge **plus two enclosed drums** at each corner. The drums are body-coloured and covered. They are the lift housings. A small glowing rotor with radial vanes, which is what M1 put on the haunch, is the fail. A covered drum the size of the ones in the stills is the car.
+- The roof is bare in the hero stills. Early concept art had a louder emergency rack. A light bar is allowed only as a low red/blue pod that does not change the outline at 30 m. No fin, no spine, no blade.
+
+The prop in the museum wears a manufacturer wordmark on the nose and a graphic on the drum face. Neither is copied. The drum face is a plain covered cap. The flank marking is original POLICE lettering.
 
 ## Proportions
 
-5.45 m long, 2.32 m wide, 1.36 m tall, inside the band 5.3–5.6 × 2.2–2.4 × 1.3–1.4. Forward is −Z in the game, +Y in Blender. Origin on the ground-contact centre.
-
-The side view is a long low sedan, about four times as long as it is tall. Long hood, shallow glass, short squared deck. The roof is flat. Nothing on the roof is a fin, a spine, or a blade. A light bar may sit on the roof only if it stays inside the 1.40 m box and reads as a bar, not a mast.
+5.45 m long, 2.32 m wide, 1.36 m tall, inside 5.3–5.6 × 2.2–2.4 × 1.3–1.4. Forward is −Z in the game, +Y in Blender. Origin on the ground-contact centre. About four times as long as it is tall.
 
 ## Silhouette
 
-- **Plan.** Parallel slab sides for most of the length. The nose is a heavy wedge, sharp in side view and wide in front view, not a needle and not a van face. The tail is cut square and stays nearly as wide as the hips.
-- **Front.** Low, wide, angular. One thin horizontal white strip across the fascia. No round lamps. No light rings around an arch.
-- **Side.** High beltline. Crisp creases. Flat flanks. A wide wraparound canopy, laid-back windshield, flat roof, raked rear glass. Gullwing doors are panel lines: a roof hinge line and a door cut on the flank. Not an open door.
-- **Roof.** Flat and low. Red and blue elements live in one low bar. No antenna tall enough to change the outline at 30 m.
-- **Skirts.** Big flat-faced side pods run low along the body and house the lift fans. They are slabs, wedge at the front, square at the back. The fans are recessed and covered with straight slats. From the side and from the rear quarter there is no round disc, no radial vane, no orange wheel. Underglow leaks from the covered fans as a cool line, not a hot circle.
-- **Rear.** Squared face, one red horizontal strip. The pod tails are rectangular covered ducts.
+- **Side.** Nose is a sharp low point. Hood climbs in a straight wedge into a shallow canopy. Roof is flat. Tail is cut off, not tapered to a pebble. A large covered drum sits under the nose. A smaller covered drum sits under the tail. Between them the skirt is a flat angled panel. Nothing on the roof breaks the line.
+- **Front.** Low and wide. The two front drums are the wide points. The nose sits between them with one thin white strip. The canopy is a wide raked band, narrower than the drums.
+- **Top.** Pointed nose, full width at the front drums, slab sides, squared tail. No top still was found; the plan is reconstructed from the side and front stills and the top IoU is reported against that reconstruction.
+- **Rear.** Broad cut face, red strip, louvered deck, the rear drums at the corners. Gullwing door is a cut, not an open door.
 
 ## Surface
 
-Charcoal and gunmetal. Matte hull, satin on a few panels (hood, door), so the body is not one highlight. Seams are gaps. Grime stays in the gaps. Rain streaks run down the flanks. Edges are scuffed back to metal. It is a working police car, not a studio pebble and not a showroom concept.
+Charcoal and gunmetal. Matte hull, satin on the hood and the door, grime in the gaps, rain streaks on the flanks, metal showing on scuffed edges. Rear deck has three louvers. Gullwing cut is a real gap on the flank and a hinge line on the roof.
 
-Livery is original block lettering that reads POLICE, painted, both flanks, small enough to be a marking and large enough to read at 5 m. No department shield, no city name, no manufacturer mark.
+Livery is a decal texture of original block letters spelling POLICE, on both flanks. No department shield, no city name, no manufacturer mark, no film plate.
 
 ## Lights
 
-- Thin white strip on the nose.
+- Thin white strip on the nose, between the drums.
 - Thin red strip on the tail.
-- Small amber markers at the pod corners.
-- Low roof bar, red one side and blue the other, alternating.
-- Cool underglow in the fan recesses. Dimmer than the strips. Not orange.
+- Small amber markers on the drum shoulders.
+- Low roof bar, red one side and blue the other. A few centimetres tall.
+- Cool underglow in the skirt slots. Not orange. The drum faces do not glow.
 
 ## How it should read
 
-- **200 m.** Long low wedge, the two strips, the light bar. No wheels, no fin.
-- **30 m.** Side pods, canopy, light bar, squared tail. Still no wheels.
-- **5 m.** Panel lines, gullwing cut, covered fan slats, POLICE, grime in the gaps, scuffed edges.
+- **200 m.** Long low wedge, the drums as dark circles under the nose and tail, the two light strips. No fin.
+- **30 m.** Covered drums, canopy, skirt, squared tail, the low bar.
+- **5 m.** Panel gaps, louvers, gullwing cut, POLICE, covered drum face, grime, scuffs.
 
 ## Fail
 
-A generic sci-fi car. A manta. A van. A roof fin or spine. Round thrusters, radial vanes, or anything that reads as a wheel. A crystal canopy. A needle nose. A pebble tail. One-tone plastic. Orange discs on the haunches. A light bar that is a mast.
+A generic sci-fi car. A manta. A van. A roof fin. An open nozzle, radial vanes, or an orange disc. A drum face that copies the prop's brand graphic. A needle with no drums. A pebble tail. One-tone plastic. A crystal canopy.
