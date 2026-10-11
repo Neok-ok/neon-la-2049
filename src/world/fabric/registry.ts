@@ -7,6 +7,10 @@ export function registerArchetype(id: string, fn: ArchetypeFn): void {
   archetypes.set(id, fn);
 }
 
+export function hasArchetype(id: string): boolean {
+  return archetypes.has(id);
+}
+
 export function getArchetype(id: string): ArchetypeFn {
   const fn = archetypes.get(id) ?? archetypes.get('basin-sprawl');
   if (!fn) throw new Error(`Archetype "${id}" not registered (and no basin-sprawl fallback)`);

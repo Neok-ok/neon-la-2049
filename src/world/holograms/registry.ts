@@ -4,19 +4,32 @@
 import type { HologramSpec } from './types';
 
 const items = new Map<string, HologramSpec>();
+let list: HologramSpec[] = [];
+let dirty = true;
+
+function touch(): void {
+  dirty = true;
+}
 
 export function registerHologram(spec: HologramSpec): void {
   items.set(spec.id, spec);
+  touch();
 }
 
 export function unregisterHologram(id: string): void {
-  items.delete(id);
+  if (!items.delete(id)) return;
+  touch();
 }
 
 export function hologramById(id: string): HologramSpec | undefined {
   return items.get(id);
 }
 
+/** Cached snapshot. Rebuilt when a hologram is registered, not every frame. */
 export function allHolograms(): HologramSpec[] {
-  return [...items.values()];
+  if (dirty) {
+    list = [...items.values()];
+    dirty = false;
+  }
+  return list;
 }

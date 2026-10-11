@@ -2,7 +2,7 @@
 // Blockout builders live here; district stages register detailed ones from src/districts/landmark-index.ts
 // (Stage 3: `megatower`, `legacy-tower`, `skybridge`, `wallace-pyramid`, `old-pyramid`).
 import { Group, Mesh, ShapeGeometry, Shape, Vector2, type Object3D, type Vector3 } from 'three/webgpu';
-import { getLayout, type CityLayout } from '../layout';
+import { getLayout, type CityLayout, type Landmark } from '../layout';
 import { bearingToYaw } from '../geo';
 import { GeoWriter, type FaceStyle } from './GeoWriter';
 import { getCityMaterial } from '../materials/cityMaterial';
@@ -17,7 +17,8 @@ import { getOceanMaterial } from '../materials/oceanMaterial';
 import { Beacons } from './Beacons';
 import { Flares } from './Flares';
 import { LandmarkLods } from './LandmarkLods';
-import { landmarkBuilder, registerLandmarkDefault, registerLandmarkType, type LandmarkCollider, type LandmarkEnv } from './registry';
+import { DEFERRED_LANDMARKS } from '../../districts/farIds';
+import { landmarkBuilder, landmarkOverridden, registerLandmarkDefault, registerLandmarkType, type LandmarkCollider, type LandmarkEnv } from './registry';
 
 export { registerLandmarkType };
 export type { LandmarkCollider, LandmarkBuild, LandmarkEnv, LandmarkBuilder } from './registry';
@@ -231,26 +232,54 @@ export class Landmarks {
   readonly beacons = new Beacons();
   readonly flares = new Flares();
   readonly lods = new LandmarkLods();
+  private readonly env: LandmarkEnv;
+  private readonly query: CityQuery;
+  private pending: Landmark[] = [];
 
   constructor(query: CityQuery) {
     const layout = getLayout();
     this.root.name = 'landmarks';
-    const env: LandmarkEnv = { layout, beacons: this.beacons, flares: this.flares, lods: this.lods };
+    this.query = query;
+    this.env = { layout, beacons: this.beacons, flares: this.flares, lods: this.lods };
     for (const l of layout.landmarks) {
-      const b = landmarkBuilder(l.type);
-      if (!b) {
-        console.warn(`No landmark builder for type ${l.type} (${l.id})`);
+      if (DEFERRED_LANDMARKS.has(l.type) && !landmarkOverridden(l.type)) {
+        this.pending.push(l);
         continue;
       }
-      const res = b(l, env);
-      res.object.name = res.object.name || l.id;
-      this.root.add(res.object);
-      query.addColliders(res.colliders);
+      this.addBuilt(l);
     }
     const walls = buildSeaWalls(layout);
     this.root.add(walls.object);
     query.addColliders(walls.colliders);
     this.root.add(this.lods.root, this.beacons.build(), this.flares.build());
+  }
+
+  /**
+   * Build landmarks that were waiting on a far chunk. `force` uses the blockout
+   * if the detailed builder never arrived, so a failed import does not leave a hole.
+   */
+  mountPending(force: boolean): void {
+    const left: Landmark[] = [];
+    for (const l of this.pending) {
+      if (!force && DEFERRED_LANDMARKS.has(l.type) && !landmarkOverridden(l.type)) {
+        left.push(l);
+        continue;
+      }
+      this.addBuilt(l);
+    }
+    this.pending = left;
+  }
+
+  private addBuilt(l: Landmark): void {
+    const b = landmarkBuilder(l.type);
+    if (!b) {
+      console.warn(`No landmark builder for type ${l.type} (${l.id})`);
+      return;
+    }
+    const res = b(l, this.env);
+    res.object.name = res.object.name || l.id;
+    this.root.add(res.object);
+    this.query.addColliders(res.colliders);
   }
 
   /** `scale` stretches the LOD switch distances per quality tier. */

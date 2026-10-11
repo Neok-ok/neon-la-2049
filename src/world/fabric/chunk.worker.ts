@@ -1,6 +1,8 @@
 /// <reference lib="webworker" />
 // Builds chunk geometry off the main thread. Protocol: see ChunkWorkerRequest / ChunkWorkerResponse.
 import { getLayout } from '../layout';
+import { areaArchetypesReady, farFabricReady } from './archetypeGate';
+import { createJobQueue } from './jobQueue';
 import { generateFabric } from './generator';
 import { buildChunkArrays } from './mesher';
 
@@ -28,9 +30,9 @@ export interface ChunkWorkerResponse {
 
 const layout = getLayout();
 
-self.onmessage = (e: MessageEvent<ChunkWorkerRequest>) => {
+function build(req: ChunkWorkerRequest): void {
   const t0 = performance.now();
-  const { id, x0, z0, size, lod } = e.data;
+  const { id, x0, z0, size, lod } = req;
   const fab = generateFabric(layout, x0, z0, size);
   const a = buildChunkArrays(layout, fab, x0, z0, size, lod);
   const res: ChunkWorkerResponse = { id, ...a, ms: performance.now() - t0 };
@@ -43,4 +45,14 @@ self.onmessage = (e: MessageEvent<ChunkWorkerRequest>) => {
     a.signs.buffer,
     a.blocks.buffer,
   ]);
+}
+
+const enqueue = createJobQueue<ChunkWorkerRequest>(
+  (job) => areaArchetypesReady(job.x0, job.z0, job.size),
+  build,
+  farFabricReady,
+);
+
+self.onmessage = (e: MessageEvent<ChunkWorkerRequest>) => {
+  enqueue(e.data);
 };

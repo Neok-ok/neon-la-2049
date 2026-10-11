@@ -4,6 +4,7 @@
 // fabric collision there. findStreetSpot and a cold cinematic check can still generate
 // one cell synchronously. A cell the worker already filled keeps its boxes, so fabricAt
 // unpacks them instead of running generateFabric again.
+import { areaArchetypesReady } from './fabric/archetypeGate';
 import { generateFabric } from './fabric/generator';
 import type { Box, Detail, FabricOutput, StyleId } from './fabric/types';
 import { getLayout, type CityLayout, type District } from './layout';
@@ -417,6 +418,10 @@ export class CityQuery {
       this.blocked = true;
       return null;
     }
+    if (!areaArchetypesReady(ix * QUERY_CELL, iz * QUERY_CELL, QUERY_CELL)) {
+      if (this.worker && !this.workerDead) this.enqueue(ix, iz);
+      return null;
+    }
     this.frameSyncs++;
     this.syncCount++;
     const fab = generateFabric(this.layout, ix * QUERY_CELL, iz * QUERY_CELL, QUERY_CELL);
@@ -434,6 +439,7 @@ export class CityQuery {
       this.lastUnpackMs = performance.now() - t0;
       return;
     }
+    if (!areaArchetypesReady(ix * QUERY_CELL, iz * QUERY_CELL, QUERY_CELL)) return;
     this.frameSyncs++;
     this.syncCount++;
     cell.fab = generateFabric(this.layout, ix * QUERY_CELL, iz * QUERY_CELL, QUERY_CELL);

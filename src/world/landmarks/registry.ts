@@ -27,10 +27,17 @@ export interface LandmarkEnv {
 export type LandmarkBuilder = (l: Landmark, env: LandmarkEnv) => LandmarkBuild;
 
 const builders = new Map<string, LandmarkBuilder>();
+const overrides = new Set<string>();
 
 /** Registering a type again replaces the builder (a district stage overriding the blockout). */
 export function registerLandmarkType(type: string, b: LandmarkBuilder): void {
   builders.set(type, b);
+  overrides.add(type);
+}
+
+/** True after a district module called `registerLandmarkType`, not merely the blockout default. */
+export function landmarkOverridden(type: string): boolean {
+  return overrides.has(type);
 }
 
 /** Blockout builders: used only when no district stage registered the type (import order does not matter). */

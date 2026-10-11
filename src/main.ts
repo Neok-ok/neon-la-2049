@@ -1,5 +1,6 @@
 import './ui/styles.css';
 import { App } from './app/App';
+import { seedVisitedAssets } from './app/assetCache';
 
 declare global {
   interface Window {
@@ -30,6 +31,19 @@ async function main(): Promise<void> {
     return;
   }
   window.__nla = app.debugApi();
+}
+
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    void (async () => {
+      try {
+        await seedVisitedAssets();
+      } catch {
+        /* the next visit just refetches */
+      }
+      navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {});
+    })();
+  });
 }
 
 void main();

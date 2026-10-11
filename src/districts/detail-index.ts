@@ -1,5 +1,6 @@
 // Main-thread registry entry for LOD0 street-detail modules (props, lamps, kiosks...).
-// District stages add `import './<district>/details';` here.
+// The opening view is imported up front. Far districts load in parallel; ChunkStreamer
+// holds their LOD0 uploads until `farDetailsReady()`.
 import './_shared/streetLamps';
 import './little-tokyo-market/details';
 import './dtla/details';
@@ -10,29 +11,41 @@ import './historic-core/details';
 import './historic-core/crowd';
 import './k-megablock/details';
 import './k-megablock/crowd';
-import './lakewood-megablocks/details';
-import './lakewood-megablocks/crowd';
-import './south-la-megablocks/details';
-import './south-la-megablocks/crowd';
 import './wallace-vernon/details';
 import './wallace-vernon/oldSurround';
-import './coastal-strip/details';
 import './arts-district/details';
 import './arts-district/crowd';
-import './westside/details';
-import './westside/crowd';
-import './basin-sprawl/details';
-import './basin-sprawl/crowd';
-import './southeast-industrial/details';
-import './southeast-industrial/crowd';
-import './hollywood/details';
-import './hollywood/crowd';
-import './lax-spaceport/details';
-import './south-bay-refineries/details';
-import './south-bay-refineries/crowd';
-import './harbor/details';
-import './harbor/crowd';
-import './long-beach/details';
-import './long-beach/crowd';
-import './east-la/details';
-import './east-la/crowd';
+import { markFarDetailsReady } from './detailGate';
+
+export const farDetailsReady = Promise.all([
+  import('./lakewood-megablocks/details'),
+  import('./lakewood-megablocks/crowd'),
+  import('./south-la-megablocks/details'),
+  import('./south-la-megablocks/crowd'),
+  import('./coastal-strip/details'),
+  import('./westside/details'),
+  import('./westside/crowd'),
+  import('./basin-sprawl/details'),
+  import('./basin-sprawl/crowd'),
+  import('./southeast-industrial/details'),
+  import('./southeast-industrial/crowd'),
+  import('./hollywood/details'),
+  import('./hollywood/crowd'),
+  import('./lax-spaceport/details'),
+  import('./south-bay-refineries/details'),
+  import('./south-bay-refineries/crowd'),
+  import('./harbor/details'),
+  import('./harbor/crowd'),
+  import('./long-beach/details'),
+  import('./long-beach/crowd'),
+  import('./east-la/details'),
+  import('./east-la/crowd'),
+]).then(
+  () => {
+    markFarDetailsReady();
+  },
+  (err) => {
+    console.error('far street detail failed to load', err);
+    markFarDetailsReady();
+  },
+);
