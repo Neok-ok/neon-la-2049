@@ -27,7 +27,7 @@ function toWorld(b, s, t) {
 function clusterTowers(block, dress) {
   const kit = dress.boxes.filter((b) => b.kit && b.family);
   const bodies = kit
-    .filter((b) => b.base < 0.8 && b.h > 3 && b.la > 2 && b.lb > 4)
+    .filter((b) => b.base < 0.8 && b.h > 8 && b.la > 6 && b.lb > 9)
     .sort((a, b) => b.lb * b.la - a.lb * a.la);
   const towers = [];
   for (const body of bodies) {

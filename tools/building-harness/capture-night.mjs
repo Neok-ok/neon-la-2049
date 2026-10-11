@@ -1,7 +1,7 @@
 // Night street, spinner flyby, and skyline frames for each B1 tower.
 //   TIERS=ultra,medium VIEWS=street,fly,sky ONLY=band-slab node tools/building-harness/capture-night.mjs
 import { chromium } from 'playwright';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const OUT = process.env.OUT ?? '/opt/cursor/artifacts/b1/night';
@@ -12,6 +12,7 @@ const tiers = (process.env.TIERS ?? 'ultra,medium').split(',');
 const views = (process.env.VIEWS ?? 'street,fly,sky').split(',');
 let towers = catalog.towers;
 if (only.length) towers = towers.filter((t) => only.includes(t.kind) || only.includes(t.id));
+towers = [...towers].sort((a, b) => a.door[1] - b.door[1] || a.door[0] - b.door[0]);
 mkdirSync(OUT, { recursive: true });
 
 const browser = await chromium.launch({
@@ -35,6 +36,28 @@ async function settle(page, ms) {
   await page.waitForTimeout(ms);
 }
 
+function already(file) {
+  try { return existsSync(file) && statSync(file).size > 40000; } catch { return false; }
+}
+
+async function shot(page, file) {
+  if (already(file)) {
+    console.log('skip', file);
+    return false;
+  }
+  for (let i = 0; i < 2; i++) {
+    try {
+      await page.screenshot({ path: file, timeout: 90_000 });
+      return true;
+    } catch (err) {
+      console.warn('retry', file, String(err).slice(0, 120));
+      await page.waitForTimeout(2000);
+    }
+  }
+  console.warn('missed', file);
+  return false;
+}
+
 const page = await browser.newPage({ viewport: { width: 1600, height: 900 }, deviceScaleFactor: 1 });
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e)));
@@ -50,13 +73,22 @@ for (const tier of tiers) {
     await settle(page, 50_000);
   }
   for (const tower of towers) {
-    if (views.includes('street')) {
+    if (views.includes('street') && already(join(OUT, `${tier}-${tower.kind}-street.png`))) {
+      console.log('skip', `${tier}-${tower.kind}-street.png`);
+    } else if (views.includes('street')) {
       await page.evaluate((p) => {
         const nla = window.__nla;
-        const dist = Math.max((p.gap ?? 10) + 3.6, 12);
+        const q = nla.app.query;
         const side = 4.2;
-        const cx = p.door[0] + p.normal[0] * dist + p.bx * side;
-        const cz = p.door[1] + p.normal[1] * dist + p.bz * side;
+        let dist = Math.max((p.gap ?? 8) + 3.4, 10);
+        let cx = p.door[0];
+        let cz = p.door[1];
+        for (let i = 0; i < 6; i++) {
+          cx = p.door[0] + p.normal[0] * dist + p.bx * side;
+          cz = p.door[1] + p.normal[1] * dist + p.bz * side;
+          if (!q.insideSolid(cx, p.ground + 1.2, cz, 0.7)) break;
+          dist += 3.5;
+        }
         const lookX = p.door[0] - cx;
         const lookZ = p.door[1] - cz;
         const heading = Math.atan2(lookX, -lookZ);
@@ -69,7 +101,20 @@ for (const tier of tiers) {
         w.pitch = pitch;
         nla.app.cams.fly.spinner.visible = false;
       }, tower);
-      await settle(page, 2200);
+      await page.waitForFunction((door) => {
+        const mesh = window.__nla?.app?.crowd?.mesh;
+        if (!mesh || mesh.count < 1) return false;
+        const e = mesh.instanceMatrix.array;
+        let best = 1e9;
+        const n = Math.min(mesh.count, 680);
+        for (let i = 0; i < n; i++) {
+          const scale = Math.hypot(e[i * 16], e[i * 16 + 1], e[i * 16 + 2]);
+          if (scale < 0.2) continue;
+          const d = Math.hypot(e[i * 16 + 12] - door[0], e[i * 16 + 14] - door[1]);
+          if (d < best) best = d;
+        }
+        return best < 18;
+      }, tower.door, { timeout: 14_000 }).catch(() => {});
       const info = await page.evaluate((p) => {
         const nla = window.__nla;
         const mesh = nla.app.crowd.mesh;
@@ -95,12 +140,14 @@ for (const tier of tiers) {
       }, tower);
       await settle(page, 400);
       const file = `${tier}-${tower.kind}-street.png`;
-      await page.screenshot({ path: join(OUT, file), timeout: 60_000 });
+      await shot(page, join(OUT, file));
       const st = await page.evaluate(() => window.__nla.stats());
       log.push({ file, ...info, fps: st.fps, draws: st.drawCalls, tris: st.triangles, idle: st.inFlight, crowd: st.crowd });
       console.log(file, JSON.stringify({ person: info.person, crowd: st.crowd, draws: st.drawCalls, idle: st.inFlight }));
     }
-    if (views.includes('fly')) {
+    if (views.includes('fly') && already(join(OUT, `${tier}-${tower.kind}-fly.png`))) {
+      console.log('skip', `${tier}-${tower.kind}-fly.png`);
+    } else if (views.includes('fly')) {
       await page.evaluate((p) => {
         const nla = window.__nla;
         const y = p.ground + Math.min(150, Math.max(42, p.height * 0.36));
@@ -115,14 +162,16 @@ for (const tier of tiers) {
         if (nla.app.cams.mode !== 'fly') nla.setMode('fly');
         nla.setPose(px, y, pz, (heading * 180) / Math.PI, (pitch * 180) / Math.PI);
       }, tower);
-      await settle(page, 1600);
+      await settle(page, 2800);
       const file = `${tier}-${tower.kind}-fly.png`;
-      await page.screenshot({ path: join(OUT, file), timeout: 60_000 });
+      await shot(page, join(OUT, file));
       const st = await page.evaluate(() => window.__nla.stats());
       log.push({ file, fps: st.fps, draws: st.drawCalls, tris: st.triangles, idle: st.inFlight });
       console.log(file, st.drawCalls, st.inFlight);
     }
-    if (views.includes('sky')) {
+    if (views.includes('sky') && already(join(OUT, `${tier}-${tower.kind}-sky.png`))) {
+      console.log('skip', `${tier}-${tower.kind}-sky.png`);
+    } else if (views.includes('sky')) {
       const sky = await page.evaluate((p) => {
         const nla = window.__nla;
         const q = nla.app.query;
@@ -147,9 +196,9 @@ for (const tier of tiers) {
         nla.setPose(px, y, pz, (heading * 180) / Math.PI, (pitch * 180) / Math.PI);
         return { px, y, pz, dist };
       }, tower);
-      await settle(page, 1800);
+      await settle(page, 2800);
       const file = `${tier}-${tower.kind}-sky.png`;
-      await page.screenshot({ path: join(OUT, file), timeout: 60_000 });
+      await shot(page, join(OUT, file));
       const st = await page.evaluate(() => window.__nla.stats());
       log.push({ file, fps: st.fps, draws: st.drawCalls, tris: st.triangles, idle: st.inFlight });
       console.log(file, st.drawCalls, st.inFlight, JSON.stringify(sky));
