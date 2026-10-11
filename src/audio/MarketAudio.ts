@@ -11,15 +11,25 @@ export class MarketAudio {
     const w = window as unknown as {
       __nlaAudio?: {
         capture: () => Promise<CaptureFile[]>;
+        captureLiving: () => Promise<unknown>;
+        livingCheck: () => Promise<string[]>;
+        memory: () => unknown;
         measure: () => Promise<unknown>;
         measureR7: () => Promise<unknown>;
       };
     };
     w.__nlaAudio = {
       capture: () => import('./capture').then((m) => m.captureScenes()),
-        measure: () => import('./measure').then((m) => m.measurePass()),
-        measureR7: () => import('./measure').then((m) => m.measureR7()),
+      captureLiving: () => import('./livingCapture').then((m) => m.captureLiving()),
+      livingCheck: () => import('./livingModel').then((m) => m.livingSelfCheck()),
+      memory: () => this.city.memoryReport(),
+      measure: () => import('./measure').then((m) => m.measurePass()),
+      measureR7: () => import('./measure').then((m) => m.measureR7()),
     };
+  }
+
+  memory(): ReturnType<CitySound['memoryReport']> {
+    return this.city.memoryReport();
   }
 
   get voices(): number {

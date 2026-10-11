@@ -9,7 +9,11 @@ export interface StreetSlot {
   gain: GainNode;
   filter: BiquadFilterNode;
   pan: PannerNode;
+  /** Low-pass after the gain. Created only when the tier occludes with a filter. */
+  occlude: BiquadFilterNode | null;
   connected: boolean;
+  /** Disconnected because nothing is in range. The tier cap uses `connected` on its own. */
+  parked: boolean;
   key: number;
   target: number;
 }
@@ -31,6 +35,8 @@ export interface CityGraph {
   slots: StreetSlot[];
   white: AudioBuffer;
   tongues: AudioBuffer[];
+  /** Unique decoded buffers this graph allocated. The living bus adds none. */
+  buffers: AudioBuffer[];
 }
 
 const SLOT_FILTER: Record<SlotKind, { type: BiquadFilterType; freq: number; q: number; ref: number; max: number; roll: number }> = {
@@ -126,7 +132,22 @@ export function mountCityGraph(ctx: BaseAudioContext, master: AudioNode, slots: 
   return {
     drone, murmur, industrial, pa, wet, delay, feedback,
     horn, awning, spinner, spinnerFilter, spinnerPan, slots: pool, white, tongues,
+    buffers: [white, brown, ...tongues],
   };
+}
+
+/** Insert one low-pass between the slot gain and its panner. A second call is a no-op. */
+export function ensureSlotOccluder(slot: StreetSlot, ctx: BaseAudioContext): BiquadFilterNode {
+  if (slot.occlude) return slot.occlude;
+  const f = ctx.createBiquadFilter();
+  f.type = 'lowpass';
+  f.frequency.value = 18000;
+  f.Q.value = 0.5;
+  try { slot.gain.disconnect(slot.pan); } catch { /* already rewired */ }
+  slot.gain.connect(f);
+  f.connect(slot.pan);
+  slot.occlude = f;
+  return f;
 }
 
 export function makeSlot(ctx: BaseAudioContext, master: AudioNode, white: AudioBuffer, kind: SlotKind): StreetSlot {
@@ -138,7 +159,7 @@ export function makeSlot(ctx: BaseAudioContext, master: AudioNode, white: AudioB
   const g = gain(ctx, 0);
   const pan = panner(ctx, spec.ref, spec.max, spec.roll);
   looping(ctx, white).connect(filter).connect(g).connect(pan).connect(master);
-  return { kind, gain: g, filter, pan, connected: true, key: 0, target: 0 };
+  return { kind, gain: g, filter, pan, occlude: null, connected: true, parked: false, key: 0, target: 0 };
 }
 
 export interface CityBusScene {

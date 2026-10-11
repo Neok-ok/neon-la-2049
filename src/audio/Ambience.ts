@@ -158,6 +158,7 @@ export class Ambience {
   private tireGain: GainNode | null = null;
   private rumbleGain: GainNode | null = null;
   private roomGain: GainNode | null = null;
+  private readonly decoded: AudioBuffer[] = [];
   /** Master level before mute. Remembered in localStorage. */
   private volume = audioPrefs.volume;
   /** Photo mode ducks the bus without writing the saved volume. */
@@ -214,6 +215,7 @@ export class Ambience {
 
     const noise = (kind: 'white' | 'brown', seconds = 4, seam = false) => {
       const src = makeNoise(ctx, kind, seconds, seam);
+      if (src.buffer) this.decoded.push(src.buffer);
       if (seam) {
         this.cityRate = src.playbackRate;
         this.pushCityRate(ctx.currentTime, 20);
@@ -405,6 +407,16 @@ export class Ambience {
 
   get context(): AudioContext | null {
     return this.ctx;
+  }
+
+  /** Buffers this bed decoded. Thunder, the wash and the breaker are included. */
+  get decodedBuffers(): readonly AudioBuffer[] {
+    return this.decoded;
+  }
+
+  /** 0..1 sea-wall wash. The living bus ducks against this and does not replace it. */
+  get surfLevel(): number {
+    return this.surfAmount;
   }
 
   /** Master bus. Market layers connect here so mute applies to them too. */

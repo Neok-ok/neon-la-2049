@@ -1,5 +1,6 @@
 // Gain targets for the district bus. Pure: the live graph and the offline captures share it.
 import type { DistrictBed, SlotKind } from './registry';
+import { dopplerRatio } from './livingModel';
 
 export interface MixIn {
   bed: DistrictBed;
@@ -159,7 +160,7 @@ export function spinnerVoice(
     if (spinner.dist < reach) {
       const u = 1 - spinner.dist / reach;
       gain = u * u * (spinner.heavy ? 0.2 : 0.16) * open;
-      const doppler = Math.max(0.75, Math.min(1.3, 1 + (spinner.closing ?? 0) / 340));
+      const doppler = dopplerRatio(spinner.closing ?? 0);
       freq = ((spinner.heavy ? 90 : 180) + u * (spinner.heavy ? 420 : 900)) * doppler;
     }
   }
