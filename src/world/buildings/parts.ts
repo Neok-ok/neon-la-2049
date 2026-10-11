@@ -26,7 +26,7 @@ export const HERO_KINDS = ['hero-gate', 'hero-step', 'hero-obelisk'] as const;
 
 export type TowerKind = (typeof TOWER_KINDS)[number] | (typeof HERO_KINDS)[number];
 
-export type PartRole = 'mass' | 'door-header' | 'door-cheek' | 'rail' | 'balcony' | 'deck' | 'band';
+export type PartRole = 'mass' | 'door-header' | 'door-cheek' | 'door-jamb' | 'rail' | 'balcony' | 'deck' | 'band';
 
 export interface BBox {
   s: number;
@@ -91,6 +91,15 @@ export function snap(h: number, module: number, min: number, max: number): numbe
   return n * module;
 }
 
+/** Outer face of the ground door, in tower-local metres. a- is negative s. */
+export function doorFace(d: Draft): { s: number; t: number } | null {
+  const cheeks = d.boxes.filter((b) => b.role === 'door-cheek' && b.base < 1);
+  if (!cheeks.length) return null;
+  const s = cheeks[0]!.s - cheeks[0]!.la / 2;
+  const t = cheeks.reduce((sum, b) => sum + b.t, 0) / cheeks.length;
+  return { s, t };
+}
+
 export function addBox(d: Draft, b: BBox): void {
   if (b.h < 0.06 || b.lb < 0.07 || b.la < 0.07) return;
   if (b.base + b.h > d.height) d.height = b.base + b.h;
@@ -141,6 +150,18 @@ export function skin(d: Draft, o: Skin): void {
     style: soffit.style, lit: soffit.lit, tint: soffit.tint,
     detail: 1, ornament: 1, role: 'door-header',
   });
+  // Lit jambs sit just outside the 2.05 m opening so the doorway reads at night.
+  const outer = ss - thick / 2;
+  const glow: Omit<BBox, 's' | 't' | 'lb' | 'la' | 'h' | 'base'> = {
+    style: soffit.style, lit: soffit.lit, tint: soffit.tint, detail: 1, ornament: 1,
+  };
+  for (const side of [-1, 1]) {
+    addBox(d, {
+      ...glow,
+      s: outer - 0.04, t: t + side * (DOOR_W / 2 + 0.1),
+      lb: 0.16, la: 0.1, h: DOOR_H, base, role: 'door-jamb',
+    });
+  }
 }
 
 export function band(d: Draft, s: number, t: number, lb: number, la: number, y: number, h: number, lit: number, tint: number): void {

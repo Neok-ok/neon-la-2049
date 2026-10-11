@@ -9,6 +9,7 @@ import { distToSegment } from '../../world/layout';
 import { SIGN_RGB } from '../../world/materials/signPalette';
 import { PHRASE_DTLA } from '../../world/materials/signPhrases';
 import { placeLot } from '../../world/buildings/place';
+import type { TowerKind } from '../../world/buildings/parts';
 import { lineHasHigh, lineWalkY } from '../_shared/megablock/grid';
 
 /** Atlas cells that read as downtown commerce rather than a food stall. */
@@ -44,6 +45,8 @@ export interface ReplayBox {
   ornament?: 0 | 1 | 2;
   /** Tower kit. Bridges and walk links leave this unset and stay in the chunk mesh. */
   kit?: boolean;
+  /** Which B1 family this kit box came from. The mesher does not read it. */
+  family?: TowerKind;
 }
 
 export interface DtlaSign {
@@ -241,7 +244,7 @@ function dressLot(
     boxes.push({
       s: lot.s + box.s, t: lot.t + box.t, lb: box.lb, la: box.la, h: box.h, base: box.base,
       style: box.style, lit: box.lit, tint: box.tint, detail: box.detail, ornament: box.ornament,
-      kit: true,
+      kit: true, family: placed.draft.kind,
     });
   }
   for (const s of placed.signs) {
@@ -323,7 +326,9 @@ function placeKiosks(
     const n = streetish ? (busy ? 2 : 1) : (r.chance(0.4) ? 1 : 0);
     const span = side.along === 't' ? lot.lb : lot.la;
     for (let i = 0; i < n; i++) {
-      const slide = (i - (n - 1) / 2) * Math.min(14, span * 0.28);
+      let slide = (i - (n - 1) / 2) * Math.min(14, span * 0.28);
+      // The tower door is centred on the south face. Keep the kiosk off that opening.
+      if (side.ns < 0 && Math.abs(slide) < 3.6) slide += 3.6;
       const s = side.along === 't' ? ks : ks + slide;
       const t = side.along === 't' ? kt + slide : kt;
       if (Math.abs(s - lot.s) > lot.la / 2 - 1 || Math.abs(t - lot.t) > lot.lb / 2 - 1) continue;

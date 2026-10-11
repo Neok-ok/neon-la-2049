@@ -54,8 +54,8 @@
     <thead><tr><th>Tier</th><th>Boxes kept</th><th>Triangles in that patch</th></tr></thead>
     <tbody>
       <tr><td>Low (masses)</td><td>284</td><td>5,966</td></tr>
-      <tr><td>Medium</td><td>513</td><td>8,256</td></tr>
-      <tr><td>High / ultra</td><td>570</td><td>8,826</td></tr>
+      <tr><td>Medium</td><td>555</td><td>8,676</td></tr>
+      <tr><td>High / ultra</td><td>612</td><td>9,246</td></tr>
       <tr><td>Far impostor (LOD2)</td><td>231</td><td>2,610</td></tr>
     </tbody>
   </table>
@@ -68,14 +68,14 @@
     <thead><tr><th>Tier</th><th>Textures added</th><th>Geometry added</th></tr></thead>
     <tbody>
       <tr><td>Low</td><td>0 MB</td><td>0.86 MB</td></tr>
-      <tr><td>Medium</td><td>0 MB</td><td>1.30 MB</td></tr>
-      <tr><td>High</td><td>0 MB</td><td>1.41 MB</td></tr>
-      <tr><td>Ultra</td><td>0 MB</td><td>1.41 MB</td></tr>
+      <tr><td>Medium</td><td>0 MB</td><td>1.41 MB</td></tr>
+      <tr><td>High</td><td>0 MB</td><td>1.54 MB</td></tr>
+      <tr><td>Ultra</td><td>0 MB</td><td>1.54 MB</td></tr>
     </tbody>
   </table>
 
   <h2>Lights</h2>
-  <p>The lighting registry was not on main. Every glow on these towers is declared in <code>src/world/buildings/lights.ts</code> (<code>LIGHT_ADAPTER = 'b1-local'</code>): door soffit, crown, obstruction tip, ad face. A later lighting pass can map those roles without searching the recipes.</p>
+  <p>The lighting registry was still not on main at the last fetch. Every glow on these towers is declared in <code>src/world/buildings/lights.ts</code> (<code>LIGHT_ADAPTER = 'b1-local'</code>): door soffit, door jambs, crown, obstruction tip, ad face. The jambs sit just outside the 2.05 m opening so the doorway reads at night. A later lighting pass can map those roles without searching the recipes.</p>
 
   <h2>Silhouette scores</h2>
   <p>Scored against original envelope diagrams (a slab, a step pyramid, a taper, a twin gate, a top-heavy bar). Not against film frames. Best side for each family:</p>
