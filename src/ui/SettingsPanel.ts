@@ -110,9 +110,12 @@ export class SettingsPanel {
     this.invert.type = 'checkbox';
     this.invert.checked = controlPrefs.invertLook;
     this.invert.addEventListener('change', () => setInvertLook(this.invert.checked));
+    const invertSwitch = document.createElement('span');
+    invertSwitch.className = 'switch';
+    invertSwitch.setAttribute('aria-hidden', 'true');
     const invertText = document.createElement('span');
     invertText.textContent = 'Invert look';
-    invertLabel.append(this.invert, invertText);
+    invertLabel.append(this.invert, invertSwitch, invertText);
     view.appendChild(invertLabel);
     this.panel.appendChild(view);
 
