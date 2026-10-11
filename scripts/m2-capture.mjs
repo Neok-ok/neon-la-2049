@@ -379,8 +379,8 @@ async function doorShot() {
   console.log('DOOR', JSON.stringify(info));
   await page.waitForTimeout(800);
   const table = await page.evaluate(measureScale);
-  table.door = { width: 4.8, height: 7.2, note: 'Bradbury street tunnel, not a person door' };
-  table.storey = { masonry: 22.4, floors: 5, module: 22.4 / 5, panelCell: 3.9, podium: 3.5 };
+  table.door = { width: 2.2, height: 2.2, frameW: 3.2, frameH: 3.6, note: 'Bradbury street leaf, inside a 3.2 by 3.6 m frame' };
+  table.storey = { masonry: 22.4, floors: 7, module: 3.2 };
   writeFileSync(join(OUT, 'desktop-ultra-scale-door-measure.json'), JSON.stringify(table, null, 2));
   console.log('MEASURE door', JSON.stringify({
     spinner: table.spinner, person: table.person, streetM: table.streetM, district: table.district, spinnerY: table.spinnerY,
