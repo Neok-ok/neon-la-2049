@@ -363,6 +363,7 @@ if (process.env.DOOR_ONLY === '1') {
   await scaleShot('desktop', 'ultra', 'scale-lane');
   await scaleShot('desktop', 'ultra', 'scale-facade');
   await scaleShot('desktop', 'medium', 'scale-people');
+  await doorShot();
 }
 
 await browser.close();

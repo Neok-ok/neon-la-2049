@@ -104,11 +104,11 @@ function closePod(camera: PerspectiveCamera): void {
 }
 
 function topDown(camera: PerspectiveCamera): void {
-  // Straight down on the nose. The open channel has to show the ground, nose toward the top of the frame.
-  camera.position.set(0, 12.5, -1.05);
+  // Whole car, nose toward the top of the frame. The slot is only the front of a filled roof.
+  camera.position.set(0, 14.5, 0);
   camera.up.set(0, 0, -1);
-  camera.lookAt(0, 0, -1.05);
-  camera.fov = 16;
+  camera.lookAt(0, 0, 0);
+  camera.fov = 26;
   camera.updateProjectionMatrix();
 }
 

@@ -2,7 +2,7 @@
 // Forward = -Z. Origin at the ground contact centre.
 import {
   BoxGeometry, BufferGeometry, Color, ExtrudeGeometry, Float32BufferAttribute, Group, Mesh, MeshBasicNodeMaterial,
-  MeshStandardNodeMaterial, Shape, Vector2, type Material, type Object3D, type Texture,
+  MeshPhysicalNodeMaterial, MeshStandardNodeMaterial, Shape, Vector2, type Material, type Object3D, type Texture,
 } from 'three/webgpu';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -138,6 +138,7 @@ function kindOf(name: string): string {
   if (n.includes('blue')) return 'blue';
   if (n.includes('red')) return 'red';
   if (n.includes('glass')) return 'glass';
+  if (n.includes('rubber')) return 'rubber';
   if (n.includes('livery')) return 'livery';
   if (n.includes('drum')) return 'drum';
   if (n.includes('satin')) return 'satin';
@@ -160,48 +161,91 @@ type PbrMat = Material & {
   metalnessMap?: Texture | null;
 };
 
-function flankStreak() {
-  const flank = T.smoothstep(0.5, 0.88, T.abs(T.normalLocal.x));
-  const band = T.fract(T.positionLocal.x.mul(2.6).add(T.positionLocal.z.mul(1.15)));
-  const drop = T.smoothstep(0.18, 0.82, T.positionLocal.y);
-  return flank.mul(T.smoothstep(0.8, 0.97, band)).mul(drop);
+function weathering() {
+  const p = T.positionLocal;
+  const n = T.normalLocal;
+  const flank = T.smoothstep(0.35, 0.82, T.abs(n.x));
+  const up = T.smoothstep(0.45, 0.88, n.y);
+  const column = T.fract(p.z.mul(2.2).add(p.x.mul(5.5)));
+  const streak = T.smoothstep(0.8, 0.97, column).mul(flank).mul(T.smoothstep(0.12, 0.8, p.y));
+  const low = T.smoothstep(0.5, 0.06, p.y);
+  const seam = T.smoothstep(0.93, 0.995, T.fract(p.z.mul(0.72).add(p.x.mul(1.4))));
+  const grime = T.max(low.mul(0.7), seam.mul(0.4));
+  const cell = T.floor(p.mul(2.4));
+  const h = T.fract(T.sin(cell.x.mul(127.1).add(cell.y.mul(311.7)).add(cell.z.mul(74.7))).mul(43758.5453));
+  const chip = T.smoothstep(0.988, 0.998, h).mul(up.add(flank).mul(0.4));
+  return { streak, grime, chip };
 }
 
 function dressMaterial(src: Material): Material {
   const kind = kindOf(src.name);
   const tex = src as PbrMat;
-  if (kind === 'body' || kind === 'recess' || kind === 'satin' || kind === 'livery' || kind === 'drum') {
+  if (kind === 'body' || kind === 'recess' || kind === 'satin' || kind === 'livery' || kind === 'drum' || kind === 'rubber') {
     const paint = {
-      body: { color: 0x1a1c1f, metalness: 0.72, roughness: 0.4, wet: 0.12 },
-      satin: { color: 0x8a9098, metalness: 0.16, roughness: 0.58, wet: 0.14 },
-      recess: { color: 0x0a0b0c, metalness: 0.28, roughness: 0.72, wet: 0.18 },
-      livery: { color: 0xd5d2cc, metalness: 0.05, roughness: 0.58, wet: 0.2 },
-      drum: { color: 0x3a3e44, metalness: 0.12, roughness: 0.84, wet: 0.22 },
+      body: { color: 0x2a2e33, metalness: 0.82, roughness: 0.38, wet: 0.08 },
+      satin: { color: 0x9aa2ab, metalness: 0.42, roughness: 0.46, wet: 0.1 },
+      recess: { color: 0x070808, metalness: 0.2, roughness: 0.78, wet: 0.16 },
+      livery: { color: 0xe4e0d8, metalness: 0.04, roughness: 0.52, wet: 0.18 },
+      drum: { color: 0x3a3e44, metalness: 0.18, roughness: 0.8, wet: 0.2 },
+      rubber: { color: 0x101113, metalness: 0.0, roughness: 0.94, wet: 0.22 },
     }[kind];
-    const m = new MeshStandardNodeMaterial({
-      color: tex.map ? 0xffffff : paint.color,
-      metalness: tex.metalnessMap ? 1 : paint.metalness,
-      roughness: tex.roughnessMap ? 1 : paint.roughness,
-      name: src.name,
-    });
+    const coated = kind === 'body' || kind === 'satin';
+    const m = coated
+      ? new MeshPhysicalNodeMaterial({
+        color: tex.map ? 0xffffff : paint.color,
+        metalness: tex.metalnessMap ? 1 : paint.metalness,
+        roughness: tex.roughnessMap ? 1 : paint.roughness,
+        name: src.name,
+        clearcoat: kind === 'body' ? 0.62 : 0.28,
+        clearcoatRoughness: kind === 'body' ? 0.2 : 0.38,
+      })
+      : new MeshStandardNodeMaterial({
+        color: tex.map ? 0xffffff : paint.color,
+        metalness: tex.metalnessMap ? 1 : paint.metalness,
+        roughness: tex.roughnessMap ? 1 : paint.roughness,
+        name: src.name,
+      });
     if (tex.map) m.map = tex.map;
     if (tex.normalMap) {
       m.normalMap = tex.normalMap;
-      m.normalScale = new Vector2(0.65, 0.65);
+      m.normalScale = new Vector2(kind === 'body' ? 1.35 : 0.8, kind === 'body' ? 1.35 : 0.8);
     }
     if (tex.roughnessMap) m.roughnessMap = tex.roughnessMap;
     if (tex.metalnessMap) m.metalnessMap = tex.metalnessMap;
-    if (kind === 'body' || kind === 'satin' || kind === 'drum') {
-      const streak = flankStreak();
-      m.colorNode = T.materialColor.mul(T.mix(T.float(1), T.float(0.72), streak));
-      m.roughnessNode = T.mix(T.materialRoughness.add(streak.mul(0.06)), T.float(paint.wet), U.wetness);
+    if (kind === 'body' || kind === 'satin') {
+      const w = weathering();
+      const dirt = T.mix(T.float(1), T.float(0.58), T.max(w.streak, w.grime));
+      const chipLift = T.mix(T.float(1), T.float(1.7), w.chip);
+      m.colorNode = T.materialColor.mul(dirt).mul(chipLift);
+      const rough = T.materialRoughness.add(w.grime.mul(0.24)).add(w.streak.mul(0.12)).sub(w.chip.mul(0.16));
+      m.roughnessNode = T.mix(T.clamp(rough, 0.08, 0.95), T.float(paint.wet), U.wetness);
+      m.metalnessNode = T.clamp(T.materialMetalness.sub(w.grime.mul(0.35)).add(w.chip.mul(0.12)), 0.04, 1);
+    } else if (kind === 'drum') {
+      const w = weathering();
+      m.colorNode = T.materialColor.mul(T.mix(T.float(1), T.float(0.7), w.grime));
+      m.roughnessNode = T.mix(T.materialRoughness, T.float(paint.wet), U.wetness);
     } else {
       m.roughnessNode = T.mix(T.materialRoughness, T.float(paint.wet), U.wetness);
     }
     return m;
   }
   if (kind === 'glass') {
-    return new MeshStandardNodeMaterial({ color: 0x07090b, metalness: 0.9, roughness: 0.06, name: src.name });
+    const m = new MeshPhysicalNodeMaterial({
+      color: 0x163038,
+      metalness: 0.08,
+      roughness: 0.06,
+      name: src.name,
+      transparent: true,
+      opacity: 0.92,
+    });
+    m.clearcoat = 1;
+    m.clearcoatRoughness = 0.04;
+    m.ior = 1.45;
+    m.thickness = 0.06;
+    m.transmission = 0.18;
+    m.attenuationColor = new Color(0x061014);
+    m.attenuationDistance = 0.25;
+    return m;
   }
   const basic = new MeshBasicNodeMaterial({ name: src.name });
   if (kind === 'underglow') {

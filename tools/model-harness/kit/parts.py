@@ -160,7 +160,9 @@ class Kit:
         # Linear colours. Dark blue-black metal, not a mid grey, so night shots stay black.
         self.body = _principled('body', (0.012, 0.013, 0.016), 0.72, 0.40)
         self.recess = _principled('recess', (0.004, 0.004, 0.005), 0.25, 0.72)
-        self.glass = _principled('glass', (0.006, 0.008, 0.010), 0.88, 0.045)
+        # Blue-charcoal, reflective. Transmission would read as a hole from above.
+        self.glass = _principled('glass', (0.015, 0.026, 0.032), 0.55, 0.08)
+        self.rubber = _principled('rubber', (0.008, 0.008, 0.009), 0.0, 0.94)
         self.satin = _principled('satin', (0.018, 0.019, 0.022), 0.82, 0.22)
         self.livery = _principled('livery', (0.62, 0.60, 0.56), 0.08, 0.55)
         # Matte cover. A shiny drum face mirrors the night practicals into a turbine ring.
@@ -548,7 +550,7 @@ class Kit:
         ))
         return self._root(name, meshes)
 
-    def panel_slash(self, name, length=1.7, rise=0.38, thick=0.016):
+    def panel_slash(self, name, length=1.7, rise=0.38, thick=0.016, depth=0.012):
         """Diagonal door cut. Local +X toward the nose, +Y up, +Z proud of the slab."""
         span = math.hypot(length, rise) or 1.0
         px, py = -rise / span, length / span
@@ -580,8 +582,8 @@ class Kit:
                 pass
             return _finish(bm, f'{name}-{suffix}', mat, self.collection)
 
-        gap = strip('gap', self.recess, 0.001, 0.007, 0.0, thick * 0.55)
-        lip = strip('lip', self.satin, 0.006, 0.015, thick * 0.9, thick * 0.42)
+        gap = strip('gap', self.recess, 0.0, depth, 0.0, thick * 0.62)
+        lip = strip('lip', self.satin, depth * 0.35, depth + 0.014, thick * 0.95, thick * 0.38)
         return self._root(name, [gap, lip])
 
     def fender_cheek(self, name, length=0.72, depth=0.30, height=0.40):

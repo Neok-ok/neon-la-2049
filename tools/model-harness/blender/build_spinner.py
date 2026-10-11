@@ -14,6 +14,7 @@
 #   5  drums faired into a wider shoulder, diagonal door cut, clean PBR grade
 #   6  thicker door cut, louver field, pressed drum ring, lamps that read at sheet size
 #   7  flat covered drum faces, and a split nose with an open center channel
+#   8  front-only nose slot, filled roof, door grooves, louver deck, worn gunmetal
 import math
 import os
 import shutil
@@ -393,16 +394,34 @@ def sit_and_scale(objs):
     return ok
 
 
-def cut_nose_channel(hull):
+def cut_nose_channel(hull, filled=False):
     """Open the hood. The cutter runs out past the nose and down through the slab,
-    so the top and front silhouettes show two cheeks and a gap, not a solid panel."""
-    cutter = box(
-        'nose-channel',
-        (-0.58, 1.48, 0.08),
-        (0.58, 2.95, 1.05),
-        hull.data.materials[0],
-    )
+    so the top and front silhouettes show two cheeks and a gap, not a solid panel.
+
+    filled keeps the slot in the nose only. The deck behind it stays a roof.
+    """
+    if filled:
+        lo, hi = (-0.52, 1.78, 0.10), (0.52, 2.98, 0.92)
+    else:
+        lo, hi = (-0.58, 1.48, 0.08), (0.58, 2.95, 1.05)
+    cutter = box('nose-channel', lo, hi, hull.data.materials[0])
     mod = hull.modifiers.new('Channel', 'BOOLEAN')
+    mod.operation = 'DIFFERENCE'
+    mod.object = cutter
+    mod.solver = 'EXACT'
+    select_only(hull)
+    bpy.ops.object.modifier_apply(modifier=mod.name)
+    bpy.data.objects.remove(cutter, do_unlink=True)
+
+
+def cut_ribbon(hull, name, location, euler, half):
+    """Boolean a slot into the hull. half is (x, y, z) before rotation."""
+    hx, hy, hz = half
+    cutter = box(name, (-hx, -hy, -hz), (hx, hy, hz), hull.data.materials[0])
+    cutter.location = Vector(location)
+    cutter.rotation_euler = euler
+    bpy.context.view_layer.update()
+    mod = hull.modifiers.new(name, 'BOOLEAN')
     mod.operation = 'DIFFERENCE'
     mod.object = cutter
     mod.solver = 'EXACT'
@@ -436,8 +455,8 @@ def place_bar(kit, canopy, length=0.84, height=0.046):
     return part
 
 
-def place_decal(kit, sign, x=1.02):
-    part = kit.livery_decal(f'police-{sign:+d}', 1.28, 0.22)
+def place_decal(kit, sign, x=1.02, width=1.28, height=0.22):
+    part = kit.livery_decal(f'police-{sign:+d}', width, height)
     # Standing outside the flank, left-to-right reads with local +X.
     if sign > 0:
         frame(part, (x, -0.15, 0.52), (0, 1, 0), (0, 0, 1), (1, 0, 0))
@@ -463,12 +482,18 @@ def paint_livery(path):
     px = array.array('f', [0.045, 0.048, 0.052, 1.0] * (w * h))
     word = 'POLICE'
     cols, rows = 4, 6
-    cell = 14
-    gap = 8
+    cell = 16
+    gap = 6
     word_w = len(word) * (cols * cell + gap) - gap
     x0 = (w - word_w) // 2
     y0 = (h - rows * cell) // 2
-    ink = (0.78, 0.76, 0.70, 1.0)
+    ink = (0.86, 0.84, 0.78, 1.0)
+    rule = (0.55, 0.53, 0.48, 1.0)
+    for y in (y0 - 8, y0 + rows * cell + 4):
+        for x in range(x0, x0 + word_w):
+            if 0 <= x < w and 0 <= y < h:
+                i = (y * w + x) * 4
+                px[i:i + 4] = array.array('f', rule)
     for li, ch in enumerate(word):
         grid = LETTERS[ch]
         ox = x0 + li * (cols * cell + gap)
@@ -637,7 +662,13 @@ def _box_blur(src, size, radius):
     return out
 
 
-def _grade(ao_img, size, tuned, loud=False):
+def _hash(ix, iy):
+    n = (int(ix) * 374761393 + int(iy) * 668265263) & 0xFFFFFFFF
+    n = (n ^ (n >> 13)) * 1274126177 & 0xFFFFFFFF
+    return ((n >> 8) & 0xFFFFFF) / float(0xFFFFFF)
+
+
+def _grade(ao_img, size, tuned, loud=False, worn=False):
     raw = _image_floats(ao_img)
     aos = array.array('f', raw[0::4])
     # Open panels are the bright end of the bake. Scale to that, or a dim AO
@@ -650,29 +681,71 @@ def _grade(ao_img, size, tuned, loud=False):
     metal = array.array('f', [0.0]) * (size * size * 4)
     # Charcoal that still shows a panel in studio. Near-black (0.01) read as empty.
     # Loud is a step lighter so the studio row is not a black hole, with a wider cavity.
-    if loud:
+    # Worn is gunmetal: lighter, more metal, with panel-sized tone and a few chips.
+    if worn:
+        paint = (0.22, 0.225, 0.235)
+    elif loud:
         paint = (0.14, 0.145, 0.155)
     elif tuned:
         paint = (0.062, 0.064, 0.070)
     else:
         paint = (0.045, 0.047, 0.050)
+    cell = 96 if size >= 1024 else (48 if size >= 512 else 24)
+    chip_cell = 24 if size >= 1024 else 12
     for i, ao in enumerate(aos):
         ao_n = min(1.0, ao / hi)
         blur_n = min(1.0, blur[i] / hi)
-        shade = (0.48 + 0.52 * ao_n) if loud else (0.62 + 0.38 * ao_n)
+        shade = (0.55 + 0.45 * ao_n) if worn else ((0.48 + 0.52 * ao_n) if loud else (0.62 + 0.38 * ao_n))
         # Soft exposed-edge lift. A one-pixel neighbour test sparkled under the rim.
         edge = ao_n - blur_n
-        edge_lift = 0.12 if loud else 0.22
+        edge_lift = 0.16 if worn else (0.12 if loud else 0.22)
         if tuned and edge > 0.035:
-            shade *= 1.0 + min(edge_lift, (edge - 0.035) * (1.4 if loud else 2.4))
+            shade *= 1.0 + min(edge_lift, (edge - 0.035) * (1.6 if worn else (1.4 if loud else 2.4)))
         if ao_n < 0.5:
-            shade *= 0.55 + 0.45 * (ao_n / 0.5) if loud else 0.7 + 0.3 * (ao_n / 0.5)
+            if worn:
+                shade *= 0.42 + 0.58 * (ao_n / 0.5)
+            else:
+                shade *= 0.55 + 0.45 * (ao_n / 0.5) if loud else 0.7 + 0.3 * (ao_n / 0.5)
+        tone = 1.0
+        chip = 0.0
+        grit = 0.0
+        if worn:
+            x, y = i % size, i // size
+            tone = 0.94 + 0.10 * _hash(x // cell, y // cell)
+            # Grime sits in the mid AO, where a seam is, not as a checker on an open panel.
+            if 0.28 < ao_n < 0.72 and _hash(x // cell + 5, y // cell + 11) > 0.72:
+                grit = 1.0
+                tone *= 0.80
+            if _hash(x // chip_cell + 17, y // chip_cell + 3) > 0.985 and edge > 0.06:
+                chip = 1.0
         o = i * 4
-        base[o] = min(1.0, paint[0] * shade)
-        base[o + 1] = min(1.0, paint[1] * shade)
-        base[o + 2] = min(1.0, paint[2] * shade)
+        cr = min(1.0, paint[0] * shade * tone)
+        cg = min(1.0, paint[1] * shade * tone)
+        cb = min(1.0, paint[2] * shade * tone)
+        if worn and edge > 0.05:
+            wear = min(0.55, (edge - 0.05) * 2.2)
+            cr = cr * (1.0 - wear) + 0.46 * wear
+            cg = cg * (1.0 - wear) + 0.47 * wear
+            cb = cb * (1.0 - wear) + 0.50 * wear
+        if chip:
+            cr, cg, cb = 0.62, 0.63, 0.66
+        base[o] = cr
+        base[o + 1] = cg
+        base[o + 2] = cb
         base[o + 3] = 1.0
-        if loud:
+        if worn:
+            r = 0.34 + 0.28 * (1.0 - ao_n)
+            m = 0.72 + 0.18 * ao_n
+            if grit:
+                r = min(0.92, r + 0.28)
+                m = max(0.15, m - 0.40)
+            if edge > 0.05:
+                r = max(0.22, r - 0.10)
+                m = min(0.95, m + 0.08)
+            if chip:
+                r = 0.24
+                m = 0.92
+        elif loud:
             r = 0.58 + 0.22 * (1.0 - ao_n)
             m = 0.18 + 0.16 * ao_n
         else:
@@ -697,7 +770,7 @@ def _grade(ao_img, size, tuned, loud=False):
     )
 
 
-def connect_pbr(obj, albedo, rough, metal, normal):
+def connect_pbr(obj, albedo, rough, metal, normal, worn=False):
     mat = obj.data.materials[0]
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
@@ -723,6 +796,9 @@ def connect_pbr(obj, albedo, rough, metal, normal):
     links.new(nmap.outputs['Normal'], bsdf.inputs['Normal'])
     bsdf.inputs['Metallic'].default_value = 1.0
     bsdf.inputs['Roughness'].default_value = 1.0
+    if worn and 'Coat Weight' in bsdf.inputs:
+        bsdf.inputs['Coat Weight'].default_value = 0.55
+        bsdf.inputs['Coat Roughness'].default_value = 0.24
 
 
 def pack_uv_trim(obj):
@@ -743,15 +819,15 @@ def pack_uv_trim(obj):
             uv[li].uv = (0.01 + (u % 1) * 0.07, 0.92 + (v % 1) * 0.07)
 
 
-def bake_body(obj, size, tuned, loud=False):
+def bake_body(obj, size, tuned, loud=False, worn=False):
     if bpy.context.scene.world is None:
         bpy.context.scene.world = bpy.data.worlds.new('World')
     smart_uv(obj)
     pack_uv_trim(obj)
     normal = bake_normal(obj, size)
     ao = bake_ao(obj, size)
-    albedo, rough, metal = _grade(ao, size, tuned, loud=loud)
-    connect_pbr(obj, albedo, rough, metal, normal)
+    albedo, rough, metal = _grade(ao, size, tuned, loud=loud, worn=worn)
+    connect_pbr(obj, albedo, rough, metal, normal, worn=worn)
 
 
 def build(round_n, lod, out_path):
@@ -769,7 +845,8 @@ def build(round_n, lod, out_path):
     faired = round_n >= 5
     loud = round_n >= 6
     split = round_n >= 7
-    print(f'BUILD round {round_n} lod {lod} detail {detail} rich {rich} bake {bake} faired {faired} loud {loud} split {split}')
+    filled = round_n >= 8
+    print(f'BUILD round {round_n} lod {lod} detail {detail} rich {rich} bake {bake} faired {faired} loud {loud} split {split} filled {filled}')
 
     stations = list(HULL)
     if split:
@@ -790,9 +867,21 @@ def build(round_n, lod, out_path):
         add_weighted(hull)
     apply_mods(hull, math.radians(32 if detail else 50))
     if split:
-        cut_nose_channel(hull)
+        cut_nose_channel(hull, filled=filled)
+    if filled and detail:
+        for sign in (1, -1):
+            cut_ribbon(
+                hull, f'door-groove-{sign:+d}',
+                (sign * 1.00, -0.02, 0.66),
+                (math.radians(15), 0.0, 0.0),
+                (0.18, 1.12, 0.035),
+            )
 
-    canopy = loft([canopy_section(*row) for row in CANOPY], 'canopy', kit.glass, set(), 0.0, math.radians(35))
+    canopy_rows = CANOPY
+    if filled:
+        # Same rake and peak, narrower in plan, so the roof around the glass stays body.
+        canopy_rows = tuple((y, hw * 0.78, base, top) for y, hw, base, top in CANOPY)
+    canopy = loft([canopy_section(*row) for row in canopy_rows], 'canopy', kit.glass, set(), 0.0, math.radians(35))
     solid = canopy.modifiers.new('Solidify', 'SOLIDIFY')
     solid.thickness = 0.012
     solid.offset = 0.0
@@ -844,31 +933,49 @@ def build(round_n, lod, out_path):
         )
     if detail:
         if faired:
-            louver_h = 0.34 if loud else 0.18
-            louver_n = 3 if loud else (5 if lod == 'high' else 3)
-            for i, y in enumerate((-1.48, -1.86, -2.20)):
+            if filled:
+                banks = ((-1.42, 1.55, 0.52, 6), (-2.05, 1.35, 0.46, 5))
+                for i, (y, width, height, slats) in enumerate(banks):
+                    stick(
+                        kit, kit.vent(f'louver-{i}', width, height, 0.08, slats if lod == 'high' else 4, contrast=True),
+                        hull, (0, y, 0.78), (0, -0.35, 1), lift=0.0,
+                    )
+                stick(
+                    kit, kit.vent('louver-tail', 1.35, 0.42, 0.09, 5 if lod == 'high' else 3, contrast=True),
+                    hull, (0, -2.48, 0.52), (0, -1, 0.25), lift=0.0,
+                )
+            else:
+                louver_h = 0.34 if loud else 0.18
+                louver_n = 3 if loud else (5 if lod == 'high' else 3)
+                for i, y in enumerate((-1.48, -1.86, -2.20)):
+                    stick(
+                        kit, kit.vent(
+                            f'louver-{i}', 1.25 if loud else 1.15, louver_h, 0.06 if loud else 0.055,
+                            louver_n, contrast=loud,
+                        ),
+                        hull, (0, y, 0.70), (0, -0.55, 1),
+                    )
                 stick(
                     kit, kit.vent(
-                        f'louver-{i}', 1.25 if loud else 1.15, louver_h, 0.06 if loud else 0.055,
-                        louver_n, contrast=loud,
+                        'louver-tail', 1.15 if loud else 0.95, 0.32 if loud else 0.22, 0.06 if loud else 0.05,
+                        3 if loud else (4 if lod == 'high' else 2), contrast=loud,
                     ),
-                    hull, (0, y, 0.70), (0, -0.55, 1),
+                    hull, (0, -2.48, 0.50), (0, -1, 0.2),
                 )
-            stick(
-                kit, kit.vent(
-                    'louver-tail', 1.15 if loud else 0.95, 0.32 if loud else 0.22, 0.06 if loud else 0.05,
-                    3 if loud else (4 if lod == 'high' else 2), contrast=loud,
-                ),
-                hull, (0, -2.48, 0.50), (0, -1, 0.2),
-            )
         else:
             for i, y in enumerate((-1.55, -1.85, -2.15)):
                 stick(kit, kit.vent(f'louver-{i}', 0.72, 0.11, 0.022, 4 if lod == 'high' else 2), hull, (0, y, 0.78), (0, -0.35, 1))
         stick(kit, kit.seam('hinge', 1.3, 0.012, 0.008), canopy, (0, -0.2, 1.30), (0, 0, 1))
         for sign in (1, -1):
             if faired:
-                part = kit.panel_slash(f'door-{sign:+d}', 1.9, 0.48, 0.055 if loud else 0.018)
-                frame(part, (sign * 1.04, -0.05, 0.72), (0, 1, 0), (0, 0, 1), (sign, 0, 0))
+                if filled:
+                    part = kit.panel_slash(f'door-{sign:+d}', 2.2, 0.58, 0.075, depth=0.038)
+                    frame(part, (sign * 1.02, -0.02, 0.66), (0, 1, 0), (0, 0, 1), (sign, 0, 0))
+                    belt = kit.seam(f'belt-{sign:+d}', 2.5, 0.026, 0.016)
+                    frame(belt, (sign * 1.02, 0.05, 0.38), (0, 1, 0), (0, 0, 1), (sign, 0, 0))
+                else:
+                    part = kit.panel_slash(f'door-{sign:+d}', 1.9, 0.48, 0.055 if loud else 0.018)
+                    frame(part, (sign * 1.04, -0.05, 0.72), (0, 1, 0), (0, 0, 1), (sign, 0, 0))
             else:
                 part = kit.gullwing_lines(f'door-{sign:+d}', 1.7, 0.52, 0.028)
                 stick(kit, part, hull, (sign * 0.95, -0.05, 0.55), (sign, 0, 0.15))
@@ -881,6 +988,16 @@ def build(round_n, lod, out_path):
             stick(kit, kit.satin_plate('hood-satin', 0.44, 0.24), hull, (0, 1.70, 0.64), (0, 0.82, 0.35), lift=0.004)
         elif not faired and not split:
             box('hood-satin', (-0.28, 1.20, 0.70), (0.28, 1.85, 0.732), kit.satin)
+        if filled:
+            stick(kit, kit.seam('cowl-seam', 1.15, 0.022, 0.014), hull, (0, 1.28, 0.80), (0, 0, 1), lift=0.002)
+            for sign in (1, -1):
+                box(
+                    f'seal-{sign:+d}',
+                    (sign * 0.50, -1.45, 0.78),
+                    (sign * 0.55, 0.70, 0.84),
+                    kit.rubber,
+                )
+            box('seal-front', (-0.48, 0.68, 0.76), (0.48, 0.74, 0.84), kit.rubber)
         if faired:
             y0, y1 = (-0.35, 0.55) if loud else (-1.15, 0.95)
             half = 0.025 if loud else 0.04
@@ -903,7 +1020,10 @@ def build(round_n, lod, out_path):
                 ), (sign * 0.8, -0.9, 0.32))
     if dressed:
         for sign in (1, -1):
-            place_decal(kit, sign, x=1.05 if faired else 1.02)
+            if filled:
+                place_decal(kit, sign, x=1.06, width=1.55, height=0.30)
+            else:
+                place_decal(kit, sign, x=1.05 if faired else 1.02)
         if not detail:
             box('underglow', (-0.28, -0.55, 0.05), (0.28, 0.35, 0.07), kit.lights['underglow'])
 
@@ -924,7 +1044,7 @@ def build(round_n, lod, out_path):
     if bake:
         body = bpy.data.objects.get('body')
         if body:
-            bake_body(body, TEX[lod], tuned, loud=loud)
+            bake_body(body, TEX[lod], tuned, loud=loud, worn=filled)
         # Livery UVs were authored on the card. smart_project would put the word on the edge.
     objs = meshes()
     ok = sit_and_scale(objs)
