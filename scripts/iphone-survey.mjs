@@ -342,6 +342,20 @@ if (PART.has('photo')) {
   const stillCards = ['wallace-dusk', 'broadway-rain', 'market-stall', 'lax-gantry', 'sea-wall', 'harbor-cranes'];
   report.parts.photo = { perf: [], stills: [], errors: [] };
 
+  // A postcard can land in a district that is not loaded yet. The ordinary settle
+  // treats leftover lod0 as "already dressed" and returns before the new blocks arrive.
+  async function settleMoved(page) {
+    const t0 = Date.now();
+    let busy = false;
+    while (Date.now() - t0 < 25_000) {
+      const s = await page.evaluate(() => window.__nla.stats());
+      if (s.inFlight > 0 || s.readyQueue > 0) busy = true;
+      if (busy && s.inFlight === 0 && s.readyQueue === 0 && s.lod0 >= 2) break;
+      await page.waitForTimeout(250);
+    }
+    return settle(page, 120_000);
+  }
+
   async function openPhoto(page, tier) {
     const booted = await boot(
       page,
@@ -365,7 +379,7 @@ if (PART.has('photo')) {
       const rows = [];
       for (const id of perfCards) {
         const jumped = await page.evaluate((card) => window.__nla.photo.postcard(card), id);
-        const sampled = await settle(page, 120_000);
+        const sampled = await settleMoved(page);
         await arm(page);
         await page.waitForTimeout(2000);
         const live = await page.evaluate(() => ({ s: window.__nla.stats(), raf: window.__x6raf?.worst ?? 0 }));
@@ -411,7 +425,7 @@ if (PART.has('photo')) {
     for (const id of stillCards) {
       await arm(page);
       await page.evaluate((card) => window.__nla.photo.postcard(card), id);
-      await settle(page, 120_000);
+      await settleMoved(page);
       const shot = await page.evaluate(async () => {
         const state = window.__nla.photo.state();
         const r = await window.__nla.photo.capture({ kind: '1080', exact: { w: 1920, h: 1080 }, present: false });

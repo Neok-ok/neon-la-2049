@@ -97,7 +97,7 @@ export const POSTCARDS: readonly Postcard[] = [
   {
     id: 'market-stall',
     name: 'Market stall',
-    focal: 50, focus: 4.2, aperture: 0.84, roll: 0,
+    focal: 50, focus: 6, aperture: 0.72, roll: 0,
     grade: 'neon', grain: 0.2, vignette: 0.36, bloom: 0.4, exposure: 1,
     letterbox: '16:9', rain: 0.66, fog: 0.0018, snow: 0, hours: 22.4,
     pose: (layout) => eyeOf(marketCamera(layout, 'crowd')),
@@ -106,25 +106,30 @@ export const POSTCARDS: readonly Postcard[] = [
     id: 'lax-gantry',
     name: 'Gantry dusk',
     focal: 35, focus: 55, aperture: 0.26, roll: 0,
-    grade: 'sodium', grain: 0.16, vignette: 0.32, bloom: 0.5, exposure: 1.08,
-    letterbox: '16:9', rain: 0.12, fog: 0.0014, snow: 0, hours: 19.1,
+    grade: 'sodium', grain: 0.16, vignette: 0.32, bloom: 0.5, exposure: 1.45,
+    letterbox: '16:9', rain: 0.12, fog: 0.0012, snow: 0, hours: 17.7,
     pose: (layout) => eyeOf(laxCamera(layout, 'gantry')),
   },
   {
     id: 'sea-wall',
     name: 'Sea wall',
-    focal: 28, focus: 70, aperture: 0.2, roll: 0,
-    grade: 'harbor', grain: 0.18, vignette: 0.44, bloom: 0.28, exposure: 0.9,
-    letterbox: '2.39', rain: 0.4, fog: 0.0036, snow: 0, hours: 16.8,
-    pose: (layout) => eyeOf(coastCamera(layout, 'crest')),
+    focal: 35, focus: 360, aperture: 0.16, roll: 0,
+    grade: 'harbor', grain: 0.18, vignette: 0.44, bloom: 0.28, exposure: 0.96,
+    letterbox: '2.39', rain: 0.28, fog: 0.0015, snow: 0, hours: 16.8,
+    pose: (layout) => {
+      // The coast fly pose is the spinner, 1.22 m under the lens. Photo mode has no cockpit offset.
+      const eye = eyeOf(coastCamera(layout, 'aerial'));
+      return eye ? { ...eye, y: eye.y + 1.22 } : null;
+    },
   },
   {
     id: 'harbor-cranes',
     name: 'Harbor cranes',
-    focal: 70, focus: 18, aperture: 0.4, roll: 0,
-    grade: 'harbor', grain: 0.2, vignette: 0.38, bloom: 0.34, exposure: 0.96,
-    letterbox: '16:9', rain: 0.22, fog: 0.0028, snow: 0, hours: 21.4,
-    pose: (layout) => eyeOf(harborCamera(layout, 'stacks')),
+    focal: 55, focus: 360, aperture: 0.22, roll: 0,
+    grade: 'harbor', grain: 0.2, vignette: 0.38, bloom: 0.34, exposure: 1.02,
+    letterbox: '16:9', rain: 0.12, fog: 0.0007, snow: 0, hours: 17.8,
+    // The wall lens looks into the sea wall. The aerial is the one that frames the cranes.
+    pose: (layout) => eyeOf(harborCamera(layout, 'aerial')),
   },
 ];
 
