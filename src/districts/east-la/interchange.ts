@@ -12,7 +12,9 @@ import { CELL, phraseSeed } from '../../world/materials/signPhrases';
 import { U } from '../../atmosphere/uniforms';
 import { freewayRoutes } from '../../vehicles/trafficRegistry';
 import { eastLaCrossings, type Crossing } from './crossings';
-import { DECK_LENGTH, DECK_THICK, DECK_TOP, DECK_WIDTH, RAMP_RADIUS } from './spec';
+import {
+  BLOCK_A, BLOCK_B, DECK_LENGTH, DECK_THICK, DECK_TOP, DECK_WIDTH, DISTRICT, RAMP_RADIUS, STREET, blockCentre,
+} from './spec';
 
 const T = TSL as any;
 
@@ -249,6 +251,59 @@ function addCrossing(
   }
 }
 
+/**
+ * One GRID DOWN plate on the freeway wall nearest the 5/10.
+ * The fabric sign builder drops anything inside a corridor, and both freeways
+ * here are 70 m wide, so the plate stays on the wall face outside that reserve.
+ */
+export function gridDownSite(layout: CityLayout): { x: number; y: number; z: number; yaw: number } | null {
+  const cross = eastLaCrossings(layout).find((c) => c.id === 'el-5-10');
+  if (!cross) return null;
+  const la = BLOCK_A - STREET;
+  const lb = BLOCK_B - STREET;
+  const probe = STREET * 0.42 + 6;
+  const s0 = Math.floor(-cross.z / BLOCK_A) - 2;
+  const t0 = Math.floor(cross.x / BLOCK_B) - 2;
+  let best: { x: number; y: number; z: number; yaw: number; score: number } | null = null;
+  for (let i = s0; i <= s0 + 4; i++) {
+    for (let j = t0; j <= t0 + 4; j++) {
+      const centre = blockCentre(i, j);
+      if (layout.districtAt(centre.x, centre.z).id !== DISTRICT) continue;
+      const faces = [
+        { s: la / 2 - 5, t: 0, ns: 1, nt: 0 },
+        { s: -la / 2 + 5, t: 0, ns: -1, nt: 0 },
+        { s: 0, t: lb / 2 - 5, ns: 0, nt: 1 },
+        { s: 0, t: -lb / 2 + 5, ns: 0, nt: -1 },
+      ];
+      for (const f of faces) {
+        const px = centre.x + f.nt * ((f.nt !== 0 ? lb / 2 : 0) + probe);
+        const pz = centre.z - f.ns * ((f.ns !== 0 ? la / 2 : 0) + probe);
+        if (!layout.isReserved(px, pz, 2)) continue;
+        const span = f.nt !== 0 ? la * 0.7 : lb * 0.7;
+        const ox = f.nt;
+        const oz = -f.ns;
+        for (let u = -span / 2; u <= span / 2; u += 14) {
+          const ls = f.nt !== 0 ? u : f.s;
+          const lt = f.ns !== 0 ? u : f.t;
+          const faceX = centre.x + lt;
+          const faceZ = centre.z - ls;
+          for (let step = 0.8; step <= 8; step += 0.8) {
+            const x = faceX + ox * step;
+            const z = faceZ + oz * step;
+            if (layout.districtAt(x, z).id !== DISTRICT) break;
+            if (layout.isReserved(x, z, 1)) continue;
+            const score = Math.hypot(x - cross.x, z - cross.z);
+            if (score > 180 || (best && score >= best.score)) break;
+            best = { x, z, y: layout.heightAt(x, z) + 3.5, yaw: Math.atan2(ox, oz), score };
+            break;
+          }
+        }
+      }
+    }
+  }
+  return best;
+}
+
 /** One group for both junctions. Null when neither crossing sits in East LA. */
 export function mountEastLaInterchanges(layout: CityLayout): Group | null {
   const list = eastLaCrossings(layout);
@@ -257,17 +312,12 @@ export function mountEastLaInterchanges(layout: CityLayout): Group | null {
   const concrete = new Ribbon();
   const glow = new Ribbon();
   const paper: Sign[] = [];
-  for (const c of list) {
-    addCrossing(layout, c, depth, concrete, glow);
-    if (c.id !== 'el-5-10') continue;
-    const grade = layout.heightAt(c.x, c.z);
-    // On the approach the interchange camera already frames, facing back at that camera.
+  for (const c of list) addCrossing(layout, c, depth, concrete, glow);
+  const site = gridDownSite(layout);
+  if (site) {
     paper.push({
-      x: c.x + c.tx * 22 + c.rx * 7,
-      y: grade + 6.2,
-      z: c.z + c.tz * 22 + c.rz * 7,
-      yaw: Math.atan2(c.tx, c.tz),
-      w: 22, h: 5.2,
+      x: site.x, y: site.y, z: site.z, yaw: site.yaw,
+      w: 12, h: 2.6,
       color: SignColor.Amber,
       seed: phraseSeed(CELL.GRID_DOWN),
       kind: 0,
