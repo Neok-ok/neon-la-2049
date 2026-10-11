@@ -4,6 +4,7 @@ import {
   BufferAttribute, BufferGeometry, Group, InstancedBufferAttribute, InstancedMesh, Matrix4, Mesh, PlaneGeometry,
   Quaternion, Vector3,
 } from 'three/webgpu';
+import { resources } from '../core/memory';
 import { registerDetail } from '../world/detail/registry';
 import { buildRoadChunk, chunkDraws, type Stamp } from './buildChunk';
 import { roadFancy, roadMarkMaterial, roadPuddleMaterial, roadSignMaterial, roadSurfaceMaterial } from './material';
@@ -14,29 +15,25 @@ const _p = new Vector3();
 const _s = new Vector3();
 const _up = new Vector3(0, 1, 0);
 
-let groundQuad: BufferGeometry | null = null;
-let signPlane: PlaneGeometry | null = null;
-
 function groundTemplate(): BufferGeometry {
-  if (groundQuad) return groundQuad;
-  const g = new BufferGeometry();
-  g.setAttribute('position', new BufferAttribute(new Float32Array([
-    -0.5, 0, -0.5, 0.5, 0, -0.5, 0.5, 0, 0.5, -0.5, 0, 0.5,
-  ]), 3));
-  g.setAttribute('normal', new BufferAttribute(new Float32Array([
-    0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0,
-  ]), 3));
-  g.setAttribute('uv', new BufferAttribute(new Float32Array([
-    0, 0, 1, 0, 1, 1, 0, 1,
-  ]), 2));
-  g.setIndex(new BufferAttribute(new Uint16Array([0, 2, 1, 0, 3, 2]), 1));
-  groundQuad = g;
-  return g;
+  return resources.sharedGeometry('road-ground-quad', () => {
+    const g = new BufferGeometry();
+    g.setAttribute('position', new BufferAttribute(new Float32Array([
+      -0.5, 0, -0.5, 0.5, 0, -0.5, 0.5, 0, 0.5, -0.5, 0, 0.5,
+    ]), 3));
+    g.setAttribute('normal', new BufferAttribute(new Float32Array([
+      0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0,
+    ]), 3));
+    g.setAttribute('uv', new BufferAttribute(new Float32Array([
+      0, 0, 1, 0, 1, 1, 0, 1,
+    ]), 2));
+    g.setIndex(new BufferAttribute(new Uint16Array([0, 2, 1, 0, 3, 2]), 1));
+    return g;
+  });
 }
 
-function signTemplate(): PlaneGeometry {
-  if (!signPlane) signPlane = new PlaneGeometry(1, 1);
-  return signPlane;
+function signTemplate(): BufferGeometry {
+  return resources.sharedGeometry('road-sign-plane', () => new PlaneGeometry(1, 1));
 }
 
 function place(mesh: InstancedMesh, items: Stamp[], vertical: boolean): void {
@@ -51,10 +48,15 @@ function place(mesh: InstancedMesh, items: Stamp[], vertical: boolean): void {
 }
 
 function stampMesh(items: Stamp[], vertical: boolean, material: NonNullable<ReturnType<typeof roadMarkMaterial>>, name: string): InstancedMesh {
-  const geo = (vertical ? signTemplate() : groundTemplate()).clone();
-  const cell = new Float32Array(items.length);
-  items.forEach((s, i) => { cell[i] = s.cell; });
-  geo.setAttribute('iCell', new InstancedBufferAttribute(cell, 1));
+  const geo = resources.geometry(() => {
+    const g = (vertical ? signTemplate() : groundTemplate()).clone();
+    // The template is shared. This clone owns the per-chunk instance attribute.
+    g.userData.sharedGeometry = false;
+    const cell = new Float32Array(items.length);
+    items.forEach((s, i) => { cell[i] = s.cell; });
+    g.setAttribute('iCell', new InstancedBufferAttribute(cell, 1));
+    return g;
+  }, { label: name, owner: 'roads', evictable: true });
   const mesh = new InstancedMesh(geo, material, items.length);
   mesh.name = name;
   place(mesh, items, vertical);
@@ -71,13 +73,16 @@ registerDetail('roads', '*', (ctx) => {
   group.name = 'roads';
   let bytes = chunk.bytes;
   if (chunk.solid) {
-    const g = new BufferGeometry();
-    g.setAttribute('position', new BufferAttribute(chunk.solid.pos, 3));
-    g.setAttribute('normal', new BufferAttribute(chunk.solid.nor, 3));
-    g.setAttribute('uv', new BufferAttribute(chunk.solid.uv, 2));
-    g.setAttribute('kind', new BufferAttribute(chunk.solid.kind, 1));
-    g.setIndex(new BufferAttribute(chunk.solid.idx, 1));
-    g.computeBoundingSphere();
+    const g = resources.geometry(() => {
+      const geo = new BufferGeometry();
+      geo.setAttribute('position', new BufferAttribute(chunk.solid!.pos, 3));
+      geo.setAttribute('normal', new BufferAttribute(chunk.solid!.nor, 3));
+      geo.setAttribute('uv', new BufferAttribute(chunk.solid!.uv, 2));
+      geo.setAttribute('kind', new BufferAttribute(chunk.solid!.kind, 1));
+      geo.setIndex(new BufferAttribute(chunk.solid!.idx, 1));
+      geo.computeBoundingSphere();
+      return geo;
+    }, { label: 'road-solid', owner: 'roads', evictable: true });
     const mesh = new Mesh(g, roadSurfaceMaterial(tier));
     mesh.name = 'road-solid';
     mesh.renderOrder = 0;

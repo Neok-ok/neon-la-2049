@@ -5,6 +5,7 @@ import { DoubleSide, FrontSide, MeshBasicNodeMaterial, MeshStandardNodeMaterial 
 import { uniform } from 'three/tsl';
 import * as TSL from 'three/tsl';
 import type { Tier } from '../core/quality';
+import { resources } from '../core/memory';
 import { U } from '../atmosphere/uniforms';
 import { roadMaps, roadTextureMode } from './textures';
 
@@ -35,7 +36,7 @@ function kindAttr(): unknown {
 
 function flatSolid(): MeshStandardNodeMaterial {
   if (flatMat) return flatMat;
-  const m = new MeshStandardNodeMaterial();
+  const m = resources.material('road-flat', () => new MeshStandardNodeMaterial()) as MeshStandardNodeMaterial;
   m.name = 'road-flat';
   m.side = FrontSide;
   bias(m, -1);
@@ -60,7 +61,7 @@ function flatSolid(): MeshStandardNodeMaterial {
 function richSolid(): MeshStandardNodeMaterial {
   if (richMat) return richMat;
   const maps = roadMaps();
-  const m = new MeshStandardNodeMaterial();
+  const m = resources.material('road-surface', () => new MeshStandardNodeMaterial()) as MeshStandardNodeMaterial;
   m.name = 'road-surface';
   m.side = FrontSide;
   bias(m, -1);
@@ -162,7 +163,7 @@ function atlasUv(cols: number, rows: number): { u: unknown; v: unknown } {
 function markingMaterial(): MeshBasicNodeMaterial {
   if (markMat) return markMat;
   const maps = roadMaps();
-  const m = new MeshBasicNodeMaterial();
+  const m = resources.material('road-mark', () => new MeshBasicNodeMaterial()) as MeshBasicNodeMaterial;
   m.name = 'road-mark';
   m.side = DoubleSide;
   m.transparent = true;
@@ -181,7 +182,7 @@ function markingMaterial(): MeshBasicNodeMaterial {
 function signMaterial(): MeshBasicNodeMaterial {
   if (signMat) return signMat;
   const maps = roadMaps();
-  const m = new MeshBasicNodeMaterial();
+  const m = resources.material('road-sign', () => new MeshBasicNodeMaterial()) as MeshBasicNodeMaterial;
   m.name = 'road-sign';
   m.side = DoubleSide;
   m.transparent = true;
@@ -199,7 +200,7 @@ function signMaterial(): MeshBasicNodeMaterial {
 
 export function roadPuddleMaterial(): MeshStandardNodeMaterial {
   if (puddleMat) return puddleMat;
-  const m = new MeshStandardNodeMaterial();
+  const m = resources.material('road-puddle', () => new MeshStandardNodeMaterial()) as MeshStandardNodeMaterial;
   m.name = 'road-puddle';
   m.side = DoubleSide;
   m.transparent = true;

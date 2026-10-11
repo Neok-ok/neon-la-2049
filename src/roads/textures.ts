@@ -4,6 +4,7 @@ import {
   ClampToEdgeWrapping, DataTexture, LinearFilter, NoColorSpace, SRGBColorSpace, type Texture, type WebGPURenderer,
 } from 'three/webgpu';
 import type { Tier } from '../core/quality';
+import { resources } from '../core/memory';
 import trimUrl from '../assets/road-trim.ktx2?url';
 import normalUrl from '../assets/road-normal.ktx2?url';
 import markUrl from '../assets/road-markings.ktx2?url';
@@ -71,8 +72,16 @@ function dress(tex: Texture, name: string, color: boolean): Texture {
 }
 
 function dataTex(name: string, bytes: Uint8Array, w: number, h: number, color: boolean): Texture {
-  const tex = new DataTexture(bytes, w, h);
+  const tex = resources.texture(() => new DataTexture(bytes, w, h), { label: name, owner: 'roads' });
+  resources.markStreamed(tex);
   return dress(tex, name, color);
+}
+
+function keepCompressed(tex: Texture, name: string, color: boolean): Texture {
+  const dressed = dress(tex, name, color);
+  resources.tag(dressed, { label: name, owner: 'roads' });
+  resources.markStreamed(dressed);
+  return dressed;
 }
 
 function ensureData(): void {
@@ -117,10 +126,10 @@ async function loadKtx(renderer: WebGPURenderer): Promise<boolean> {
     const [trim, normal, mark, sign] = await Promise.all([
       parseKtx(loader, trimBuf), parseKtx(loader, normalBuf), parseKtx(loader, markBuf), parseKtx(loader, signBuf),
     ]);
-    trimTex = dress(trim, 'road-trim', true);
-    normalTex = dress(normal, 'road-normal', false);
-    markTex = dress(mark, 'road-markings', true);
-    signTex = dress(sign, 'road-signs', true);
+    trimTex = keepCompressed(trim, 'road-trim', true);
+    normalTex = keepCompressed(normal, 'road-normal', false);
+    markTex = keepCompressed(mark, 'road-markings', true);
+    signTex = keepCompressed(sign, 'road-signs', true);
     mode = 'ktx2';
     return true;
   } catch (err) {
