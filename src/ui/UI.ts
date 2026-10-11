@@ -11,6 +11,7 @@ export interface UICallbacks {
   toggleHUD(): void;
   toggleSound(): boolean;
   setWeather(w: WeatherId): void;
+  setGentleFlash(): boolean;
   setTime(h: number): void;
   nextShot(): void;
   start(m: ModeId): void;
@@ -76,6 +77,13 @@ export class UI {
       weatherSel.value = '';
     });
     more.appendChild(weatherSel);
+
+    const flashBtn = button('Lightning: gentle', () => {
+      const gentle = cb.setGentleFlash();
+      flashBtn.textContent = gentle ? 'Lightning: gentle' : 'Lightning: full';
+    });
+    flashBtn.title = 'Coastal lightning. Gentle is the default.';
+    more.appendChild(flashBtn);
 
     const timeSel = document.createElement('select');
     timeSel.title = 'Jump to time of day';

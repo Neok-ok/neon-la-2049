@@ -6,7 +6,7 @@ import type { QualitySettings } from '../../core/quality';
 import { hash2i } from '../../core/rng';
 import { buildKitMeshes, type KitInstance } from '../_shared/kit/batch';
 import { inApron } from './apronPlan';
-import { nearSeaWall } from './profile';
+import { nearSeaWall, pastSeaWall } from './profile';
 
 const CAP: Record<QualitySettings['tier'], number> = { low: 36, medium: 80, high: 140, ultra: 200 };
 
@@ -34,7 +34,7 @@ registerDetail('coastal-strip', ['coastal-strip'], (ctx) => {
       const side = (hash2i(b.seed, 20 + k) & 1) ? 1 : -1;
       const x = b.cx + b.ax * u + bx * side * (b.lb / 2 - 1.2);
       const z = b.cz + b.az * u + bz * side * (b.lb / 2 - 1.2);
-      if (ctx.layout.isOcean(x, z) || ctx.layout.isReserved(x, z, 1) || nearSeaWall(ctx.layout, x, z, 6) || inApron(ctx.layout, x, z, 2)) continue;
+      if (ctx.layout.isOcean(x, z) || ctx.layout.isReserved(x, z, 1) || nearSeaWall(ctx.layout, x, z, 6) || pastSeaWall(ctx.layout, x, z) || inApron(ctx.layout, x, z, 2)) continue;
       const yaw = Math.atan2(bx, bz);
       const bags = 3 + (hash2i(b.seed, 30 + k) % 3);
       for (let i = 0; i < bags; i++) {

@@ -27,6 +27,22 @@ export function clearAirLights(): void {
   }
 }
 
+/** Fill slots the halo pass left empty. Does not overwrite a sign that already owns one. */
+export function fillEmptyAirLights(
+  pts: { x: number; y: number; z: number; radius: number; r: number; g: number; b: number }[],
+): number {
+  let slot = 0;
+  let filled = 0;
+  for (const pt of pts) {
+    while (slot < AIR_LIGHT_SLOTS && (lightP[slot]?.value.w ?? 0) > 0.5) slot++;
+    if (slot >= AIR_LIGHT_SLOTS) break;
+    setAirLight(slot, pt.x, pt.y, pt.z, pt.radius, pt.r, pt.g, pt.b);
+    slot++;
+    filled++;
+  }
+  return filled;
+}
+
 export function setAirLight(
   i: number, x: number, y: number, z: number, radius: number, r: number, g: number, b: number,
 ): void {

@@ -2,6 +2,7 @@
 // Nodes are not shared across lattices or routes, so a car cannot turn from a 7.2 m avenue
 // onto a canyon lane or into a trench. Low spinners drive the street edges only.
 // Registrations live in traffic-index.ts. Call registerStreetLattice instead of adding a graph.
+import { pastSeaWall } from '../districts/coastal-strip/profile';
 import type { CityLayout } from '../world/layout';
 import { bearingToDir } from '../world/geo';
 import {
@@ -115,7 +116,7 @@ function addLattice(
     return id;
   };
   const keep = (x: number, z: number): string | null => {
-    if (layout.isOcean(x, z) || layout.isReserved(x, z, 4)) return null;
+    if (layout.isOcean(x, z) || layout.isReserved(x, z, 4) || pastSeaWall(layout, x, z)) return null;
     const d = layout.districtAt(x, z);
     if (!districts.has(d.id) || NO_STREET_GRAPH.has(d.id) || d.traffic <= 0) return null;
     return d.id;
@@ -137,7 +138,7 @@ function addLattice(
       const a = at(i, j);
       const b = at(i + 1, j);
       const district = keep((a.x + b.x) / 2, (a.z + b.z) / 2);
-      if (!district) continue;
+      if (!district || pastSeaWall(layout, a.x, a.z) || pastSeaWall(layout, b.x, b.z)) continue;
       push(nodeAt(i, j), nodeAt(i + 1, j), a, b, 0, district);
     }
   }
@@ -146,14 +147,14 @@ function addLattice(
       const a = at(i, j);
       const b = at(i, j + 1);
       const district = keep((a.x + b.x) / 2, (a.z + b.z) / 2);
-      if (!district) continue;
+      if (!district || pastSeaWall(layout, a.x, a.z) || pastSeaWall(layout, b.x, b.z)) continue;
       push(nodeAt(i, j), nodeAt(i, j + 1), a, b, 1, district);
     }
   }
 }
 
 function freewayOk(layout: CityLayout, x: number, z: number): boolean {
-  if (!layout.inBounds(x, z) || layout.isOcean(x, z)) return false;
+  if (!layout.inBounds(x, z) || layout.isOcean(x, z) || pastSeaWall(layout, x, z)) return false;
   if (NO_STREET_GRAPH.has(layout.districtAt(x, z).id)) return false;
   if (layout.inLandmark(x, z, 2)) return false;
   return true;

@@ -3,6 +3,7 @@
 import { Rng, hash2i } from '../../core/rng';
 import { bearingToDir } from '../geo';
 import type { CityLayout, District } from '../layout';
+import { pastSeaWall } from '../../districts/coastal-strip/profile';
 import { getArchetype } from './registry';
 import type { BlockInfo, Box, FabricCtx, FabricOutput, LotRect, Sign, BoxOpts, FaceDir, SignKind } from './types';
 import '../../districts/fabric-index';
@@ -58,6 +59,12 @@ class Ctx implements FabricCtx {
     const r = Math.max(la, lb) * 0.5;
     if (this.layout.isReserved(x, z, r * 0.8)) return null;
     if (this.layout.isOcean(x, z)) return null;
+    const bl = this.block;
+    const hw = lb * 0.5;
+    const hd = la * 0.5;
+    for (const [ds, dt] of [[0, 0], [hd, hw], [hd, -hw], [-hd, hw], [-hd, -hw]] as const) {
+      if (pastSeaWall(this.layout, x + bl.ax * ds + bl.bx * dt, z + bl.az * ds + bl.bz * dt)) return null;
+    }
     const seq = this.boxSeq++;
     const b: Box = {
       x, z,

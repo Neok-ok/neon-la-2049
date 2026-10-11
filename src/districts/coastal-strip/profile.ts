@@ -93,6 +93,16 @@ export interface CoastBudget {
   ribbonX: number;
   ribbonZ: number;
   spray: number;
+  /** Gerstner components. Low stays on the flat ocean. */
+  gerstner: number;
+  /** Camera-following patch, metres. `skirt` is a coarse band past `depth`. */
+  half: number;
+  depth: number;
+  skirt: number;
+  /** 0 off, 1 the nearest sheet, 2 crest and apron together. */
+  sheets: 0 | 1 | 2;
+  /** Coastal lightning. No extra pass; low stays off. */
+  lightning: boolean;
 }
 
 export function wallProfile(wall: Pick<SeaWall, 'id' | 'crestHeight' | 'baseWidth' | 'crestWidth' | 'terraces'>): WallProfile {
@@ -184,10 +194,31 @@ export function parapetRuns(half: number, stairLocal: number | null, gap = STAIR
 }
 
 export function coastBudget(tier: 'low' | 'medium' | 'high' | 'ultra'): CoastBudget {
-  if (tier === 'low') return { cap: 2, reach: 420, waves: false, ribbonX: 0, ribbonZ: 0, spray: 0 };
-  if (tier === 'medium') return { cap: 4, reach: 780, waves: true, ribbonX: 40, ribbonZ: 12, spray: 16 };
-  if (tier === 'high') return { cap: 7, reach: 1000, waves: true, ribbonX: 64, ribbonZ: 16, spray: 32 };
-  return { cap: 10, reach: 1200, waves: true, ribbonX: 80, ribbonZ: 18, spray: 48 };
+  // Grid sizes stay in the low thousands of triangles. A second overlapping
+  // ring would paint the same water twice, so the skirt starts where the
+  // near patch ends.
+  if (tier === 'low') {
+    return {
+      cap: 2, reach: 420, waves: false, ribbonX: 0, ribbonZ: 0, spray: 0,
+      gerstner: 0, half: 0, depth: 0, skirt: 0, sheets: 0, lightning: false,
+    };
+  }
+  if (tier === 'medium') {
+    return {
+      cap: 4, reach: 780, waves: true, ribbonX: 36, ribbonZ: 14, spray: 16,
+      gerstner: 3, half: 56, depth: 84, skirt: 0, sheets: 1, lightning: true,
+    };
+  }
+  if (tier === 'high') {
+    return {
+      cap: 7, reach: 1000, waves: true, ribbonX: 48, ribbonZ: 18, spray: 28,
+      gerstner: 6, half: 84, depth: 120, skirt: 90, sheets: 2, lightning: true,
+    };
+  }
+  return {
+    cap: 10, reach: 1200, waves: true, ribbonX: 64, ribbonZ: 24, spray: 36,
+    gerstner: 6, half: 112, depth: 160, skirt: 120, sheets: 2, lightning: true,
+  };
 }
 
 /** Shared by the breaker shader and the surf bus so impacts land on the same frame. */
@@ -362,6 +393,19 @@ export function towerSites(layout: CityLayout): TowerSite[] {
   }
   towerCache = { layout, sites };
   return sites;
+}
+
+/**
+ * True on the wall mass and on the ocean side of the seaward face.
+ * Landward of the crest parapet stays false, so inland blocks are left alone.
+ * A miss past the end of the polyline is ignored.
+ */
+export function pastSeaWall(layout: CityLayout, x: number, z: number): boolean {
+  const hit = nearestWall(layout, x, z);
+  const face = -hit.piece.profile.crest / 2 - 6;
+  if (hit.across <= face) return false;
+  if (hit.dist > 1400) return false;
+  return true;
 }
 
 export function nearSeaWall(layout: CityLayout, x: number, z: number, extra = 22): boolean {

@@ -65,6 +65,10 @@ export function installSkyAndFog(scene: Scene): void {
     // low cloud deck texture (slow drift)
     const n = mx_noise_float(vec3(dir.x.mul(3.0).add(U.time.mul(0.004)), dir.z.mul(3.0), up.mul(2.0))).mul(0.5).add(0.5);
     col = col.mul(n.mul(0.25).add(0.88));
+    // Storm shelf. stormSky is 0 away from the coast, and mix(1, shelf, 0) is 1.
+    const shelfN = mx_noise_float(vec3(dir.x.mul(1.35).add(U.time.mul(0.015)), dir.z.mul(1.1).sub(U.time.mul(0.01)), up.mul(0.65))).mul(0.5).add(0.5);
+    const shelf = shelfN.mul(0.4).add(0.32);
+    col = col.mul(mix(float(1), shelf, U.stormSky));
     // sun/moon glow through smog
     const sd = max(dot(dir, U.sunDir), 0.0);
     col = col.add(U.sunColor.mul(pow(sd, 64.0).mul(0.6).add(pow(sd, 8.0).mul(0.12))).mul(U.daylight));

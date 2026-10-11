@@ -4,7 +4,7 @@ import { planApron } from './apronPlan';
 import { framePoint } from './profile';
 import { pierFocusPoint } from './piers';
 
-export type CoastView = 'crest' | 'terraces' | 'apron' | 'spray' | 'piers' | 'blocks' | 'aerial';
+export type CoastView = 'crest' | 'terraces' | 'apron' | 'spray' | 'piers' | 'blocks' | 'aerial' | 'offshore';
 
 export interface CoastPose {
   x: number;
@@ -70,10 +70,10 @@ export function coastCamera(
   };
 
   if (kind === 'crest') {
-    // Seaward side of the crest road, looking along the lamps and down the face.
-    const feet = at(3, 6, H + 0.02);
-    const look = at(22, 42, H - 18);
-    return walk(feet, look, -0.32);
+    // On the crest road, looking along it so the sheet on the walkway is in frame.
+    const feet = at(-1, -10, H + 0.02);
+    const look = at(4, 36, H + 0.2);
+    return walk(feet, look, -0.22);
   }
   if (kind === 'terraces') {
     // Off the steep face, not on the flat collider (that box sits inside the slope).
@@ -109,6 +109,12 @@ export function coastCamera(
     const feet = { x: sx, y: layout.heightAt(sx, sz) + 0.02, z: sz };
     const look = at(-40, 70, 16);
     return walk(feet, look, 0.06);
+  }
+  if (kind === 'offshore') {
+    // Low over the water, so the swell profile and the wall share the frame.
+    const eye = at(plan.across1 + 36, -16, 9);
+    const look = at(14, 12, 5);
+    return fly(eye, look);
   }
   const eye = at(-90, -520, 260);
   const look = at(20, 80, 70);

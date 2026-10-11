@@ -56,6 +56,11 @@ export const U = {
   signPower: uniform(1),
   /** 0..1 flash */
   lightning: uniform(0),
+  /**
+   * Coastal storm cloud shelf. 0 leaves the sky node unchanged (the mix weight is zero).
+   * Written only while the Sea Wall Storm is on and the camera is near the coast.
+   */
+  stormSky: uniform(0),
   /** 0..1 how strongly street-level rain should pick up neon (set from the district under the camera). */
   neonWet: uniform(0.35),
   /** 0 = magenta/cyan rain tint, 1 = sodium. Follows the district under the camera. */
