@@ -165,7 +165,7 @@ and shut off on the low tier. The finale apron, drowned piers and the coastal fa
 | high | 8 (120 m, 9 m², 14 m) | 4 (340 m, 64 m) | 4 / 4 | 18 within 68 m |
 | ultra | 12 (190 m, 8 m², 18 m) | 4 (420 m, 76 m) | 4 / 4 | 26 within 84 m |
 
-A halo is one camera-facing quad. A shaft is two crossed quads (no shadow, no cone mesh). On a 390×844 medium frame a near halo is a few percent of the canvas; a shaft that crosses the view can be about 10–20% and is the fill-rate cost. Triangle cost is about 40 for the glow mesh and about 100 for breath. `GroundHaze` stays high/ultra only.
+A halo is one camera-facing quad. A shaft is two crossed double-sided quads, 6.5 m wide on medium and 10 m on high and ultra (no shadow, no cone mesh). Front-face-only crosses disappear from a quarter of the view angles. On a 390×844 medium frame a near halo is a few percent of the canvas; a shaft that crosses the view can be about 10–20% and is the fill-rate cost. Triangle cost is about 40 for the glow mesh and about 100 for breath. `GroundHaze` stays high/ultra only.
 * `airLights.ts`: four light slots and four shaft slots, each its own uniform. A float array mis-indexes on the WebGL2 fallback. Rain and the halo mesh read the same slots.
 
 ## Sky lanes (`vehicles/skyLanes.ts`, `vehicles/LaneTraffic.ts`)

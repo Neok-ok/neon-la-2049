@@ -96,13 +96,18 @@ const pages = new Map();
 async function pageFor(spec) {
   const key = `${spec.view}|${spec.quality}|${spec.time}|${spec.weather}`;
   if (pages.has(key)) return pages.get(key);
+  // One city at a time. A second live page saturates SwiftShader and the next navigation never finishes.
+  for (const [k, old] of pages) {
+    await old.context().close();
+    pages.delete(k);
+  }
   const ctx = await browser.newContext(spec.view === 'iphone' ? iphone : desktop);
   const page = await ctx.newPage();
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   const url = `${BASE}?mode=fly&quality=${spec.quality}&freeze=1&ui=0&time=${spec.time}&weather=${spec.weather}${webgl}`;
-  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 180_000 });
-  await page.waitForFunction(() => window.__nla?.stats, null, { timeout: 180_000 });
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 300_000 });
+  await page.waitForFunction(() => window.__nla?.stats, null, { timeout: 300_000 });
   await settle(page);
   pages.set(key, page);
   return page;

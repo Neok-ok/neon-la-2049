@@ -2,7 +2,7 @@
 // Two draws on medium and up (one additive, one steam). Low draws neither.
 // Shafts attach to spinners that already exist. This does not spawn any.
 import {
-  AdditiveBlending, BufferGeometry, BufferAttribute, DynamicDrawUsage, InstancedBufferAttribute, InstancedMesh,
+  AdditiveBlending, BufferGeometry, BufferAttribute, DoubleSide, DynamicDrawUsage, InstancedBufferAttribute, InstancedMesh,
   Matrix4, MeshBasicNodeMaterial, PlaneGeometry, Quaternion, Vector3, type Scene,
 } from 'three/webgpu';
 import * as TSL from 'three/tsl';
@@ -95,6 +95,7 @@ function glowMaterial(): MeshBasicNodeMaterial {
   m.transparent = true;
   m.depthWrite = false;
   m.depthTest = true;
+  m.side = DoubleSide;
   m.blending = AdditiveBlending;
   m.fog = false;
   m.colorNode = Fn(() => {
@@ -105,8 +106,8 @@ function glowMaterial(): MeshBasicNodeMaterial {
     const u = uv();
     const radial = length(u.sub(0.5)).mul(2.0);
     const disc = smoothstep(1.0, 0.0, radial).pow(1.7);
-    const across = smoothstep(0.5, 0.04, abs(u.x.sub(0.5)));
-    const along = smoothstep(0.0, 0.14, u.y).mul(smoothstep(1.0, 0.58, u.y));
+    const across = smoothstep(0.5, 0.02, abs(u.x.sub(0.5)));
+    const along = smoothstep(0.0, 0.06, u.y).mul(smoothstep(1.0, 0.78, u.y));
     const beam = across.pow(1.4).mul(along);
     const shape = select(kind.lessThan(0.5), disc, beam);
     const fogA = exp(fogDepth(cameraPosition, positionWorld).mul(-0.4));
@@ -299,13 +300,13 @@ export class AirField {
       this.beams.push({ x: c.x, y: c.y, z: c.z, dx: _dir.x, dy: _dir.y, dz: _dir.z, length: len });
       _q.setFromUnitVectors(_up, _dir);
       const mid = len * 0.5;
-      const width = tier === 'medium' ? 4.2 : 6.4;
+      const width = tier === 'medium' ? 6.5 : 10;
       for (let k = 0; k < 2 && n < GLOW_MAX; k++) {
         _q2.setFromAxisAngle(_dir, k * Math.PI * 0.5).multiply(_q);
         _p.set(c.x + _dir.x * mid, c.y + _dir.y * mid, c.z + _dir.z * mid);
         _s.set(width, len, 1);
         this.glowMesh.setMatrixAt(n, _m.compose(_p, _q2, _s));
-        this.iAir.setXYZW(n, 1, 0.95, c.salt, 0);
+        this.iAir.setXYZW(n, 1, 1.35, c.salt, 0);
         this.iTint.setXYZ(n, 0.82, 0.88, 1);
         n++;
       }
