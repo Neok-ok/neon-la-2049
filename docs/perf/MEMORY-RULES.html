@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Neon LA 2049 — memory rules</title>
+<style>
+  :root { color-scheme: light; }
+  body { margin: 0; font: 17px/1.55 Georgia, "Iowan Old Style", serif; color: #1a1c1f; background: #f6f4ef; }
+  main { max-width: 42rem; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
+  h1 { font: 600 1.8rem/1.2 system-ui, sans-serif; letter-spacing: -0.02em; margin: 0 0 0.4rem; }
+  h2 { font: 600 1.2rem/1.3 system-ui, sans-serif; margin: 2.2rem 0 0.6rem; }
+  p, li { margin: 0.5rem 0; }
+  .lead { font-size: 1.08rem; }
+  a { color: #0b4f6c; }
+  code, pre { font: 14px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  code { background: #ebe6dc; padding: 0.05em 0.3em; border-radius: 3px; }
+  pre { background: #1c2126; color: #f2efe8; padding: 0.9rem 1rem; overflow: auto; border-radius: 6px; }
+  table { border-collapse: collapse; width: 100%; margin: 0.8rem 0 1rem; font: 15px/1.4 system-ui, sans-serif; }
+  th, td { text-align: left; padding: 0.35rem 0.5rem; border-bottom: 1px solid #d9d3c7; vertical-align: top; }
+  th { font-weight: 600; }
+  .note { background: #fff; border: 1px solid #e2dcd0; padding: 0.8rem 1rem; border-radius: 6px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Memory rules</h1>
+  <p class="lead">The graphics tier changes how good the picture looks. The memory budget decides how much of the city stays loaded. Ultra on a phone stays selectable and keeps the street in front of the camera. The horizon is what shrinks.</p>
+  <p>Source of truth for other passes. Markdown twin: <a href="MEMORY-RULES.md">MEMORY-RULES.md</a>.</p>
+
+  <h2>Create and unload</h2>
+  <p>Every texture, geometry, render target, and material goes through <code>resources</code> in <code>src/core/memory</code>.</p>
+  <pre>import { resources } from '../core/memory';
+
+const geo = resources.geometry(() => new BufferGeometry(), {
+  label: 'balcony', owner: 'towers', evictable: true,
+});
+
+const pole = resources.sharedGeometry('lamp-pole', () => buildPole());
+mesh.userData.sharedGeometry = true; // chunk unload must not dispose this
+
+const tex = resources.texture(() => new CanvasTexture(canvas), {
+  label: 'signs', owner: 'signs',
+});
+resources.markStreamed(tex); // pressure can drop high mips
+
+const mat = resources.material('neon-sign', () => new MeshBasicNodeMaterial());
+const rt = resources.target(() => new RenderTarget(w, h), {
+  label: 'reflect', owner: 'water',
+});
+
+resources.retain(geo);
+resources.release(geo); // the last holder calls dispose()</pre>
+  <p><code>retain</code> and <code>release</code> are the reference count. Shared geometry is never disposed by <code>release</code>. Chunk unload calls <code>release</code>, then <code>dispose</code> only if the resource was never tracked.</p>
+  <p><code>main.ts</code> installs a constructor hook before the city builds. A bare <code>new BufferGeometry</code>, texture, render target, or material is still counted. <code>?memguard=1</code> throws instead. <code>npm run memory:check</code> fails if a memory-owned file constructs a GPU resource without <code>resources</code>.</p>
+
+  <h2>Device budget</h2>
+  <p><code>detectBudget</code> reads <code>navigator.deviceMemory</code>, WebGL limits, user-agent client hints, and a 1&nbsp;MB startup probe. These are tab totals, not the whole phone.</p>
+  <table>
+    <tr><th>Device</th><th>Tab budget</th></tr>
+    <tr><td>Android, 2 GB class</td><td>600 MB</td></tr>
+    <tr><td>Android, 3 GB</td><td>680 MB</td></tr>
+    <tr><td>Android, 4 GB</td><td>750 MB</td></tr>
+    <tr><td>Android, 6 GB</td><td>820 MB</td></tr>
+    <tr><td>Android, larger</td><td>900 MB</td></tr>
+    <tr><td>iOS, older</td><td>640 MB</td></tr>
+    <tr><td>iOS, recent</td><td>760–900 MB</td></tr>
+    <tr><td>Desktop under 8 GB</td><td>2048 MB</td></tr>
+    <tr><td>Desktop 8 GB</td><td>3072 MB</td></tr>
+    <tr><td>Desktop 16 GB and up</td><td>4096 MB</td></tr>
+  </table>
+  <p>About 46% is the JS heap and 40% is GPU. Of the GPU share, about 62% is geometry, 18% textures, 20% render targets. A max texture size of 2048 or less caps textures at 32 MB.</p>
+  <p>Force a class with <code>?budget=android</code>, <code>?budget=ios</code>, <code>?budget=desktop</code>, or a number of megabytes (<code>?budget=720</code>). <code>?mem=1</code> shows the overlay. It is not part of the picture.</p>
+
+  <h2>What stays loaded</h2>
+  <p>The streamer keeps the tier’s distances when the estimate fits the geometry budget. The estimate is a disc of street chunks at 1.6 MB, mid chunks at 0.9 MB, and 2 km far cells at 1.2 MB.</p>
+  <p>When it does not fit, the horizon shrinks first, then the mid ring, then the street radius, which stops at 420 m on high and ultra, 280 m on medium, and 200 m on low. Screen-space error can refuse a finer level. Thresholds are 14, 8, 5, and 3.5 pixels. A level that is already showing needs an 18% change, and only one step happens per update, so the skyline does not flicker.</p>
+  <p>Worker results wait in a queue of at most 16. Only the 12 nearest are kept. Cells past the geometry cap are dropped, farthest first. After about 90 frames under 70% of the cap, the horizon grows back.</p>
+  <p>While the budget is tight, up to 48 missing 2 km cells draw a few impostor blocks on the shared city material. They leave when the real mesh arrives. A desktop budget that already fits does not show them.</p>
+
+  <h2>Textures, instances, materials</h2>
+  <p>Window rooms and the sign atlas ship as KTX2. On a phone that can decode a compressed format, the game waits for those files and does not also keep the uncompressed canvas. Software GPUs stay on the procedural atlas.</p>
+  <p>Under pressure, and on a tight budget when the camera is high, high mips drop: one mip above 280 m, two above 900 m. Standing on the street keeps the full chain. Desktop at rest keeps it at any height.</p>
+  <p>One material per surface, via <code>resources.material(key, …)</code>. Repeated parts (signs, lamps, people, props) share a geometry and draw instanced. A clone that owns its own instance buffers must clear <code>userData.sharedGeometry</code> or unload will skip it and leak those buffers.</p>
+
+  <h2>Before the tab is killed</h2>
+  <p>The governor watches JS heap and GPU counters. Crossing 82% for 1.5 seconds steps up one level. Staying under 62% for 3 seconds steps back one level. A short spike does nothing.</p>
+  <table>
+    <tr><th>Level</th><th>What gives</th></tr>
+    <tr><td>1</td><td>Horizon ×0.72, coarser screen-space error</td></tr>
+    <tr><td>2</td><td>One mip dropped, horizon ×0.55, wet reflector off</td></tr>
+    <tr><td>3</td><td>Resolution ×0.75, two mips dropped, horizon ×0.42</td></tr>
+  </table>
+
+  <h2>Interiors and towers</h2>
+  <p>An interior is built when the camera comes within its stream radius and disposed when the camera leaves. While the player is occluded inside, the exterior chunks are disposed too. Leaving rebuilds the street.</p>
+  <p>A landmark keeps the showing level of detail and one neighbour on the GPU. The other level’s buffers are released and uploaded again on the way back. The CPU copy stays so the tower is not rebuilt.</p>
+
+  <h2>Do not</h2>
+  <ul>
+    <li>Allocate a large city-wide buffer at the ultra count on every phone. A shorter draw range does not free it.</li>
+    <li>Build a material or a geometry per window, balcony, person, or lamp.</li>
+    <li>Upload a canvas atlas and a KTX2 atlas for the same surface.</li>
+    <li>Push the far distance on a phone out to the desktop ultra radius.</li>
+    <li>Dispose a mesh marked <code>userData.sharedGeometry</code>.</li>
+  </ul>
+
+  <h2>Check</h2>
+  <pre>npm run memory:check</pre>
+  <p>The route profiler is <code>node tools/memory/profile.mjs</code>. It emulates a phone, records heap and GPU counters, and walks an opening, a walk, a spinner flight, an interior, and photo mode. Live reads: <code>window.__nla.memory()</code>, <code>__nla.budget()</code>, <code>__nla.pressure()</code>.</p>
+  <p class="note">The 11 October 2026 measurement write-up is <a href="p1-2026-10-11.html">p1-2026-10-11.html</a>.</p>
+</main>
+</body>
+</html>

@@ -14,7 +14,7 @@ How the engine is put together, so any stage can pick it up cold. Read with [BIB
 src/
   main.ts                  bootstrap + error screen
   app/App.ts               wires everything; frame loop; quality; URL params; debug API (window.__nla)
-  core/                    params (URL), quality tiers + auto-detect, deterministic RNG/hashes
+  core/                    params (URL), quality tiers + auto-detect, memory budget, deterministic RNG/hashes
   data/city-layout.json    THE city plan: districts, landmarks, POIs, coast, sea walls, freeways, river, hills
   world/
     geo.ts                 lat/lon <-> metres
@@ -99,6 +99,7 @@ Far away, the window pattern fades to its mean emission (`fwidth` + distance), s
   `uploadsPerFrame` meshes are built per frame, nearest first, to avoid upload spikes.
 * LOD0 chunks also get **detail modules** (`world/detail/registry.ts`): main-thread builders that return instanced props for the
   chunk's blocks. They are disposed with the chunk. Shared geometry is flagged `userData.sharedGeometry` so it isn't disposed.
+* **Memory** (`core/memory/`, rules in [docs/perf/MEMORY-RULES.md](perf/MEMORY-RULES.md)): the graphics tier is the look. A separate device budget caps how much geometry stays resident. On a phone the horizon shrinks before the street mesh does. Screen-space error, a ready-queue cap, impostors for missing 2 km cells, and a pressure governor (far detail, then texture mips, then resolution) run before the tab is killed. `?mem=1` shows the overlay. `?budget=android` forces the phone budget on a desktop.
 
 ## Landmarks (`world/landmarks/`)
 

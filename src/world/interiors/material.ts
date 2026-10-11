@@ -2,13 +2,12 @@
 import { DoubleSide, MeshBasicNodeMaterial } from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import { U } from '../../atmosphere/uniforms';
+import { resources } from '../../core/memory/resources';
 
 const T = TSL as any;
 
-let mat: MeshBasicNodeMaterial | null = null;
-
 export function interiorMaterial(): MeshBasicNodeMaterial {
-  if (mat) return mat;
+  return resources.material('interior-shell', () => {
   const m = new MeshBasicNodeMaterial();
   m.fog = false;
   m.side = DoubleSide;
@@ -20,6 +19,6 @@ export function interiorMaterial(): MeshBasicNodeMaterial {
     const k = T.select(flick.lessThan(0.0), T.float(1.0), pulse);
     return col.add(em.mul(k));
   })();
-  mat = m;
   return m;
+  });
 }

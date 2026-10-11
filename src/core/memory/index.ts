@@ -1,0 +1,15 @@
+export { detectBudget, refineBudget, readUaHints, startupProbe } from './budget';
+export type { BudgetDevice, BudgetInput, DeviceClass, GpuLimits, MemoryBudget } from './budget';
+export { geometryBytes, mipChainBytes, renderTargetBytes, texelBytes, textureBytes } from './estimate';
+export { readGpuLimits, jsHeapLimit } from './gpuLimits';
+export { PRESSURE_REST, pressureKnobs, stepGovernor } from './governor';
+export type { Pressure } from './governor';
+export { mountMemoryOverlay } from './overlay';
+export type { OverlaySample } from './overlay';
+export { estimateStreamingBytes, fitRadii } from './residency';
+export type { Radii } from './residency';
+export { installResourceGuard, resources } from './resources';
+export type { DuplicateGroup, LeakRow, MemoryReport, TrackMeta } from './resources';
+export { inScope, isStrict, noteCreation, resetScopeCounts, runTracked, scopeCounts, setStrict } from './scope';
+export { LOD_ERROR_M, pickLod, screenSpaceError, SSE_THRESHOLD } from './sse';
+export type { LodPick } from './sse';

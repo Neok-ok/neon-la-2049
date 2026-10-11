@@ -2,14 +2,13 @@
 import { BufferGeometry, DoubleSide, Float32BufferAttribute, MeshBasicNodeMaterial } from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import { U } from '../../atmosphere/uniforms';
+import { resources } from '../../core/memory/resources';
 import type { OpenSky } from './types';
 
 const T = TSL as any;
 
-let mat: MeshBasicNodeMaterial | null = null;
-
 export function rainMaterial(): MeshBasicNodeMaterial {
-  if (mat) return mat;
+  return resources.material('interior-rain', () => {
   const m = new MeshBasicNodeMaterial();
   m.transparent = true;
   m.depthWrite = false;
@@ -23,8 +22,8 @@ export function rainMaterial(): MeshBasicNodeMaterial {
     const edge = T.smoothstep(0.0, 0.2, uv.x).mul(T.smoothstep(1.0, 0.8, uv.x));
     return T.vec4(T.vec3(0.72, 0.76, 0.82), streak.mul(edge).mul(0.42));
   })();
-  mat = m;
   return m;
+  });
 }
 
 function hash(i: number): number {
@@ -32,7 +31,7 @@ function hash(i: number): number {
   return x - Math.floor(x);
 }
 
-export function buildRainGeometry(sky: OpenSky, count: number): BufferGeometry {
+function assembleRainGeometry(sky: OpenSky, count: number): BufferGeometry {
   const pos: number[] = [];
   const uv: number[] = [];
   const idx: number[] = [];
@@ -61,4 +60,11 @@ export function buildRainGeometry(sky: OpenSky, count: number): BufferGeometry {
   g.setIndex(idx);
   g.computeBoundingSphere();
   return g;
+}
+
+export function buildRainGeometry(sky: OpenSky, count: number): BufferGeometry {
+  return resources.geometry(
+    () => assembleRainGeometry(sky, count),
+    { label: 'interior-rain', owner: 'interiors', evictable: true },
+  );
 }

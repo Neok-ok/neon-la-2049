@@ -12,7 +12,12 @@ import { placeWindowHeroes } from '../world/windows/heroes';
 import { windowsApi } from '../world/windows/api';
 import { Precipitation } from '../atmosphere/Precipitation';
 import { WEATHER, type WeatherId } from '../atmosphere/Weather';
-import { ChunkStreamer } from '../world/streaming/ChunkStreamer';
+import { ChunkStreamer, type StreamPolicy } from '../world/streaming/ChunkStreamer';
+import {
+  PRESSURE_REST, SSE_THRESHOLD, detectBudget, jsHeapLimit, mountMemoryOverlay, readGpuLimits,
+  readUaHints, refineBudget, resources, startupProbe, stepGovernor,
+  type MemoryBudget, type Pressure,
+} from '../core/memory';
 import { CityQuery } from '../world/CityQuery';
 import { Landmarks } from '../world/landmarks/Landmarks';
 import { localToGeo, geoToLocal } from '../world/geo';
@@ -106,6 +111,7 @@ export class App {
   readonly camera = new PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 60000);
   readonly query = new CityQuery();
   quality: QualitySettings;
+  budget: MemoryBudget;
   qualityChoice: Tier | 'auto';
   readonly autoTier: Tier;
   readonly autoReason: string;
@@ -151,6 +157,9 @@ export class App {
   private photoMod: PhotoMode | null = null;
   private photoGate: Promise<PhotoMode> | null = null;
   private captureLock = false;
+  private pressure: Pressure = { ...PRESSURE_REST };
+  private pixelScale = 1;
+  private exteriorSuspended = false;
   private spinnerWasVisible = false;
   private loadingEl = document.getElementById('loading');
   private startMs = performance.now();
@@ -164,11 +173,31 @@ export class App {
     const urlTier = (TIERS as string[]).includes(params.quality ?? '') ? (params.quality as Tier) : null;
     this.qualityChoice = urlTier ?? storedTier();
     this.quality = settingsFor(this.qualityChoice === 'auto' ? auto.tier : this.qualityChoice);
+    const probe = startupProbe();
+    this.budget = detectBudget({
+      device: dev,
+      limits: readGpuLimits(),
+      heapLimit: jsHeapLimit(),
+      override: params.budget,
+      probeMs: probe.allocMs,
+    });
     this.marketAudio = new MarketAudio(this.ambience);
     this.wet = new WetReflector(this.scene);
   }
 
   async init(): Promise<void> {
+    const hints = await readUaHints();
+    if (hints.platform || hints.model) {
+      this.budget = detectBudget({
+        device: probeDevice(),
+        limits: this.budget.limits,
+        heapLimit: jsHeapLimit(),
+        override: params.budget,
+        uaPlatform: hints.platform,
+        uaModel: hints.model,
+      });
+    }
+    this.budget = await refineBudget(this.budget);
     const windows = applyWindowTier(this.quality.tier);
     setCityWindowDetail(windows.detail);
     placeWindowHeroes(this.query.layout);
@@ -191,10 +220,9 @@ export class App {
     }));
     await r.init();
     this.backend = (r.backend as unknown as { isWebGPUBackend?: boolean }).isWebGPUBackend ? 'WebGPU' : 'WebGL2';
-    await prepareAtlases(r);
+    await prepareAtlases(r, { preferCompressed: this.budget.deviceClass !== 'desktop' });
     r.toneMapping = ACESFilmicToneMapping;
-    r.setPixelRatio(Math.min(devicePixelRatio, this.quality.pixelRatio));
-    r.setSize(innerWidth, innerHeight, false);
+    this.applyPixelRatio();
     this.camera.aspect = innerWidth / innerHeight;
     this.camera.updateProjectionMatrix();
 
@@ -225,6 +253,7 @@ export class App {
     this.scene.add(this.rain.mesh, this.snow.mesh, this.crowd.mesh, this.haze.group);
     installInteriors();
     this.interiors = new InteriorSystem(this.scene, this.query, this.quality.tier);
+    this.interiors.setExteriorListener((suspended) => { this.exteriorSuspended = suspended; });
     this.hookFar();
 
     const spots = marketSpots(this.query.layout);
@@ -299,6 +328,7 @@ export class App {
     addEventListener('keydown', unlockAudio);
     addEventListener('resize', () => this.resize());
 
+    if (params.mem) mountMemoryOverlay(() => this.overlaySample());
     this.buildPipeline();
     this.boot.initMs = performance.now() - this.startMs;
     this.timer.connect(document);
@@ -357,8 +387,7 @@ export class App {
     const windows = applyWindowTier(tier);
     setCityWindowDetail(windows.detail);
     this.quality = settingsFor(tier);
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, this.quality.pixelRatio));
-    this.renderer.setSize(innerWidth, innerHeight, false);
+    this.applyPixelRatio();
     this.streamer.setQuality(this.quality);
     this.streamer.invalidateLod0();
     this.interiors.setTier(tier);
@@ -374,9 +403,88 @@ export class App {
   private resize(): void {
     this.camera.aspect = innerWidth / innerHeight;
     this.camera.updateProjectionMatrix();
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, this.quality.pixelRatio));
-    this.renderer.setSize(innerWidth, innerHeight, false);
+    this.applyPixelRatio();
     this.photoMod?.onResize();
+  }
+
+  private streamPolicy(): StreamPolicy {
+    const tier = this.quality.tier;
+    const dpr = typeof devicePixelRatio === 'number' && devicePixelRatio > 0 ? devicePixelRatio : 1;
+    return {
+      fovY: this.camera.fov * DEG,
+      viewportHeight: this.canvas.height || Math.round(innerHeight * Math.min(dpr, this.quality.pixelRatio)),
+      sseThreshold: SSE_THRESHOLD[tier],
+      sseScale: this.pressure.sseScale,
+      farScale: this.pressure.farScale,
+      maxGeometryBytes: this.budget.geometryBytes,
+      floorLod0: tier === 'ultra' || tier === 'high' ? 420 : tier === 'medium' ? 280 : 200,
+      suspended: this.exteriorSuspended,
+    };
+  }
+
+  private applyPixelRatio(): void {
+    const dpr = typeof devicePixelRatio === 'number' && devicePixelRatio > 0 ? devicePixelRatio : 1;
+    const ratio = Math.max(0.5, Math.min(dpr, this.quality.pixelRatio) * this.pressure.resolutionScale);
+    this.pixelScale = ratio;
+    this.renderer.setPixelRatio(ratio);
+    this.renderer.setSize(innerWidth, innerHeight, false);
+  }
+
+  private rtBytes(): number {
+    const w = this.canvas.width || 1;
+    const h = this.canvas.height || 1;
+    const samples = this.quality.antialias ? 4 : 1;
+    const bloom = this.quality.bloom ? 2.4 : 1;
+    return Math.round(w * h * (4 * samples * bloom + 4));
+  }
+
+  /** Drop far detail, then mips, then resolution, before the tab is killed. */
+  private govern(frameMs: number): void {
+    const heap = (performance as { memory?: { usedJSHeapSize?: number } }).memory?.usedJSHeapSize ?? 0;
+    const gpu = (this.renderer.info.memory?.total ?? 0) + this.rtBytes();
+    const jsRatio = this.budget.jsHeapBytes > 0 ? heap / this.budget.jsHeapBytes : 0;
+    const gpuRatio = this.budget.gpuBytes > 0 ? gpu / this.budget.gpuBytes : 0;
+    this.pressure = stepGovernor(this.pressure, Math.max(jsRatio, gpuRatio), 1, frameMs);
+    if (Math.abs(this.pixelScale - Math.min(devicePixelRatio || 1, this.quality.pixelRatio) * this.pressure.resolutionScale) > 0.03) {
+      this.applyPixelRatio();
+    }
+    resources.setMipBias(this.viewMipBias());
+    if (this.pressure.level >= 1) resources.evict(this.budget.geometryBytes);
+    this.streamer.setPolicy(this.streamPolicy());
+  }
+
+  /** High mips stay resident near the street. A tight budget drops them as the camera climbs. */
+  private viewMipBias(): number {
+    let bias = this.pressure.mipBias;
+    const tight = this.budget.deviceClass !== 'desktop' || this.pressure.level > 0;
+    if (!tight) return bias;
+    const y = this.camera.position.y;
+    if (y > 900) bias = Math.max(bias, 2);
+    else if (y > 280) bias = Math.max(bias, 1);
+    return Math.min(3, bias);
+  }
+
+  private overlaySample() {
+    const mem = (performance as { memory?: { usedJSHeapSize?: number; jsHeapSizeLimit?: number } }).memory;
+    const info = this.renderer.info.memory;
+    return {
+      budget: this.budget,
+      report: resources.sample(info?.programs ?? 0),
+      pressure: this.pressure,
+      jsHeap: mem?.usedJSHeapSize ?? 0,
+      jsLimit: mem?.jsHeapSizeLimit ?? 0,
+      rendererBytes: info?.total ?? 0,
+      rendererTextures: info?.textures ?? 0,
+      renderTargets: info?.renderTargets ?? 0,
+      residentChunks: {
+        far: this.streamer.memory.far,
+        near: this.streamer.memory.near,
+        lod0: this.streamer.memory.lod0,
+      },
+      residentBytes: this.streamer.memory.residentBytes,
+      hlod: this.streamer.memory.hlod,
+      resolutionScale: this.pressure.resolutionScale,
+    };
   }
 
   private handleKeys(): void {
@@ -485,6 +593,7 @@ export class App {
     if (photoOn) {
       for (const f of this.photoMod!.focusPoints()) foci.push(f);
     } else if (this.cams.mode === 'cine' && this.cams.cine.prefetch) foci.push(this.cams.cine.prefetch);
+    this.govern(raw * 1000);
     this.streamer.update(foci);
     this.landmarks.update(cam, this.quality.landmarkLod);
     updateWallace(cam, this.quality.tier, simDt);
@@ -502,10 +611,10 @@ export class App {
     this.photoMod?.postAtmosphere();
     this.crowd.update(simDt, cam.x, cam.z, this.query, this.quality, this.atmosphere.weather.params.rain, this.elapsed, this.cams.pose().heading);
     this.haze.update(cam.x, cam.z, ground, alt, this.quality.tier);
-    const wantRefl = params.refl === 1 || (
+    const wantRefl = this.pressure.reflector && (params.refl === 1 || (
       params.refl !== 0 && !this.software && (this.quality.tier === 'high' || this.quality.tier === 'ultra')
       && inMarket && alt < 28 && this.atmosphere.weather.wetness > 0.35
-    );
+    ));
     this.wet.place(cam.x, ground, cam.z, wantRefl);
     // depth precision fallback when reversed-Z is unavailable (WebGL2 without EXT_clip_control)
     const near = this.renderer.reversedDepthBuffer ? 0.1 : MathUtils.clamp(alt * 0.004, 0.15, 6);
@@ -785,6 +894,9 @@ export class App {
     return {
       app: this,
       isIdle: () => this.frames > 10 && this.streamer.isIdle(),
+      memory: () => this.overlaySample(),
+      budget: () => this.budget,
+      pressure: () => this.pressure,
       resetPeaks: () => {
         this.sessionWorstMs = 0;
         this.streamer.resetPeaks();

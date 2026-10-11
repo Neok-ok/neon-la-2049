@@ -68,7 +68,7 @@ export class SettingsPanel {
     const graphics = section('Graphics');
     const note = document.createElement('p');
     note.className = 'settings-note';
-    note.textContent = 'The whole city stays. Lower tiers draw simpler streets, weather, and lights.';
+    note.textContent = 'The tier changes how the picture looks. A separate memory budget, from the device, decides how much of the city stays loaded. Ultra on a phone keeps the near view and holds less of the distance.';
     graphics.appendChild(note);
     const grid = document.createElement('div');
     grid.className = 'tier-grid';

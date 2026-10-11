@@ -9,6 +9,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host",
     "typecheck": "tsc --noEmit",
+    "memory:check": "node tools/memory/run-logic.mjs && node tools/memory/guard-scan.mjs",
     "textures": "node scripts/encode-ktx2.mjs",
     "map": "node scripts/gen-map.mjs",
     "screenshots": "node scripts/screenshots.mjs",

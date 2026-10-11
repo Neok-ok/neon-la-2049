@@ -3,7 +3,8 @@
 // beside a 1 km crown gets the full model even though the base is far away.
 // Levels: [0] full detail, [1] mid, [2] silhouette proxy (the "impostor": a few dozen boxes that share
 // the live procedural facade, so day/night/wet/snow stay correct where a baked billboard would not).
-import { Group, type Object3D, type Vector3 } from 'three/webgpu';
+import { Group, Mesh, type BufferGeometry, type Object3D, type Vector3 } from 'three/webgpu';
+import { resources } from '../../core/memory/resources';
 
 interface Entry {
   name: string;
@@ -60,6 +61,9 @@ export class LandmarkLods {
         e.levels[lvl]!.visible = true;
         e.current = lvl;
       }
+      // Keep the showing level and its neighbour on the GPU. The rest drop their
+      // buffers until the camera comes back, then the renderer uploads them again.
+      for (let i = 0; i < e.levels.length; i++) gpuLive(e.levels[i]!, Math.abs(i - e.current) <= 1);
       this.active[Math.min(2, lvl)]!++;
     }
   }
@@ -67,4 +71,23 @@ export class LandmarkLods {
   levelOf(name: string): number {
     return this.list.find((e) => e.name === name)?.current ?? -1;
   }
+}
+
+function gpuLive(obj: Object3D, live: boolean): void {
+  obj.traverse((node) => {
+    const mesh = node as Mesh;
+    const geo = mesh.geometry as BufferGeometry | undefined;
+    if (!geo || node.userData.sharedGeometry) return;
+    if (live) {
+      if (!node.userData.gpuDown) return;
+      node.userData.gpuDown = false;
+      resources.revive(geo);
+      for (const attr of Object.values(geo.attributes)) attr.needsUpdate = true;
+      if (geo.index) geo.index.needsUpdate = true;
+      return;
+    }
+    if (node.userData.gpuDown) return;
+    geo.dispose();
+    node.userData.gpuDown = true;
+  });
 }

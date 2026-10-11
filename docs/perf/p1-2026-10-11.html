@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Neon LA 2049 — memory pass, 11 Oct 2026</title>
+<style>
+  :root { color-scheme: light; }
+  body { margin: 0; font: 17px/1.55 Georgia, "Iowan Old Style", serif; color: #1a1c1f; background: #f6f4ef; }
+  main { max-width: 48rem; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
+  h1 { font: 600 1.8rem/1.2 system-ui, sans-serif; letter-spacing: -0.02em; margin: 0 0 0.4rem; }
+  h2 { font: 600 1.2rem/1.3 system-ui, sans-serif; margin: 2.2rem 0 0.6rem; }
+  p, li { margin: 0.5rem 0; }
+  a { color: #0b4f6c; }
+  code { font: 14px/1.4 ui-monospace, Menlo, Consolas, monospace; background: #ebe6dc; padding: 0.05em 0.3em; border-radius: 3px; }
+  table { border-collapse: collapse; width: 100%; margin: 0.8rem 0 1rem; font: 15px/1.4 system-ui, sans-serif; }
+  th, td { text-align: left; padding: 0.35rem 0.5rem; border-bottom: 1px solid #d9d3c7; vertical-align: top; }
+  th { font-weight: 600; }
+  .pending { background: #fff8e8; border: 1px solid #e6d7a8; padding: 0.8rem 1rem; border-radius: 6px; }
+  figure { margin: 1rem 0; }
+  figcaption { font: 14px/1.4 system-ui, sans-serif; color: #444; }
+  svg { width: 100%; height: auto; background: #fff; border: 1px solid #e2dcd0; border-radius: 6px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Memory pass, 11 October 2026</h1>
+  <p>The phone was killing the tab, including on Low. This pass separates the graphics tier (how good the picture looks) from a memory budget (how much stays resident), then measures a scripted route on every tier under a simulated Android tab.</p>
+  <p>Rules for every later pass: <a href="MEMORY-RULES.html">MEMORY-RULES.html</a>.</p>
+
+  <h2>What changed</h2>
+  <ul>
+    <li>Device budget from <code>navigator.deviceMemory</code>, WebGL limits, user-agent hints, and a 1 MB startup probe. Android defaults sit between 600 and 900 MB for the whole tab. Desktop is 2–4 GB.</li>
+    <li>A resource registry with reference counts, dispose-on-last-release, and an LRU sweep of unreferenced evictable resources. <code>?memguard=1</code> throws if something is constructed outside it. CI runs <code>npm run memory:check</code>.</li>
+    <li>Screen-space-error LOD with 18% hysteresis, one step per update. Radii shrink the horizon first. A ready queue keeps the 12 nearest results out of 16.</li>
+    <li>KTX2 atlases on phones that can decode them, with no uncompressed twin. High mips drop when the camera climbs or the governor asks.</li>
+    <li>Shared sign quad, shared city and sign materials. Impostor blocks for 2 km cells the budget did not admit.</li>
+    <li>A governor that, before the tab dies, drops far detail, then mips, then resolution, and recovers when there is headroom.</li>
+    <li>Interiors build on approach and dispose on leave. An occluded interior unloads exterior chunks.</li>
+    <li>Landmark LODs release GPU buffers for levels that are not showing and not the neighbour.</li>
+  </ul>
+  <p>On a desktop whose estimate already fits, distances and mips stay on the old tier rules, so the existing picture does not grow impostors or blur.</p>
+
+  <h2>How it was measured</h2>
+  <p>Headless Chrome, mobile viewport 412×915 at device pixel ratio 2.625, Android 14 / Pixel 7 user agent, <code>navigator.deviceMemory = 4</code>, SwiftShader, precise heap stats, JS heap capped near 864 MB. Chrome DevTools Protocol: <code>Performance.enable</code>, <code>HeapProfiler.collectGarbage</code>, <code>Performance.getMetrics</code>. No Android emulator binary was available on this machine, so the phone is simulated rather than a real device.</p>
+  <p>The route is ten minutes: opening, a walk, a spinner flight across districts (a new landmark every 15 seconds), an interior, and photo mode. Sampled every 5 seconds, on low, medium, high, and ultra. The “before” build is the previous main, frozen so later edits cannot change it.</p>
+
+  <div class="pending" id="measure-status">
+    <strong>10-minute tables.</strong> The before route is still running. Peak, steady, and slope per tier, the ranked consumers, and the after route will replace this note when both passes finish. A 20-second low-tier smoke of the old build (not a steady-state number) sat near a 222 MB JS heap peak and about 70 MB of renderer GPU accounting, with fabric, precipitation, and landmark LODs at the top of the scene-graph geometries.
+  </div>
+
+  <h2 id="consumers">Ranked consumers and leaks</h2>
+  <p>Filled from the fattest sample of each 10-minute route. A “duplicate” fingerprint matches position data only. Traffic streaks share a plane and group together even though each bin has its own instance buffer. They are not an 88 MB leak. Rank by summed bytes per mesh name.</p>
+  <div id="consumer-table"><p>Waiting on the before route.</p></div>
+
+  <h2 id="before-after">Before and after, per tier</h2>
+  <div id="tier-table"><p>Waiting on both routes.</p></div>
+  <figure id="heap-chart">
+    <svg viewBox="0 0 640 220" role="img" aria-label="Heap chart placeholder">
+      <text x="24" y="110" fill="#666" font-family="system-ui, sans-serif" font-size="14">Heap chart appears when the routes finish.</text>
+    </svg>
+    <figcaption>JS heap across the route. Flat after the first minute is the goal.</figcaption>
+  </figure>
+
+  <h2 id="pictures">Ultra at a normal viewing distance</h2>
+  <div id="shots"><p>Side-by-side frames, every tier, are captured on the same poses with the debug overlay hidden.</p></div>
+
+  <h2 id="critics">Critics</h2>
+  <div id="critic-table"><p>Two reviewers who did not write this code re-run the profile and compare frames. Their tables land here.</p></div>
+
+  <h2>Research</h2>
+  <p>The implementations are original. These are the methods they follow.</p>
+  <ul>
+    <li>Cesium 3D Tiles geometric error and screen-space error: refine a tile when its projected error exceeds a pixel threshold, with a geometric error that grows as the LOD gets coarser. <a href="https://github.com/CesiumGS/3d-tiles/blob/main/specification/README.md">3D Tiles specification</a>.</li>
+    <li>Google Earth’s continuous LOD and photogrammetry streaming: keep the working set to what is visible and near, and page detail by projected size rather than by a fixed radius alone. <a href="https://research.google/pubs/google-earth-engine-planetary-scale-geospatial-analysis-for-everyone/">Google Earth / Earth Engine notes</a> and the public descriptions of Earth’s level-of-detail terrain.</li>
+    <li>Unreal World Partition and HLOD: the world is a grid of cells; distant cells are replaced by a hierarchical level of detail instead of the full meshes. <a href="https://dev.epicgames.com/documentation/en-us/unreal-engine/world-partition-in-unreal-engine">World Partition</a>.</li>
+    <li>Nanite-style cluster LOD: pick a cluster whose screen error fits the budget, and do not flip levels on a one-pixel change. The city uses three authored LODs and one-step hysteresis rather than a cluster DAG. <a href="https://advances.realtimerendering.com/s2021/Karis_Nanite_SIGGRAPH_Advances_2021_final.pdf">Karis, Nanite, SIGGRAPH 2021</a>.</li>
+    <li>Virtual texturing and mip residency: high mips exist only for texels that are large on screen. Here the atlases are small enough that a global mip bias, driven by camera height and pressure, is the residency policy. <a href="https://www.cs.unc.edu/~lguan/Research/Papers/mittring_mat_virtual_texture.pdf">Mittring, Advanced Virtual Texture Topics, 2008</a>.</li>
+    <li>Reference-counted caches with LRU eviction are the usual way to make “unload” actually call dispose. The registry follows that shape: holders, last-release dispose, and an oldest-first sweep of anything evictable that nobody holds.</li>
+  </ul>
+
+  <h2>Limits</h2>
+  <ul>
+    <li>SwiftShader does not advertise a useful compressed-texture path, so the headless route still uses the procedural atlases. A real Adreno or Mali phone takes the KTX2 files.</li>
+    <li>Far-district props and freeway streak bins are owned by other passes. They already share materials. Their instance buffers stay per object, which is required.</li>
+    <li>Rain and snow buffers are allocated at the ultra count. They are a few megabytes, so they were left alone.</li>
+    <li>Landmark LOD dispose frees the GPU buffer. The CPU arrays remain so the level can upload again without rebuilding the tower.</li>
+  </ul>
+</main>
+</body>
+</html>

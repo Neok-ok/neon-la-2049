@@ -9,6 +9,7 @@ import { CELL_H, CELL_W, ROOM_STYLE, WIN_H, WIN_W } from '../windows/facade';
 import { heroMask, livingNear, scheduledLitNode } from '../windows/shade';
 import { W, markWindowDetail } from '../windows/state';
 import { lut } from './lut';
+import { resources } from '../../core/memory/resources';
 
 // TSL typings are very loose in @types/three; shader modules use untyped TSL deliberately.
 const T = TSL as any;
@@ -35,7 +36,7 @@ export function setCityWindowDetail(living: boolean): void {
 
 export function getCityMaterial(): MeshStandardNodeMaterial {
   if (shared) return shared;
-  const m = new MeshStandardNodeMaterial();
+  const m = resources.material('city-fabric', () => new MeshStandardNodeMaterial());
   m.name = 'CityFabric';
   compose(m, detail);
   shared = m;
