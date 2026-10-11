@@ -11,10 +11,12 @@
 // the circle is under about a pixel, and the upsample rejects a neighbour whose focus does not match.
 // View-Z is reconstructed with the scene camera's near and far. A gather quad would otherwise
 // substitute its own orthographic range and push every pixel to the blur clamp.
+// A 720p frame hides a real circle of confusion, so once a pixel leaves the plane the radius
+// eases up, and the prefilter mip keeps those wider taps overlapped.
 // Anamorphic squeeze stretches the gather vertically (oval bokeh after the desqueeze).
 // Edge fringing is a fraction of a pixel at the frame edge. Grain is a hashed value, heavier in the shadows.
 
-import { HalfFloatType, Matrix4, NearestFilter, NodeUpdateType, Vector2, Vector3, type PerspectiveCamera } from 'three/webgpu';
+import { HalfFloatType, LinearFilter, LinearMipmapLinearFilter, Matrix4, NearestFilter, NodeUpdateType, Vector2, Vector3, type PerspectiveCamera } from 'three/webgpu';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import * as TSL from 'three/tsl';
 import { gradeById } from './grades';
@@ -115,6 +117,7 @@ export function createLensRig(
   const depth = scenePass.getTextureNode('depth');
 
   const rttOptions = { type: HalfFloatType, depthBuffer: false, generateMipmaps: false, resolutionScale: cap.dofScale };
+  const rings = Math.max(1, cap.dofRings);
 
   // Box-downsample the linear picture so each disc sample is already a small average, not a copy of a sign.
   const prefilterNode = T.Fn(() => {
@@ -128,12 +131,17 @@ export function createLensRig(
       .add(color.sample(uv.add(T.vec2(hx.mul(-1), hy.mul(-1)))).rgb);
     return T.vec4(acc.mul(0.25), 1);
   })();
-  const prefilter = T.rtt(prefilterNode, null, null, rttOptions);
+  const prefilter = T.rtt(prefilterNode, null, null, {
+    ...rttOptions,
+    generateMipmaps: true,
+    minFilter: LinearMipmapLinearFilter,
+    magFilter: LinearFilter,
+  });
   prefilter.updateBeforeType = NodeUpdateType.NONE;
   prefilter.name = 'dof-prefilter';
 
-  // Gather stays on the texel grid. The circle of confusion only decides which rings contribute,
-  // so a wide stop cannot pull the samples apart into stacks. Alpha stores the centre CoC for the upsample.
+  // The disc scales with the circle. A prefilter mip covers the gap between taps, so a wide
+  // stop stays a filled disc instead of a stack of copies. Alpha stores the centre circle.
   const gatherNode = T.Fn(() => {
     const uv0 = T.uv();
     const viewDist = (uvNode: unknown) => T.abs(T.perspectiveDepthToViewZ(depth.sample(uvNode).r, uNear, uFar));
@@ -143,13 +151,15 @@ export function createLensRig(
       const sMm = T.max(uFocus, T.float(0.35)).mul(1000);
       const dMm = T.max(distNode, T.float(0.35)).mul(1000);
       const cocMm = f.mul(f).div(nStop.mul(T.max(sMm.sub(f), T.float(1)))).mul(T.abs(sMm.sub(dMm))).div(dMm);
-      return cocMm.div(T.max(uSensor, T.float(1))).mul(T.max(uViewH, T.float(1)));
+      const px = cocMm.div(T.max(uSensor, T.float(1))).mul(T.max(uViewH, T.float(1)));
+      const emphasis = T.smoothstep(T.float(0.45), T.float(2.2), px);
+      return px.mul(emphasis).mul(4.5);
     };
     const center = viewDist(uv0);
     const centerCoc = cocAt(center);
     const reach = T.min(centerCoc, uMaxPx);
     const squeeze = T.mix(T.float(1), T.float(2), uAnamorphic);
-    const feather = T.float(pxPerTexel).mul(0.75);
+    const lod = T.log2(T.max(reach.div(rings * pxPerTexel), T.float(1)));
 
     let vel = T.vec2(0, 0);
     if (cap.motion) {
@@ -172,17 +182,18 @@ export function createLensRig(
     const n = Math.max(1, disc.length - 1);
     disc.forEach(([ox, oy], i) => {
       const along = cap.motion ? (i / n - 0.5) : 0;
-      const distPx = T.length(T.vec2(ox, oy)).mul(pxPerTexel);
-      const gate = T.float(1).sub(T.smoothstep(T.max(reach.sub(feather), T.float(0)), reach.add(feather), distPx));
-      const stretched = T.vec2(ox, T.float(oy).mul(squeeze));
+      const distPx = T.length(T.vec2(ox, oy)).div(rings).mul(reach);
+      const edge = T.max(reach.mul(0.2), T.float(pxPerTexel));
+      const gate = T.float(1).sub(T.smoothstep(T.max(reach.sub(edge), T.float(0)), reach.add(edge.mul(0.25)), distPx));
+      const stretched = T.vec2(T.float(ox), T.float(oy).mul(squeeze)).div(rings).mul(reach).div(pxPerTexel);
       const uv = T.clamp(uv0.add(stretched.mul(uDofTexel)).add(vel.mul(along)), T.vec2(0, 0), T.vec2(1, 1));
       const dist = viewDist(uv);
       const sampleCoc = cocAt(dist);
       // A sharper sample must not stamp a focused edge into this pixel's blur.
-      const sharper = T.smoothstep(T.float(0.35), T.float(1.8), centerCoc.sub(sampleCoc));
+      const sharper = T.smoothstep(T.float(1.5), T.float(6), centerCoc.sub(sampleCoc));
       const closer = T.smoothstep(T.float(0.35), T.float(1.8), center.sub(dist));
       const w = gate.mul(T.float(1).sub(sharper.mul(0.94))).mul(T.float(1).sub(closer.mul(0.8)));
-      acc = acc.add(prefilter.sample(uv).rgb.mul(w));
+      acc = acc.add(prefilter.sample(uv).level(lod).rgb.mul(w));
       wsum = wsum.add(w);
     });
     return T.vec4(acc.div(T.max(wsum, T.float(0.0001))), centerCoc);
@@ -200,7 +211,9 @@ export function createLensRig(
       const sMm = T.max(uFocus, T.float(0.35)).mul(1000);
       const dMm = T.max(distNode, T.float(0.35)).mul(1000);
       const cocMm = f.mul(f).div(nStop.mul(T.max(sMm.sub(f), T.float(1)))).mul(T.abs(sMm.sub(dMm))).div(dMm);
-      return cocMm.div(T.max(uSensor, T.float(1))).mul(T.max(uViewH, T.float(1)));
+      const px = cocMm.div(T.max(uSensor, T.float(1))).mul(T.max(uViewH, T.float(1)));
+      const emphasis = T.smoothstep(T.float(0.45), T.float(2.2), px);
+      return px.mul(emphasis).mul(4.5);
     };
     const centerCoc = cocAt(viewDist(uv0));
     const sharp = color.sample(uv0).rgb;
@@ -227,8 +240,8 @@ export function createLensRig(
     }
     const safe = T.smoothstep(T.float(0.0001), T.float(0.02), wsum);
     const blurred = T.mix(sharp, acc.div(T.max(wsum, T.float(0.0001))), safe);
-    // Cross over in about a pixel. A long mix leaves a sharp copy sitting inside the disc.
-    const amt = T.smoothstep(T.float(0.75), T.float(1.7), centerCoc);
+    // Leave the sharp plate once the eased circle is actually wider than a pixel.
+    const amt = T.smoothstep(T.float(0.85), T.float(2.1), centerCoc);
     let rgb = T.mix(sharp, blurred, amt);
 
     if (cap.caPx > 0) {

@@ -12,9 +12,10 @@ export const LETTERBOX_RATIO: Record<LetterboxId, number | null> = {
 
 /**
  * maxEdge is the long side. maxPixels caps area. tile is the largest GPU buffer one capture tile may use.
- * dofScale is the gather resolution (0.5 = half the drawing buffer). dofRings is the disc radius in
- * gather texels. Samples stay one texel apart, so dofPx (rings / dofScale) is both the disc radius
- * and the blur clamp, in full-resolution pixels. dofTaps counts the disc, including the centre.
+ * dofScale is the gather resolution (0.5 = half the drawing buffer). dofRings is the number of
+ * rings in the disc. dofPx is the blur clamp in full-resolution pixels. Wide circles sample a
+ * prefilter mip so the taps stay overlapped instead of copying the picture. dofTaps counts the
+ * disc, including the centre.
  */
 export const CAPTURE_CAPS: Record<Tier, {
   maxEdge: number; maxPixels: number; tile: number;
@@ -22,10 +23,10 @@ export const CAPTURE_CAPS: Record<Tier, {
   /** Motion smear and anamorphic streak. Low keeps the gather small and skips both. */
   motion: boolean; motionPx: number; flareTaps: number; caPx: number;
 }> = {
-  low: { maxEdge: 1280, maxPixels: 1280 * 720, tile: 480, dofTaps: 20, dofRings: 2, dofScale: 0.5, dofPx: 4, heavyBloom: false, motion: false, motionPx: 0, flareTaps: 0, caPx: 0 },
-  medium: { maxEdge: 1920, maxPixels: 1920 * 1080, tile: 640, dofTaps: 20, dofRings: 2, dofScale: 0.5, dofPx: 4, heavyBloom: false, motion: true, motionPx: 8, flareTaps: 4, caPx: 0.22 },
-  high: { maxEdge: 2560, maxPixels: 2560 * 1440, tile: 768, dofTaps: 39, dofRings: 3, dofScale: 0.5, dofPx: 6, heavyBloom: true, motion: true, motionPx: 14, flareTaps: 8, caPx: 0.35 },
-  ultra: { maxEdge: 2560, maxPixels: 2560 * 1440, tile: 1024, dofTaps: 39, dofRings: 3, dofScale: 0.5, dofPx: 6, heavyBloom: true, motion: true, motionPx: 22, flareTaps: 16, caPx: 0.45 },
+  low: { maxEdge: 1280, maxPixels: 1280 * 720, tile: 480, dofTaps: 22, dofRings: 2, dofScale: 0.5, dofPx: 8, heavyBloom: false, motion: false, motionPx: 0, flareTaps: 0, caPx: 0 },
+  medium: { maxEdge: 1920, maxPixels: 1920 * 1080, tile: 640, dofTaps: 22, dofRings: 2, dofScale: 0.5, dofPx: 12, heavyBloom: false, motion: true, motionPx: 8, flareTaps: 4, caPx: 0.22 },
+  high: { maxEdge: 2560, maxPixels: 2560 * 1440, tile: 768, dofTaps: 22, dofRings: 2, dofScale: 0.5, dofPx: 16, heavyBloom: true, motion: true, motionPx: 14, flareTaps: 8, caPx: 0.35 },
+  ultra: { maxEdge: 2560, maxPixels: 2560 * 1440, tile: 1024, dofTaps: 22, dofRings: 2, dofScale: 0.5, dofPx: 16, heavyBloom: true, motion: true, motionPx: 22, flareTaps: 16, caPx: 0.45 },
 };
 
 export interface FrameSize {
@@ -94,7 +95,7 @@ export function dofDisc(rings: number): Array<[number, number]> {
   const pts: Array<[number, number]> = [[0, 0]];
   const n = Math.max(0, Math.min(8, Math.round(rings)));
   for (let ring = 1; ring <= n; ring++) {
-    const count = Math.max(6, Math.round(2 * Math.PI * ring));
+    const count = Math.max(8, Math.round(2 * Math.PI * ring));
     const spin = (ring % 2) * 0.5;
     for (let i = 0; i < count; i++) {
       const a = ((i + spin) / count) * Math.PI * 2;
@@ -144,6 +145,8 @@ export function lensTargetMemory(tier: Tier, viewW: number, viewH: number): Lens
     { name: 'scene-color', w, h, format: 'RGBA16F', bytes: w * h * RGBA16F_BYTES },
     { name: 'scene-depth', w, h, format: 'Depth32', bytes: w * h * DEPTH_BYTES },
     { name: 'dof-prefilter', w: dw, h: dh, format: 'RGBA16F', bytes: dw * dh * RGBA16F_BYTES },
+    // Mip chain of the prefilter, used so a wide disc stays filled. About one third of the base.
+    { name: 'dof-prefilter-mips', w: dw, h: dh, format: 'RGBA16F', bytes: Math.floor(dw * dh * RGBA16F_BYTES / 3) },
     { name: 'dof-gather', w: dw, h: dh, format: 'RGBA16F', bytes: dw * dh * RGBA16F_BYTES },
   ];
   if (cap.heavyBloom) {
