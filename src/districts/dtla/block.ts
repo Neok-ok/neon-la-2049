@@ -3,22 +3,14 @@
 // The chunk worker (archetype) and the main thread (details, crowds) both call dressBlock.
 import { Rng, hash2i } from '../../core/rng';
 import { lifeSpot, type CrowdLifeSpot } from '../../world/crowdLife';
-import { Style, SignColor, type FaceDir } from '../../world/fabric/types';
+import { Style, type FaceDir } from '../../world/fabric/types';
 import type { CityLayout } from '../../world/layout';
 import { distToSegment } from '../../world/layout';
 import { SIGN_RGB } from '../../world/materials/signPalette';
-import { PHRASE_DTLA, phraseSeed } from '../../world/materials/signPhrases';
-import type { KitDetail, MassSink, FaceStyle } from '../_shared/megatower/sink';
-import { buildTower, type CrownKind, type Face, type KitSign, type TowerForm } from '../_shared/megatower/tower';
-import { buildMegablock, type FacadeFamily, type MegablockForm, type MegablockParts } from '../_shared/megablock/build';
+import { PHRASE_DTLA } from '../../world/materials/signPhrases';
+import { placeLot } from '../../world/buildings/place';
 import { lineHasHigh, lineWalkY } from '../_shared/megablock/grid';
 
-const FACE_DIR: FaceDir[] = ['a+', 'b-', 'a-', 'b+'];
-const FORMS: MegablockForm[] = ['cantilever', 'cantilever', 'slab-podium', 'slab-podium', 'bar', 'courtyard'];
-const FAMILIES: FacadeFamily[] = ['ribbed', 'coffered', 'panelled'];
-const TOWER_FORMS: TowerForm[] = ['slab', 'stepped', 'stack', 'blade'];
-const TOWER_CROWNS: CrownKind[] = ['hammer', 'stepped', 'flare', 'blade'];
-const PAL = [SignColor.Cyan, SignColor.Pink, SignColor.White, SignColor.Violet, SignColor.Amber, SignColor.Red];
 /** Atlas cells that read as downtown commerce rather than a food stall. */
 const PHRASES = PHRASE_DTLA;
 
@@ -49,6 +41,7 @@ export interface ReplayBox {
   lit: number;
   tint: number;
   detail: 0 | 1 | 2;
+  ornament?: 0 | 1 | 2;
 }
 
 export interface DtlaSign {
@@ -114,22 +107,6 @@ export interface DtlaDress {
   life: CrowdLifeSpot[];
 }
 
-class MemorySink implements MassSink {
-  readonly full = false;
-  readonly maxDetail = 2;
-  readonly pieces: ReplayBox[] = [];
-  constructor(private s0: number, private t0: number) {}
-  frustum(lx: number, lz: number, y0: number, w0: number, d0: number, w1: number, d1: number, h: number, st: FaceStyle, detail: KitDetail, _cap = true, rot = 0): void {
-    if (detail > 2 || rot !== 0 || h <= 0.05) return;
-    const w = (w0 + w1) / 2, d = (d0 + d1) / 2;
-    if (w < 0.6 || d < 0.6) return;
-    this.pieces.push({
-      s: this.s0 + lz, t: this.t0 - lx, lb: w, la: d, h, base: y0,
-      style: st.style, lit: st.lit, tint: st.tint, detail: Math.min(2, detail) as 0 | 1 | 2,
-    });
-  }
-}
-
 interface Lot { s: number; t: number; la: number; lb: number }
 
 function splitLots(rng: Rng, s: number, t: number, la: number, lb: number, minLot: number, maxLot: number, out: Lot[], depth = 0): void {
@@ -156,15 +133,21 @@ function world(b: DtlaBlock, s: number, t: number): [number, number] {
   return [b.cx + b.ax * s + b.bx * t, b.cz + b.az * s + b.bz * t];
 }
 
-function yawNormal(b: DtlaBlock, ns: number, nt: number): number {
-  return Math.atan2(b.ax * ns + b.bx * nt, b.az * ns + b.bz * nt);
+/** A lot that reaches into a neighbouring district would sit on that district's streets. */
+function crossesOut(b: DtlaBlock, layout: CityLayout, s: number, t: number, la: number, lb: number): boolean {
+  const home = layout.districtAt(b.cx, b.cz).id;
+  for (const ds of [-la / 2, la / 2]) {
+    for (const dt of [-lb / 2, lb / 2]) {
+      const [x, z] = world(b, s + ds, t + dt);
+      if (layout.districtAt(x, z).id !== home) return true;
+      if (layout.isOcean(x, z) || layout.isReserved(x, z, 0.5)) return true;
+    }
+  }
+  return false;
 }
 
-function pushSign(signs: DtlaSign[], s0: number, t0: number, s: KitSign, phrase: number): void {
-  signs.push({
-    s: s0 + s.lz, t: t0 - s.lx, hb: 0, ha: 0, face: FACE_DIR[s.face], along: 0,
-    y: s.y, w: s.w, h: s.h, color: s.color, kind: s.kind, seed: phraseSeed(PHRASES[phrase % PHRASES.length]!),
-  });
+function yawNormal(b: DtlaBlock, ns: number, nt: number): number {
+  return Math.atan2(b.ax * ns + b.bx * nt, b.az * ns + b.bz * nt);
 }
 
 function walksForLot(b: DtlaBlock, lot: Lot): number[] {
@@ -234,60 +217,83 @@ function dressLot(
 ): void {
   const [wx, wz] = world(b, lot.s, lot.t);
   if (layout.isReserved(wx, wz, Math.min(lot.la, lot.lb) * 0.3) || layout.isOcean(wx, wz)) return;
-  const sink = new MemorySink(lot.s, lot.t);
-  let parts: MegablockParts | null = null;
-  const narrow = Math.min(lot.la, lot.lb) < 34;
-  const towerOk = !narrow && Math.min(lot.la, lot.lb) >= 30 && r.chance(0.12)
-    && !layout.isReserved(wx, wz, Math.max(lot.la, lot.lb) * 0.45);
-  if (towerOk) {
-    const pw = lot.lb * r.range(0.84, 0.94);
-    const pd = lot.la * r.range(0.84, 0.94);
-    const tw = pw * r.range(0.48, 0.62);
-    const td = pd * r.range(0.48, 0.62);
-    if (Math.min(tw, td) >= 20) {
-      const mast = r.chance(0.45) ? r.range(8, 22) : 0;
-      const height = Math.min(300, r.skew(200, 292, 1.2));
-      buildTower({
-        seed: r.next(), height, w: tw, d: td,
-        podium: { w: pw, d: pd, h: r.range(22, 40) },
-        form: r.pick(TOWER_FORMS), crown: r.pick(TOWER_CROWNS),
-        crownH: r.range(14, 26), mast, fins: r.range(6, 10),
-        lit: r.range(0.28, 0.5), tint: r.range(0.72, 1.05), holo: 1, compact: true, mechEvery: r.range(80, 120),
-      }, sink);
-    }
-  }
-  if (!sink.pieces.length) {
-    const height = Math.max(90, Math.min(250, r.skew(96, 246, 1.22)));
-    const form: MegablockForm = narrow ? 'bar' : r.pick(FORMS);
-    const family = r.pick(FAMILIES);
-    parts = buildMegablock({
-      seed: r.next(), height, w: lot.lb * 0.96, d: lot.la * 0.96,
-      form, family, lit: r.range(0.22, 0.48), tint: r.range(0.72, 1.08),
-      residential: 0, compact: false, walkways: true, walkAt: walksForLot(b, lot),
-      holo: height > 120 && r.chance(busy ? 0.7 : 0.42) ? 1 : 0,
-    }, sink);
-  }
-  boxes.push(...sink.pieces);
-  const phrase0 = Math.floor(r.next() * PHRASES.length);
-  // signs were recorded on parts only for megablocks; towers emit none through MemorySink.
-  // Recover megablock signs from `parts`. Tower hologram panels are added below from a second pass
-  // stored on the sink? Towers' signs live on TowerParts, which we didn't keep.
-  if (parts) {
-    parts.signs.forEach((s, n) => pushSign(signs, lot.s, lot.t, s, phrase0 + n));
-    placeKiosks(b, lot, parts, r, busy, props, steam, pools, life);
-  } else if (towerOk) {
-    // a shaft billboard on the street face, large enough for the hologram field
-    const face: Face = 0;
-    signs.push({
-      s: lot.s + lot.la * 0.42, t: lot.t, hb: 0, ha: 0, face: FACE_DIR[face], along: 0,
-      y: r.range(40, 90), w: 16, h: 11, color: r.pick(PAL), kind: 2,
-      seed: phraseSeed(PHRASES[(phrase0 + 3) % PHRASES.length]!),
+  if (crossesOut(b, layout, lot.s, lot.t, lot.la * 0.9, lot.lb * 0.9)) return;
+  const narrow = Math.min(lot.la, lot.lb) < 26;
+  const footW = narrow ? lot.lb * 0.94 : Math.max(26, lot.lb * 0.9);
+  const footD = narrow ? lot.la * 0.94 : Math.max(26, lot.la * 0.9);
+  if (layout.isReserved(wx, wz, Math.max(footW, footD) * 0.55)) return;
+  const placed = placeLot(r, {
+    w: footW,
+    d: footD,
+    minH: narrow ? 64 : 180,
+    maxH: narrow ? 120 : 248.4,
+    plinth: narrow ? 0 : 50.4,
+    decks: narrow ? [] : [46],
+    phrases: PHRASES,
+    lit: r.range(0.22, 0.48),
+    tint: r.range(0.55, 0.85),
+    holo: !narrow && r.chance(busy ? 0.45 : 0.22),
+  });
+  if (!placed) return;
+  for (const box of placed.boxes) {
+    boxes.push({
+      s: lot.s + box.s, t: lot.t + box.t, lb: box.lb, la: box.la, h: box.h, base: box.base,
+      style: box.style, lit: box.lit, tint: box.tint, detail: box.detail, ornament: box.ornament,
     });
+  }
+  for (const s of placed.signs) {
+    signs.push({
+      s: lot.s + s.s, t: lot.t + s.t, hb: s.hb, ha: s.ha, face: s.face, along: s.along,
+      y: s.y, w: s.w, h: s.h, color: s.color, kind: s.kind, seed: s.seed,
+    });
+  }
+  placeKiosks(b, lot, { baseHalfW: footW / 2, baseHalfD: footD / 2 }, r, busy, props, steam, pools, life);
+  linkWalks(b, lot, boxes, footW, footD);
+}
+
+/** Street bridges sit on the block edge. A deck from the mass out to that edge keeps the walk on a wall. */
+function linkWalks(b: DtlaBlock, lot: Lot, boxes: ReplayBox[], footW: number, footD: number): void {
+  const ys = walksForLot(b, lot);
+  const overlap = Math.max(4.5, Math.min(footW, footD) * 0.08);
+  const reachOut = 1.15;
+  const coversT = lot.t - lot.lb / 2 < 4 && lot.t + lot.lb / 2 > -4;
+  const coversS = lot.s - lot.la / 2 < 4 && lot.s + lot.la / 2 > -4;
+  const put = (s: number, t: number, lb: number, la: number, y: number): void => {
+    if (lb < 0.8 || la < 0.8) return;
+    boxes.push({
+      s, t, lb, la, h: 0.28, base: y, style: Style.Solid, lit: 0.06, tint: 0.62, detail: 1,
+    });
+  };
+  for (const y of ys) {
+    if (coversT && lot.s + lot.la / 2 > b.la / 2 - 10) {
+      const inner = lot.s + footD / 2 - overlap;
+      const target = b.la / 2 + reachOut;
+      const len = target - inner;
+      if (len > 0.6) put(inner + len / 2, lot.t, Math.min(7.2, footW * 0.42), len, y);
+    }
+    if (coversT && lot.s - lot.la / 2 < -b.la / 2 + 10) {
+      const inner = lot.s - footD / 2 + overlap;
+      const target = -(b.la / 2 + reachOut);
+      const len = inner - target;
+      if (len > 0.6) put(target + len / 2, lot.t, Math.min(7.2, footW * 0.42), len, y);
+    }
+    if (coversS && lot.t + lot.lb / 2 > b.lb / 2 - 10) {
+      const inner = lot.t + footW / 2 - overlap;
+      const target = b.lb / 2 + reachOut;
+      const len = target - inner;
+      if (len > 0.6) put(lot.s, inner + len / 2, len, Math.min(7.2, footD * 0.42), y);
+    }
+    if (coversS && lot.t - lot.lb / 2 < -b.lb / 2 + 10) {
+      const inner = lot.t - footW / 2 + overlap;
+      const target = -(b.lb / 2 + reachOut);
+      const len = inner - target;
+      if (len > 0.6) put(lot.s, target + len / 2, len, Math.min(7.2, footD * 0.42), y);
+    }
   }
 }
 
 function placeKiosks(
-  b: DtlaBlock, lot: Lot, parts: MegablockParts, r: Rng, busy: boolean,
+  b: DtlaBlock, lot: Lot, parts: { baseHalfW: number; baseHalfD: number }, r: Rng, busy: boolean,
   props: DtlaProp[], steam: DtlaSteam[], pools: DtlaPool[], life: CrowdLifeSpot[],
 ): void {
   // kit +Z = +s (baseHalfD), kit +X = −t (baseHalfW)

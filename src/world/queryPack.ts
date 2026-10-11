@@ -7,9 +7,9 @@ export const QUERY_BLOCK_STRIDE = 15;
 /** x, z, w, d, h, yaw, y0, style, seed, detail, lit, tint. Signs stay out; fabricAt callers do not read them. */
 export const BOX_STRIDE = 12;
 
-/** Thin walls and counters count; clutter (detail 2) and tiny props do not. */
-export function acceptsCollider(w: number, d: number, detail: number): boolean {
-  if (detail > 1) return false;
+/** Thin walls and counters count; clutter (detail 2), tier ornament, and tiny props do not. */
+export function acceptsCollider(w: number, d: number, detail: number, ornament = 0): boolean {
+  if (detail > 1 || ornament > 0) return false;
   const mn = w < d ? w : d;
   const mx = w > d ? w : d;
   return mn >= 0.38 && mx >= 0.9;
@@ -23,11 +23,11 @@ export interface PackedQuery {
 
 export function packQuery(fab: FabricOutput): PackedQuery {
   let n = 0;
-  for (const b of fab.boxes) if (acceptsCollider(b.w, b.d, b.detail)) n++;
+  for (const b of fab.boxes) if (acceptsCollider(b.w, b.d, b.detail, b.ornament ?? 0)) n++;
   const colliders = new Float32Array(n * COLLIDER_STRIDE);
   let k = 0;
   for (const b of fab.boxes) {
-    if (!acceptsCollider(b.w, b.d, b.detail)) continue;
+    if (!acceptsCollider(b.w, b.d, b.detail, b.ornament ?? 0)) continue;
     writeCollider(colliders, k, b);
     k++;
   }

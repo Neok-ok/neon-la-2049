@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B1 towers — 11 October 2026</title>
+<style>
+  :root { color-scheme: light; }
+  body { margin: 0; font: 16px/1.45 "Iowan Old Style", Palatino, Georgia, serif; color: #1c1915; background: #f6f3ec; }
+  header, main { max-width: 1100px; margin: 0 auto; padding: 24px 20px 48px; }
+  h1 { font-size: 2rem; margin: 0 0 8px; }
+  h2 { font-size: 1.45rem; margin: 2rem 0 0.4rem; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.82em; }
+  .lead { font-size: 1.05rem; }
+  table { width: 100%; border-collapse: collapse; background: #fff; margin: 12px 0 28px; font-size: 0.92rem; }
+  th, td { border-bottom: 1px solid #e4dfd4; text-align: left; vertical-align: top; padding: 8px 10px; }
+  th { background: #efeae0; }
+  .note { color: #5c564c; }
+  figure { margin: 12px 0; }
+  img { width: 100%; max-width: 960px; height: auto; background: #111; }
+  figcaption { color: #5c564c; }
+</style>
+</head>
+<body>
+<header>
+  <h1>B1 towers — 11 October 2026</h1>
+  <p class="lead">Eight original tower families replace the generic financial, downtown, and Long Beach masses. Three hero megastructures stand in the west of the financial district. LAPD HQ, City Hall, and the Wallace buildings are unchanged.</p>
+</header>
+<main>
+  <h2>What changed</h2>
+  <p>The old financial body was a two-box megablock plus a compact kit tower. Downtown and Long Beach used the shared megablock kit. Those masses are gone. Streets, kiosks, crowds, and the Long Beach concourse door stay.</p>
+  <p>Field towers are 3.6 m a floor (3.4 m on the residential stack), about 150–300 m tall, so they stay under the 320 m fabric ceiling and under the 430 m sky lanes. The three heroes are landmarks, so lanes step over them: West Canyon Gate (560 m), Caldera Step (640 m), Kite Obelisk (480 m). They sit west of the opening camera, off the ray from Little Tokyo toward the Wallace pyramid. Nothing was added in the basin, and nothing was added on the south-east approach to the pyramid.</p>
+  <p>Doors on the new masses are 2.2 m by 2.05 m. Rails are 1.05 m. A 1.80 m person still fits the door. The Long Beach interior door is the old concourse at the south face, not a new cut in the slab.</p>
+
+  <h2>The eight families</h2>
+  <table>
+    <thead><tr><th>Family</th><th>Read</th></tr></thead>
+    <tbody>
+      <tr><td>Band slab</td><td>Horizontal concrete bands over a window shaft</td></tr>
+      <tr><td>Ziggurat</td><td>Five to eight setbacks</td></tr>
+      <tr><td>Buttress</td><td>Corner piers, catwalks, a mast</td></tr>
+      <tr><td>Monolith</td><td>Dark taper, one slit</td></tr>
+      <tr><td>Residential stack</td><td>Balconies, a pipe, roof antennas</td></tr>
+      <tr><td>Holo shaft</td><td>Podium, narrow tower, one ad face</td></tr>
+      <tr><td>Cantilever</td><td>Narrow base, wide top</td></tr>
+      <tr><td>Lantern</td><td>Cross plan, lit crown</td></tr>
+    </tbody>
+  </table>
+  <p class="note">Each family has three variants. Signs on financial lots use the lease phrases (Ninth Ring, Depart, and the rest of that list). They do not use the food atlas.</p>
+
+  <h2>Graphics tiers</h2>
+  <p>The building does not change size between tiers. Low keeps the masses. Medium adds balconies, fins, and decks. High and ultra add pipes, AC units, and antennas. A 1 km financial patch, counted in the harness:</p>
+  <table>
+    <thead><tr><th>Tier</th><th>Boxes kept</th><th>Triangles in that patch</th></tr></thead>
+    <tbody>
+      <tr><td>Low (masses)</td><td>270</td><td>5,826</td></tr>
+      <tr><td>Medium</td><td>429</td><td>7,416</td></tr>
+      <tr><td>High / ultra</td><td>482</td><td>7,946</td></tr>
+      <tr><td>Far impostor (LOD2)</td><td>229</td><td>2,590</td></tr>
+    </tbody>
+  </table>
+  <p class="note">Those triangle counts include the ground under the patch. The new heroes are three extra landmark meshes when they are in view, not a new draw per tower. Window glow is the existing city shader. Live frame rate, draw calls, and triangles are filled in from the screenshot pass.</p>
+
+  <h2>Lights</h2>
+  <p>The lighting registry was not on main. Every glow on these towers is declared in <code>src/world/buildings/lights.ts</code> (<code>LIGHT_ADAPTER = 'b1-local'</code>): door soffit, crown, obstruction tip, ad face. A later lighting pass can map those roles without searching the recipes.</p>
+
+  <h2>Silhouette scores</h2>
+  <p>Scored against original envelope diagrams (a slab, a step pyramid, a taper, a twin gate, a top-heavy bar). Not against film frames. Best side for each family:</p>
+  <table>
+    <thead><tr><th>Family</th><th>IoU</th></tr></thead>
+    <tbody>
+      <tr><td>Band slab</td><td>0.92</td></tr>
+      <tr><td>Ziggurat</td><td>0.95</td></tr>
+      <tr><td>Buttress</td><td>0.77</td></tr>
+      <tr><td>Monolith</td><td>0.91</td></tr>
+      <tr><td>Residential stack</td><td>1.00</td></tr>
+      <tr><td>Holo shaft</td><td>0.91</td></tr>
+      <tr><td>Cantilever</td><td>0.98</td></tr>
+      <tr><td>Lantern</td><td>0.96</td></tr>
+      <tr><td>West Canyon Gate</td><td>0.89</td></tr>
+      <tr><td>Caldera Step</td><td>0.91</td></tr>
+      <tr><td>Kite Obelisk</td><td>0.93</td></tr>
+    </tbody>
+  </table>
+  <p class="note">The buttress score is the lowest because the piers and the mast are not part of the simple core envelope. That is the silhouette doing its job.</p>
+
+  <h2>Left alone</h2>
+  <ul>
+    <li>LAPD HQ, City Hall, and every Wallace building, including the pyramid and its interiors.</li>
+    <li>K’s megablock, the Bradbury block, the basin, South LA’s view of the pyramid, civic background fabric.</li>
+    <li>The spinner harness and the human harness.</li>
+    <li>Window cell heights. These towers use the styles that already match a 3–4 m floor.</li>
+  </ul>
+
+  <h2>How the shapes were made</h2>
+  <p>The method is the usual one for a dense game city, written here from scratch: cut a footprint into a podium and a shaft, then into floors, then hang balconies and pipes as a detail that the far view can drop. Sources, not code, were Parish and Müller on city grids (SIGGRAPH 2001), Wonka and others on facade splits (SIGGRAPH 2003), Müller and others on mass-then-facade buildings (SIGGRAPH 2006), and van Dongen’s interior mapping, which this city already runs. Merged chunk meshes stand in for per-building instancing. The far LOD is the impostor. Rain on the harness sheets is a painted roughness texture. In the city, dirt is the stain already on the shared wall shader.</p>
+
+  <h2>Sheets</h2>
+  <p>Turntable, night, street, and skyline sheets are rendered by <code>tools/building-harness/turntable.html</code>. Before-and-after city views are added on the pull request after the capture pass.</p>
+</main>
+</body>
+</html>

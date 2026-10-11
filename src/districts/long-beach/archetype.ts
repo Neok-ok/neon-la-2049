@@ -14,13 +14,14 @@ registerArchetype(ARCHETYPE, (ctx) => {
   };
   const plan = planLongBeach(block, ctx.layout);
   for (const box of plan.boxes) {
-    ctx.box(box.s, box.t, box.lb, box.la, box.h, {
+    const made = ctx.box(box.s, box.t, box.lb, box.la, box.h, {
       style: box.style,
       lit: box.lit,
       tint: box.tint,
       detail: box.detail,
       base: box.base > 0.01 ? box.base : undefined,
     });
+    if (made && box.ornament !== undefined) made.ornament = box.ornament;
   }
   for (const s of plan.signs) {
     ctx.sign(s.s, s.t, s.hb, s.ha, s.face, s.along, s.y, s.w, s.h, s.color, s.kind, s.seed);

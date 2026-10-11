@@ -289,13 +289,16 @@ function emitGround(wr: Writer, layout: CityLayout, x0: number, z0: number, size
     }
 }
 
-export function buildChunkArrays(layout: CityLayout, fab: FabricOutput, x0: number, z0: number, size: number, lod: number): ChunkArrays {
+export function buildChunkArrays(
+  layout: CityLayout, fab: FabricOutput, x0: number, z0: number, size: number, lod: number, detailCap = 2,
+): ChunkArrays {
   const rules = lodRules(lod);
   const wr = new Writer();
   emitGround(wr, layout, x0, z0, size, rules);
   let boxCount = 0;
   for (const b of fab.boxes) {
     if (b.detail > rules.maxDetail) continue;
+    if (b.ornament !== undefined && b.ornament > detailCap) continue;
     if (b.h + (b.y0 - 0) < rules.minBoxHeight && b.style !== Style.Industrial) continue;
     emitBox(wr, b, x0, z0);
     boxCount++;

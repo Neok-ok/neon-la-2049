@@ -57,6 +57,11 @@ export interface Box {
   lit: number;
   /** albedo multiplier, ~0.6..1.4 */
   tint: number;
+  /**
+   * B1 tier filter. Omitted on masses, so they survive every tier.
+   * 1 = balconies, fins, decks. 2 = pipes, AC, antennas. The chunk worker drops these above the tier cap.
+   */
+  ornament?: 0 | 1 | 2;
 }
 
 /** Sign palette ids. Must match SIGN_PALETTE in src/world/materials/signMaterial.ts. */

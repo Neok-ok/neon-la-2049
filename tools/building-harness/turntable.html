@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>B1 building harness</title>
+  <style>
+    body { margin: 0; background: #111; color: #ddd; font: 14px/1.4 sans-serif; }
+    h1 { font-size: 18px; margin: 16px; }
+    p.note { margin: 0 16px 16px; max-width: 70em; color: #aaa; }
+    .grid { display: grid; grid-template-columns: repeat(4, 320px); gap: 12px; padding: 16px; }
+    figure { margin: 0; background: #1b1b1b; }
+    figcaption { padding: 6px 8px 10px; font-size: 12px; }
+    img { width: 320px; height: 420px; display: block; background: #000; }
+    #street img, #skyline img { width: 960px; height: 540px; }
+  </style>
+</head>
+<body>
+  <h1>B1 tower harness</h1>
+  <p class="note" id="status">Rendering…</p>
+  <h2>Day, three-quarter</h2>
+  <div class="grid" id="day"></div>
+  <h2>Night, rim light</h2>
+  <div class="grid" id="night"></div>
+  <h2>Street, 1.80 m person and spinner</h2>
+  <div id="street"></div>
+  <h2>Skyline</h2>
+  <div id="skyline"></div>
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { buildTower } from '/src/world/buildings/recipes.ts';
+    import { measureDraft, scaleOk } from '/src/world/buildings/scale.ts';
+    import { HERO_KINDS, TOWER_KINDS } from '/src/world/buildings/parts.ts';
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(1);
+    renderer.setSize(640, 840);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(32, 640 / 840, 0.2, 4000);
+
+    const grime = (() => {
+      const c = document.createElement('canvas');
+      c.width = 128; c.height = 256;
+      const g = c.getContext('2d');
+      g.fillStyle = '#9a9a9a';
+      g.fillRect(0, 0, 128, 256);
+      for (let i = 0; i < 70; i++) {
+        g.strokeStyle = `rgba(20,20,22,${0.15 + Math.random() * 0.45})`;
+        g.lineWidth = 1;
+        g.beginPath();
+        const x = Math.random() * 128;
+        g.moveTo(x, Math.random() * 40);
+        g.lineTo(x + (Math.random() - 0.5) * 6, 256);
+        g.stroke();
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.colorSpace = THREE.NoColorSpace;
+      return tex;
+    })();
+
+    function materialFor(box, night) {
+      const glow = box.style === 13;
+      const glass = box.style === 2 || box.style === 11;
+      const color = glow ? new THREE.Color().setHSL(box.tint > 1.2 ? 0.52 : 0.08, 0.7, 0.55)
+        : glass ? new THREE.Color(0.05, 0.07, 0.09)
+        : new THREE.Color(0.22, 0.21, 0.19).multiplyScalar(0.55 + box.tint * 0.45);
+      grime.repeat.set(Math.max(1, box.lb / 8), Math.max(1, box.h / 6));
+      return new THREE.MeshStandardMaterial({
+        color,
+        roughness: glow ? 0.25 : 0.86,
+        metalness: glass ? 0.55 : 0.08,
+        roughnessMap: glow ? null : grime,
+        emissive: glow ? color.clone() : new THREE.Color(0, 0, 0),
+        emissiveIntensity: glow ? (night ? 2.4 : 0.8) : 0,
+      });
+    }
+
+    function addDraft(parent, draft, night) {
+      for (const b of draft.boxes) {
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.lb, b.h, b.la), materialFor(b, night));
+        mesh.position.set(b.t, b.base + b.h / 2, b.s);
+        parent.add(mesh);
+      }
+    }
+
+    function fit(draft, mode) {
+      const h = Math.max(40, draft.height);
+      if (mode === 'street') {
+        camera.position.set(18, 1.7, 26);
+        camera.lookAt(0, 8, 0);
+        return;
+      }
+      if (mode === 'sky') {
+        camera.position.set(h * 0.9, h * 0.42, h * 1.15);
+        camera.lookAt(0, h * 0.38, 0);
+        return;
+      }
+      camera.position.set(h * 0.55, h * 0.42, h * 0.85);
+      camera.lookAt(0, h * 0.46, 0);
+    }
+
+    function person() {
+      const g = new THREE.Group();
+      const mat = new THREE.MeshStandardMaterial({ color: 0xc4a574, roughness: 0.7 });
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.46, 1.5, 0.28), mat);
+      body.position.y = 0.95;
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.28, 0.22), mat);
+      head.position.y = 1.66;
+      g.add(body, head);
+      return g;
+    }
+
+    let spinner = null;
+    try {
+      const gltf = await new GLTFLoader().loadAsync('/models/spinner/spinner-medium.glb');
+      spinner = gltf.scene;
+      const box = new THREE.Box3().setFromObject(spinner);
+      const size = box.getSize(new THREE.Vector3());
+      const target = 5.0 / Math.max(size.x, size.z, 0.01);
+      spinner.scale.multiplyScalar(target);
+      const fitted = new THREE.Box3().setFromObject(spinner);
+      spinner.position.y -= fitted.min.y;
+    } catch (err) {
+      console.warn('spinner', err);
+    }
+
+    const catalog = [
+      ...TOWER_KINDS.map((kind) => ({ kind, height: 210, w: 46, d: 34, minH: 151.2, maxH: 302.4 })),
+      ...HERO_KINDS.map((kind) => {
+        const height = kind === 'hero-gate' ? 560 : kind === 'hero-step' ? 640 : 480;
+        return { kind, height, w: 70, d: 48, minH: height - 8, maxH: height + 8 };
+      }),
+    ];
+
+    function make(spec) {
+      return buildTower({
+        kind: spec.kind, variant: 0, seed: 0.41, height: spec.height, w: spec.w, d: spec.d,
+        lit: 0.4, tint: 0.7, plinth: spec.kind === 'band-slab' ? 21.6 : 0, decks: [],
+        phrases: [], holo: false, minH: spec.minH, maxH: spec.maxH,
+      });
+    }
+
+    function lights(night) {
+      scene.clear();
+      scene.background = new THREE.Color(night ? 0x07080c : 0x8a9398);
+      scene.add(new THREE.AmbientLight(night ? 0x223044 : 0xffffff, night ? 0.35 : 0.55));
+      const key = new THREE.DirectionalLight(night ? 0x9fd6ff : 0xfff2dd, night ? 2.2 : 1.3);
+      key.position.set(-40, 80, 30);
+      scene.add(key);
+      if (night) {
+        const rim = new THREE.DirectionalLight(0xff4d8d, 1.6);
+        rim.position.set(30, 20, -40);
+        scene.add(rim);
+      }
+      const ground = new THREE.Mesh(
+        new THREE.CircleGeometry(400, 48),
+        new THREE.MeshStandardMaterial({ color: night ? 0x121418 : 0x6e7370, roughness: 0.95 }),
+      );
+      ground.rotation.x = -Math.PI / 2;
+      scene.add(ground);
+    }
+
+    function grab() {
+      renderer.render(scene, camera);
+      return renderer.domElement.toDataURL('image/png');
+    }
+
+    function card(parent, alt, caption, url) {
+      const fig = document.createElement('figure');
+      const img = document.createElement('img');
+      img.alt = alt;
+      img.src = url;
+      const cap = document.createElement('figcaption');
+      cap.textContent = caption;
+      fig.append(img, cap);
+      parent.append(fig);
+    }
+
+    const day = document.getElementById('day');
+    const night = document.getElementById('night');
+    for (const spec of catalog) {
+      const draft = make(spec);
+      const report = measureDraft(draft);
+      const bad = scaleOk(report);
+      const caption = `${spec.kind}  ${report.height.toFixed(1)} m  storey ${report.storey}  door ${report.doorH.toFixed(2)}×${report.doorW.toFixed(2)}  rail ${report.railH ?? '—'}  ${report.tris} tris${bad.length ? '  FAIL ' + bad.join(',') : ''}`;
+      for (const [node, isNight] of [[day, false], [night, true]]) {
+        lights(isNight);
+        const g = new THREE.Group();
+        addDraft(g, draft, isNight);
+        g.rotation.y = 0.7;
+        scene.add(g);
+        fit(draft, 'three');
+        card(node, spec.kind + (isNight ? ' night' : ' day'), caption, grab());
+      }
+    }
+
+    lights(true);
+    const streetDraft = make(catalog[0]);
+    const streetGroup = new THREE.Group();
+    addDraft(streetGroup, streetDraft, true);
+    scene.add(streetGroup);
+    const peep = person();
+    peep.position.set(8, 0, 16);
+    scene.add(peep);
+    if (spinner) {
+      spinner.position.set(14, 0, 22);
+      spinner.rotation.y = -0.6;
+      scene.add(spinner);
+    }
+    fit(streetDraft, 'street');
+    card(document.getElementById('street'), 'street scale', 'Band slab at the kerb. Figure is 1.80 m. Spinner is about 5 m long.', grab());
+
+    lights(false);
+    const row = new THREE.Group();
+    let x = 0;
+    for (const spec of catalog.slice(0, 8)) {
+      const draft = make(spec);
+      const g = new THREE.Group();
+      addDraft(g, draft, false);
+      g.position.x = x;
+      row.add(g);
+      x += spec.w + 18;
+    }
+    row.position.x = -x / 2;
+    scene.add(row);
+    camera.position.set(0, 90, 520);
+    camera.lookAt(0, 70, 0);
+    renderer.setSize(1280, 720);
+    camera.aspect = 1280 / 720;
+    camera.updateProjectionMatrix();
+    card(document.getElementById('skyline'), 'skyline', 'Eight field families, same module, different silhouette.', grab());
+
+    document.getElementById('status').textContent = 'Sheets ready. Live city windows stay on the shared facade atlas; this page is the harness PBR preview.';
+    document.body.dataset.ready = '1';
+  </script>
+</body>
+</html>

@@ -1,17 +1,15 @@
-// Pure. One concrete megablock per block, dimmer and shorter than DTLA.
-// The shared kit is called with a new plan. Omitted kit fields stay at their old defaults.
+// Pure. One B1 tower per block, dimmer and shorter than DTLA.
+// The concourse door on hero A is unchanged. The interior reads that shell, not the tower mass.
 import { Rng } from '../../core/rng';
 import { Style, SignColor, type FaceDir, type StyleId } from '../../world/fabric/types';
 import type { CityLayout } from '../../world/layout';
 import { CELL, PHRASE_LONG_BEACH, phraseSeed } from '../../world/materials/signPhrases';
-import type { KitDetail, MassSink, FaceStyle } from '../_shared/megatower/sink';
-import { buildMegablock, type FacadeFamily, type MegablockForm, type MegablockParts } from '../_shared/megablock/build';
-import type { KitSign } from '../_shared/megatower/tower';
+import { placeLot } from '../../world/buildings/place';
+import type { TowerKind } from '../../world/buildings/parts';
 import {
-  DOOR_S, HERO_A, HERO_B, MODULE, blockSeed, type LongBeachBlock,
+  DOOR_S, HERO_A, HERO_B, blockSeed, type LongBeachBlock,
 } from './spec';
 
-const FACE_DIR: FaceDir[] = ['a+', 'b-', 'a-', 'b+'];
 /** Atlas cells already in the sheet. No agency, carrier or building name. */
 const PHRASES = PHRASE_LONG_BEACH;
 
@@ -26,6 +24,7 @@ export interface FabricBox {
   lit: number;
   tint: number;
   detail: 0 | 1 | 2;
+  ornament?: 0 | 1 | 2;
 }
 
 export interface FabricSign {
@@ -50,70 +49,59 @@ export interface LongBeachPlan {
 
 const EMPTY: LongBeachPlan = { boxes: [], signs: [] };
 
-class MemorySink implements MassSink {
-  readonly full = false;
-  readonly maxDetail = 2;
-  readonly pieces: FabricBox[] = [];
-  constructor(private s0: number, private t0: number) {}
-  frustum(lx: number, lz: number, y0: number, w0: number, d0: number, w1: number, d1: number, h: number, st: FaceStyle, detail: KitDetail, _cap = true, rot = 0): void {
-    if (detail > 2 || rot !== 0 || h <= 0.05) return;
-    const w = (w0 + w1) / 2, d = (d0 + d1) / 2;
-    if (w < 0.6 || d < 0.6) return;
-    this.pieces.push({
-      s: this.s0 + lz, t: this.t0 - lx, lb: w, la: d, h, base: y0,
-      style: st.style as StyleId, lit: st.lit, tint: st.tint, detail: Math.min(2, detail) as 0 | 1 | 2,
-    });
-  }
-}
-
-function snapOffice(h: number, lo = 60, hi = 150): number {
-  const n = Math.round(h / MODULE) * MODULE;
-  return Math.max(lo, Math.min(hi, n));
-}
-
-function pushSign(signs: FabricSign[], s0: number, t0: number, s: KitSign, phrase: number): void {
-  signs.push({
-    s: s0 + s.lz, t: t0 - s.lx, hb: 0, ha: 0, face: FACE_DIR[s.face], along: 0,
-    y: s.y, w: s.w, h: s.h, color: s.color, kind: s.kind,
-    seed: phraseSeed(PHRASES[phrase % PHRASES.length]!),
-  });
-}
-
 interface MassOpts {
   s0: number;
   t0: number;
   w: number;
   d: number;
-  height: number;
-  form: MegablockForm;
-  family: FacadeFamily;
+  minH: number;
+  maxH: number;
   lit: number;
   tint: number;
-  holo: number;
-  walkways: boolean;
+  holo: boolean;
+  decks: boolean;
+  kind?: TowerKind;
 }
 
-function emitMass(boxes: FabricBox[], signs: FabricSign[], r: Rng, o: MassOpts): MegablockParts {
-  const sink = new MemorySink(o.s0, o.t0);
-  const parts = buildMegablock({
-    seed: r.next(),
-    height: o.height,
+function emitMass(boxes: FabricBox[], signs: FabricSign[], r: Rng, o: MassOpts): void {
+  const placed = placeLot(r, {
     w: o.w,
     d: o.d,
-    form: o.form,
-    family: o.family,
+    minH: o.minH,
+    maxH: o.maxH,
+    plinth: 0,
+    phrases: PHRASES,
     lit: o.lit,
     tint: o.tint,
-    residential: 0,
-    compact: true,
-    walkways: o.walkways,
-    walkAt: o.walkways ? [40, 70] : undefined,
     holo: o.holo,
-  }, sink);
-  boxes.push(...sink.pieces);
-  const phrase0 = Math.floor(r.next() * PHRASES.length);
-  parts.signs.forEach((s, n) => pushSign(signs, o.s0, o.t0, s, phrase0 + n));
-  return parts;
+    kind: o.kind,
+  });
+  if (!placed) return;
+  for (const b of placed.boxes) {
+    boxes.push({
+      s: o.s0 + b.s, t: o.t0 + b.t, lb: b.lb, la: b.la, h: b.h, base: b.base,
+      style: b.style, lit: b.lit, tint: b.tint, detail: b.detail, ornament: b.ornament,
+    });
+  }
+  for (const s of placed.signs) {
+    signs.push({
+      s: o.s0 + s.s, t: o.t0 + s.t, hb: s.hb, ha: s.ha, face: s.face, along: s.along,
+      y: s.y, w: s.w, h: s.h, color: s.color, kind: s.kind, seed: s.seed,
+    });
+  }
+  if (!o.decks || placed.draft.height < 90) return;
+  for (const y of [40, 70]) {
+    if (y > placed.draft.height - 8) continue;
+    const reach = 1.15;
+    boxes.push({
+      s: o.s0, t: o.t0 + o.w / 2 + reach / 2, lb: reach, la: o.d * 0.55, h: 0.22, base: y,
+      style: Style.Solid, lit: 0.05, tint: o.tint * 0.75, detail: 1,
+    });
+    boxes.push({
+      s: o.s0, t: o.t0 - (o.w / 2 + reach / 2), lb: reach, la: o.d * 0.55, h: 0.22, base: y,
+      style: Style.Solid, lit: 0.05, tint: o.tint * 0.75, detail: 1,
+    });
+  }
 }
 
 /**
@@ -154,21 +142,6 @@ function concourse(boxes: FabricBox[], signs: FabricSign[]): void {
   });
 }
 
-function pickForm(r: Rng): MegablockForm {
-  const roll = r.next();
-  if (roll < 0.42) return 'slab-podium';
-  if (roll < 0.74) return 'bar';
-  if (roll < 0.88) return 'courtyard';
-  return 'cantilever';
-}
-
-function pickFamily(r: Rng): FacadeFamily {
-  const roll = r.next();
-  if (roll < 0.44) return 'coffered';
-  if (roll < 0.8) return 'panelled';
-  return 'ribbed';
-}
-
 /** Buildings and street signs for one Long Beach block. */
 export function planLongBeach(block: LongBeachBlock, layout: CityLayout): LongBeachPlan {
   if (block.ground > 45) return EMPTY;
@@ -182,34 +155,30 @@ export function planLongBeach(block: LongBeachBlock, layout: CityLayout): LongBe
   if (heroA) {
     concourse(boxes, signs);
     emitMass(boxes, signs, r, {
-      s0: 10, t0: 0, w: 78, d: 118, height: HERO_A.height,
-      form: 'slab-podium', family: 'panelled', lit: 0.2, tint: 0.66,
-      holo: 1, walkways: true,
+      s0: 10, t0: 0, w: 78, d: 118, minH: 180, maxH: 180,
+      lit: 0.2, tint: 0.66, holo: true, decks: true, kind: 'band-slab',
     });
     return { boxes, signs };
   }
   if (heroB) {
     emitMass(boxes, signs, r, {
-      s0: 0, t0: 0, w: block.lb * 0.88, d: block.la * 0.82, height: HERO_B.height,
-      form: 'bar', family: 'coffered', lit: 0.18, tint: 0.62,
-      holo: 1, walkways: true,
+      s0: 0, t0: 0, w: block.lb * 0.88, d: block.la * 0.82,
+      minH: 162, maxH: 165,
+      lit: 0.18, tint: 0.62, holo: true, decks: true, kind: 'ziggurat',
     });
     return { boxes, signs };
   }
-  let height = snapOffice(r.skew(58, 148, 1.4));
-  if (height >= 145 && r.chance(0.06)) height = 155;
-  const holo = height >= 115 && r.chance(0.14) ? 1 : 0;
+  const tall = r.chance(0.06);
   emitMass(boxes, signs, r, {
     s0: 0, t0: 0,
     w: block.lb * 0.88,
     d: block.la * 0.86,
-    height,
-    form: pickForm(r),
-    family: pickFamily(r),
+    minH: 61.2,
+    maxH: tall ? 154.8 : 140.4,
     lit: r.range(0.07, 0.18),
     tint: r.range(0.5, 0.7),
-    holo,
-    walkways: height >= 90,
+    holo: r.chance(0.14),
+    decks: true,
   });
   return { boxes, signs };
 }
