@@ -24,6 +24,8 @@ const {
 } = T;
 
 const MAX = 720;
+/** Share of market walkers held in the lane ahead of the camera. */
+const LANE_PACK = 0.42;
 /** Full cycle (two steps) at the 1.5 m/s base walk. Frequency is speed / STRIDE. */
 const STRIDE = 1.42;
 const TAU = 6.28318530718;
@@ -634,7 +636,7 @@ export class CrowdField {
       if (a.role !== 'walk' || a.hold) continue;
       const loop = loops[a.loop] ?? loops[0];
       if (!loop || loop.len < 1) continue;
-      if (pack && unit(i, 16) < 0.7) this.keepInLane(i, a, loop, x, z);
+      if (pack && unit(i, 16) < LANE_PACK) this.keepInLane(i, a, loop, x, z);
       a.u = (a.u + (a.speed * dt) / loop.len) % 1;
       a.cycle = (a.cycle + (a.speed * dt) / STRIDE) % 1;
     }
@@ -682,10 +684,12 @@ export class CrowdField {
       const far = a.x > 1e5;
       if (!far && a.role !== 'vendor' && dist < 1.05) {
         const side = unit(i, 21) < 0.5 ? -1 : 1;
+        const lat = 1.2 + unit(i, 22) * 0.85;
+        const fwd = 0.35 + unit(i, 23) * 1.8;
         const fx = Math.sin(this.lookHeading);
         const fz = -Math.cos(this.lookHeading);
-        px = x + Math.cos(this.lookHeading) * side * 1.35 + fx * 0.55;
-        pz = z + Math.sin(this.lookHeading) * side * 1.35 + fz * 0.55;
+        px = x + Math.cos(this.lookHeading) * side * lat + fx * fwd;
+        pz = z + Math.sin(this.lookHeading) * side * lat + fz * fwd;
       }
       const gy = far ? 0 : query.groundHeight(px, pz);
       _p.set(px, gy, pz);
@@ -798,9 +802,9 @@ export class CrowdField {
         a.role = 'walk';
         a.loop = this.pickLoop(i);
         a.speed = a.base;
-        if (pack && unit(i, 16) < 0.7) {
+        if (pack && unit(i, 16) < LANE_PACK) {
           const loop = this.loops[a.loop];
-          const u = loop ? this.uNear(loop, i, x, z, 2.5, 15) : null;
+          const u = loop ? this.uNear(loop, i, x, z, 7, 16) : null;
           if (u != null) a.u = u;
         }
       }
@@ -844,8 +848,8 @@ export class CrowdField {
     const dz = p.z - z;
     const along = dx * fx + dz * fz;
     const side = dx * rx + dz * rz;
-    if (along >= -6 && along <= 24 && Math.abs(side) < 9) return;
-    const u = this.uNear(loop, i, x, z, 2.5, 15);
+    if (along >= 5 && along <= 20 && Math.abs(side) < 9) return;
+    const u = this.uNear(loop, i, x, z, 7, 16);
     if (u != null) a.u = u;
   }
 
@@ -874,7 +878,7 @@ export class CrowdField {
       }
     }
     if (best < 0) return null;
-    const span = along1 - along0 > 8 ? 9 : 2.4;
+    const span = along1 - along0 > 8 ? 3.2 : 2.4;
     const jitter = ((unit(i, 18) - 0.5) * span) / Math.max(loop.len, 1);
     return (best + jitter + 1) % 1;
   }

@@ -148,10 +148,10 @@ function compose(m: MeshStandardNodeMaterial, living: boolean): void {
   const neonAmt = clamp(mix(band, band.sub(1.0), sodium), 0.0, 1.0).mul(isGround);
   const fres = pow(float(1).sub(clamp(viewToCam.y, 0, 1)), 2.5);
   const nA = mx_noise_float(vec3(wpos.x.mul(0.045), wpos.z.mul(0.045), 4.0));
-  const streaks = mx_noise_float(vec3(wpos.x.mul(0.9), wpos.z.mul(0.9), 1.0));
+  const streaks = mx_noise_float(vec3(wpos.x.mul(1.6), wpos.z.mul(0.42), 2.0));
   const magCyan = mix(vec3(1.0, 0.14, 0.5), vec3(0.12, 0.78, 1.0), smoothstep(-0.15, 0.35, nA));
   const neonCol = mix(magCyan, vec3(0.92, 0.52, 0.16), sodium);
-  const streakOn = smoothstep(0.46, 0.78, streaks);
+  const streakOn = smoothstep(0.55, 0.84, streaks);
 
   // ---- albedo ----
   const stain = mx_noise_float(vec3(facade.x.mul(0.11), facade.y.mul(0.018), seed.mul(37.0))).mul(0.5).add(0.5);
@@ -177,7 +177,7 @@ function compose(m: MeshStandardNodeMaterial, living: boolean): void {
   const darken = mix(1.0, 0.55, wet.mul(isGround.add(isRoof).min(1)).add(wet.mul(isWall).mul(0.35)));
   baseColor = baseColor.mul(darken);
   // Streaks and puddles only. A constant floor painted the whole lane, including a 0.1 weight.
-  const mask = mix(streakOn.mul(0.95).add(puddle.mul(0.5)), puddle.mul(0.4), sodium);
+  const mask = mix(streakOn.mul(0.8), puddle.mul(0.18), sodium);
   const altFade = smoothstep(72.0, 26.0, U.camAlt);
   const neonRefl = neonCol.mul(fres).mul(wet).mul(mask)
     .mul(U.night.mul(0.88).add(0.04)).mul(U.signPower).mul(neonAmt).mul(altFade)
