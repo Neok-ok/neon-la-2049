@@ -230,7 +230,7 @@ export function createLensRig(
       const radial = T.length(T.vec2(T.float(ox), T.float(oy))).div(rings);
       const rim = T.mix(T.float(0.84), T.float(1.16), T.smoothstep(T.float(0.4), T.float(1), radial));
       const w = gate.mul(rim).mul(T.float(1).sub(sharper.mul(0.94))).mul(T.float(1).sub(closer.mul(0.8)));
-      const useWide = T.smoothstep(T.float(1.4), T.float(3.8), reach);
+      const useWide = T.smoothstep(T.float(10), T.float(22), reach);
       const rgb = T.mix(prefilter.sample(tightUv).rgb, soft.sample(wideUv).rgb, useWide);
       const luma = rgb.dot(T.vec3(0.2126, 0.7152, 0.0722));
       const hot = T.smoothstep(T.float(0.9), T.float(2.6), luma);
