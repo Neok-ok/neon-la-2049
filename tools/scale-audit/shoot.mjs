@@ -1,7 +1,7 @@
 // Street-level shots with a 1.75 m reference figure. Reads the measurement sample
 // points, so run run-measure.mjs first. Requires the dev server.
 import { chromium } from 'playwright';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { writeReports } from './report.mjs';
 
@@ -63,6 +63,7 @@ async function one(s) {
     if (!ok) window.__nla.setPose(x, window.__nla.app.query.layout.heightAt(x, z) + 1.7, z, 20, 2);
   }, { x, z });
   await page.waitForTimeout(1800);
+  await page.waitForFunction(() => !document.getElementById('loading'), null, { timeout: 20_000 }).catch(() => {});
   const probe = await page.evaluate(() => {
     const cam = window.__nla.app.camera;
     const layout = window.__nla.app.query.layout;
@@ -151,6 +152,8 @@ async function one(s) {
     };
   });
   await page.waitForTimeout(400);
+  const stillLoading = await page.evaluate(() => !!document.getElementById('loading') || !window.__nla?.app?.camera);
+  if (stillLoading) throw new Error('loading splash still up');
   const file = join(FIG, `${s.name}.jpg`);
   await page.screenshot({ path: file, type: 'jpeg', quality: 62, timeout: 120_000 });
   await page.screenshot({ path: join(ART, `${s.name}.jpg`), type: 'jpeg', quality: 62, timeout: 120_000 });
@@ -161,22 +164,34 @@ async function one(s) {
 
 for (const s of shots) {
   if (ONLY.size && !ONLY.has(s.name)) continue;
-  try {
-    await one(s);
-  } catch (err) {
-    console.error(`${s.name} FAILED`, err);
-    checks[s.name] = { error: String(err).slice(0, 400) };
+  let last = null;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      await one(s);
+      last = null;
+      break;
+    } catch (err) {
+      last = err;
+      console.error(`${s.name} attempt ${attempt} FAILED`, err);
+    }
   }
+  if (last) checks[s.name] = { error: String(last).slice(0, 400) };
 }
 await browser.close();
 
+const checkPath = join(ROOT, 'tools/scale-audit/out/figure-check.json');
+let prev = { shots: {} };
+if (ONLY.size && existsSync(checkPath)) {
+  try { prev = JSON.parse(readFileSync(checkPath, 'utf8')); } catch { /* keep empty */ }
+}
+const shotsMap = { ...(prev.shots ?? {}), ...checks };
 const out = {
-  low: checks['little-tokyo-low'],
-  ultra: checks['little-tokyo-ultra'],
-  phone: checks['little-tokyo-phone'],
-  shots: checks,
+  low: checks['little-tokyo-low'] ?? prev.low ?? null,
+  ultra: checks['little-tokyo-ultra'] ?? prev.ultra ?? null,
+  phone: checks['little-tokyo-phone'] ?? prev.phone ?? null,
+  shots: shotsMap,
 };
-writeFileSync(join(ROOT, 'tools/scale-audit/out/figure-check.json'), JSON.stringify(out, null, 2));
+writeFileSync(checkPath, JSON.stringify(out, null, 2));
 writeReports();
 const bad = Object.entries(checks).filter(([, v]) => !v.visible);
 console.log(`shots ${Object.keys(checks).length}, not-visible ${bad.map(([k]) => k).join(', ') || 'none'}`);

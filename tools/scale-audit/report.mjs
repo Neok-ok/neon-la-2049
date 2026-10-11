@@ -35,10 +35,11 @@ const PASS_BLURB = {
   lamps: 'Poles that are centered on the ground sink. A 7.5 m shared lamp is a fair arterial pole where it is allowed to draw.',
 };
 
-function fracBit(label, row) {
-  if (row?.frac == null || row?.px == null || row?.h == null) return '';
-  return `${label} ${Number(row.frac).toFixed(3)} of the frame (${row.px}px / ${row.h}px)`;
-}
+const COMPARE = [
+  ['little-tokyo-low', 'Little Tokyo at low'],
+  ['little-tokyo-ultra', 'Little Tokyo at ultra'],
+  ['little-tokyo-phone', 'Little Tokyo on a phone-sized viewport'],
+];
 
 function figureScaleNote() {
   if (!existsSync(FIG_CHECK)) return '';
@@ -47,14 +48,27 @@ function figureScaleNote() {
   if (f.low?.frac != null && f.ultra?.frac != null) {
     const ratio = f.low.frac / f.ultra.frac;
     const close = ratio > 0.85 && ratio < 1.15;
-    bits.push(`On the same Little Tokyo camera, the 1.75 m figure was ${fracBit('low', f.low)} and ${fracBit('ultra', f.ultra)}.`);
-    const phone = fracBit('the phone viewport', f.phone);
-    if (phone) bits.push(`${phone.charAt(0).toUpperCase()}${phone.slice(1)}.`);
+    bits.push(`On the same Little Tokyo camera, the 1.75 m figure was ${Number(f.low.frac).toFixed(3)} of the frame height at low and ${Number(f.ultra.frac).toFixed(3)} at ultra (${f.low.px}px / ${f.low.h}px and ${f.ultra.px}px / ${f.ultra.h}px).`);
+    if (f.phone?.frac != null) bits.push(`The phone viewport put the same figure at ${Number(f.phone.frac).toFixed(3)} of its frame height (${f.phone.px}px / ${f.phone.h}px).`);
     bits.push(close
       ? 'Those fractions stay together because quality settings do not rescale metres.'
       : 'The fractions differ, so the camera distance or framing changed between tiers. Quality settings themselves do not multiply world metres.');
   }
   return bits.join(' ');
+}
+
+function compareMarkdown() {
+  const lines = [];
+  for (const [id, label] of COMPARE) {
+    if (existsSync(join(FIG_DIR, `${id}.jpg`))) lines.push('', `![${label}](figures/${id}.jpg)`);
+  }
+  return lines;
+}
+
+function compareHtml() {
+  return COMPARE.filter(([id]) => existsSync(join(FIG_DIR, `${id}.jpg`)))
+    .map(([id, label]) => `<figure><img src="figures/${id}.jpg" alt="${esc(label)}"><figcaption>${esc(label)}. Same street, same 1.75 m figure.</figcaption></figure>`)
+    .join('');
 }
 
 function load() {
@@ -122,6 +136,7 @@ function markdown(doc) {
   lines.push('Low hides ground cars and pulls the far city in. It does not shrink a door, a car, or the 1.75 m reference figure. The phone screenshots in this folder are the same street at a narrow viewport.');
   const figNote = figureScaleNote();
   if (figNote) lines.push('', figNote);
+  lines.push(...compareMarkdown());
   lines.push('');
   lines.push('## Ranked fixes');
   lines.push('');
@@ -227,8 +242,9 @@ function html(doc) {
   <h2>Graphics tiers</h2>
   <p>${esc(doc.quality.text)}</p>
   <table><thead><tr><th>Tier</th><th>detailScale</th><th>farRadius</th><th>groundTraffic</th><th>crowd</th><th>crowd radius</th><th>landmarkLod</th></tr></thead><tbody>${tiers}</tbody></table>
-  <p>Low hides ground cars and pulls the far city in. It does not shrink a door, a car, or the 1.75 m reference figure.</p>
+  <p>Low hides ground cars and pulls the far city in. It does not shrink a door, a car, or the 1.75 m reference figure. The phone screenshot is the same street at a narrow viewport.</p>
   ${figureScaleNote() ? `<p>${esc(figureScaleNote())}</p>` : ''}
+  ${compareHtml()}
   <h2 id="fixes">Ranked fixes</h2>
   <p>Grouped so a later pass can take one subject. High severity first. The same mesh is listed once, with every district that shows it.</p>
   <ol>${fixes}</ol>

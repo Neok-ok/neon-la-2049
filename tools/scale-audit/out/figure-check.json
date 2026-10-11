@@ -1,0 +1,409 @@
+{
+  "low": {
+    "district": "little-tokyo-market",
+    "ground": 0.0004679775247992248,
+    "px": 154,
+    "h": 720,
+    "frac": 0.21433905584960172,
+    "visible": true,
+    "feet": [
+      331.2952420421752,
+      0.0004630293109831419,
+      336.1194345763825
+    ],
+    "compare": "low",
+    "errors": []
+  },
+  "ultra": {
+    "district": "little-tokyo-market",
+    "ground": 0.0004679775247992248,
+    "px": 154,
+    "h": 720,
+    "frac": 0.21433905584960172,
+    "visible": true,
+    "feet": [
+      331.2952420421752,
+      0.0004630293109831419,
+      336.1194345763825
+    ],
+    "compare": "ultra",
+    "errors": []
+  },
+  "phone": {
+    "district": "little-tokyo-market",
+    "ground": 0.0004679775247992248,
+    "px": 181,
+    "h": 844,
+    "frac": 0.21433905584960178,
+    "visible": true,
+    "feet": [
+      331.2952420421752,
+      0.0004630293109831419,
+      336.1194345763825
+    ],
+    "compare": "phone",
+    "errors": []
+  },
+  "shots": {
+    "little-tokyo-market": {
+      "district": "little-tokyo-market",
+      "ground": 0.0004679775247992248,
+      "px": 154,
+      "h": 720,
+      "frac": 0.21433905584960172,
+      "visible": true,
+      "feet": [
+        331.2952420421752,
+        0.0004630293109831419,
+        336.1194345763825
+      ],
+      "compare": null,
+      "errors": []
+    },
+    "financial-megatowers": {
+      "district": "financial-megatowers",
+      "ground": 0.00004625345886680715,
+      "px": 154,
+      "h": 720,
+      "frac": 0.21433902453454776,
+      "visible": true,
+      "feet": [
+        -1013.485253541836,
+        0.00004671130157091838,
+        -12.77117984379306
+      ],
+      "compare": null,
+      "errors": []
+    },
+    "dtla": {
+      "district": "dtla",
+      "ground": 0.02063922327781184,
+      "px": 154,
+      "h": 720,
+      "frac": 0.2143376940130596,
+      "visible": true,
+      "feet": [
+        -902.6482174090235,
+        0.02086937600249351,
+        -966.7707297095158
+      ],
+      "compare": null,
+      "errors": []
+    },
+    "civic-center": {
+      "district": "civic-center",
+      "ground": 0.01109667551570034,
+      "px": 154,
+      "h": 720,
+      "frac": 0.21433927030252373,
+      "visible": true,
+      "feet": [
+        -16.13611718929684,
+        0.011054705381492525,
+        -274.15157382572664
+      ],
+      "compare": null,
+      "errors": []
+    },
+    "historic-core": {
+      "district": "historic-core",
+      "ground": 0.000019890323646602822,
+      "px": 154,
+      "h": 720,
+      "frac": 0.21433902709585995,
+      "visible": true,
+      "feet": [
+        -483.6724121860353,
+        0.000019905995090360738,
+        458.2697980216645
+      ],
+      "compare": null,
+      "errors": []
+    },
+    "wallace-vernon": {
+      "district": "wallace-vernon",
+      "ground": 0,
+      "px": 154,
+      "h": 720,
+      "frac": 0.21433902718663905,
+      "visible": true,
+      "feet": [
+        726,
+        0,
+        3598.9
+      ],
+      "compare": null,
+      "errors": []
+    },
+    "k-megablock": {
+      "district": "k-megablock",
+      "ground": 0,
+      "px": 154,
+      "h": 720,
+      "frac": 0.21433902718665476,
+      "visible": true,
+      "feet": [
+        11031,
+        0,
+        21298.9
+      ],
+      "compare": null,
+      "errors": []
+    },
+    "arts-district": {
+      "district": "arts-district",
+      "ground": 0.000002266707090996113,
+      "px": 154,
+      "h": 720,
+      "frac": 0.2143390270309349,
+      "visible": true,
+      "feet": [
+        831,
+        0.000002293586786329005,
+        1118.9
+      ],
+      "compare": null,
+      "errors": []
+    },
+    "coastal-strip": {
+      "district": "coastal-strip",
+      "ground": 0,
+      "px": 154,
+      "h": 720,
+      "frac": 0.21433902718656342,
+      "visible": true,
+      "feet": [
+        -18808.565547043847,
+        0,
+        10594.537404889104
+      ],
+      "compare": null,
+      "errors": []
+    },
+    "lakewood-megablocks": {
+      "district": "lakewood-megablocks",
+      "ground": 0,
+      "px": 154,
+      "h": 720,
+      "frac": 0.21433902718665476,
+      "visible": true,
+      "feet": [
+        9431,
+        0,
+        22048.9
+      ],
+      "compare": null,
+      "errors": []
+    },
+    "south-la-megablocks": {
+      "district": "south-la-megablocks",
+      "ground": 0,
+      "px": 154,
+      "h": 720,
+      "frac": 0.21433902718664782,
+      "visible": true,
+      "feet": [
+        -4134,
+        0,
+        4198.9
+      ],
+      "compare": null,
+      "errors": []
+    },
+    "westside": {
+      "district": "westside",
+      "ground": 0.000034337536480854614,
+      "px": 154,
+      "h": 720,
+      "frac": 0.21433902741452762,
+      "visible": true,
+      "feet": [
+        -16344,
+        0.00003429819104747756,
+        758.9
+      ],
+      "compare": null,
+      "errors": []
+    },
+    "basin-sprawl": {
+      "district": "basin-sprawl",
+      "ground": 0,
+      "px": 154,
+      "h": 720,
+      "frac": 0.21433902718658734,
+      "visible": true,
+      "feet": [
+        -10111.5,
+        0,
+        11698.9
+      ],
+      "compare": null,
+      "errors": []
+    },
+    "southeast-industrial": {
+      "district": "southeast-industrial",
+      "ground": 0.000005723267598764466,
+      "px": 154,
+      "h": 720,
+      "frac": 0.21433902612032796,
+      "visible": true,
+      "feet": [
+        6551,
+        0.00000590735225648728,
+        4418.9
+      ],
+      "compare": null,
+      "errors": []
+    },
+    "hollywood": {
+      "district": "hollywood",
+      "ground": 6.86738301688124,
+      "px": 154,
+      "h": 720,
+      "frac": 0.21419864376974196,
+      "visible": true,
+      "feet": [
+        -8949,
+        6.891629938466256,
+        -5441.1
+      ],
+      "compare": null,
+      "errors": []
+    },
+    "lax-spaceport": {
+      "district": "lax-spaceport",
+      "ground": 0,
+      "px": 154,
+      "h": 720,
+      "frac": 0.2143390271866542,
+      "visible": true,
+      "feet": [
+        -15204,
+        0,
+        12598.9
+      ],
+      "compare": null,
+      "errors": []
+    },
+    "south-bay-refineries": {
+      "district": "south-bay-refineries",
+      "ground": 0,
+      "px": 154,
+      "h": 720,
+      "frac": 0.21433902718664782,
+      "visible": true,
+      "feet": [
+        -6029,
+        0,
+        16378.9
+      ],
+      "compare": null,
+      "errors": []
+    },
+    "harbor": {
+      "district": "harbor",
+      "ground": 0.000343567862551041,
+      "px": 154,
+      "h": 720,
+      "frac": 0.21433904797135456,
+      "visible": true,
+      "feet": [
+        4416,
+        0.0003399797077235812,
+        32698.9
+      ],
+      "compare": null,
+      "errors": []
+    },
+    "long-beach": {
+      "district": "long-beach",
+      "ground": 0,
+      "px": 154,
+      "h": 720,
+      "frac": 0.21433902718672235,
+      "visible": true,
+      "feet": [
+        11466,
+        0,
+        30778.9
+      ],
+      "compare": null,
+      "errors": []
+    },
+    "east-la": {
+      "district": "east-la",
+      "ground": 0,
+      "px": 154,
+      "h": 720,
+      "frac": 0.21433902718664782,
+      "visible": true,
+      "feet": [
+        4708.5,
+        0,
+        678.9
+      ],
+      "compare": null,
+      "errors": []
+    },
+    "hills-sparse": {
+      "district": "basin-sprawl",
+      "ground": 362.9031797065512,
+      "px": 158,
+      "h": 720,
+      "frac": 0.2189938044645385,
+      "visible": true,
+      "feet": [
+        -26356.5,
+        362.11246143411915,
+        -5401.1
+      ],
+      "compare": null,
+      "errors": []
+    },
+    "little-tokyo-low": {
+      "district": "little-tokyo-market",
+      "ground": 0.0004679775247992248,
+      "px": 154,
+      "h": 720,
+      "frac": 0.21433905584960172,
+      "visible": true,
+      "feet": [
+        331.2952420421752,
+        0.0004630293109831419,
+        336.1194345763825
+      ],
+      "compare": "low",
+      "errors": []
+    },
+    "little-tokyo-ultra": {
+      "district": "little-tokyo-market",
+      "ground": 0.0004679775247992248,
+      "px": 154,
+      "h": 720,
+      "frac": 0.21433905584960172,
+      "visible": true,
+      "feet": [
+        331.2952420421752,
+        0.0004630293109831419,
+        336.1194345763825
+      ],
+      "compare": "ultra",
+      "errors": []
+    },
+    "little-tokyo-phone": {
+      "district": "little-tokyo-market",
+      "ground": 0.0004679775247992248,
+      "px": 181,
+      "h": 844,
+      "frac": 0.21433905584960178,
+      "visible": true,
+      "feet": [
+        331.2952420421752,
+        0.0004630293109831419,
+        336.1194345763825
+      ],
+      "compare": "phone",
+      "errors": []
+    }
+  }
+}
