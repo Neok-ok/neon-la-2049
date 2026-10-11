@@ -247,7 +247,7 @@ export class App {
     if (TouchControls.wanted()) this.touch = new TouchControls(this.input.touch);
     this.hud = new HUD(params.hud);
 
-    const fly = new FlyController(this.camera, this.input, this.query, this.scene);
+    const fly = new FlyController(this.camera, this.input, this.query, this.scene, this.quality.tier);
     fly.blocksExtra = (x, y, z) => this.interiors.blocksFly(x, y, z);
     this.interiors.bind({
       toggle: [this.streamer.root, this.holos.group, this.crowd.mesh, ...this.traffic.nodes, ...this.ground.nodes],
@@ -361,6 +361,7 @@ export class App {
     this.interiors.setTier(tier);
     if (had !== this.quality.bloom) this.buildPipeline();
     this.photoMod?.retier();
+    this.cams.fly.setSpinnerTier(tier);
     this.slowMs = 0;
   }
 

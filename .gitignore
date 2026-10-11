@@ -3,3 +3,5 @@ dist
 .DS_Store
 *.log
 /screenshots-tmp
+public/models/spinner/_review.glb
+public/models/spinner/*.raw.glb
