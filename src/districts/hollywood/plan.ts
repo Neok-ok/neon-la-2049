@@ -1,5 +1,5 @@
 // Pure block plan. The worker and the main thread both call this.
-// Heritage fronts are the shared kit. Heights are whole floors of 4.4 m.
+// Heritage fronts are the shared kit. Old 4.4 m counts snap onto 3.6 m storeys.
 import { hash2i, Rng } from '../../core/rng';
 import { Style, SignColor, type FaceDir, type StyleId } from '../../world/fabric/types';
 import { CELL, PHRASE_HOUSES, phraseSeed } from '../../world/materials/signPhrases';
@@ -8,7 +8,7 @@ import {
   type HeritageCrown, type HeritageFamily, type HeritagePlan,
 } from '../_shared/heritage/build';
 import {
-  BLOCK_A, FLOOR, LOBBY_I, LOBBY_J, SIGN_CLEAR_J0, SIGN_CLEAR_J1, STRIP_LINE, stripFace,
+  BLOCK_A, MAST, LOBBY_I, LOBBY_J, SIGN_CLEAR_J0, SIGN_CLEAR_J1, STRIP_LINE, legacyFloors, stripFace,
 } from './spec';
 
 export interface HwBlock {
@@ -96,7 +96,7 @@ const CROWNS: HeritageCrown[] = ['steps', 'pediment', 'none', 'steps', 'clock'];
 const BLADE_COLORS = [SignColor.Pink, SignColor.Violet, SignColor.Yellow, SignColor.Amber, SignColor.Cyan];
 const BLADE_PHRASES = PHRASE_HOUSES;
 
-const DOOR_HALF_T = 2.7;
+const DOOR_HALF_T = 1.05;
 const DOOR_DEPTH = 16;
 
 function empty(): HwPlan {
@@ -165,9 +165,9 @@ function heritageBay(
   const along: 's' | 't' = face === 'a+' || face === 'a-' ? 't' : 's';
   const plane = face === 'a+' ? b.la / 2 : face === 'a-' ? -b.la / 2 : face === 'b+' ? b.lb / 2 : -b.lb / 2;
   const roofFloors = floorsOf(b.i, b.j, Math.round(center * 10) + 3, [8, 10, 12, 14, 16]);
-  const height = roofFloors * FLOOR;
+  const height = legacyFloors(roofFloors);
   const frontFloors = Math.max(6, roofFloors - (roofFloors > 12 ? 4 : 2));
-  const frontH = frontFloors * FLOOR;
+  const frontH = legacyFloors(frontFloors);
   const family = r.pick(FAMILIES);
   const billboard = !billed.on && height > 52 && width > 18 && r.chance(0.14);
   if (billboard) billed.on = true;
@@ -182,7 +182,7 @@ function heritageBay(
     family,
     wrap: r.range(0.22, 0.62),
     marquee: true,
-    door: r.range(3.6, 5.2),
+    door: r.range(2.2, 3.2),
     crown: family === 'deco' ? 'steps' : r.pick(CROWNS),
     blades: r.int(4, 6),
     billboard,
@@ -194,14 +194,14 @@ function heritageBay(
 
 function towerBehind(b: HwBlock, face: FaceDir, out: HwPlan): void {
   const n = floorsOf(b.i, b.j, 9, [20, 22, 24, 26]);
-  const top = n * FLOOR;
-  const podium = 4 * FLOOR;
+  const top = legacyFloors(n);
+  const podium = legacyFloors(4);
   const shaft = top - podium;
   const inward = face === 'a-' ? 16 : face === 'a+' ? -16 : 0;
   pushBox(out, b, inward, 0, 46, 36, podium, Style.Neon, 0.62, 1.05, 0, 0);
   pushBox(out, b, inward, 0, 22, 18, shaft, Style.Ribbon, 0.58, 0.95, 0, podium);
   pushBox(out, b, inward, 0, 26, 22, 0.45, Style.Glow, 0.85, 1.45, 1, top - 0.45);
-  pushBox(out, b, inward, 0, 0.5, 0.5, FLOOR, Style.Glow, 0.4, 1.2, 2, top);
+  pushBox(out, b, inward, 0, 0.5, 0.5, MAST, Style.Glow, 0.4, 1.2, 2, top);
   const plane = face === 'a-' ? -b.la / 2 : b.la / 2;
   const phrase = BLADE_PHRASES[hash2i(b.i, b.j, 4) % BLADE_PHRASES.length]!;
   const color = BLADE_COLORS[hash2i(b.i, b.j, 5) % BLADE_COLORS.length]!;
@@ -210,7 +210,7 @@ function towerBehind(b: HwBlock, face: FaceDir, out: HwPlan): void {
 }
 
 function podiumBehind(b: HwBlock, face: FaceDir, out: HwPlan): void {
-  const h = 4 * FLOOR;
+  const h = legacyFloors(4);
   const inward = face === 'a-' ? 8 : -8;
   if (isLobby(b)) {
     pushBox(out, b, inward + 4, -20, 28, 72, h, Style.Neon, 0.55, 1.02, 0, 0);
@@ -223,10 +223,21 @@ function podiumBehind(b: HwBlock, face: FaceDir, out: HwPlan): void {
 
 function lobbyMouth(b: HwBlock, out: HwPlan): void {
   const edge = -b.la / 2;
-  const pierT = DOOR_HALF_T + 0.55;
-  pushBox(out, b, edge + 0.45, -pierT, 0.7, 1.1, 4.4, Style.Deco, 0.35, 1.05, 0, 0);
-  pushBox(out, b, edge + 0.45, pierT, 0.7, 1.1, 4.4, Style.Deco, 0.35, 1.05, 0, 0);
-  pushBox(out, b, edge + 1.6, 0, DOOR_HALF_T * 2 + 1.4, 3.2, 0.32, Style.Glow, 0.92, 1.5, 1, 3.55);
+  // lb is the street width. The inner face sits on the 2.1 m slot, not 0.2 m outside it.
+  const pierLb = 0.7;
+  const pierT = DOOR_HALF_T + pierLb / 2 + 0.02;
+  pushBox(out, b, edge + 0.45, -pierT, pierLb, 1.1, 3.6, Style.Deco, 0.35, 1.05, 0, 0);
+  pushBox(out, b, edge + 0.45, pierT, pierLb, 1.1, 3.6, Style.Deco, 0.35, 1.05, 0, 0);
+  // hitsDoor drops any box that crosses the slot, which is what a head bar has to do.
+  // Push it straight in so the 2.2 m cap survives.
+  out.boxes.push({
+    s: edge + 0.45, t: 0, lb: 2.2, la: 1.1, h: 1.4,
+    style: Style.Deco, lit: 0.35, tint: 1.05, detail: 0, base: 2.2,
+  });
+  out.boxes.push({
+    s: edge + 0.2, t: 0, lb: 2.3, la: 0.28, h: 0.22,
+    style: Style.Glow, lit: 0.92, tint: 1.5, detail: 1, base: 2.2,
+  });
   out.signs.push({
     s: edge, t: 0, hb: 0, ha: 0, face: 'a-', along: 0, y: 4.7,
     w: 4.2, h: 0.9, color: SignColor.Yellow, kind: 0, seed: phraseSeed(CELL.SECTOR_1),
@@ -256,12 +267,12 @@ function planStrip(b: HwBlock, face: FaceDir, out: HwPlan): void {
 function planFiller(b: HwBlock, out: HwPlan): void {
   const north = b.i > STRIP_LINE;
   const choices = north ? [5, 6, 7] : [5, 6, 7, 8, 9];
-  const h = floorsOf(b.i, b.j, 2, choices) * FLOOR;
+  const h = legacyFloors(floorsOf(b.i, b.j, 2, choices));
   const face: FaceDir = b.i < STRIP_LINE ? 'a+' : 'a-';
   pushBox(out, b, 0, 0, b.lb * 0.78, b.la * 0.72, h, north ? Style.Panel : Style.Neon, north ? 0.28 : 0.42, 0.9, 0, 0);
   pushBox(out, b, 0, 0, b.lb * 0.7, 0.35, 0.28, Style.Glow, 0.7, north ? 1.1 : 1.4, 1, 3.3);
   if (!north && hash2i(b.i, b.j, 11) % 11 === 0) {
-    const top = floorsOf(b.i, b.j, 12, [18, 20, 22]) * FLOOR;
+    const top = legacyFloors(floorsOf(b.i, b.j, 12, [18, 20, 22]));
     pushBox(out, b, 6, 4, 16, 14, top - h, Style.Ribbon, 0.5, 0.92, 0, h);
   }
   const phrase = BLADE_PHRASES[hash2i(b.i, b.j, 6) % BLADE_PHRASES.length]!;

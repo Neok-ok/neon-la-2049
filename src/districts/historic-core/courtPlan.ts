@@ -10,17 +10,21 @@ const IRON: RGB = [0.28, 0.24, 0.22];
 const WARM: RGB = [1.0, 0.62, 0.28];
 const LANTERN: RGB = [1.45, 0.62, 0.22];
 
-const LEVELS = [4.4, 8.8, 13.2, 17.6];
+/** Seven storeys of 3.2 m fit the 22.4 m stone front. Galleries sit on six of them. */
+export const GALLERY_Y = [3.2, 6.4, 9.6, 12.8, 16.0, 19.2] as const;
+const LEVELS = GALLERY_Y;
 const SLAB = 0.22;
 const TOPS = LEVELS.map((y) => y + SLAB);
 
 const GX0 = 5.25;
 const GX1 = 6.87;
-const STAIR_N = 12;
+/** One going for every flight so the switchback treads match. Rise stays inside 0.15–0.18 m. */
+const STAIR_N = 19;
+const TREAD = 0.29;
 const XA = 3.35;
 const XB = 4.55;
-const Z_BACK = 9.85;
-const Z_FRONT = 13.85;
+const Z_BACK = 9.55;
+const Z_FRONT = Z_BACK + STAIR_N * TREAD;
 
 export interface CourtPlan {
   boxes: InteriorBox[];
@@ -61,7 +65,7 @@ function steps(
     const zd = Math.abs(z1 - z0);
     add(boxes, cols, cx, top - rise - sink, zc, w, rise + sink, zd, STONE);
     if (i > 0 && i < STAIR_N - 1) {
-      add(boxes, cols, XA - 0.07, top, zc, 0.06, 0.86, 0.06, IRON);
+      add(boxes, cols, XA - 0.07, top, zc, 0.06, 0.96, 0.06, IRON);
     }
   }
 }
@@ -96,22 +100,13 @@ function structure(): { boxes: InteriorBox[]; colliders: InteriorCollider[] } {
     add(boxes, cols, 0, y, 2.85, GX0 * 2, SLAB, 1.6, STONE);
   }
 
-  const flights: Array<[number, number, number, number]> = [
-    [Z_FRONT, Z_BACK, 0.14, TOPS[0]!],
-    [Z_BACK, Z_FRONT, TOPS[0]!, TOPS[1]!],
-    [Z_FRONT, Z_BACK, TOPS[1]!, TOPS[2]!],
-    [Z_BACK, Z_FRONT, TOPS[2]!, TOPS[3]!],
-  ];
-  for (const [zLo, zHi, yLo, yHi] of flights) steps(boxes, cols, zLo, zHi, yLo, yHi);
-
-  const landings: Array<[number, number, number]> = [
-    [Z_BACK, 11.25, TOPS[0]!],
-    [12.45, Z_FRONT, TOPS[1]!],
-    [Z_BACK, 11.25, TOPS[2]!],
-    [12.45, Z_FRONT, TOPS[3]!],
-  ];
-  for (const [z0, z1, top] of landings) {
-    add(boxes, cols, (XB + GX0) / 2, top - SLAB, (z0 + z1) / 2, GX0 - XB, SLAB, z1 - z0, STONE);
+  for (let i = 0; i < TOPS.length; i++) {
+    const zLo = i % 2 === 0 ? Z_FRONT : Z_BACK;
+    const zHi = i % 2 === 0 ? Z_BACK : Z_FRONT;
+    const yLo = i === 0 ? 0.14 : TOPS[i - 1]!;
+    steps(boxes, cols, zLo, zHi, yLo, TOPS[i]!);
+    const [z0, z1] = i % 2 === 0 ? [Z_BACK, 11.25] as const : [12.45, Z_FRONT] as const;
+    add(boxes, cols, (XB + GX0) / 2, TOPS[i]! - SLAB, (z0 + z1) / 2, GX0 - XB, SLAB, z1 - z0, STONE);
   }
 
   const gapBack: [number, number] = [Z_BACK - 0.05, 11.4];
@@ -170,8 +165,9 @@ function dress(detail: InteriorDetail): InteriorBox[] {
         for (let z = 4.1; z <= 15.5; z += step) {
           const inBack = z >= Z_BACK - 0.05 && z <= 11.4;
           const inFront = z >= 12.3 && z <= Z_FRONT + 0.08;
-          if (side > 0 && ((top === TOPS[0] || top === TOPS[2]) && inBack)) continue;
-          if (side > 0 && ((top === TOPS[1] || top === TOPS[3]) && inFront)) continue;
+          const i = TOPS.indexOf(top);
+          if (side > 0 && i % 2 === 0 && inBack) continue;
+          if (side > 0 && i % 2 === 1 && inFront) continue;
           boxes.push({ x: side * (GX0 - 0.06), y: top, z, w: 0.05, h: 0.9, d: 0.05, color: IRON, detail });
         }
       }
@@ -199,14 +195,14 @@ export function courtColliders(): InteriorCollider[] {
 
 export function buildCourt(detail: InteriorDetail): Omit<CourtPlan, 'colliders'> {
   const lights: InteriorLight[] = [
-    { x: 0, y: 11.2, z: 9, color: [1, 0.58, 0.24], intensity: 3.6, range: 22 },
-    { x: 4.0, y: 6.5, z: 11.6, color: [1, 0.64, 0.32], intensity: 2.4, range: 12 },
-    { x: 0, y: 4.2, z: 20.2, color: [1, 0.72, 0.42], intensity: 1.8, range: 14 },
-    { x: -5.4, y: 7.4, z: 8, color: [1, 0.55, 0.22], intensity: 1.3, range: 10 },
-    { x: 5.4, y: 11.6, z: 11, color: [1, 0.55, 0.22], intensity: 1.3, range: 10 },
+    { x: 0, y: 20.2, z: 9, color: [1, 0.58, 0.24], intensity: 3.6, range: 22 },
+    { x: 4.0, y: 6.8, z: 11.6, color: [1, 0.64, 0.32], intensity: 2.4, range: 12 },
+    { x: 0, y: 3.6, z: 20.2, color: [1, 0.72, 0.42], intensity: 1.8, range: 14 },
+    { x: -5.4, y: 10.0, z: 8, color: [1, 0.55, 0.22], intensity: 1.3, range: 10 },
+    { x: 5.4, y: 13.2, z: 11, color: [1, 0.55, 0.22], intensity: 1.3, range: 10 },
   ];
   const glass: InteriorBox = {
-    x: 0, y: 18.4, z: 9, w: 10.2, h: 0.05, d: 11.6,
+    x: 0, y: 20.6, z: 9, w: 10.2, h: 0.05, d: 11.6,
     color: [0.16, 0.2, 0.24],
     emissive: [0.05, 0.08, 0.1],
     flick: -1,
@@ -216,7 +212,7 @@ export function buildCourt(detail: InteriorDetail): Omit<CourtPlan, 'colliders'>
     lights,
     ambient: [0.1, 0.08, 0.07],
     // In front of the landmark's door glow (z ≈ 22.6), so the opening is the dim card.
-    portals: [{ x: 0, y: 3.5, z: 17.6, w: 4.6, h: 6.9, yaw: 0 }],
+    portals: [{ x: 0, y: 1.1, z: 17.6, w: 2.2, h: 2.2, yaw: 0 }],
     openSky: { x: 0, z: 9, hw: 5.4, hd: 6.2, y0: 3, y1: 20 },
   };
 }

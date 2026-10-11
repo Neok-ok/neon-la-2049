@@ -156,7 +156,7 @@ export function plazaKit(layout: CityLayout): { props: CivicProp[]; pools: Civic
     const [x, z] = localToWorld(lapd.x, lapd.z, yaw, lx, -96);
     pools.push({ x, y: g + 0.08, z, yaw, wid: 10, len: 4, rgb: [0.55, 0.7, 0.95], intensity: 0.55, rank: 0 });
   }
-  // crowd at the foot of the steps, clear of the treads (the treads occupy |x| < 15, z -78..-59)
+  // crowd at the foot of the steps, clear of the treads (the treads occupy |x| < 15, z about -68..-59)
   const foot: Array<[number, number]> = [[-22, -98], [22, -98], [22, -82], [-22, -82]];
   loops.push(foot.map(([lx, lz]) => localToWorld(lapd.x, lapd.z, yaw, lx, lz)));
   if (hall) {

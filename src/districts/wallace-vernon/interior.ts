@@ -55,7 +55,7 @@ export function buildAtrium(detail: InteriorDetail): AtriumPlan {
   const halfW = 11;
   const th = 0.42;
   const H = 11.2;
-  const open = 2.15;
+  const open = COURT.doorHalfW;
   const depth = -far;
 
   box(boxes, 0, -0.35, far / 2, halfW * 2, 0.35, depth, STONE);
@@ -82,8 +82,8 @@ export function buildAtrium(detail: InteriorDetail): AtriumPlan {
   wall(cols, -sideX, -0.1, sideW, th, 0, H);
   box(boxes, sideX, 0, -0.1, sideW, H, th, STONE);
   wall(cols, sideX, -0.1, sideW, th, 0, H);
-  box(boxes, 0, 2.7, -0.1, open * 2, H - 2.7, th, STONE);
-  wall(cols, 0, -0.1, open * 2, th, 2.7, H);
+  box(boxes, 0, COURT.doorH, -0.1, open * 2, H - COURT.doorH, th, STONE);
+  wall(cols, 0, -0.1, open * 2, th, COURT.doorH, H);
 
   // Dry sill, then ankle-deep water across the hall. The stone under it stays walkable.
   box(boxes, 0, 0.02, -0.85, open * 1.7, 0.08, 1.5, STONE_HI);
@@ -113,7 +113,7 @@ export function buildAtrium(detail: InteriorDetail): AtriumPlan {
     boxes,
     lights,
     ambient: [0.012, 0.011, 0.01],
-    portals: [{ x: 0, y: 1.35, z: 0.04, w: 2.2, h: 2.55 }],
+    portals: [{ x: 0, y: COURT.doorH / 2, z: 0.04, w: COURT.doorHalfW * 2, h: COURT.doorH }],
     colliders: cols,
   };
 }
@@ -128,7 +128,7 @@ export function installWallaceInterior(layout: CityLayout = getLayout()): void {
     doors: [{
       id: 'plaza',
       exterior: true,
-      box: placeVolume(frame, 0, 0.55, 1.05, 0.85, 0, 2.7),
+      box: placeVolume(frame, 0, 0.55, COURT.doorHalfW, 0.85, 0, COURT.doorH),
     }],
     links: [],
     keepLandmarks: [],

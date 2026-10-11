@@ -2,6 +2,7 @@
 // and the police pads. Landmarks, pad lanes, the plaza dresser and the screenshot cameras all read this
 // so a pad the mesh draws is the pad a spinner flies to.
 import { bearingToYaw } from '../../world/geo';
+import { planFlight } from '../../world/architecture/scale';
 
 /** LAPD shaft, crown and podium. Heights match the landmark JSON (216 m, crown 62 m). */
 export const HQ = {
@@ -16,7 +17,12 @@ export const HQ = {
   crownH: 62,
   lobbyFloor: 5.2,
   lobbyCeil: 12.4,
-  doorHalf: 8.2,
+  /** Walk-through leaf. The hall behind it is hallHalf. */
+  doorHalf: 1.1,
+  /** Head of the leaf above lobbyFloor. The room still rises to lobbyCeil. */
+  doorHead: 2.2,
+  /** Half-width of the recess. Columns at ±5.4 and the directory at 6.6 stay inside. */
+  hallHalf: 7.4,
   pad: 22,
   padH: 0.9,
 } as const;
@@ -34,15 +40,16 @@ export const PADS = [
 ] as const;
 
 /** The walk up to the lobby, on the face toward City Hall (local −Z). */
+const LAPD_FLIGHT = planFlight(HQ.lobbyFloor - 0.18);
 export const STAIR = {
   width: 30,
-  /** Outer edge, further from the door. */
-  z0: -77.8,
+  /** Outer edge, further from the door. The run grew by adding treads. */
+  z0: -59.15 - LAPD_FLIGHT.run,
   /** Inner edge, at the threshold. */
   z1: -59.15,
   y0: 0.18,
   y1: HQ.lobbyFloor,
-  n: 32,
+  n: LAPD_FLIGHT.risers,
 } as const;
 
 /** City Hall massing. The JSON height (138 m) is the beacon, not the stone pyramid. */
@@ -60,15 +67,16 @@ export const HALL = {
 } as const;
 
 /** Ceremonial stair on the face toward LAPD (local +Z). */
+const HALL_FLIGHT = planFlight(3.6 - 0.16);
 export const HALL_STAIR = {
   width: 22,
-  /** Outer tread, at street level. */
-  z0: 50.6,
+  /** Outer tread, at street level. Shorter run, same landing. */
+  z0: 36.4 + HALL_FLIGHT.run,
   /** Inner tread, at the landing. */
   z1: 36.4,
   y0: 0.16,
   y1: 3.6,
-  n: 22,
+  n: HALL_FLIGHT.risers,
 } as const;
 
 export function yawOf(bearingDeg: number): number {

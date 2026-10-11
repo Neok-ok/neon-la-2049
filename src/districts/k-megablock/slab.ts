@@ -14,7 +14,7 @@ import type { Landmark } from '../../world/layout';
 import { levelGroup } from '../_shared/megatower/place';
 import { Mass, type Detail } from './mass';
 import {
-  HD, HW, K_Y, LOD_DIST, PAD, SLAB_D, SLAB_H, SLAB_W,
+  FLOOR_TOP, HD, HW, K_Y, LOD_DIST, PAD, PARAPET, SLAB_D, SLAB_H, SLAB_W,
   localToWorld, slabHoles, type SlabRect,
 } from './spec';
 
@@ -63,13 +63,13 @@ function body(m: Mass, g: number): void {
   const northD = lobby.z0 - (-HD);
   m.box(0, (lobby.x0 + lobby.x1) / 2, (-HD + lobby.z0) / 2, y(0), lobby.x1 - lobby.x0, northD, 3.6, RES);
   m.soffit(0, (lobby.x0 + lobby.x1) / 2, (lobby.z0 + HD) / 2, y(3.5), lobby.x1 - lobby.x0, HD - lobby.z0, 0.16, DARK);
-  m.box(0, 0, 0, y(3.6), SLAB_W, SLAB_D, SLAB_H - 3.6, RES);
+  m.box(0, 0, 0, y(3.6), SLAB_W, SLAB_D, FLOOR_TOP - 3.6, RES);
+  m.box(0, 0, 0, y(FLOOR_TOP), SLAB_W, SLAB_D, PARAPET, BAND);
 
   solids(m, subtract(foot, slabHoles('ground')), y(0), y(3.6));
   solids(m, subtract(foot, slabHoles('shaft')), y(3.6), y(K_Y - 0.2));
   solids(m, subtract(foot, slabHoles('floor')), y(K_Y - 0.2), y(K_Y + 3.2));
-  solids(m, subtract(foot, slabHoles('shaft')), y(K_Y + 3.2), y(SLAB_H - 0.14));
-  solids(m, [foot], y(SLAB_H - 0.14), y(SLAB_H));
+  solids(m, subtract(foot, slabHoles('shaft')), y(K_Y + 3.2), y(SLAB_H));
 }
 
 function bands(m: Mass, g: number): void {

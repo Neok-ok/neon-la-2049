@@ -119,17 +119,17 @@ export const COURT = {
   wallH: 8.6,
   courtHalfW: 220,
   courtNorth: -2100,
-  /** Eight risers of 0.375 m (under the 0.45 m step-up) climb onto the Stage 3 plinth. */
-  stairRise: 0.375,
-  stairTread: 2.4,
-  stairN: 8,
+  /** Eighteen risers onto the 3 m plinth. The run shortened; the court grew. */
+  stairRise: 3 / 18,
+  stairTread: 0.3,
+  stairN: 18,
   stairHalfW: 56,
   deckY: 3,
   /** Stone bridge from the plinth's south edge to a human door in front of the portal. */
   bridgeHalfW: 4.2,
   doorZ: -1606,
-  doorHalfW: 1.15,
-  doorH: 2.7,
+  doorHalfW: 1.05,
+  doorH: 2.2,
 };
 
 export function stairNorthZ(): number {

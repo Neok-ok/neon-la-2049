@@ -12,6 +12,7 @@ import { registerLandmarkType, type LandmarkEnv } from '../../world/landmarks/re
 import { LightKind } from '../../world/landmarks/Beacons';
 import type { Landmark } from '../../world/layout';
 import { levelGroup } from '../_shared/megatower/place';
+import { openDoorLeaf } from '../../world/architecture/trim';
 import { Mass, type Detail } from './mass';
 import { HALL, HALL_STAIR, localToWorld } from './spec';
 
@@ -35,36 +36,45 @@ function stairs(m: Mass): void {
       m.solid(0, z, width, Math.abs(run) * 0.96, y0 + rise * i, y0 + rise * (i + 1));
     }
   }
-  const steps = m.max >= 2 ? n : m.max >= 1 ? 6 : 0;
-  const rs = (z1 - z0) / Math.max(1, steps);
-  const rh = (y1 - y0) / Math.max(1, steps);
+  const steps = m.max >= 1 ? n : 0;
+  const rs = (z1 - z0) / n;
+  const rh = (y1 - y0) / n;
   for (let i = 0; i < steps; i++) {
     const z = z0 + rs * (i + 0.5);
     m.box(m.max >= 2 ? 2 : 1, 0, z, y0 + rh * i, width, Math.abs(rs) * 0.94, rh, i % 2 ? JACKET : DARK);
   }
   if (m.max >= 1) {
     const zc = (z0 + z1) / 2;
-    m.box(1, -(width / 2 + 0.4), zc, 0, 0.65, Math.abs(z1 - z0), y1 + 0.7, DARK);
-    m.box(1, width / 2 + 0.4, zc, 0, 0.65, Math.abs(z1 - z0), y1 + 0.7, DARK);
+    m.box(1, -(width / 2 + 0.4), zc, 0, 0.65, Math.abs(z1 - z0), y1 + 1.05, DARK);
+    m.box(1, width / 2 + 0.4, zc, 0, 0.65, Math.abs(z1 - z0), y1 + 1.05, DARK);
   }
 }
 
 function portico(m: Mass): void {
   const floor = HALL_STAIR.y1;
   const ceil = 10.2;
-  const door = 7.2;
+  // The porch stays wide. The walk-through hole is a 2.2 m leaf.
+  const hall = 6.0;
+  const leaf = 1.1;
+  const head = floor + 2.2;
   const faceZ = HALL.baseD / 2;
   const backZ = faceZ - 5.2;
-  const wingW = HALL.baseW / 2 - door;
-  const wingCx = door + wingW / 2;
+  const wingW = HALL.baseW / 2 - hall;
+  const wingCx = hall + wingW / 2;
   const frontD = faceZ - backZ;
   const rearD = backZ - (-HALL.baseD / 2);
   const rearCz = -HALL.baseD / 2 + rearD / 2;
+  const mouthCz = (faceZ + backZ) / 2;
+  const jambW = hall - leaf;
+  const jambX = leaf + jambW / 2;
   m.solid(-wingCx, 0, wingW, HALL.baseD, 0, HALL.baseH);
   m.solid(wingCx, 0, wingW, HALL.baseD, 0, HALL.baseH);
-  m.solid(0, rearCz, door * 2, rearD, 0, HALL.baseH);
-  m.solid(0, (faceZ + backZ) / 2, door * 2, frontD, ceil, HALL.baseH);
-  m.solid(0, (faceZ + backZ) / 2 + 0.3, door * 2 - 0.8, frontD + 0.8, floor - 0.14, floor);
+  m.solid(0, rearCz, hall * 2, rearD, 0, HALL.baseH);
+  m.solid(0, mouthCz, hall * 2, frontD, ceil, HALL.baseH);
+  m.solid(0, mouthCz + 0.3, hall * 2 - 0.8, frontD + 0.8, floor - 0.14, floor);
+  m.solid(-jambX, faceZ, jambW, 0.7, floor, ceil);
+  m.solid(jambX, faceZ, jambW, 0.7, floor, ceil);
+  m.solid(0, faceZ, leaf * 2, 0.7, head, ceil);
   // landing from the portico out to the top tread
   m.solid(0, 34.2, 16, 8.4, floor - 0.14, floor);
 
@@ -74,11 +84,14 @@ function portico(m: Mass): void {
   }
   m.box(1, -wingCx, 0, 0, wingW, HALL.baseD, HALL.baseH, JACKET);
   m.box(1, wingCx, 0, 0, wingW, HALL.baseD, HALL.baseH, JACKET);
-  m.box(1, 0, rearCz, 0, door * 2, rearD, HALL.baseH, JACKET);
-  m.soffit(1, 0, (faceZ + backZ) / 2, ceil, door * 2, frontD, HALL.baseH - ceil, DARK);
-  m.box(1, 0, (faceZ + backZ) / 2 + 0.2, floor - 0.14, door * 2 - 0.6, frontD + 0.5, 0.14, DARK);
+  m.box(1, 0, rearCz, 0, hall * 2, rearD, HALL.baseH, JACKET);
+  m.soffit(1, 0, mouthCz, ceil, hall * 2, frontD, HALL.baseH - ceil, DARK);
+  m.box(1, 0, mouthCz + 0.2, floor - 0.14, hall * 2 - 0.6, frontD + 0.5, 0.14, DARK);
+  m.box(1, -jambX, faceZ + 0.15, floor, jambW, 0.55, ceil - floor, DARK);
+  m.box(1, jambX, faceZ + 0.15, floor, jambW, 0.55, ceil - floor, DARK);
+  m.box(1, 0, faceZ + 0.2, head, leaf * 2 + 0.4, 0.5, ceil - head, DARK);
   m.box(1, 0, 34.2, floor - 0.14, 16, 8.4, 0.14, DARK);
-  // piers on the landing, in front of the opening
+  // Piers flank the leaf. They sit on the landing, outside the 2.2 m hole.
   if (m.max >= 2) {
     for (const lx of [-8.4, -3.1, 3.1, 8.4]) {
       m.box(2, lx, faceZ + 1.6, floor, 1.15, 1.15, 6.4, STONE);
@@ -171,10 +184,16 @@ export function buildCityHall(l: Landmark, env: LandmarkEnv) {
   const full = levels[0]!;
   const signs = makeSignMesh(signsFor(l, yaw));
   signs.name = `${l.id}-signs`;
+  const leaf = openDoorLeaf('full', 2.2, 2.2);
+  if (leaf) {
+    const [hx, hz] = localToWorld(l.x, l.z, yaw, 1.1, HALL.baseD / 2 + 0.35);
+    leaf.position.set(hx, HALL_STAIR.y1, hz);
+    leaf.rotation.y = yaw + 1.15;
+  }
   const r = Math.hypot(HALL.baseW, HALL.baseD) / 2 + 8;
   const object = env.lods.add(
     l.id,
-    [levelGroup(full.mesh, signs), levels[1]!.mesh, levels[2]!.mesh],
+    [levelGroup(full.mesh, signs, leaf), levels[1]!.mesh, levels[2]!.mesh],
     HALL_LOD_DIST, l.x, l.z, 0, HALL.height + 2, r,
   );
   beacons(l, env, yaw);

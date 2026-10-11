@@ -21,7 +21,7 @@ export function inLapdLobby(layout: CityLayout, x: number, y: number, z: number)
   const p = toLocal(layout, x, y, z);
   if (!p) return false;
   const face = -HQ.podiumD / 2;
-  return Math.abs(p.lx) < HQ.doorHalf - 0.45
+  return Math.abs(p.lx) < HQ.hallHalf - 0.45
     && p.lz > face + 0.85
     && p.lz < -43.2
     && p.ly > HQ.lobbyFloor - 0.35

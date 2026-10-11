@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Building scale fixes — 11 October 2026</title>
+<style>
+  :root { color-scheme: light; }
+  body { margin: 0; font: 16px/1.45 "Iowan Old Style", Palatino, Georgia, serif; color: #1c1915; background: #f6f3ec; }
+  header, main { max-width: 1100px; margin: 0 auto; padding: 24px 20px 48px; }
+  h1 { font-size: 2rem; margin: 0 0 8px; }
+  h2 { font-size: 1.45rem; margin: 2rem 0 0.4rem; }
+  h3 { font-size: 1.1rem; margin: 1.4rem 0 0.3rem; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.82em; }
+  .lead { font-size: 1.05rem; }
+  table { width: 100%; border-collapse: collapse; background: #fff; margin: 12px 0 28px; font-size: 0.92rem; }
+  th, td { border-bottom: 1px solid #e4dfd4; text-align: left; vertical-align: top; padding: 8px 10px; }
+  th { background: #efeae0; font-weight: 650; }
+  .note { color: #5c564c; margin-top: 4px; font-size: 0.88em; }
+  tr.v-fail td:nth-child(5) { color: #9f1239; font-weight: 700; }
+  tr.v-pass td:nth-child(5) { color: #166534; }
+  tr.v-watch td:nth-child(5) { color: #9a3412; font-weight: 700; }
+  figure { margin: 16px 0 28px; }
+  img { width: 100%; max-width: 960px; height: auto; background: #111; }
+  figcaption { color: #5c564c; margin-top: 6px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 720px) { .pair { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Building scale fixes — 11 October 2026</h1>
+  <p class="lead">Doors, stairs, rails and storeys brought onto a <strong>1.80 m</strong> person. Landmark silhouettes stay. This page is the fix record for the S1 audit at <code>docs/audit/scale-2026-10-11.html</code>.</p>
+</header>
+<main>
+  <h2>How the metres were chosen</h2>
+  <p>Engine units are already metres. A flight takes the floor-to-floor height, splits it into equal risers inside 0.15–0.18 m, then sets the going from 2×rise + tread ≈ 0.63 m, clamped to 0.28–0.32 m. The run grows by adding steps. A step is never stretched to fill a span, including on the mid LOD. Far LOD may omit the flight. The walking dimensions do not change with Ultra, High, Medium or Low.</p>
+  <p>A walk-through opening is 2.2 m high and about 2.1–2.2 m wide. A grand frame may be taller (Bradbury’s pale frame is 3.2 × 3.6 m around a 2.2 m hole; heritage portals clamp at 3.2 × 3.6 m). Handrails sit 1.05 m above the walking surface. Storey cells sit in 3–4 m. Slit (13 m) and Monolith (11.7 m) stay tall panels. Glow stays 4.5 m.</p>
+  <p class="note">The helpers live in <code>src/world/architecture/scale.ts</code>. A painted 128×128 trim sheet and an open door leaf live in <code>src/world/architecture/trim.ts</code>. Neither file copies a published sample. The leaf is full detail only and has no collider, so the path stays open.</p>
+
+  <h2>Rows fixed</h2>
+  <table>
+    <thead><tr><th>Item</th><th>Before</th><th>After</th><th>Band</th><th>Result</th></tr></thead>
+    <tbody>
+      <tr class="v-pass"><td>Bradbury street door</td><td>7.2 m high, 4.8 m wide</td><td>Hole 2.2 × 2.2 m. Frame 3.6 × 3.2 m</td><td>Hole 2.0–2.4 m</td><td>pass</td></tr>
+      <tr class="v-pass"><td>Bradbury service door</td><td>2.8 m high</td><td>2.2 m high, 2.1 m wide</td><td>2.0–2.4 m</td><td>pass</td></tr>
+      <tr class="v-pass"><td>LAPD lobby opening</td><td>16.4 m wide, head to 12.4 m</td><td>Leaf 2.2 × 2.2 m. Hall stays 14.8 m</td><td>2.0–2.4 m</td><td>pass</td></tr>
+      <tr class="v-pass"><td>City Hall portico</td><td>About 14.4 m wide, 6.6 m head</td><td>Leaf 2.2 × 2.2 m. Porch stays 12 m</td><td>2.0–2.4 m</td><td>pass</td></tr>
+      <tr class="v-pass"><td>Wallace court door</td><td>2.7 m high, opening 4.3 m</td><td>2.2 × 2.1 m</td><td>2.0–2.4 m</td><td>pass</td></tr>
+      <tr class="v-pass"><td>Long Beach concourse door</td><td>2.6 m</td><td>2.2 m high, 2.1 m wide. Lintel at 2.2 m</td><td>2.0–2.4 m</td><td>pass</td></tr>
+      <tr class="v-pass"><td>Hollywood street mouth</td><td>5.4 m wide</td><td>2.14 m between the piers. The 2.2 m head is written past the door cull, which was dropping it. Interior door 2.1 × 2.4</td><td>2.0–2.4 m</td><td>pass</td></tr>
+      <tr class="v-pass"><td>K lift door</td><td>2.05 × 2.32 m</td><td>2.05 × 2.2 m. Street trigger 2.2 × 2.2 m</td><td>2.0–2.3 m</td><td>pass</td></tr>
+      <tr class="v-pass"><td>Noodle-bar soffit</td><td>2.62 m</td><td>2.35 m</td><td>2.0–2.4 m</td><td>pass</td></tr>
+      <tr class="v-pass"><td>Catwalk stair</td><td>12 × 0.337 m rise, tread 0.42 m</td><td>24 × 0.169 m rise, tread 0.29 m</td><td>Rise 0.15–0.18, tread 0.28–0.32</td><td>pass</td></tr>
+      <tr class="v-pass"><td>Catwalk rail</td><td>Top about 0.55 m</td><td>Top at deck + 1.09 m. Fabric, so it survives Medium and Low</td><td>0.90–1.10 m</td><td>pass</td></tr>
+      <tr class="v-pass"><td>Wallace court stair</td><td>8 × 0.375 m rise, tread 2.4 m</td><td>18 × 0.167 m rise, tread 0.30 m</td><td>Rise 0.15–0.18, tread 0.28–0.32</td><td>pass</td></tr>
+      <tr class="v-pass"><td>City Hall stair</td><td>Tread 0.645 m</td><td>20 × 0.172 m rise, tread 0.29 m</td><td>Rise 0.15–0.18, tread 0.28–0.32</td><td>pass</td></tr>
+      <tr class="v-pass"><td>LAPD stair</td><td>Tread 0.583 m</td><td>30 × 0.167 m rise, tread 0.30 m</td><td>Rise 0.15–0.18, tread 0.28–0.32</td><td>pass</td></tr>
+      <tr class="v-pass"><td>Footbridge stair</td><td>32 × 0.35 m, tread 0.34 m</td><td>66 × 0.170 m rise, tread 0.29 m. Rails 1.05 m</td><td>Rise 0.15–0.18, tread 0.28–0.32</td><td>pass</td></tr>
+      <tr class="v-pass"><td>Bradbury court flights</td><td>Gallery pitch 4.4 m</td><td>19 risers, tread 0.29 m, rise 0.168–0.173 m. Six galleries at 3.2 m</td><td>Same stair band. Front still 22.4 m</td><td>pass</td></tr>
+      <tr class="v-pass"><td>Coffer cell</td><td>6.6 m</td><td>3.3 m. Pane about 1.65 m</td><td>3–4 m</td><td>pass</td></tr>
+      <tr class="v-pass"><td>Industrial cell</td><td>7 m</td><td>3.5 m. Pane stays about 1.75 m</td><td>3–4 m</td><td>pass</td></tr>
+      <tr class="v-pass"><td>Deco cell</td><td>5.6 m</td><td>3.8 m. Pane about 2.74 m</td><td>3–4 m</td><td>pass</td></tr>
+      <tr class="v-pass"><td>Masonry cell</td><td>4.8 m</td><td>3.2 m. Pane about 1.86 m. Matches the Bradbury 7 × 3.2 m front</td><td>3–4 m</td><td>pass</td></tr>
+      <tr class="v-pass"><td>Ribbon cell</td><td>4.4 m</td><td>4.0 m. Pane about 1.76 m</td><td>3–4 m</td><td>pass</td></tr>
+      <tr class="v-pass"><td>Civic cell</td><td>5.5 m</td><td>4.0 m. Pane about 1.12 m</td><td>3–4 m</td><td>pass</td></tr>
+      <tr class="v-pass"><td>Hollywood floor</td><td>4.4 m</td><td>3.6 m module. Roofs stay on the old band via whole storeys</td><td>3–4 m</td><td>pass</td></tr>
+      <tr class="v-pass"><td>Long Beach module</td><td>5.0 m, shell 15 m</td><td>3.6 m. Concourse shell 14.4 m</td><td>3–4 m</td><td>pass</td></tr>
+      <tr class="v-pass"><td>LAX office floor</td><td>5.0 m</td><td>3.5 m. Terminal still 70 m (20 floors). Stack 56 m</td><td>3–4 m</td><td>pass</td></tr>
+      <tr class="v-pass"><td>K roof vs 54 floors</td><td>183.6 m of floors inside a 185 m slab</td><td>54 × 3.4 m = 183.6 m, then a 1.4 m parapet. Silhouette stays 185 m</td><td>Whole floors, parapet called out</td><td>pass</td></tr>
+      <tr class="v-pass"><td>Residential shop</td><td>2.55 m wide, lintel at 2.7 m</td><td>2.1 m wide, lintel at 2.2 m</td><td>2.0–2.4 m</td><td>pass</td></tr>
+      <tr class="v-pass"><td>Sprawl hub door</td><td>Head 2.45 m</td><td>2.1 m wide, lintel at 2.2 m</td><td>2.0–2.4 m</td><td>pass</td></tr>
+      <tr class="v-pass"><td>Refinery pump house</td><td>2.7 × 3.3 m</td><td>2.2 × 2.2 m</td><td>2.0–2.4 m</td><td>pass</td></tr>
+      <tr class="v-pass"><td>Arts pour hall</td><td>3.7 m wide, head 4.4 m</td><td>Leaf 2.2 × 2.2 m. Interior door matches</td><td>2.0–2.4 m</td><td>pass</td></tr>
+      <tr class="v-pass"><td>LAX terminal slot</td><td>4.2 m wide through 70 m. Door volume 2.4 × 2.5 m</td><td>Leaf 2.2 × 2.2 m at the apron. The slot above the head stays open</td><td>2.0–2.4 m</td><td>pass</td></tr>
+      <tr class="v-pass"><td>Long Beach glow bar</td><td>Bottom at 1.98 m across the mouth</td><td>Bottom at 2.2 m, in the lintel</td><td>Clear head 2.0–2.4 m</td><td>pass</td></tr>
+    </tbody>
+  </table>
+  <p class="note">Heritage theatre mouths keep a 3.2 × 3.6 m frame (3.5 m under a marquee). A 2.2 × 2.2 m leaf sits inside that frame.</p>
+
+  <h2>Deferred</h2>
+  <ul>
+    <li>Apron stairs in <code>src/districts/coastal-strip/apronPlan.ts</code>. Coastal and sea-wall work is another pass.</li>
+    <li>LAX bay / hangar eave stays 5.5 m. It is a clear-span shed, not a counted floor.</li>
+    <li>Pyramid portal stays 288 × 195.8 m. The human door in front of it is the Wallace court door above.</li>
+    <li>Slit 13 m and Monolith 11.7 m. They are panels, not storeys. Glow stays 4.5 m.</li>
+    <li>Vehicles, lane widths, sidewalks, signs, crowd hats, the dancer hologram, lamps, El Segundo stacks, and landmark height-field versus mast mismatches.</li>
+    <li>Sampled fabric mass-height medians. Raising them would grow whole buildings.</li>
+    <li>Harbor control door, head 2.7 m, in <code>src/districts/harbor/plan.ts</code>. Harbor files are the other pass.</li>
+    <li>Glow stays 4.5 m, so its pane stays about 3.7 m. Panel’s cell is already 3.9 m; its pane is a short band, not a storey.</li>
+    <li>The catwalk is procedural (about 38% of wide Little Tokyo blocks). The street frame shows the 2.35 m soffit and the crowd, not one guaranteed flight.</li>
+  </ul>
+
+  <h2>Independent review</h2>
+  <p>Two scale passes re-read the source. Stairs, rails, and the retargeted facade cells passed both times. A later pass of the remaining doors passed every opening except the Hollywood lobby mouth: the piers were right, and the door cull was throwing away the lintel because it crosses the slot. That head is now written in directly, base 2.2 m, spanning the 2.14 m gap. Harbor stays deferred.</p>
+  <p>A later pass scored the frames that are on this page, including the footbridge shot from a tread. Bradbury door 8, footbridge desktop 8, footbridge phone 8, LAPD door 7, LAPD steps 7, City Hall 7, Wallace 8, Little Tokyo 8, Hollywood 8, K 8, LAX 8. Lowest score is 7. South LA and the Arts District scored 7 as skylines on an earlier pass; those frames are too dark to count a facade cell.</p>
+  <p>The footbridge bible row said 32 × 0.35 m. This pass uses 66 real risers. Bradbury’s stone front is still 22.4 m; it now reads as seven 3.2 m storeys instead of five 4.4 m ones. The Long Beach concourse shell is 14.4 m (4 × 3.6), not the old “15 m is 3 × 5.0”. <code>docs/BIBLE.md</code> was left alone. <code>tools/scale-audit/measure.ts</code> anchors were left alone; they are the historical snapshot and will throw if re-run.</p>
+
+  <h2>Draw calls</h2>
+  <p>Metres do not change with the quality tier. Ornament does. Counts below are the live scene at the camera, so traffic and streaming move them. High, before this pass, was about 201 draws / 607k triangles on the Little Tokyo street, 197 / 630k at the Bradbury door, and 178 / 467k on the LAPD steps. After, at Medium: Little Tokyo 157 draws / 568k triangles, Bradbury door 174 / 669k, LAPD steps 208 / 649k. The footbridge, shot from a tread, is 148 draws / 464k triangles. The extra triangles against the old flight are the added risers (32 steps became 66). A High Little Tokyo frame after the change was 224 draws / 693k triangles. Ultra at the Bradbury door was 264 draws / 837k. Low at that same door was 460 draws / 539k: more draws, fewer triangles, same 2.2 m hole.</p>
+
+  <h2>Visual read</h2>
+  <table>
+    <thead><tr><th>District</th><th>Score</th><th>What the frame shows</th></tr></thead>
+    <tbody>
+      <tr class="v-pass"><td>Historic core, Bradbury door</td><td>8</td><td>The hole matches the people beside it. The pale frame is taller than the leaf. The jacket is still the same block.</td></tr>
+      <tr class="v-pass"><td>Historic core, court stair</td><td>9</td><td>Switchback, landings and balusters read as a building stair. Nothing floats.</td></tr>
+      <tr class="v-pass"><td>Historic core, footbridge</td><td>8</td><td>Desktop and phone, looking up the flight from a tread. The 1.80 m figure stands on the steps. Rails sit near mid-torso. The deck is the bright landing.</td></tr>
+      <tr class="v-pass"><td>Civic, LAPD</td><td>7</td><td>Stair lines are a normal run, not the old deep treads. The door is the dark slot under the sign. The tower is unchanged.</td></tr>
+      <tr class="v-pass"><td>Civic, City Hall</td><td>7</td><td>Afternoon light shows a normal run of treads and the stone jacket. The leaf is the dark recess under the signs, not a porch-wide mouth.</td></tr>
+      <tr class="v-pass"><td>Wallace</td><td>8</td><td>Many thin risers in front of the portal. The portal still dominates.</td></tr>
+      <tr class="v-pass"><td>Little Tokyo</td><td>8</td><td>Crowd heads clear the soffit. The stall is still the market.</td></tr>
+      <tr class="v-pass"><td>Hollywood, K, LAX</td><td>8</td><td>Each scored 8. Silhouettes hold. Windows and people give the floor. The K parapet is not readable from the street. The LAX leaf is in the mesh; this frame is the terminal face.</td></tr>
+    </tbody>
+  </table>
+  <p class="note">LAPD and City Hall frames above are 16:12 so the stone reads. The other after frames are 18:36. The mesh does not change with the hour.</p>
+
+  <h2>Frames</h2>
+  <p class="note">Before frames are 22:00. LAPD and City Hall after frames are 16:12. The other after frames are 18:36, except the footbridge, which is reshot from a tread so the risers read. The mesh does not change with the hour. The reference person is 1.80 m. Where the street already has a crowd, that crowd is the scale.</p>
+
+  <h3>Bradbury street door</h3>
+  <div class="pair">
+    <figure><img src="f1-figures/before-bradbury-door.jpg" alt="Bradbury door before"><figcaption>Before. The glowing mouth is 7.2 m tall.</figcaption></figure>
+    <figure><img src="f1-figures/after-bradbury-door.jpg" alt="Bradbury door after"><figcaption>After. The hole matches the people beside it. The pale frame is the 3.6 m grand surround.</figcaption></figure>
+  </div>
+  <figure><img src="f1-figures/after-bradbury-door-phone.jpg" alt="Bradbury door on a phone"><figcaption>Same door on a 390×844 phone. The hole does not grow with the viewport.</figcaption></figure>
+  <figure><img src="f1-figures/after-bradbury-door-low.jpg" alt="Bradbury door at low"><figcaption>Low detail. The hole is the same 2.2 m. The person beside it is 1.80 m. Ornament drops. Metres do not.</figcaption></figure>
+  <figure><img src="f1-figures/after-bradbury-door-ultra.jpg" alt="Bradbury door at ultra"><figcaption>Ultra. Same hole, same person, more ornament. 264 draws / 837k triangles at this camera.</figcaption></figure>
+  <figure><img src="f1-figures/after-bradbury-stair.jpg" alt="Bradbury court stair"><figcaption>Court switchback. Nineteen risers, 0.29 m treads, galleries at 3.2 m. The 22.4 m front is unchanged.</figcaption></figure>
+
+  <h3>Footbridge</h3>
+  <div class="pair">
+    <figure><img src="f1-figures/before-footbridge.jpg" alt="Footbridge before"><figcaption>Before. The canyon and the deck. The old flight was 0.35 m risers.</figcaption></figure>
+    <figure><img src="f1-figures/after-footbridge.jpg" alt="Footbridge stairs after"><figcaption>After, from a tread. Sixty-six risers. The figure is 1.80 m. The rail is 1.05 m, near mid-torso.</figcaption></figure>
+  </div>
+  <figure><img src="f1-figures/after-footbridge-phone.jpg" alt="Footbridge stairs on a phone"><figcaption>Same flight on a 390×844 phone. The figure and the risers do not change with the viewport.</figcaption></figure>
+
+  <h3>LAPD and City Hall</h3>
+  <div class="pair">
+    <figure><img src="f1-figures/before-lapd-steps.jpg" alt="LAPD steps before"><figcaption>Before. Deep treads and a lobby mouth the width of the hall.</figcaption></figure>
+    <figure><img src="f1-figures/after-lapd-steps.jpg" alt="LAPD steps after"><figcaption>After, 16:12. Thirty risers, 0.30 m treads. The mouth under the sign is a 2.2 m leaf.</figcaption></figure>
+  </div>
+  <figure><img src="f1-figures/after-lapd-door.jpg" alt="LAPD door"><figcaption>The lobby face. The hall behind the leaf is still wide. The opening is the slot under the lintel.</figcaption></figure>
+  <figure><img src="f1-figures/after-city-hall.jpg" alt="City Hall steps"><figcaption>City Hall at 16:12. Twenty risers, 0.29 m treads. The leaf is the recess under the signs.</figcaption></figure>
+
+  <h3>Wallace stair</h3>
+  <figure><img src="f1-figures/after-wallace-stair.jpg" alt="Wallace court stair"><figcaption>Eighteen risers onto the 3 m plinth. The portal behind it stays monumental.</figcaption></figure>
+  <figure><img src="f1-figures/after-wallace-stair-phone.jpg" alt="Wallace stair on a phone"><figcaption>Phone. The same thin risers, with the pyramid still filling the frame.</figcaption></figure>
+
+  <h3>Little Tokyo</h3>
+  <div class="pair">
+    <figure><img src="f1-figures/before-little-tokyo.jpg" alt="Little Tokyo before"><figcaption>Before. Soffit at 2.62 m.</figcaption></figure>
+    <figure><img src="f1-figures/after-little-tokyo.jpg" alt="Little Tokyo after"><figcaption>After. Soffit at 2.35 m, crowd at street scale.</figcaption></figure>
+  </div>
+  <figure><img src="f1-figures/after-little-tokyo-phone.jpg" alt="Little Tokyo on a phone"><figcaption>Phone. Heads sit under the 2.35 m soffit with clearance.</figcaption></figure>
+
+  <h3>Other districts</h3>
+  <figure><img src="f1-figures/after-hollywood.jpg" alt="Hollywood street"><figcaption>Hollywood. Floor module 3.6 m. The street gap at a lobby is 2.1 m.</figcaption></figure>
+  <figure><img src="f1-figures/after-k.jpg" alt="K megablock"><figcaption>K. The 185 m slab is intact. The top 1.4 m is a parapet over 54 floors of 3.4 m.</figcaption></figure>
+  <figure><img src="f1-figures/after-lax.jpg" alt="LAX terminal"><figcaption>LAX terminal. Office floors are 3.5 m. The terminal is still 70 m. The shed bay stays 5.5 m.</figcaption></figure>
+  <figure><img src="f1-figures/after-south-la.jpg" alt="South LA"><figcaption>South LA. Coffer cells are 3.3 m.</figcaption></figure>
+  <figure><img src="f1-figures/after-arts.jpg" alt="Arts District"><figcaption>Arts District. Industrial cells are 3.5 m storeys, not 7 m bays.</figcaption></figure>
+</main>
+</body>
+</html>

@@ -43,7 +43,7 @@ export function installLaxInterior(layout: CityLayout = getLayout()): void {
   registerInterior({
     id: 'lax-concourse',
     volume: placeVolume(f, 0, -6.4, 4.0, 6.6, -0.2, 3.8),
-    doors: [{ id: 'apron', exterior: true, box: placeVolume(f, 0, 0.6, 1.2, 0.8, 0, 2.5) }],
+    doors: [{ id: 'apron', exterior: true, box: placeVolume(f, 0, 0.6, 1.1, 0.8, 0, 2.2) }],
     showFromOutside: true,
     streamRadius: 48,
     muffle: 0.75,

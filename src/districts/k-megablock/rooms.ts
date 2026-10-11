@@ -1,7 +1,7 @@
 // Furniture and the lift car. Plain boxes in the corridor-room frame (door at the origin,
 // street on +Z). The shell stays buildCorridorRoom. No film text, no figure.
 import type { InteriorBox, InteriorCollider, InteriorDetail, InteriorLight, RGB } from '../../world/interiors';
-import { APARTMENT, CORRIDOR } from './spec';
+import { APARTMENT, CORRIDOR, LIFT } from './spec';
 
 const CON: RGB = [0.34, 0.33, 0.32];
 const DARK: RGB = [0.16, 0.15, 0.15];
@@ -203,7 +203,7 @@ export interface LiftPlan {
 
 /** A small car. Door at the origin, the hall on +Z, the car toward −Z. */
 export function buildLift(detail: InteriorDetail): LiftPlan {
-  const w = 2.05, d = 2.15, h = 2.32, th = 0.08;
+  const w = LIFT.w, d = LIFT.d, h = LIFT.h, th = 0.08;
   const boxes: InteriorBox[] = [];
   const cols: InteriorCollider[] = [];
   const cZ = -d / 2;
@@ -220,10 +220,11 @@ export function buildLift(detail: InteriorDetail): LiftPlan {
   const cheek = (w - doorW) / 2;
   push(boxes, -(doorW / 2 + cheek / 2), 0, -th / 2, cheek, h, th, CON);
   push(boxes, doorW / 2 + cheek / 2, 0, -th / 2, cheek, h, th, CON);
-  push(boxes, 0, 2.15, -th / 2, doorW, h - 2.15, th, CON);
+  const doorH = 2.05;
+  push(boxes, 0, doorH, -th / 2, doorW, h - doorH, th, CON);
   cols.push({ x: -(doorW / 2 + cheek / 2), z: 0, hw: cheek / 2, hd: th / 2, y0: 0, top: h });
   cols.push({ x: doorW / 2 + cheek / 2, z: 0, hw: cheek / 2, hd: th / 2, y0: 0, top: h });
-  cols.push({ x: 0, z: 0, hw: doorW / 2, hd: th / 2, y0: 2.15, top: h });
+  cols.push({ x: 0, z: 0, hw: doorW / 2, hd: th / 2, y0: doorH, top: h });
   push(boxes, 0, h - 0.08, cZ, 0.12, 0.04, d * 0.7, COLD, { emissive: COLD, flick: 0.8 });
   // Right panel is the near stop, left panel is the far stop. Ride zones sit on the floor in front.
   push(boxes, 0.48, 1.05, -d + 0.06, 0.22, 0.36, 0.04, AMBER, { emissive: AMBER, flick: -1 });

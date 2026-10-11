@@ -215,14 +215,14 @@ function pumpHouse(
   const depth = 22;
   const width = 16;
   const wall = 0.48;
-  const gap = 1.35;
+  const gap = 1.1;
   const H = p.pumpH;
   const s1 = s0 + depth;
   const sMid = (s0 + s1) / 2;
   const cheek = (width - gap * 2) / 2;
   put(s0 + wall / 2, -width / 2 + cheek / 2, cheek, wall, H, 0, Style.Industrial, 0.08, 0.55, 0);
   put(s0 + wall / 2, width / 2 - cheek / 2, cheek, wall, H, 0, Style.Industrial, 0.08, 0.55, 0);
-  put(s0 + wall / 2, 0, gap * 2, wall, H - 3.3, 3.3, Style.Industrial, 0.08, 0.55, 0);
+  put(s0 + wall / 2, 0, gap * 2, wall, H - 2.2, 2.2, Style.Industrial, 0.08, 0.55, 0);
   put(s1 - wall / 2, 0, width, wall, H, 0, Style.Industrial, 0.06, 0.5, 0);
   put(sMid, -width / 2 + wall / 2, wall, depth, H, 0, Style.Industrial, 0.06, 0.52, 0);
   put(sMid, width / 2 - wall / 2, wall, depth, H, 0, Style.Industrial, 0.06, 0.52, 0);

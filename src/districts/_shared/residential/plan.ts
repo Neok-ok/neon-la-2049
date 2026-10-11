@@ -522,10 +522,12 @@ function addHub(
       style: Style.Industrial, detail: 1, lit: i % 2 ? 0.2 : 0.08, tint: 0.4,
     });
   }
-  // Shop front: two piers and a lintel, door gap between them.
-  push(boxes, shop.s, -1.55, 0.55, 0.7, 3.15, { style: Style.Solid, detail: 0, lit: 0.04, tint: 0.5 });
-  push(boxes, shop.s, 1.55, 0.55, 0.7, 3.15, { style: Style.Solid, detail: 0, lit: 0.04, tint: 0.5 });
-  push(boxes, shop.s, 0, 3.8, 0.55, 0.4, { style: Style.Solid, detail: 1, lit: 0.1, tint: 0.55, base: 2.7 });
+  // Shop front: two piers and a lintel. The clear hole is 2.1 × 2.2 m.
+  const shopPier = 0.55;
+  const shopT = 1.05 + shopPier / 2;
+  push(boxes, shop.s, -shopT, shopPier, 0.7, 3.15, { style: Style.Solid, detail: 0, lit: 0.04, tint: 0.5 });
+  push(boxes, shop.s, shopT, shopPier, 0.7, 3.15, { style: Style.Solid, detail: 0, lit: 0.04, tint: 0.5 });
+  push(boxes, shop.s, 0, 3.4, 0.6, 0.4, { style: Style.Solid, detail: 1, lit: 0.1, tint: 0.55, base: 2.2 });
   signAt(signs, rng, shop.s, 0, 2.2, 0.4, 'a-', 4.2, 3.6, 1.15, SignColor.Amber);
   signAt(signs, rng, ns, nt, 2.4, 0.6, 'b+', 3.6, 3.2, 1.05, SignColor.White);
   signAt(signs, rng, -b.la / 2 + 7, 0, 1.2, 0.9, 'a-', 3.3, 4.2, 1.1, SignColor.Amber);

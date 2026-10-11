@@ -8,8 +8,12 @@ export const SLAB_H = 185;
 export const HW = SLAB_W / 2;
 export const HD = SLAB_D / 2;
 
-/** Residential module. 54 floors reach the roof; floor 40 is K's. */
+/** Residential module. 54 floors reach the parapet; floor 40 is K's. */
 export const FLOOR = 3.4;
+export const FLOOR_COUNT = 54;
+/** Last whole floor. The remaining 1.4 m is a parapet, not a broken storey. */
+export const FLOOR_TOP = FLOOR_COUNT * FLOOR;
+export const PARAPET = SLAB_H - FLOOR_TOP;
 export const K_FLOOR = 40;
 export const K_Y = K_FLOOR * FLOOR;
 
@@ -58,7 +62,7 @@ export const HEAD = {
 export const LIFT = {
   w: 2.05,
   d: 2.15,
-  h: 2.32,
+  h: 2.2,
   lobby: { x: SHAFT.x, z: 28.7, yaw: 0, y: 0 },
   floor: { x: -103.65, z: SHAFT.z, yaw: -Math.PI / 2, y: K_Y },
   roof: { x: -100.45, z: SHAFT.z, yaw: Math.PI / 2, y: SLAB_H },

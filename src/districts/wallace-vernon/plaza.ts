@@ -118,7 +118,7 @@ export function buildPlaza(f: PlazaFrame, lod0: Mesh): { colliders: LandmarkColl
     put(w, f, side * 6.4, -2048, 0.12, 0.45, 0.45, 2.4, BRONZE);
   }
 
-  // Stair onto the existing plinth. Eight risers of 0.375 m.
+  // Stair onto the existing plinth. Equal risers, real treads.
   for (let i = 0; i < COURT.stairN; i++) {
     const y0 = i * COURT.stairRise;
     const south = e.plinthNorth - (COURT.stairN - 1 - i) * COURT.stairTread;
@@ -126,8 +126,8 @@ export function buildPlaza(f: PlazaFrame, lod0: Mesh): { colliders: LandmarkColl
     put(w, f, 0, zc, y0, COURT.stairHalfW * 2, COURT.stairTread, COURT.stairRise, STONE);
     cols.push(col(f, 0, zc, COURT.stairHalfW, COURT.stairTread / 2, y0, y0 + COURT.stairRise));
     // Bronze nosing so the flight reads at night. The north edge faces the court.
-    const nose = zc - COURT.stairTread / 2 + 0.14;
-    put(w, f, 0, nose, y0 + COURT.stairRise - 0.07, COURT.stairHalfW * 1.65, 0.16, 0.07, BRONZE);
+    const nose = zc - COURT.stairTread / 2 + 0.04;
+    put(w, f, 0, nose, y0 + COURT.stairRise - 0.035, COURT.stairHalfW * 1.65, 0.06, 0.04, BRONZE);
   }
   // Flanking pylons at the foot of the stair and where the road opens.
   for (const [x, z, h] of [[62, stairN + 2, 16], [-62, stairN + 2, 16], [22, COURT.roadSouth - 6, 11], [-22, COURT.roadSouth - 6, 11]] as const) {
@@ -148,14 +148,15 @@ export function buildPlaza(f: PlazaFrame, lod0: Mesh): { colliders: LandmarkColl
     cols.push(col(f, x, bridgeZ, 0.18, bridgeD / 2, COURT.deckY, COURT.deckY + 1.05));
   }
   // Door frame. The opening stays empty: the portal behind it stays sealed until the atrium door.
+  const jamb = COURT.doorHalfW + 0.35;
   for (const side of [-1, 1]) {
-    const x = side * 1.7;
-    put(w, f, x, COURT.doorZ, COURT.deckY, 0.7, 0.9, 3.4, WALL);
-    cols.push(col(f, x, COURT.doorZ, 0.35, 0.45, COURT.deckY, COURT.deckY + 3.4));
+    const x = side * jamb;
+    put(w, f, x, COURT.doorZ, COURT.deckY, 0.55, 0.7, COURT.doorH + 0.55, WALL);
+    cols.push(col(f, x, COURT.doorZ, 0.28, 0.35, COURT.deckY, COURT.deckY + COURT.doorH + 0.55));
   }
-  put(w, f, 0, COURT.doorZ, COURT.deckY + 3.15, 4.1, 0.9, 0.55, WALL);
-  cols.push(col(f, 0, COURT.doorZ, 2.05, 0.45, COURT.deckY + 3.15, COURT.deckY + 3.7));
-  put(w, f, 1.05, COURT.doorZ - 0.48, COURT.deckY + 0.35, 0.08, 0.08, 2.15, BRONZE);
+  put(w, f, 0, COURT.doorZ, COURT.deckY + COURT.doorH, COURT.doorHalfW * 2 + 1.1, 0.7, 0.4, WALL);
+  cols.push(col(f, 0, COURT.doorZ, COURT.doorHalfW + 0.55, 0.35, COURT.deckY + COURT.doorH, COURT.deckY + COURT.doorH + 0.4));
+  put(w, f, COURT.doorHalfW - 0.08, COURT.doorZ - 0.48, COURT.deckY + 0.9, 0.06, 0.06, 0.9, BRONZE);
 
   const mesh = new Mesh(w.build(), getCityMaterial());
   mesh.name = 'wallace-plaza-mesh';

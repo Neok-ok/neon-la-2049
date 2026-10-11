@@ -118,15 +118,15 @@ function emitMass(boxes: FabricBox[], signs: FabricSign[], r: Rng, o: MassOpts):
 
 /**
  * Street-level shell with a door gap. The 180 m slab sits north of it.
- * 15 m is 3 × 5.0 m. The opening is a human door, not a floor module.
+ * 14.4 m is 4 × 3.6 m. The opening is a human door, not a floor module.
  */
 function concourse(boxes: FabricBox[], signs: FabricSign[]): void {
   const south = DOOR_S;
   const depth = 12;
   const width = 14;
-  const H = 15;
+  const H = 14.4;
   const wall = 0.48;
-  const gap = 2.6;
+  const gap = 2.1;
   const cheek = (width - gap) / 2;
   const concrete: Pick<FabricBox, 'style' | 'lit' | 'tint' | 'detail'> = {
     style: Style.Panel, lit: 0.07, tint: 0.56, detail: 0,
@@ -137,8 +137,8 @@ function concourse(boxes: FabricBox[], signs: FabricSign[]): void {
   const sWall = south + wall / 2;
   put(sWall, -(gap / 2 + cheek / 2), cheek, wall, H);
   put(sWall, gap / 2 + cheek / 2, cheek, wall, H);
-  put(sWall, 0, gap, wall, H - 2.8, 2.8, { style: Style.Solid, lit: 0.04, tint: 0.5 });
-  put(sWall, 0, gap * 0.92, wall, 0.28, 2.52, { style: Style.Glow, lit: 0.62, tint: 1.2, detail: 1 });
+  put(sWall, 0, gap, wall, H - 2.2, 2.2, { style: Style.Solid, lit: 0.04, tint: 0.5 });
+  put(sWall, 0, gap * 0.92, wall, 0.22, 2.2, { style: Style.Glow, lit: 0.62, tint: 1.2, detail: 1 });
   const sideS = south + wall + (depth - wall) / 2;
   put(sideS, -width / 2 + wall / 2, wall, depth - wall, H);
   put(sideS, width / 2 - wall / 2, wall, depth - wall, H);

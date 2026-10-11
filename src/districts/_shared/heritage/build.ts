@@ -120,8 +120,10 @@ export function buildHeritage(plan: HeritagePlan, phrases: readonly number[] = P
   const stoneTint = plan.tint * (plan.family === 'gothic' ? 0.62 : plan.family === 'deco' ? 1.05 : 1);
   const lit = plan.lit;
   const seed = plan.seed;
-  const door = Math.max(0, Math.min(width * 0.46, plan.door));
-  const doorHead = door > 0 ? (plan.marquee ? 3.5 : 6.4) : 0;
+  // A heritage portal is a door. Grand entries stop at 3.2 × 3.6 m.
+  // Marquee heads were already inside that. Plain fronts were 6.4 m.
+  const door = Math.max(0, Math.min(width * 0.46, plan.door, 3.2));
+  const doorHead = door > 0 ? (plan.marquee ? 3.5 : 3.6) : 0;
 
   // Historic front. A door splits the base so the sidewalk can step under the marquee.
   // Skin mode leaves the volume to the caller (a landmark atrium, a reused wall).
@@ -133,6 +135,19 @@ export function buildHeritage(plan: HeritagePlan, phrases: readonly number[] = P
       piece(pieces, -sideX, doorHead / 2, zc, sideW, doorHead, depth, stone, lit * 0.45, stoneTint * 0.92, seed, 0);
       piece(pieces, sideX, doorHead / 2, zc, sideW, doorHead, depth, stone, lit * 0.45, stoneTint * 0.92, seed, 0);
       piece(pieces, 0, (doorHead + frontH) / 2, zc + 0.05, width * 0.98, frontH - doorHead, depth * 0.96, stone, lit * 0.4, stoneTint, seed + 0.01, 0);
+      // The 3.2 × 3.6 opening is the frame. The leaf inside it is 2.2 × 2.2.
+      const leafW = Math.min(2.2, door);
+      const leafH = Math.min(2.2, doorHead);
+      const jamb = (door - leafW) / 2;
+      if (jamb >= 0.25) {
+        const jx = leafW / 2 + jamb / 2;
+        piece(pieces, -jx, doorHead / 2, zc, jamb, doorHead, depth, stone, lit * 0.5, stoneTint, seed + 0.011, 0);
+        piece(pieces, jx, doorHead / 2, zc, jamb, doorHead, depth, stone, lit * 0.5, stoneTint, seed + 0.012, 0);
+      }
+      const transom = doorHead - leafH;
+      if (transom >= 0.12) {
+        piece(pieces, 0, leafH + transom / 2, zc, leafW, transom, depth, stone, lit * 0.35, stoneTint * 0.95, seed + 0.013, 0);
+      }
     } else {
       piece(pieces, 0, frontH / 2, -depth / 2, width, frontH, depth, stone, lit * 0.4, stoneTint, seed, 0);
     }

@@ -34,7 +34,7 @@ export function installBradburyInteriors(layout: CityLayout = getLayout()): void
   registerInterior({
     id: 'bradbury-court',
     volume: vol(frame, 2.2, 23.7, 6.7, -0.4, H + 0.4),
-    doors: [{ id: 'street', exterior: true, box: vol(frame, 15, 25.4, 2.8, -0.2, 7.5) }],
+    doors: [{ id: 'street', exterior: true, box: vol(frame, 15, 25.4, 1.1, 0, 2.2) }],
     links: ['bradbury-service'],
     keepLandmarks: ['bradbury-building'],
     showFromOutside: true,
@@ -48,7 +48,7 @@ export function installBradburyInteriors(layout: CityLayout = getLayout()): void
   registerInterior({
     id: 'bradbury-service',
     volume: vol(frame, -12.55, 2.6, 3.35, -0.4, 3.2),
-    doors: [{ id: 'court', box: vol(frame, 1.4, 2.7, 1.05, -0.2, 2.6) }],
+    doors: [{ id: 'court', box: vol(frame, 1.4, 2.7, 1.05, 0, 2.2) }],
     links: ['bradbury-court'],
     keepLandmarks: ['bradbury-building'],
     showFromOutside: false,
