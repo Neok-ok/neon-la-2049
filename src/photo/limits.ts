@@ -23,10 +23,10 @@ export const CAPTURE_CAPS: Record<Tier, {
   /** Motion smear and anamorphic streak. Low keeps the gather small and skips both. */
   motion: boolean; motionPx: number; flareTaps: number; caPx: number;
 }> = {
-  low: { maxEdge: 1280, maxPixels: 1280 * 720, tile: 480, dofTaps: 22, dofRings: 2, dofScale: 0.5, dofPx: 24, heavyBloom: false, motion: false, motionPx: 0, flareTaps: 0, caPx: 0 },
-  medium: { maxEdge: 1920, maxPixels: 1920 * 1080, tile: 640, dofTaps: 22, dofRings: 2, dofScale: 0.5, dofPx: 48, heavyBloom: false, motion: true, motionPx: 8, flareTaps: 4, caPx: 0.22 },
-  high: { maxEdge: 2560, maxPixels: 2560 * 1440, tile: 768, dofTaps: 22, dofRings: 2, dofScale: 0.5, dofPx: 56, heavyBloom: true, motion: true, motionPx: 14, flareTaps: 8, caPx: 0.35 },
-  ultra: { maxEdge: 2560, maxPixels: 2560 * 1440, tile: 1024, dofTaps: 22, dofRings: 2, dofScale: 0.5, dofPx: 56, heavyBloom: true, motion: true, motionPx: 22, flareTaps: 16, caPx: 0.45 },
+  low: { maxEdge: 1280, maxPixels: 1280 * 720, tile: 480, dofTaps: 22, dofRings: 2, dofScale: 0.5, dofPx: 20, heavyBloom: false, motion: false, motionPx: 0, flareTaps: 0, caPx: 0 },
+  medium: { maxEdge: 1920, maxPixels: 1920 * 1080, tile: 640, dofTaps: 22, dofRings: 2, dofScale: 0.5, dofPx: 36, heavyBloom: false, motion: true, motionPx: 8, flareTaps: 4, caPx: 0.22 },
+  high: { maxEdge: 2560, maxPixels: 2560 * 1440, tile: 768, dofTaps: 22, dofRings: 2, dofScale: 0.5, dofPx: 44, heavyBloom: true, motion: true, motionPx: 14, flareTaps: 8, caPx: 0.35 },
+  ultra: { maxEdge: 2560, maxPixels: 2560 * 1440, tile: 1024, dofTaps: 22, dofRings: 2, dofScale: 0.5, dofPx: 44, heavyBloom: true, motion: true, motionPx: 22, flareTaps: 16, caPx: 0.45 },
 };
 
 export interface FrameSize {

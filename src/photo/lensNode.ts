@@ -139,7 +139,7 @@ export function createLensRig(
     // background first so the focused signs stay readable while the canyon melts.
     const farther = T.smoothstep(T.float(0), T.float(0.02), distM.sub(focusM));
     const nearFall = T.smoothstep(T.float(0.32), T.float(1.05), rel);
-    const farFall = T.smoothstep(T.float(0.06), T.float(0.28), rel);
+    const farFall = T.smoothstep(T.float(0.12), T.float(0.95), rel);
     const falloff = T.mix(nearFall, farFall, farther);
     const stop = T.smoothstep(T.float(11), T.float(2), nStop);
     const focalW = T.smoothstep(T.float(32), T.float(58), f);
