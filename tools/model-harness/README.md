@@ -14,7 +14,7 @@ python3 tools/model-harness/scripts/fetch_refs.py
 
 That writes `tools/model-harness/.refs/`, which is gitignored and is not part of the production build. `npm run dev` serves them at `/harness-refs/` for the contact sheet only.
 
-There is no orthographic top still. `silhouettes/k-spinner.json` records that the top outline is reconstructed from the side and front.
+The top outline in `silhouettes/k-spinner.json` is traced from the published top orthographic (`top-plan`), including the open nose channel. Two film frames sit beside it: `top-flight` (opening, near-overhead) and `top-roof` (LAPD roof, the parked spinner is only its lamps). Neither film frame resolves a plan, so they are on the sheet and not the traced polygon. The old top number was a reconstruction and is not comparable.
 
 ## 2. Build
 
@@ -22,7 +22,7 @@ Blender 4.0 or newer, and [gltfpack 1.1](https://github.com/zeux/meshoptimizer/r
 
 ```bash
 blender --background --python tools/model-harness/blender/build_spinner.py -- \
-  --round 6 --lod all --out public/models/spinner
+  --round 7 --lod all --out public/models/spinner
 ```
 
 `--lod high` (or `medium` / `low`) with `--out` a file path writes one glTF. `--round` is the critic cut:
@@ -34,7 +34,8 @@ blender --background --python tools/model-harness/blender/build_spinner.py -- \
 | 3 | Bevel normal, AO, roughness and metal maps. High adds one subdivision. Maps are 1024 / 512 / 256 |
 | 4 | Same mesh as 3. The first tuned grade used a one-pixel wear test that sparkled under the rim light |
 | 5 | Drums set into the slab, shoulder flared toward the drum, diagonal door cut, deeper louvers, clean grade |
-| 6 | Door cut and louver field thick enough to read on the sheet, pressed drum ring, larger tail and amber lamps, lighter charcoal grade. This is the shipping cut |
+| 6 | Door cut and louver field thick enough to read on the sheet, pressed drum ring, larger tail and amber lamps, lighter charcoal grade |
+| 7 | Flat covered drum faces (no ring, no slots) and a split nose with an open center channel. This is the shipping cut |
 
 The script is the source of truth. Blender is Z-up with the nose on +Y; the glTF is Y-up with the nose on -Z, origin on the ground-contact centre. The M2 box is 5.45 × 2.32 × 1.36 m. The bar is `spinner-look-target.md`.
 
@@ -57,7 +58,7 @@ BASE_URL=http://127.0.0.1:5173/ \
 
 `SRC` is `legacy`, a `/models/...` path under `public/`, or a `/harness-models/...` path. `MODE` defaults to `sheet`.
 
-The sheet is eight orbit angles plus a nose close-up and a rear-drum close-up. Three rows: night rain, a low-key cool rim (shape has to read in the dark), and a grey studio. The matching still sits to the right of each angle (`side`, `front`, or `rear` from the manifest). The capture script writes a `.json` sidecar of the tile list next to the PNG. The page is `tools/model-harness/turntable/` and the capture script is `scripts/model-turntable.mjs` (leave `scripts/screenshots.mjs` alone).
+The sheet is eight orbit angles, a nose close-up, a rear-drum close-up, and a top-down row (plan, three-quarter, channel, flight overhead, roof overhead). Three lighting passes: night rain, a low-key cool rim (shape has to read in the dark), and a grey studio. The matching still sits to the right of each angle. The capture script writes a `.json` sidecar of the tile list next to the PNG. The page is `tools/model-harness/turntable/` and the capture script is `scripts/model-turntable.mjs` (leave `scripts/screenshots.mjs` alone).
 
 ## 4. Silhouette score
 
@@ -76,7 +77,7 @@ python3 tools/model-harness/scripts/iou.py \
 
 The mask is three orthographic views (side, front, top) in the metre window in `silhouettes/frustum.json`. The model is not stretched to the reference box. Side and top put the nose on the right and the ground or the centreline on the shared origin. Front puts the ground and the centre on the shared origin. White in the overlay is overlap, red is reference only, cyan is model only.
 
-Targets: side IoU ≥ 0.85, front and top ≥ 0.80. Side and front traces are perspective estimates from three-quarter photographs, so a miss of a few centimetres at the nose or the drums gets explained, not silently rescaled. Top IoU is against the reconstruction, not a photograph, and has to be labeled that way.
+Targets: side IoU ≥ 0.85, front and top ≥ 0.80. Side and front traces are perspective estimates from three-quarter photographs, so a miss of a few centimetres at the nose or the drums gets explained, not silently rescaled. Top IoU is against the traced top orthographic, notch included. The film overheads are the comparison on the sheet.
 
 Run the current shipping mesh through this once before trusting a high score. A dart with a roof spine should land well under the side target.
 
@@ -95,7 +96,7 @@ In the game, park the craft beside the crowd, in a street, and next to a doorway
 
 ## 6. Blind critic
 
-`critic/RUBRIC.md` is the only brief the scorer gets. The scorer is a fresh pass: the contact sheet, the three stills, and the rubric. No build notes, no earlier scores, no IoU. Official numbers live in `reviews/m2/roundN-critic.md`. Whatever the person who edited the mesh thought goes in `reviews/m2/roundN-notes.md` and does not replace the critic.
+`critic/RUBRIC.md` is the only brief the scorer gets. The scorer is a fresh pass: the contact sheet, the stills (side, front, rear, the top plan, the flight overhead, and the roof overhead), and the rubric. No build notes, no earlier scores, no IoU. Official numbers live in `reviews/m2/roundN-critic.md`. Whatever the person who edited the mesh thought goes in `reviews/m2/roundN-notes.md` and does not replace the critic.
 
 M1 sheets stay in `reviews/` as the baseline (silhouette 7, surface 6, lighting 6, material 5, film 6). M2 sheets live in `reviews/m2/`. Stop when "reads as K's spinner" is at least 7 and no rubric column has fallen below that M1 row.
 
@@ -135,7 +136,7 @@ kit.place(part, location=(1, 2, 3), normal=(0, 1, 0), lift=0.002)
 | `greeble_cluster(name, width, height, depth=0.04, count=8, seed=1)` | Boxes and stumps |
 | `side_pod(name, length, width, height, nose, tail)` | Flat skirt. Local +X toward the nose, +Y up, +Z out |
 | `fan_grille(name, width, height, depth, slats, glow=False)` | Rectangular recess. Not a disc |
-| `wheel_housing(name, radius, width, segments, slots)` | Enclosed drum. Local +Z out of the cover |
+| `wheel_housing(name, radius, width, segments, slots, covered=False)` | Enclosed drum. `covered` is a flat body-coloured face. Local +Z out of the cover |
 | `light_bar(name, length, width, height)` | Low red/blue bar. Not a fin |
 | `gullwing_lines(name, length, height, gap)` | Rectangular door cut, shut |
 | `panel_slash(name, length, rise, thick)` | Diagonal door cut: dark gap plus a satin lip |

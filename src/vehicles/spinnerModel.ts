@@ -10,6 +10,9 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import * as TSL from 'three/tsl';
 import { U } from '../atmosphere/uniforms';
 import type { Tier } from '../core/quality';
+import spinnerHighUrl from '../../public/models/spinner/spinner-high.glb?url';
+import spinnerMediumUrl from '../../public/models/spinner/spinner-medium.glb?url';
+import spinnerLowUrl from '../../public/models/spinner/spinner-low.glb?url';
 
 const T = TSL as any;
 
@@ -101,8 +104,15 @@ export function spinnerLodForTier(tier: Tier): SpinnerLod {
   return 'high';
 }
 
+const SPINNER_URL: Record<SpinnerLod, string> = {
+  high: spinnerHighUrl,
+  medium: spinnerMediumUrl,
+  low: spinnerLowUrl,
+};
+
 function spinnerUrl(lod: SpinnerLod): string {
-  return `${import.meta.env.BASE_URL}models/spinner/spinner-${lod}.glb`;
+  // Vite hashes these into /assets, which is what the service worker caches.
+  return SPINNER_URL[lod];
 }
 
 const loader = new GLTFLoader();

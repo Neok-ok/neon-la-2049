@@ -2,7 +2,7 @@
 """Overlap the orthographic silhouette render with the traced K outlines.
 
 Uniform scale, in metres. The render is not stretched to the reference box.
-Side and front traces are perspective estimates. The top trace is reconstructed.
+Side and front traces are perspective estimates. The top trace is the published top view, notch included.
 
   python3 tools/model-harness/scripts/iou.py \
     --render tools/model-harness/reviews/m2/round0-mask.png \
@@ -167,7 +167,7 @@ def main():
         'targets': {'side': 0.85, 'front': 0.80, 'top': 0.80},
         'legend': 'White is overlap. Red is reference only. Cyan is model only.',
         'alignment': trace['alignment'],
-        'topIsReconstructed': True,
+        'topIsReconstructed': False,
     }
     os.makedirs(os.path.dirname(os.path.abspath(args.out)) or '.', exist_ok=True)
     with open(args.out, 'w', encoding='utf-8') as f:

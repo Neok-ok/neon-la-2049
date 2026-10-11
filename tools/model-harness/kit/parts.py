@@ -483,10 +483,24 @@ class Kit:
             ))
         return self._root(name, meshes)
 
-    def wheel_housing(self, name, radius=0.36, width=0.34, segments=24, slots=3, pressed=False):
-        """Enclosed drum. Local +Z is out of the cover, circle in XY. Face is a cap, not a rotor."""
+    def wheel_housing(self, name, radius=0.36, width=0.34, segments=24, slots=3, pressed=False, covered=False):
+        """Enclosed drum. Local +Z is out of the cover, circle in XY.
+
+        covered: one flat body-coloured disc. No lip, no hub, no slots.
+        Otherwise the face is a cap with an optional pressed ring and intake slots.
+        """
         col = self.collection
         meshes = []
+        if covered:
+            # Same outer radius as the old lip, so the side bulge does not move.
+            # The face lands on the body material and bakes with the hull.
+            meshes.append(_cylinder(
+                name + '-drum', radius * 0.98, width * 0.70, segments, self.body, col, (0, 0, width * 0.30),
+            ))
+            meshes.append(_cylinder(
+                name + '-face', radius * 1.02, width * 0.10, segments, self.body, col, (0, 0, width * 0.90),
+            ))
+            return self._root(name, meshes)
         lip_mat = self.satin if pressed else self.drum
         slot_half = 0.016 if pressed else 0.007
         meshes.append(_cylinder(name + '-drum', radius, width * 0.82, segments, self.drum, col, (0, 0, width * 0.38)))

@@ -7,6 +7,9 @@ import json
 import os
 import urllib.request
 
+from PIL import Image
+import io
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 HARNESS = os.path.dirname(HERE)
 MANIFEST = os.path.join(HARNESS, 'refs', 'manifest.json')
@@ -26,9 +29,20 @@ def main():
         req = urllib.request.Request(still['url'], headers={'User-Agent': 'Mozilla/5.0'})
         with urllib.request.urlopen(req, timeout=60) as resp:
             data = resp.read()
-        with open(dest, 'wb') as f:
-            f.write(data)
-        print('wrote', dest, len(data))
+        crop = still.get('crop')
+        if crop:
+            image = Image.open(io.BytesIO(data))
+            x, y, w, h = crop
+            image = image.crop((x, y, x + w, y + h))
+            if dest.lower().endswith('.png'):
+                image.save(dest)
+            else:
+                image.convert('RGB').save(dest, quality=90)
+            print('wrote', dest, 'crop', crop, os.path.getsize(dest))
+        else:
+            with open(dest, 'wb') as f:
+                f.write(data)
+            print('wrote', dest, len(data))
 
 
 if __name__ == '__main__':

@@ -13,6 +13,7 @@
 #   4  tuned grade on the round-3 mesh (the first bake sparkled; sheet is that pass)
 #   5  drums faired into a wider shoulder, diagonal door cut, clean PBR grade
 #   6  thicker door cut, louver field, pressed drum ring, lamps that read at sheet size
+#   7  flat covered drum faces, and a split nose with an open center channel
 import math
 import os
 import shutil
@@ -392,8 +393,29 @@ def sit_and_scale(objs):
     return ok
 
 
-def place_wheel(kit, name, sign, y, radius, width, segments, slots, x=0.78, pressed=False):
-    part = kit.wheel_housing(name, radius=radius, width=width, segments=segments, slots=slots, pressed=pressed)
+def cut_nose_channel(hull):
+    """Open the hood. The cutter runs out past the nose and down through the slab,
+    so the top and front silhouettes show two cheeks and a gap, not a solid panel."""
+    cutter = box(
+        'nose-channel',
+        (-0.58, 1.48, 0.08),
+        (0.58, 2.95, 1.05),
+        hull.data.materials[0],
+    )
+    mod = hull.modifiers.new('Channel', 'BOOLEAN')
+    mod.operation = 'DIFFERENCE'
+    mod.object = cutter
+    mod.solver = 'EXACT'
+    select_only(hull)
+    bpy.ops.object.modifier_apply(modifier=mod.name)
+    bpy.data.objects.remove(cutter, do_unlink=True)
+
+
+def place_wheel(kit, name, sign, y, radius, width, segments, slots, x=0.78, pressed=False, covered=False):
+    part = kit.wheel_housing(
+        name, radius=radius, width=width, segments=segments, slots=0 if covered else slots,
+        pressed=pressed, covered=covered,
+    )
     # local +Z out the cover, +Y up, +X toward the nose. Left side is a mirror; normals are fixed later.
     frame(part, (sign * x, y, radius + 0.02), (0, 1, 0), (0, 0, 1), (sign, 0, 0))
     return part
@@ -746,10 +768,19 @@ def build(round_n, lod, out_path):
     dressed = round_n >= 2
     faired = round_n >= 5
     loud = round_n >= 6
-    print(f'BUILD round {round_n} lod {lod} detail {detail} rich {rich} bake {bake} faired {faired} loud {loud}')
+    split = round_n >= 7
+    print(f'BUILD round {round_n} lod {lod} detail {detail} rich {rich} bake {bake} faired {faired} loud {loud} split {split}')
 
+    stations = list(HULL)
+    if split:
+        # Wider cheeks so the open channel has two sides, without moving the side profile.
+        # Same heights as the round-6 stations, so the side profile stays put.
+        # The cheeks are wider in plan so the channel can be a real gap.
+        stations[0] = (2.55, 1.02, 0.34, 0.50)
+        stations[1] = (2.05, 1.06, 0.24, 0.66)
+        stations[2] = (1.45, 1.00, 0.18, 0.80)
     hull = loft(
-        [hull_section(*row, flare=faired) for row in HULL],
+        [hull_section(*row, flare=faired) for row in stations],
         'hull', kit.body, SHARP, 0.9 if rich else 0.0, math.radians(50),
     )
     if detail:
@@ -758,6 +789,8 @@ def build(round_n, lod, out_path):
         add_subdiv(hull)
         add_weighted(hull)
     apply_mods(hull, math.radians(32 if detail else 50))
+    if split:
+        cut_nose_channel(hull)
 
     canopy = loft([canopy_section(*row) for row in CANOPY], 'canopy', kit.glass, set(), 0.0, math.radians(35))
     solid = canopy.modifiers.new('Solidify', 'SOLIDIFY')
@@ -780,7 +813,7 @@ def build(round_n, lod, out_path):
         width = 0.40 if abs(y) > 1 else 0.36
         place_wheel(
             kit, f'drum-{sign:+d}-{y:+.2f}', sign, y, radius, width, seg,
-            slots if y > 0 or detail else 0, x=drum_x, pressed=loud,
+            slots if y > 0 or detail else 0, x=drum_x, pressed=loud and not split, covered=split,
         )
     if faired:
         place_skirt(kit, 1, x=0.60, width=0.20, height=0.12, z=0.07)
@@ -793,7 +826,14 @@ def build(round_n, lod, out_path):
     head_h = 0.05 if loud else 0.028
     tail_len = 1.45 if loud else 1.05
     tail_h = 0.08 if loud else 0.03
-    stick(kit, kit.light_strip('head', 0.72 if loud else 0.55, head_h, 0.016, 'white'), hull, (0, 2.52, 0.42), (0, 1, 0.08))
+    if split:
+        for sign in (1, -1):
+            stick(
+                kit, kit.light_strip(f'head-{sign:+d}', 0.26, head_h, 0.016, 'white'),
+                hull, (sign * 0.78, 2.28, 0.55), (0, 0.35, 1),
+            )
+    else:
+        stick(kit, kit.light_strip('head', 0.72 if loud else 0.55, head_h, 0.016, 'white'), hull, (0, 2.52, 0.42), (0, 1, 0.08))
     stick(kit, kit.light_strip('tail', tail_len, tail_h, 0.016, 'red'), hull, (0, -2.45, 0.46), (0, -1, 0.2))
     amber_len = 0.36 if loud else (0.28 if faired else 0.14)
     amber_h = 0.07 if loud else (0.042 if faired else 0.022)
@@ -836,9 +876,12 @@ def build(round_n, lod, out_path):
                 kit, kit.fan_grille(f'fan-{sign:+d}', 0.55, 0.18, 0.028, 4 if lod == 'high' else 2, glow=not loud),
                 hull, (sign * 0.55, -0.15, 0.12), (0, 0, -1),
             )
-        if faired:
+        if faired and not split:
             stick(kit, kit.recess_plate('hood-gap', 0.62, 0.40), hull, (0, 1.70, 0.62), (0, 0.82, 0.35), lift=0.0)
             stick(kit, kit.satin_plate('hood-satin', 0.44, 0.24), hull, (0, 1.70, 0.64), (0, 0.82, 0.35), lift=0.004)
+        elif not faired and not split:
+            box('hood-satin', (-0.28, 1.20, 0.70), (0.28, 1.85, 0.732), kit.satin)
+        if faired:
             y0, y1 = (-0.35, 0.55) if loud else (-1.15, 0.95)
             half = 0.025 if loud else 0.04
             for sign in (1, -1):
@@ -849,8 +892,6 @@ def build(round_n, lod, out_path):
                     (x + half, y1, 0.045),
                     kit.lights['underglow'],
                 )
-        else:
-            box('hood-satin', (-0.28, 1.20, 0.70), (0.28, 1.85, 0.732), kit.satin)
         if rich:
             stick(kit, kit.bolt_cluster('bolts-door-r', 0.08, 0.05, 4, 3), hull, (0.9, 0.55, 0.7), (1, 0, 0.2))
             stick(kit, kit.bolt_cluster('bolts-door-l', 0.08, 0.05, 4, 4), hull, (-0.9, 0.55, 0.7), (-1, 0, 0.2))

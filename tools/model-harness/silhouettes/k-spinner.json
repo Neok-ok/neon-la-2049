@@ -282,48 +282,34 @@
       ]
     },
     "top": {
-      "source": null,
+      "source": "top-plan",
       "photo": false,
-      "orthographic": "reconstructed from the side and front stills; no top photograph",
+      "orthographic": "Traced from the published top orthographic (top-plan). Length is the 5.42 m side trace. Width is scaled to 2.32 m, the front-trace and model box, because the blueprint preview is wider than the car in the photographs. The notch is the open channel. Film overheads are on the sheet; the car is too small in those frames to trace.",
       "lengthM": 5.42,
-      "widthM": 2.24,
+      "widthM": 2.32,
       "points": [
-        [
-          2.7,
-          0.0
-        ],
-        [
-          1.9,
-          1.12
-        ],
-        [
-          0.3,
-          1.02
-        ],
-        [
-          -1.5,
-          0.98
-        ],
-        [
-          -2.72,
-          0.8
-        ],
-        [
-          -2.72,
-          -0.8
-        ],
-        [
-          -1.5,
-          -0.98
-        ],
-        [
-          0.3,
-          -1.02
-        ],
-        [
-          1.9,
-          -1.12
-        ]
+        [2.71, -0.88],
+        [2.50, -1.08],
+        [1.82, -1.16],
+        [0.40, -1.06],
+        [-0.20, -1.12],
+        [-1.30, -1.14],
+        [-2.15, -0.96],
+        [-2.71, -0.81],
+        [-2.71, 0.81],
+        [-2.15, 0.96],
+        [-1.30, 1.14],
+        [-0.20, 1.12],
+        [0.40, 1.06],
+        [1.82, 1.16],
+        [2.50, 1.08],
+        [2.71, 0.88],
+        [2.58, 0.71],
+        [2.15, 0.62],
+        [1.75, 0.64],
+        [1.75, -0.64],
+        [2.15, -0.62],
+        [2.58, -0.71]
       ]
     }
   }

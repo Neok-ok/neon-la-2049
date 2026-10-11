@@ -103,6 +103,31 @@ function closePod(camera: PerspectiveCamera): void {
   camera.updateProjectionMatrix();
 }
 
+function topDown(camera: PerspectiveCamera): void {
+  // Straight down on the nose. The open channel has to show the ground, nose toward the top of the frame.
+  camera.position.set(0, 12.5, -1.05);
+  camera.up.set(0, 0, -1);
+  camera.lookAt(0, 0, -1.05);
+  camera.fov = 16;
+  camera.updateProjectionMatrix();
+}
+
+function topThreeQuarter(camera: PerspectiveCamera): void {
+  camera.position.set(2.6, 4.8, -5.4);
+  camera.up.set(0, 1, 0);
+  camera.lookAt(0, 0.42, -0.7);
+  camera.fov = 30;
+  camera.updateProjectionMatrix();
+}
+
+function topNose(camera: PerspectiveCamera): void {
+  camera.position.set(0.2, 2.8, -5.8);
+  camera.up.set(0, 1, 0);
+  camera.lookAt(0, 0.4, -1.5);
+  camera.fov = 28;
+  camera.updateProjectionMatrix();
+}
+
 const YAWS = [0, 45, 90, 135, 180, 225, 270, 315];
 
 function sheetShots(): Shot[] {
@@ -113,6 +138,11 @@ function sheetShots(): Shot[] {
     }
     out.push({ label: `${light} · nose`, light, angle: 'nose', pose: closeNose });
     out.push({ label: `${light} · pod`, light, angle: 'pod', pose: closePod });
+    out.push({ label: `${light} · top`, light, angle: 'top', pose: topDown });
+    out.push({ label: `${light} · top 3/4`, light, angle: 'top34', pose: topThreeQuarter });
+    out.push({ label: `${light} · channel`, light, angle: 'channel', pose: topNose });
+    out.push({ label: `${light} · flight`, light, angle: 'flight', pose: topNose });
+    out.push({ label: `${light} · roof`, light, angle: 'roof', pose: topDown });
   }
   return out;
 }
@@ -219,7 +249,7 @@ function panels(): Panel[] {
   const top: Panel = {
     id: 'top', x: 0, y: sideH + frontH,
     w: ppmSpan(frustum.top.x0, frustum.top.x1), h: topH,
-    note: 'nose to the right. Reference outline is reconstructed, not a photograph.',
+    note: 'nose to the right. Outline traced from the published top view, with the film overheads on the sheet.',
   };
   return [side, front, top];
 }
