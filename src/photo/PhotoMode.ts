@@ -1,6 +1,7 @@
 // Photo mode. Constructed on the first toggle so the post chain stays out of the first load.
 import { Raycaster, Vector2, Vector3, type Object3D } from 'three/webgpu';
 import { U } from '../atmosphere/uniforms';
+import { applyAirLayers } from '../atmosphere/airState';
 import { frameSize, visibleFraction } from './limits';
 import { GRADES } from './grades';
 import { POSTCARDS, postcardById } from './postcards';
@@ -184,6 +185,10 @@ export class PhotoMode {
     U.snow.value = w.snowCover;
     U.fogDensity.value = this.state.fog * (1 + Number(U.streetFog.value));
     U.haze.value = 0.00003 + this.state.fog * 0.02;
+    applyAirLayers(
+      this.state.fog, w.params.layer, w.params.layerY, w.params.smogTint,
+      Number(U.night.value), Number(U.daylight.value),
+    );
     this.host.renderer.toneMappingExposure = this.host.exposure() * this.state.exposure;
   }
 

@@ -6,6 +6,7 @@ import {
 import { U } from './uniforms';
 import { Weather, type WeatherId } from './Weather';
 import { installSkyAndFog } from './SkyFog';
+import { applyAirLayers } from './airState';
 
 export class DayNight {
   /** 0..24 */
@@ -117,8 +118,7 @@ export class Atmosphere {
     U.fogDensity.value = w.fog * (1 + Number(U.streetFog.value));
     U.fogFalloff.value = 1 / w.falloff;
     U.haze.value = 0.00003 + w.fog * 0.02;
-    U.layerDensity.value = w.layer;
-    U.layerY.value = w.layerY;
+    applyAirLayers(w.fog, w.layer, w.layerY, w.smogTint, night, Number(U.daylight.value));
 
     // occasional lightning flash in heavy rain
     if (w.rain > 0.85 && Math.random() < dt * 0.04) this.lightningT = 0.35;

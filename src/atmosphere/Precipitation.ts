@@ -2,6 +2,7 @@
 import { BufferGeometry, BufferAttribute, Mesh, MeshBasicNodeMaterial, AdditiveBlending, NormalBlending, Vector3 } from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import { U } from './uniforms';
+import { lightGain, lightTint } from './airLights';
 
 const T = TSL as any;
 const { Fn, attribute, uniform, vec3, floor, normalize, cross, sin, cameraPosition, length, smoothstep, float, mix } = T;
@@ -67,7 +68,8 @@ export class Precipitation {
       const toCam = normalize(cameraPosition.sub(center));
       const side = normalize(cross(vel, toCam));
       const up = isRain ? vel : normalize(cross(toCam, side));
-      const l = isRain ? float(len) : float(width);
+      const stretch = isRain ? float(1).add(lightGain(center).mul(U.rainReact).mul(1.45)) : float(1);
+      const l = isRain ? float(len).mul(stretch) : float(width);
       return center.add(side.mul(c.x.mul(width * 2))).add(up.mul(c.y.sub(0.5).mul(l)));
     })();
 
@@ -77,8 +79,13 @@ export class Precipitation {
       const magCyan = vec3(1.0, 0.22, 0.48).mul(0.55).add(vec3(0.2, 0.75, 1.0).mul(0.45));
       const neon = mix(magCyan, vec3(1.0, 0.58, 0.22), U.sheen);
       const rainCol = U.fogColor.mul(2.2).add(vec3(0.05, 0.06, 0.07));
-      const base = isRain ? mix(rainCol, neon, U.neonWet.mul(U.night).mul(0.65)) : mix(vec3(0.75, 0.78, 0.85), U.fogColor.mul(3.0), 0.3);
-      const a = isRain ? fade.mul(0.55) : fade.mul(0.85);
+      let base = isRain ? mix(rainCol, neon, U.neonWet.mul(U.night).mul(0.65)) : mix(vec3(0.75, 0.78, 0.85), U.fogColor.mul(3.0), 0.3);
+      let a = isRain ? fade.mul(0.55) : fade.mul(0.85);
+      if (isRain) {
+        const gain = lightGain(center).mul(U.rainReact);
+        base = base.add(lightTint(center).mul(gain).mul(1.5));
+        a = a.mul(float(1).add(gain.mul(0.8)));
+      }
       return T.vec4(base.add(vec3(U.lightning)), a);
     })();
 

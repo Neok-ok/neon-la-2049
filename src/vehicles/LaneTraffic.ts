@@ -13,6 +13,7 @@ import { fogDepth } from '../atmosphere/SkyFog';
 import type { CityQuery } from '../world/CityQuery';
 import { Rng } from '../core/rng';
 import { buildSkyLanes, sampleLane, type LaneClass, type SkyLane } from './skyLanes';
+import type { CraftMark } from '../atmosphere/AirField';
 
 const T = TSL as any;
 
@@ -217,6 +218,27 @@ export class LaneTraffic {
       im.visible = im.count > 0;
     }
     this.gcol.needsUpdate = true;
+  }
+
+  /** Lane spinners (not transports) already dealt. Salt is offset so it does not collide with street salts. */
+  collectSpinners(x: number, y: number, z: number, range: number, out: CraftMark[]): void {
+    const r2 = range * range;
+    for (let i = 0; i < this.cars.length; i++) {
+      const c = this.cars[i];
+      if (!c || c.cls === 'transport') continue;
+      const dx = c.p.x - x, dy = c.p.y - y, dz = c.p.z - z;
+      const d2 = dx * dx + dy * dy + dz * dz;
+      if (d2 > r2) continue;
+      const vx = c.vel.x, vz = c.vel.z;
+      const yaw = vx * vx + vz * vz > 0.25 ? Math.atan2(vx, -vz) : 0;
+      out.push({
+        x: c.p.x, y: c.p.y, z: c.p.z,
+        yaw,
+        salt: 100000 + i * 17 + Math.floor(c.phase * 4096),
+        police: c.cls === 'police',
+        d2,
+      });
+    }
   }
 
   /** Closest lane vehicle (audio flybys): position, distance, closing speed (m/s, + = approaching), heavy. */

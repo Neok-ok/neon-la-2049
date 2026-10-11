@@ -13,6 +13,7 @@ import { getHoloCardMaterial, getHoloMaterial } from './material';
 import { allHolograms } from './registry';
 import { clearHoloSpill, HOLO_SPILL_SLOTS, setHoloSpill } from './spill';
 import { holoIndex, type HologramSpec } from './types';
+import type { GlowMark } from '../../atmosphere/AirField';
 
 const MAX = 96;
 const _m = new Matrix4();
@@ -43,6 +44,8 @@ export class HologramField {
   cards = 0;
   /** Placements that passed range and view tests, before the tier cap. */
   candidates = 0;
+  /** Nearest drawn panels this frame, for air halos. Skyline-band crowns are left out. */
+  readonly glowMarks: GlowMark[] = [];
 
   private readonly panels: InstancedMesh;
   private readonly cardMesh: InstancedMesh;
@@ -113,6 +116,18 @@ export class HologramField {
     const cap = Math.min(q.holoCount, cand.length);
     const chosen = cand.slice(0, cap);
     this.shown = chosen.length;
+    this.glowMarks.length = 0;
+    const glowSorted = chosen.slice().sort((a, b) => a.dist - b.dist);
+    for (let i = 0; i < glowSorted.length && this.glowMarks.length < 16; i++) {
+      const c = glowSorted[i];
+      if (!c || c.spec.band === 'skyline') continue;
+      const [r, g, b] = rgbOf(c.spec.color);
+      this.glowMarks.push({
+        x: c.spec.x, y: c.spec.y, z: c.spec.z, r, g, b,
+        area: c.spec.w * c.spec.h,
+        d2: c.dist * c.dist,
+      });
+    }
 
     const slices = q.holoDetail >= 3 ? 3 : q.holoDetail >= 2 ? 2 : 1;
     const sliced = q.holoDetail >= 2 ? 5 : 0;

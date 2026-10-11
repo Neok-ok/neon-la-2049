@@ -10,6 +10,7 @@ import { U } from '../atmosphere/uniforms';
 import type { CityQuery } from '../world/CityQuery';
 import { Rng, trueRandomSeed } from '../core/rng';
 import { advanceGraph, downtownGraph, edgeAround, poseOn } from './streetGraph';
+import type { CraftMark } from '../atmosphere/AirField';
 
 const T = TSL as any;
 
@@ -66,6 +67,23 @@ export class SpinnerTraffic {
   /** expose for the cinematic director (tracking shots) */
   get vehicles(): readonly Car[] {
     return this.cars;
+  }
+
+  /** Spinners already in the air, for searchlights. Does not spawn or move any. */
+  collectCraft(x: number, y: number, z: number, range: number, out: CraftMark[]): void {
+    const r2 = range * range;
+    for (const c of this.cars) {
+      const dx = c.p.x - x, dy = c.p.y - y, dz = c.p.z - z;
+      const d2 = dx * dx + dy * dy + dz * dz;
+      if (d2 > r2) continue;
+      out.push({
+        x: c.p.x, y: c.p.y, z: c.p.z,
+        yaw: Math.atan2(c.dir.x, -c.dir.z),
+        salt: c.salt,
+        police: c.police,
+        d2,
+      });
+    }
   }
 
   /** Closest spinner to a point, for the market's distant-engine layer. */
