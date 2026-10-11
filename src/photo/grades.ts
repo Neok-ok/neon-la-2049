@@ -22,9 +22,9 @@ export const GRADES: readonly Grade[] = [
   { id: 'neon', name: 'Neon rain', lift: [0.008, 0, 0.016], gain: [0.82, 1.06, 1.22], saturation: 1.28, contrast: 1.14, gamma: 1.04 },
   { id: 'ash', name: 'Ash snow', lift: [0.03, 0.032, 0.036], gain: [0.9, 0.93, 0.98], saturation: 0.32, contrast: 1.06, gamma: 1.08 },
   { id: 'harbor', name: 'Harbor fog', lift: [0.016, 0.022, 0.02], gain: [0.72, 0.84, 0.86], saturation: 0.66, contrast: 0.94, gamma: 1.12 },
-  { id: 'orange', name: 'Orange haze', lift: [0.03, 0.012, 0], gain: [1.24, 0.82, 0.5], saturation: 0.76, contrast: 1.08, gamma: 0.97 },
-  { id: 'cyan', name: 'Cold cyan', lift: [0.006, 0.016, 0.028], gain: [0.7, 0.9, 1.18], saturation: 0.82, contrast: 1.12, gamma: 1.03 },
-  { id: 'amber', name: 'Amber ruin', lift: [0.034, 0.014, 0], gain: [1.3, 0.74, 0.36], saturation: 0.68, contrast: 1.14, gamma: 0.94 },
+  { id: 'orange', name: 'Orange haze', lift: [0.004, 0.006, 0.02], gain: [1.18, 0.74, 0.46], saturation: 0.84, contrast: 1.16, gamma: 0.9 },
+  { id: 'cyan', name: 'Cold cyan', lift: [0.008, 0.02, 0.06], gain: [0.68, 0.88, 1.28], saturation: 0.8, contrast: 1.06, gamma: 1.08 },
+  { id: 'amber', name: 'Amber ruin', lift: [0.028, 0.016, 0.012], gain: [1.18, 0.8, 0.48], saturation: 0.72, contrast: 1.06, gamma: 1 },
 ];
 
 const BY_ID = new Map(GRADES.map((g) => [g.id, g]));

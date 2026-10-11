@@ -5,12 +5,15 @@
 // window aspect so a portrait phone does not centre the same point as a wide monitor.
 
 import { Vector3 } from 'three/webgpu';
+import { planApron } from '../districts/coastal-strip/apronPlan';
+import { framePoint } from '../districts/coastal-strip/profile';
+import { coastCamera, type CoastPose } from '../districts/coastal-strip/view';
 import type { GradeId } from '../photo/types';
 import type { Landmark } from '../world/layout';
 import type { CityQuery } from '../world/CityQuery';
 import { raiseClear, roofAt } from './clearance';
 import { damp, smootherstep } from './easing';
-import { frameSubject, type Third } from './framing';
+import { frameSubject } from './framing';
 import { CameraSpline, type SplineKnot } from './spline';
 import { reducedMotion } from './reducedMotion';
 
@@ -36,6 +39,10 @@ interface KnotData {
   xThird: number;
   yThird: number;
   subject: Vector3;
+  /** True on the framed shot. Bridges stay false so a beat starts on the picture, not the transit. */
+  hero: boolean;
+  /** Keep an authored eye height. The sea-wall crest sits on a collider raiseClear would climb. */
+  lockHeight: boolean;
 }
 
 export interface TourView {
@@ -58,8 +65,8 @@ const look = new Vector3();
 const subject = new Vector3();
 
 export class CinematicTour {
-  readonly beats: TourBeat[];
-  readonly duration: number;
+  beats: TourBeat[];
+  duration: number;
   readonly clearanceFixes: number;
   /** Metres of path that were still inside something after the lift. Runtime raiseClear covers these. */
   readonly clearanceLeft: number;
@@ -71,8 +78,10 @@ export class CinematicTour {
   lens: TourView;
   private readonly query: CityQuery;
   private readonly spline: CameraSpline<KnotData>;
-  private readonly stamps: Array<{ d: number; time: number }>;
+  private stamps: Array<{ d: number; time: number }>;
   private focus = 80;
+  private calm: boolean;
+  private liftY = Number.NaN;
 
   private constructor(query: CityQuery, spline: CameraSpline<KnotData>, stamps: Array<{ d: number; time: number }>, beats: TourBeat[], fixes: number, left: number) {
     this.query = query;
@@ -82,6 +91,7 @@ export class CinematicTour {
     this.duration = stamps[stamps.length - 1]?.time ?? 1;
     this.clearanceFixes = fixes;
     this.clearanceLeft = left;
+    this.calm = reducedMotion();
     this.lens = blankLens(beats.length);
     this.apply(0, 16 / 9, 0);
   }
@@ -104,9 +114,16 @@ export class CinematicTour {
 
   update(dt: number, hold: boolean, aspect: number): void {
     if (!this.active) return;
-    if (!hold) this.time = Math.min(this.duration, this.time + Math.max(0, dt));
-    if (this.time >= this.duration - 1e-3) this.active = false;
-    this.apply(this.time, aspect, dt);
+    const calm = reducedMotion();
+    if (calm && !this.calm) {
+      const beat = [...this.beats].reverse().find((b) => b.t0 <= this.time + 0.05) ?? this.beats[0];
+      if (beat) this.time = beat.t0;
+      this.liftY = Number.NaN;
+    }
+    this.calm = calm;
+    if (!hold && !calm) this.time = Math.min(this.duration, this.time + Math.max(0, dt));
+    if (!calm && this.time >= this.duration - 1e-3) this.active = false;
+    this.apply(this.time, aspect, calm ? 0 : dt);
   }
 
   /** Jump to the next beat. The director covers the cut with a short dip. */
@@ -116,28 +133,33 @@ export class CinematicTour {
     if (this.time >= this.duration - 1e-3) this.active = false;
   }
 
-  /** Park inside a beat so a still can be framed. */
+  /** Park on the framed knot of a beat. */
   seekBeat(index: number): void {
     const beat = this.beats[Math.max(0, Math.min(this.beats.length - 1, index))];
     if (!beat) return;
     this.active = true;
-    this.time = beat.t0 + (beat.t1 - beat.t0) * 0.42;
-    this.apply(this.time, 16 / 9, 1);
+    this.time = beat.t0;
+    this.apply(this.time, 16 / 9, 0);
   }
 
   private apply(time: number, aspect: number, dt: number): void {
     const distance = distanceAt(this.stamps, time);
     const hit = this.spline.at(distance);
-    const y = raiseClear(this.query, hit.position.x, hit.position.y, hit.position.z, 3);
-    this.position.copy(hit.position);
-    this.position.y = y;
     const data = hit.data;
+    const target = data.lockHeight
+      ? hit.position.y
+      : raiseClear(this.query, hit.position.x, hit.position.y, hit.position.z, 3);
+    if (!Number.isFinite(this.liftY) || dt === 0) this.liftY = target;
+    else this.liftY = damp(this.liftY, target, 3.5, dt);
+    this.position.copy(hit.position);
+    this.position.y = this.liftY;
     subject.copy(data.subject);
     const focal = data.focal;
-    frameSubject(this.position, subject, focal, Math.max(0.3, aspect), asThird(data.xThird), asThird(data.yThird), look);
+    frameSubject(this.position, subject, focal, Math.max(0.3, aspect), data.xThird, data.yThird, look);
     this.aim.copy(look);
     const want = Math.max(0.8, this.position.distanceTo(subject));
-    this.focus = dt > 0 ? damp(this.focus, want, 1.6, dt) : want;
+    const pull = Math.abs(want - this.focus) < 400;
+    this.focus = dt > 0 && pull ? damp(this.focus, want, 1.6, dt) : want;
     const ahead = this.spline.at(distanceAt(this.stamps, Math.min(this.duration, time + 4)));
     this.prefetch.copy(ahead.position);
     const beat = this.beats.find((b) => b.id === data.beat) ?? this.beats[0];
@@ -151,7 +173,7 @@ export class CinematicTour {
       vignette: 0.36,
       grade: data.grade,
       gradeMix: data.gradeMix,
-      motion: reducedMotion() ? 0 : 0.62,
+      motion: reducedMotion() ? 0 : 0.28,
       beat: beat?.name ?? data.beat,
       beatIndex: beat ? this.beats.indexOf(beat) : 0,
       beatCount: this.beats.length,
@@ -165,12 +187,6 @@ function blankLens(count: number): TourView {
     grain: 0.2, vignette: 0.36, grade: 'cyan', gradeMix: 0.4, motion: 0.5,
     beat: '', beatIndex: 0, beatCount: count,
   };
-}
-
-function asThird(n: number): Third {
-  if (n < -0.34) return -1;
-  if (n > 0.34) return 1;
-  return 0;
 }
 
 function author(query: CityQuery): Array<SplineKnot<KnotData>> {
@@ -190,25 +206,24 @@ function author(query: CityQuery): Array<SplineKnot<KnotData>> {
 
   const sub = (lm: Landmark, frac: number) => new Vector3(lm.x, Math.max(20, lm.height * frac), lm.z);
 
-  // 1. Wide establish. The tower sits on the right third, haze above it.
+  // 1. Wide establish. Far enough that the slab is a skyline, not a wall.
   beat = knots.length ? beat : 0;
-  const estA = place(query, mt, 2.15, 1.65, 340);
-  const estB = place(query, mt, 1.82, 1.15, 260);
-  push(estA, lens('establish', 'cyan', 0.62, 28, 5.6, 1, sub(mt, 0.46), 1, 1, 0.1));
-  push(estB, lens('establish', 'cyan', 0.62, 32, 5.6, 1, sub(mt, 0.5), 1, 1, 0.12));
+  const estA = wide(query, mt, 2.2, 2800, 240);
+  const estB = wide(query, mt, 2.05, 1900, 200);
+  push(estA, lens('establish', 'cyan', 0.82, 24, 5.6, 1, sub(mt, 0.42), 0.85, 0.2, 0.04, true));
+  push(estB, lens('establish', 'cyan', 0.78, 32, 5.6, 1, sub(mt, 0.48), 0.65, 0.15, 0.04, true));
 
   // 2. Street dolly, leading lines down the avenue.
   const street = streetRun(query, 'historic-core') ?? streetRun(query, 'dtla') ?? streetRun(query, 'little-tokyo-market');
   if (street) {
     beat++;
     for (const bow of bridge(query, knots[knots.length - 1]!.p, street[0]!, 320)) {
-      push(bow, lens('establish', 'cyan', 0.4, 35, 5.6, 0.8, sub(mt, 0.4), 0, 0, 0.08));
+      push(bow, lens('establish', 'cyan', 0.28, 35, 5.6, 0.8, sub(mt, 0.4), 0, 0, 0.02, false));
     }
     beat++;
-    const along = streetLook(street);
+    const along = streetLook(street, 64, 2.2);
     street.forEach((p, i) => {
-      const u = street.length <= 1 ? 0 : i / (street.length - 1);
-      push(p, lens('avenue', 'cyan', 0.42, 40, 4, 2.3, along[i] ?? along[0]!, 0, 1, 0.08, u));
+      push(p, lens('avenue', 'neon', 0.4, 32, 2.8, 2.3, along[i] ?? along[0]!, 0, -0.35, 0.03, true));
     });
   }
 
@@ -217,34 +232,35 @@ function author(query: CityQuery): Array<SplineKnot<KnotData>> {
   const craneLow = place(query, mt, 0.9, 1.05, Math.max(18, query.groundHeight(mt.x, mt.z) + 8));
   const craneMid = place(query, mt, 0.72, 1.2, Math.min(160, mt.height * 0.22));
   const craneHigh = place(query, mt, 0.55, 1.35, Math.min(340, mt.height * 0.4));
-  push(craneLow, lens('crane', 'cyan', 0.48, 30, 4, 1.7, sub(mt, 0.18), -1, 1, 0.1));
-  push(craneMid, lens('crane', 'cyan', 0.5, 48, 4, 1.7, sub(mt, 0.4), -1, 1, 0.12));
-  push(craneHigh, lens('crane', 'cyan', 0.52, 72, 4, 1.6, sub(mt, 0.62), -1, 0, 0.14));
+  push(craneLow, lens('crane', 'cyan', 0.4, 30, 4, 1.7, sub(mt, 0.18), -1, 1, 0.03, true));
+  push(craneMid, lens('crane', 'cyan', 0.4, 48, 4, 1.7, sub(mt, 0.4), -1, 1, 0.04, true));
+  push(craneHigh, lens('crane', 'cyan', 0.42, 72, 4, 1.6, sub(mt, 0.62), -1, 0, 0.04, true));
 
   // 4. Slow partial orbit of the crown.
   beat++;
   for (let i = 0; i <= 4; i++) {
     const u = i / 4;
     const p = place(query, mt, 0.35 + u * 0.7, 1.25, Math.min(420, mt.height * 0.48) + u * 20);
-    push(p, lens('orbit', 'cyan', 0.55, 58, 4, 1.45, sub(mt, 0.58), u < 0.5 ? -1 : 1, 1, 0.12));
+    push(p, lens('orbit', 'cyan', 0.4, 58, 4, 1.45, sub(mt, 0.58), u < 0.5 ? -1 : 1, 1, 0.04, true));
   }
 
-  // 5. Long lens on the pyramid, from the downtown side.
+  // 5. The pyramid on the right third, a nearer tower pulled into the left foreground.
   beat++;
-  const pyAngle = Math.atan2(mt.z - py.z, mt.x - py.x);
-  for (const bow of bridge(query, knots[knots.length - 1]!.p, place(query, py, pyAngle + Math.PI, 1.02, 240), 480)) {
-    push(bow, lens('orbit', 'orange', 0.35, 70, 4, 0.75, sub(py, 0.35), 1, 0, 0.1));
+  const compressA = pyramidFrame(query, py, sat, 7400, 1700, 190);
+  const compressB = pyramidFrame(query, py, sat, 6600, 1200, 240);
+  for (const bow of bridge(query, knots[knots.length - 1]!.p, compressA, 520)) {
+    push(bow, lens('orbit', 'orange', 0.28, 50, 5.6, 0.75, sub(py, 0.5), 1, 0, 0.02, false));
   }
   beat++;
-  push(place(query, py, pyAngle + Math.PI + 0.08, 1.05, 220), lens('compress', 'orange', 0.78, 115, 2.8, 1.55, sub(py, 0.42), 1, 0, 0.2));
-  push(place(query, py, pyAngle + Math.PI - 0.06, 1.12, 260), lens('compress', 'orange', 0.8, 135, 2.8, 1.55, sub(py, 0.48), 1, 0, 0.22));
+  push(compressA, lens('compress', 'orange', 0.55, 42, 2.8, 1.55, sub(py, 0.4), 0.85, -0.1, 0.05, true));
+  push(compressB, lens('compress', 'orange', 0.58, 50, 2.8, 1.55, sub(py, 0.46), 0.7, 0.1, 0.05, true));
 
   // 6. Foreground mass against the haze. The satellite sits near the lens, the pyramid on the right third.
   if (sat) {
     beat++;
     const fore = foreground(query, sat, py);
-    push(fore[0]!, lens('silhouette', 'orange', 0.72, 80, 2.8, 1.4, sub(py, 0.38), 1, 0, 0.16));
-    push(fore[1]!, lens('silhouette', 'orange', 0.7, 95, 2.8, 1.4, sub(py, 0.44), 1, 1, 0.16));
+    push(fore[0]!, lens('silhouette', 'orange', 0.48, 32, 2.2, 1.4, sub(py, 0.42), 0.85, 0.05, 0.05, true));
+    push(fore[1]!, lens('silhouette', 'orange', 0.5, 40, 2.2, 1.4, sub(py, 0.5), 0.7, 0.2, 0.05, true));
   }
 
   // 7. Canyon dolly, a second street if the first one was not Broadway's district.
@@ -252,12 +268,12 @@ function author(query: CityQuery): Array<SplineKnot<KnotData>> {
   if (canyon) {
     beat++;
     for (const bow of bridge(query, knots[knots.length - 1]!.p, canyon[0]!, 300)) {
-      push(bow, lens('silhouette', 'cyan', 0.3, 40, 4, 0.8, sub(py, 0.3), 0, 0, 0.08));
+      push(bow, lens('silhouette', 'cyan', 0.22, 40, 4, 0.8, sub(py, 0.3), 0, 0, 0.02, false));
     }
     beat++;
     const aims = streetLook(canyon);
     canyon.forEach((p, i) => {
-      push(p, lens('canyon', 'neon', 0.48, 35, 2.8, 2.2, aims[i] ?? aims[0]!, -1, 0, 0.14));
+      push(p, lens('canyon', 'neon', 0.4, 35, 2.8, 2.2, aims[i] ?? aims[0]!, -1, 0, 0.04, true));
     });
   }
 
@@ -266,11 +282,11 @@ function author(query: CityQuery): Array<SplineKnot<KnotData>> {
   if (sea) {
     beat++;
     for (const bow of bridge(query, knots[knots.length - 1]!.p, sea.points[0]!, 220)) {
-      push(bow, lens('canyon', 'harbor', 0.25, 28, 5.6, 0.78, sea.aims[0]!, 0, -1, 0.06));
+      push(bow, lens('canyon', 'harbor', 0.2, 28, 5.6, 0.78, sea.aims[0]!, 0, -1, 0.02, false));
     }
     beat++;
     sea.points.forEach((p, i) => {
-      push(p, lens('seawall', 'harbor', 0.4, 24, 8, 1.15, sea.aims[i] ?? sea.aims[0]!, 0, -1, 0.05));
+      push(p, lens('seawall', 'harbor', 0.36, sea.focal[i] ?? 28, 5.6, 1.15, sea.aims[i] ?? sea.aims[0]!, 0, 0, 0.03, true, true));
     });
   }
 
@@ -279,22 +295,22 @@ function author(query: CityQuery): Array<SplineKnot<KnotData>> {
     beat++;
     const amberCam = place(query, oldN, 0.4, 1.35, Math.min(180, oldN.height * 0.22));
     for (const bow of bridge(query, knots[knots.length - 1]!.p, amberCam, 260)) {
-      push(bow, lens('seawall', 'amber', 0.3, 40, 5.6, 0.8, sub(oldN, 0.4), 0, 0, 0.08));
+      push(bow, lens('seawall', 'amber', 0.22, 40, 5.6, 0.8, sub(oldN, 0.4), 0, 0, 0.02, false));
     }
     beat++;
-    push(amberCam, lens('amber', 'amber', 0.74, 70, 4, 1.5, sub(oldN, 0.45), -1, 0, 0.18));
-    push(place(query, oldN, 0.85, 1.45, Math.min(220, oldN.height * 0.28)), lens('amber', 'amber', 0.7, 85, 2.8, 1.5, sub(oldN, 0.55), -1, 1, 0.18));
+    push(amberCam, lens('amber', 'amber', 0.55, 58, 4, 1.5, sub(oldN, 0.45), -1, 0, 0.05, true));
+    push(place(query, oldN, 0.85, 1.8, Math.min(280, oldN.height * 0.35)), lens('amber', 'amber', 0.5, 70, 2.8, 1.5, sub(oldN, 0.55), -1, 1, 0.05, true));
   }
 
   // 10. Return, slow, easing out over the towers.
   beat++;
   const back = place(query, mt, 2.0, 1.4, 380);
   for (const bow of bridge(query, knots[knots.length - 1]!.p, back, 420)) {
-    push(bow, lens('return', 'orange', 0.28, 40, 5.6, 0.72, sub(mt, 0.4), 1, 1, 0.08));
+    push(bow, lens('return', 'orange', 0.22, 40, 5.6, 0.72, sub(mt, 0.4), 1, 1, 0.02, false));
   }
   beat++;
-  push(back, lens('return', 'cyan', 0.4, 36, 5.6, 1.1, sub(mt, 0.5), 1, 1, 0.1));
-  push(place(query, mt, 2.35, 1.7, 300), lens('return', 'cyan', 0.36, 28, 5.6, 1.3, sub(mt, 0.42), 1, 1, 0.08));
+  push(back, lens('return', 'cyan', 0.34, 36, 5.6, 1.1, sub(mt, 0.5), 1, 1, 0.03, true));
+  push(place(query, mt, 2.35, 1.7, 300), lens('return', 'cyan', 0.32, 28, 5.6, 1.3, sub(mt, 0.42), 1, 1, 0.03, true));
 
   return knots.filter((k, i) => i === 0 || k.p.distanceTo(knots[i - 1]!.p) > 4);
 }
@@ -310,13 +326,44 @@ function lens(
   xThird: number,
   yThird: number,
   flare: number,
-  _u = 0,
+  hero: boolean,
+  lockHeight = false,
 ): Omit<KnotData, 'beatIndex'> {
-  void _u;
   return {
     focal, fStop, grade, gradeMix, anamorphic: 0, flare, pace, beat,
-    xThird, yThird, subject: subjectPoint,
+    xThird, yThird, subject: subjectPoint, hero, lockHeight,
   };
+}
+
+/** Far skyline stand. `dist` is from the landmark centre, not from the reserve. */
+function wide(query: CityQuery, lm: Landmark, angle: number, dist: number, wantY: number): Vector3 {
+  return distant(query, lm, angle, dist, wantY);
+}
+
+/**
+ * Stand beyond a satellite so it falls on the left and the pyramid on the right.
+ * With no satellite, stand on the downtown side of the pyramid.
+ */
+function pyramidFrame(query: CityQuery, py: Landmark, sat: Landmark | undefined, dist: number, side: number, y: number): Vector3 {
+  const near = sat ?? py;
+  const dx = py.x - near.x;
+  const dz = py.z - near.z;
+  const len = Math.hypot(dx, dz) || 1;
+  const tx = len < 2 ? 1 : dx / len;
+  const tz = len < 2 ? 0 : dz / len;
+  const x = py.x - tx * dist - tz * side;
+  const z = py.z - tz * dist + tx * side;
+  const roof = roofAt(query, x, z, 24);
+  return new Vector3(x, Math.max(y, roof + 28, query.groundHeight(x, z) + 40), z);
+}
+
+/** A point `dist` metres from a landmark centre, lifted over whatever roof is there. */
+function distant(query: CityQuery, lm: Landmark, angle: number, dist: number, y: number): Vector3 {
+  const x = lm.x + Math.cos(angle) * dist;
+  const z = lm.z + Math.sin(angle) * dist;
+  const roof = roofAt(query, x, z, 24);
+  const gy = query.groundHeight(x, z);
+  return new Vector3(x, Math.max(y, roof + 28, gy + 40), z);
 }
 
 function place(query: CityQuery, lm: Landmark, angle: number, radiusScale: number, wantY: number): Vector3 {
@@ -345,10 +392,12 @@ function foreground(query: CityQuery, near: Landmark, far: Landmark): [Vector3, 
   const sx = -tz;
   const sz = tx;
   const half = Math.max(near.baseWidth, near.baseDepth ?? near.baseWidth) * 0.5;
-  const r = Math.max(half, near.reserveRadius) + 56;
-  const y0 = Math.max(70, query.groundHeight(near.x, near.z) + 40);
-  const a = new Vector3(near.x - tx * (r + 30) + sx * r * 0.92, y0, near.z - tz * (r + 30) + sz * r * 0.92);
-  const b = new Vector3(near.x - tx * (r + 10) + sx * r * 0.55, y0 + 18, near.z - tz * (r + 10) + sz * r * 0.55);
+  // Close enough that the near tower is a dark mass, wide enough that it is not the whole frame.
+  const back = Math.max(1500, half * 7);
+  const side = Math.max(1100, half * 5);
+  const y0 = 200;
+  const a = new Vector3(near.x - tx * back + sx * side, y0, near.z - tz * back + sz * side);
+  const b = new Vector3(near.x - tx * (back * 0.82) + sx * (side * 0.7), y0 + 40, near.z - tz * (back * 0.82) + sz * (side * 0.7));
   a.y = Math.max(a.y, roofAt(query, a.x, a.z, 8) + 14);
   b.y = Math.max(b.y, roofAt(query, b.x, b.z, 8) + 14);
   return [a, b];
@@ -417,6 +466,9 @@ function streetRun(query: CityQuery, id: string): Vector3[] | null {
       const z = oz + block.bz * block.lb * u;
       const y = query.groundHeight(x, z) + 1.85;
       if (query.insideSolid(x, y, z, 0.7, true) || query.insideLandmark(x, y, z, 1.2)) return null;
+      if (raiseClear(query, x, y, z, 0.6) > y + 2.5) return null;
+      const ahead = streetLookPoint(x, z, y, block.bx, block.bz);
+      if (query.insideSolid(ahead.x, ahead.y, ahead.z, 1.2, true)) return null;
       points.push(new Vector3(x, y, z));
     }
     return points;
@@ -426,7 +478,12 @@ function streetRun(query: CityQuery, id: string): Vector3[] | null {
   }
 }
 
-function streetLook(points: Vector3[]): Vector3[] {
+function streetLookPoint(x: number, z: number, y: number, bx: number, bz: number): Vector3 {
+  const len = Math.hypot(bx, bz) || 1;
+  return new Vector3(x + (bx / len) * 18, y + 2, z + (bz / len) * 18);
+}
+
+function streetLook(points: Vector3[], reach = 86, lift = 7): Vector3[] {
   return points.map((p, i) => {
     const n = points[Math.min(points.length - 1, i + 1)]!;
     const dir = _dir.copy(n).sub(p);
@@ -434,46 +491,59 @@ function streetLook(points: Vector3[]): Vector3[] {
     dir.y = 0;
     if (dir.lengthSq() < 1e-4) dir.set(0, 0, -1);
     dir.normalize();
-    return new Vector3(p.x + dir.x * 86, p.y + 7, p.z + dir.z * 86);
+    return new Vector3(p.x + dir.x * reach, p.y + lift, p.z + dir.z * reach);
   });
 }
 
 const _dir = new Vector3();
 
-function seaRun(query: CityQuery): { points: Vector3[]; aims: Vector3[] } | null {
-  let best: { ax: number; az: number; bx: number; bz: number; len: number; crest: number } | null = null;
-  for (const wall of query.layout.seaWalls) {
-    for (let i = 0; i < wall.pts.length - 1; i++) {
-      const ax = wall.pts[i]![0];
-      const az = wall.pts[i]![1];
-      const bx = wall.pts[i + 1]![0];
-      const bz = wall.pts[i + 1]![1];
-      const len = Math.hypot(bx - ax, bz - az);
-      if (!best || len > best.len) best = { ax, az, bx, bz, len, crest: wall.crestHeight };
-    }
-  }
-  if (!best || best.len < 400) return null;
-  const ux = (best.bx - best.ax) / best.len;
-  const uz = (best.bz - best.az) / best.len;
-  let nx = -uz;
-  let nz = ux;
-  if (!query.layout.isOcean(best.ax + nx * 300, best.az + nz * 300)) { nx = -nx; nz = -nz; }
+function seaRun(query: CityQuery): { points: Vector3[]; aims: Vector3[]; focal: number[] } | null {
+  const plan = planApron(query.layout);
+  const f = plan.frame;
   const points: Vector3[] = [];
   const aims: Vector3[] = [];
-  for (const u of [0.22, 0.48, 0.74]) {
-    const x = best.ax + (best.bx - best.ax) * u + nx * 70;
-    const z = best.az + (best.bz - best.az) * u + nz * 70;
-    const y = best.crest + 32;
-    points.push(new Vector3(x, y, z));
-    aims.push(new Vector3(x + ux * 420, best.crest + 6, z + uz * 420));
+  const focal: number[] = [];
+  // Seaward of the toe, looking up the treads so the risers read as a rhythm, not a grazing edge.
+  const tread = [
+    { across: 78, along: 48, y: 46, la: 22, ll: 96, ly: f.H * 0.72, mm: 35 },
+    { across: 96, along: 18, y: 38, la: 20, ll: 78, ly: f.H * 0.6, mm: 32 },
+  ];
+  for (const s of tread) {
+    const eye = framePoint(f, s.across, s.along);
+    const look = framePoint(f, s.la, s.ll);
+    points.push(new Vector3(eye.x, s.y, eye.z));
+    aims.push(new Vector3(look.x, s.ly, look.z));
+    focal.push(s.mm);
   }
-  return { points, aims };
+  const aerial = coastCamera(query.layout, 'aerial');
+  if (aerial) {
+    points.push(lensEye(aerial));
+    aims.push(lookFrom(aerial, 420));
+    focal.push(48);
+  }
+  if (points.length < 2) return null;
+  return { points, aims, focal };
+}
+
+function lensEye(pose: CoastPose): Vector3 {
+  const y = pose.mode === 'fly' ? pose.y + 1.22 : pose.y;
+  return new Vector3(pose.x, y, pose.z);
+}
+
+function lookFrom(pose: CoastPose, dist: number): Vector3 {
+  const eye = lensEye(pose);
+  const horiz = Math.cos(pose.pitch) * dist;
+  return new Vector3(
+    eye.x + Math.sin(pose.heading) * horiz,
+    eye.y + Math.sin(pose.pitch) * dist,
+    eye.z - Math.cos(pose.heading) * horiz,
+  );
 }
 
 function harden(query: CityQuery, knots: Array<SplineKnot<KnotData>>): { knots: Array<SplineKnot<KnotData>>; fixes: number } {
   let fixes = 0;
   const lifted = knots.map((k) => {
-    const y = raiseClear(query, k.p.x, k.p.y, k.p.z, 4);
+    const y = k.data.lockHeight ? k.p.y : raiseClear(query, k.p.x, k.p.y, k.p.z, 4);
     if (y > k.p.y + 1) fixes++;
     const p = k.p.clone();
     p.y = y;
@@ -519,6 +589,8 @@ function lerpKnot(a: KnotData, b: KnotData, t: number): KnotData {
     xThird: a.xThird + (b.xThird - a.xThird) * t,
     yThird: a.yThird + (b.yThird - a.yThird) * t,
     subject: a.subject.clone().lerp(b.subject, t),
+    hero: false,
+    lockHeight: false,
   };
 }
 
@@ -567,18 +639,33 @@ function timeStamps(spline: CameraSpline<KnotData>, target: number): Array<{ d: 
 
 function beatRanges(spline: CameraSpline<KnotData>, stamps: Array<{ d: number; time: number }>): TourBeat[] {
   const beats: TourBeat[] = [];
-  let current = '';
-  let t0 = 0;
-  for (const stamp of stamps) {
-    const id = spline.at(stamp.d).data.beat;
-    if (id !== current) {
-      if (current) beats.push({ id: current, name: BEAT_NAMES[current] ?? current, t0, t1: stamp.time });
-      current = id;
-      t0 = stamp.time;
+  const end = stamps[stamps.length - 1]?.time ?? 0;
+  for (const knot of spline.knotMarks()) {
+    if (!knot.data.hero) continue;
+    const time = timeAt(stamps, knot.distance);
+    const last = beats[beats.length - 1];
+    if (last && last.id === knot.data.beat) continue;
+    beats.push({ id: knot.data.beat, name: BEAT_NAMES[knot.data.beat] ?? knot.data.beat, t0: time, t1: time });
+  }
+  for (let i = 0; i < beats.length; i++) {
+    const next = beats[i + 1];
+    beats[i]!.t1 = next ? next.t0 : end;
+  }
+  return beats.filter((b) => b.t1 - b.t0 > 0.15);
+}
+
+function timeAt(stamps: Array<{ d: number; time: number }>, distance: number): number {
+  const d = Math.max(0, distance);
+  for (let i = 1; i < stamps.length; i++) {
+    const s = stamps[i]!;
+    if (d <= s.d) {
+      const p = stamps[i - 1]!;
+      const span = s.d - p.d;
+      const u = span > 1e-5 ? (d - p.d) / span : 0;
+      return p.time + (s.time - p.time) * u;
     }
   }
-  if (current) beats.push({ id: current, name: BEAT_NAMES[current] ?? current, t0, t1: stamps[stamps.length - 1]!.time });
-  return beats.filter((b) => b.t1 - b.t0 > 0.4);
+  return stamps[stamps.length - 1]?.time ?? 0;
 }
 
 const BEAT_NAMES: Record<string, string> = {

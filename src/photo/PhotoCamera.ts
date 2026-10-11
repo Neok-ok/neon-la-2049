@@ -38,6 +38,11 @@ export class PhotoCamera {
   onTap: ((clientX: number, clientY: number) => void) | null = null;
   /** Shift+wheel. Positive is wider (a smaller f-number). */
   onFStop: ((dir: number) => void) | null = null;
+  /** True when the eye would be inside a building. The free camera steps back out. */
+  blocked: ((x: number, y: number, z: number) => boolean) | null = null;
+  private safeX = 0;
+  private safeY = 2;
+  private safeZ = 0;
   playing = false;
   /** Set when a trigger pulled focus, so photo mode can leave autofocus. */
   focusTouched = false;
@@ -69,6 +74,7 @@ export class PhotoCamera {
     this.entry.copy(cam.position);
     this.captureTarget();
     this.clampPos();
+    this.remember();
   }
 
   setPose(p: PhotoPose): void {
@@ -80,6 +86,7 @@ export class PhotoCamera {
     this.roll = 0;
     this.clampPos();
     this.captureTarget();
+    this.remember();
   }
 
   /** Look-at point the orbit and the streamer both use. */
@@ -104,6 +111,7 @@ export class PhotoCamera {
   update(dt: number, input: Input, pad: Pad | null = null): void {
     if (this.playing && this.path && !this.userMoved(input, pad)) {
       this.advancePath(dt);
+      this.remember();
       return;
     }
     if (this.playing) this.playing = false;
@@ -132,7 +140,7 @@ export class PhotoCamera {
     if (input.turn || input.tilt) this.look(input.turn * 280 * dt, input.tilt * 220 * dt);
     if (pad && (pad.rx || pad.ry)) this.look(pad.rx * 280 * dt, -pad.ry * 220 * dt);
     if (pad && (pad.lt > 0.05 || pad.rt > 0.05)) {
-      this.focus = MathUtils.clamp(this.focus * Math.exp((pad.rt - pad.lt) * dt * 1.6), 0.4, 400);
+      this.focus = MathUtils.clamp(this.focus * Math.exp((pad.rt - pad.lt) * dt * 1.6), 0.4, 8000);
       this.focusTouched = true;
       if (this.orbit) this.captureTarget();
     }
@@ -140,6 +148,7 @@ export class PhotoCamera {
     if (input.key('KeyX')) this.roll += dt * 0.7;
     if (input.wasPressed('KeyR')) this.roll = 0;
     this.roll = MathUtils.clamp(this.roll, -ROLL_MAX, ROLL_MAX);
+    this.remember();
   }
 
   apply(cam: PerspectiveCamera): void {
@@ -339,6 +348,19 @@ export class PhotoCamera {
     this.focus = hit.data.focus;
     this.clampPos();
     this.captureTarget();
+    this.remember();
+  }
+
+  private remember(): void {
+    if (this.blocked?.(this.x, this.y, this.z)) {
+      this.x = this.safeX;
+      this.y = this.safeY;
+      this.z = this.safeZ;
+      return;
+    }
+    this.safeX = this.x;
+    this.safeY = this.y;
+    this.safeZ = this.z;
   }
 
   private userMoved(input: Input, pad: Pad | null): boolean {

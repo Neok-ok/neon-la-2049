@@ -120,8 +120,8 @@ body.photo-on .title-card { visibility: hidden; pointer-events: none; }
 .photo-ui { position: fixed; inset: 0; z-index: 24; pointer-events: none; }
 .photo-bar {
   position: absolute; left: 50%; top: max(8px, env(safe-area-inset-top)); transform: translateX(-50%);
-  display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; pointer-events: auto;
-  max-width: 96vw; padding: 6px; background: var(--panel); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;
+  display: flex; gap: 6px; flex-wrap: nowrap; justify-content: flex-start; pointer-events: auto;
+  max-width: 96vw; padding: 6px; overflow-x: auto; background: var(--panel); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;
 }
 .photo-bar button, .photo-dock button, .photo-reveal {
   font: 600 12px/1 inherit; letter-spacing: 0.08em; text-transform: uppercase;
@@ -140,7 +140,7 @@ body.photo-on .title-card { visibility: hidden; pointer-events: none; }
   display: none; position: absolute; left: 50%; bottom: max(52px, calc(40px + env(safe-area-inset-bottom)));
   transform: translateX(-50%); gap: 8px; pointer-events: auto; z-index: 2; max-width: 98vw; flex-wrap: wrap; justify-content: center;
 }
-@media (pointer: coarse) {
+@media (pointer: coarse), (max-width: 760px) {
   .photo-dock { display: flex; }
   .photo-readout { bottom: max(108px, calc(96px + env(safe-area-inset-bottom))); }
 }
@@ -157,10 +157,21 @@ body.photo-clean .photo-dock { visibility: hidden; pointer-events: none; }
   display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 12px; min-height: 44px;
 }
 .photo-check input { width: 18px; height: 18px; accent-color: var(--amber); }
+.photo-bar { z-index: 4; }
 .photo-sheet {
-  position: absolute; top: calc(52px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
-  width: min(420px, 94vw); max-height: min(62dvh, 520px); overflow: auto; pointer-events: auto;
+  position: absolute; top: calc(64px + env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); transform: none;
+  width: min(360px, 46vw); max-height: min(70dvh, 560px); overflow: auto; pointer-events: auto; z-index: 3;
   background: var(--panel); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 8px 10px 12px;
+}
+@media (max-width: 760px) {
+  .photo-sheet {
+    left: 50%; transform: translateX(-50%); width: min(420px, 94vw); top: calc(72px + env(safe-area-inset-top));
+    max-height: min(58dvh, 480px);
+  }
+  .photo-bar { display: none; }
+  .photo-dock { flex-wrap: nowrap; justify-content: space-between; max-width: 96vw; bottom: max(18px, env(safe-area-inset-bottom)); }
+  .photo-dock button { flex: 1 1 0; padding: 10px 6px; letter-spacing: 0.04em; min-width: 0; }
+  .photo-readout { bottom: max(78px, calc(64px + env(safe-area-inset-bottom))); }
 }
 .photo-sheet[hidden] { display: none; }
 .photo-slider { display: grid; grid-template-columns: 72px 1fr 64px; gap: 6px; align-items: center; font-size: 11px; margin: 4px 0; }

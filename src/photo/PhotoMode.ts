@@ -21,6 +21,9 @@ const LETTERS: Array<[LetterboxId, string]> = [
   ['1:1', '1:1'],
 ];
 
+const FOCUS_MIN = 0.4;
+const FOCUS_MAX = 8000;
+
 const SIZES: Array<[PhotoState['size'], string]> = [
   ['screen', 'Screen'],
   ['1080', '1920×1080'],
@@ -72,6 +75,7 @@ export class PhotoMode {
 
   constructor(private host: PhotoHost) {
     this.cam = new PhotoCamera(host.canvas, host.layout);
+    this.cam.blocked = (x, y, z) => host.query.insideLandmark(x, y, z, 0.8) || host.query.insideSolid(x, y, z, 0.45, false);
     this.cam.onTap = (x, y) => this.focusAt(x, y);
     this.cam.onFStop = (dir) => this.nudgeFStop(dir);
     this.raycaster.far = 2000;
@@ -88,29 +92,21 @@ export class PhotoMode {
     bar.append(
       button('Exit', () => this.exit()),
       button('Lens', () => { this.sheet.hidden = !this.sheet.hidden; }),
-      (this.orbitBtn = button('Orbit', () => {
-        this.cam.setOrbit(!this.cam.orbit);
-        this.orbitBtn.classList.toggle('on', this.cam.orbit);
-      })),
-      (this.guideBtn = button('Guide', () => this.cycleGuide())),
       (this.afBtn = button('AF', () => this.toggleAf())),
       (this.scopeBtn = button('Scope', () => this.toggleScope())),
       (this.hideBtn = button('Hide', () => this.setChrome(!this.state.chrome))),
-      button('Mark', () => this.markPath()),
-      (this.playBtn = button('Play', () => this.playPath())),
       button('Shutter', () => { void this.capture({ kind: this.state.size }); }, 'shutter'),
     );
     this.readout = el('div', 'photo-readout');
     this.sheet = el('div', 'photo-sheet');
-    this.sheet.hidden = matchMedia('(pointer: coarse)').matches;
+    this.sheet.hidden = true;
     this.buildSheet();
     const dock = el('div', 'photo-dock');
     dock.append(
+      button('Lens', () => { this.sheet.hidden = !this.sheet.hidden; }),
       button('AF', () => this.toggleAf()),
-      button('f−', () => this.nudgeFStop(-1)),
-      button('f+', () => this.nudgeFStop(1)),
       button('Scope', () => this.toggleScope()),
-      button('Hide', () => this.setChrome(!this.state.chrome)),
+      button('Exit', () => this.exit()),
       button('Shutter', () => { void this.capture({ kind: this.state.size }); }, 'shutter'),
     );
     const reveal = button('Show', () => this.setChrome(true), 'photo-reveal');
@@ -292,7 +288,7 @@ export class PhotoMode {
     if (!this.active) return;
     if (p.focal != null) this.cam.focal = clamp(p.focal, 18, 200);
     if (p.focus != null) {
-      this.cam.focus = clamp(p.focus, 0.4, 400);
+      this.cam.focus = clamp(p.focus, FOCUS_MIN, FOCUS_MAX);
       this.afWant = this.cam.focus;
       this.state.autofocus = false;
     }
@@ -620,8 +616,8 @@ export class PhotoMode {
 
   private buildSheet(): void {
     this.slider('Focal', 'focal', 0, 1000, 1, () => logTo(18, 200, this.cam.focal), (v) => { this.cam.focal = fromLog(18, 200, v); }, () => `${Math.round(this.cam.focal)} mm`);
-    this.slider('Focus', 'focus', 0, 1000, 1, () => logTo(0.4, 400, this.cam.focus), (v) => {
-      this.cam.focus = fromLog(0.4, 400, v);
+    this.slider('Focus', 'focus', 0, 1000, 1, () => logTo(FOCUS_MIN, FOCUS_MAX, this.cam.focus), (v) => {
+      this.cam.focus = fromLog(FOCUS_MIN, FOCUS_MAX, v);
       this.afWant = this.cam.focus;
       if (!this.syncing) this.state.autofocus = false;
       if (this.cam.orbit) this.cam.captureTarget();
@@ -663,6 +659,21 @@ export class PhotoMode {
       if (cards.value) this.postcard(cards.value);
       cards.value = '';
     });
+    const tools = el('div', 'photo-picks');
+    this.orbitBtn = button('Orbit', () => {
+      this.cam.setOrbit(!this.cam.orbit);
+      this.orbitBtn.classList.toggle('on', this.cam.orbit);
+    });
+    this.guideBtn = button('Guide', () => this.cycleGuide());
+    this.playBtn = button('Play', () => this.playPath());
+    tools.append(
+      this.orbitBtn,
+      this.guideBtn,
+      button('Mark', () => this.markPath()),
+      this.playBtn,
+      button('Clear path', () => { this.cam.clearPath(); this.paintToggles(); }),
+    );
+    this.sheet.append(tools);
     const row = el('div', 'photo-picks');
     row.append(this.gradeSel, this.boxSel, this.sizeSel, cards);
     this.sheet.append(row);
@@ -705,7 +716,7 @@ export class PhotoMode {
       input.dispatchEvent(new Event('input'));
     };
     set('focal', logTo(18, 200, this.cam.focal));
-    set('focus', logTo(0.4, 400, this.cam.focus));
+    set('focus', logTo(FOCUS_MIN, FOCUS_MAX, this.cam.focus));
     set('fstop', logTo(FSTOP_MIN, FSTOP_MAX, this.state.fStop));
     set('scope', this.state.anamorphic * 100);
     set('motion', this.state.motion * 100);

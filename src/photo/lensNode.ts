@@ -166,7 +166,7 @@ export function createLensRig(
       for (const [px, w] of offsets) {
         const uv = T.clamp(uv0.add(T.vec2(texel.x.mul(px), 0)), T.vec2(0, 0), T.vec2(1, 1));
         const sample = color.sample(uv).rgb;
-        const hot = T.smoothstep(T.float(0.85), T.float(2.2), sample.dot(T.vec3(0.2126, 0.7152, 0.0722)));
+        const hot = T.smoothstep(T.float(2.4), T.float(7), sample.dot(T.vec3(0.2126, 0.7152, 0.0722)));
         streak = streak.add(sample.mul(hot).mul(w));
         sw = sw.add(w);
       }
@@ -248,6 +248,7 @@ function finishRig(
 
   const prevView = new Matrix4();
   const prevProj = new Matrix4();
+  const lastPos = new Vector3();
   let primed = false;
 
   return {
@@ -259,7 +260,8 @@ function finishRig(
       u.uFocal.value = Math.max(1, frame.focalMm);
       u.uFStop.value = Math.max(1.1, frame.fStop);
       u.uAnamorphic.value = Math.max(0, Math.min(1, frame.anamorphic));
-      u.uFlare.value = Math.max(0, frame.flare) * Math.max(0, Math.min(1, frame.anamorphic * 0.65 + 0.35));
+      const scope = Math.max(0, Math.min(1, frame.anamorphic));
+      u.uFlare.value = Math.max(0, frame.flare) * (0.2 + scope * 0.8);
       u.uGrain.value = Math.max(0, frame.grain) * 0.055;
       u.uVignette.value = Math.max(0, Math.min(1, frame.vignette));
       u.uGradeMix.value = Math.max(0, Math.min(1, frame.gradeMix));
@@ -297,6 +299,9 @@ function finishRig(
       u.uViewH.value = Math.max(1, viewHeightPx);
       u.uProjX.value = camera.projectionMatrix.elements[0] || 1;
       u.uProjY.value = camera.projectionMatrix.elements[5] || 1;
+      // A cut or a beat jump is not motion. One smeared frame would sit on screen for a long time.
+      if (primed && lastPos.distanceTo(camera.position) > 40) primed = false;
+      lastPos.copy(camera.position);
       if (!primed) {
         prevView.copy(camera.matrixWorldInverse);
         prevProj.copy(camera.projectionMatrix);
@@ -324,6 +329,8 @@ function flareOffsets(taps: number): Array<[number, number]> {
     [48, 0.22], [-48, 0.22],
     [78, 0.1], [-78, 0.1],
     [120, 0.05], [-120, 0.05],
+    [170, 0.03], [-170, 0.03],
+    [230, 0.016], [-230, 0.016],
   ];
   return all.slice(0, Math.max(1, Math.min(all.length, taps + 1)));
 }

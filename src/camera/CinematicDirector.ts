@@ -12,7 +12,7 @@ import type { SpinnerTraffic } from '../vehicles/SpinnerTraffic';
 import type { GradeId } from '../photo/types';
 import { raiseClear } from './clearance';
 import { CinematicTour, type TourView } from './CinematicTour';
-import { smootherstep } from './easing';
+import { damp, smootherstep } from './easing';
 import { pollPad } from './gamepad';
 import { reducedMotion } from './reducedMotion';
 import { gameplayHeld } from '../input/controls';
@@ -64,6 +64,8 @@ export class CinematicDirector implements Controller {
   hold = false;
   /** Short black dip over a tour cut, 0..1. */
   private dip = 0;
+  private smoothY = Number.NaN;
+  private wasCalm = false;
   private tour: CinematicTour | null = null;
   /** Lens the play-mode post stage reads. Plain when no tour sample exists yet. */
   lens: TourView = {
@@ -188,7 +190,10 @@ export class CinematicDirector implements Controller {
       return;
     }
     if (!this.shot) return;
-    if (!this.hold) this.t += dt;
+    const calm = reducedMotion();
+    if (calm && !this.wasCalm) this.smoothY = Number.NaN;
+    this.wasCalm = calm;
+    if (!this.hold && !calm) this.t += dt;
     const s = this.shot;
     if (!this.next && s.duration - this.t < 3) {
       this.next = this.plan();
@@ -205,7 +210,10 @@ export class CinematicDirector implements Controller {
     const eased = cur.type === 'tracking' ? u : smootherstep(u);
     const ok = cur.eval(eased, this.pos, this.look);
     if (ok === false) this.t = cur.duration; // shot invalidated (e.g. tracked car respawned)
-    this.pos.y = raiseClear(this.query, this.pos.x, this.pos.y, this.pos.z, 2);
+    const safe = raiseClear(this.query, this.pos.x, this.pos.y, this.pos.z, 2);
+    if (!Number.isFinite(this.smoothY) || Math.abs(safe - this.smoothY) > 40) this.smoothY = safe;
+    else this.smoothY = damp(this.smoothY, safe, 3.5, dt);
+    this.pos.y = this.smoothY;
     // slow fades on ~1/3 of transitions, hard cuts otherwise
     const fadeIn = cur.signature.charCodeAt(0) % 3 === 0 ? Math.min(1, this.t / 0.8) : 1;
     const fadeOut = cur.signature.charCodeAt(1) % 3 === 0 ? Math.min(1, (cur.duration - this.t) / 0.8) : 1;

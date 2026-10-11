@@ -118,6 +118,14 @@ export class CameraSpline<T> {
     };
   }
 
+  /** Arc distance and data at each knot, including the last. */
+  knotMarks(): Array<{ distance: number; data: T }> {
+    const out = this.segs.map((s) => ({ distance: s.d0, data: s.a.data }));
+    const last = this.segs[this.segs.length - 1];
+    if (last) out.push({ distance: last.d1, data: last.b.data });
+    return out;
+  }
+
   /** Positions every `step` metres, for a clearance pass. */
   samples(step: number): Vector3[] {
     const out: Vector3[] = [];
