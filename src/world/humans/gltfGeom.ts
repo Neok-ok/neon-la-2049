@@ -3,6 +3,7 @@
 import { BufferAttribute, BufferGeometry, Mesh, Vector3 } from 'three/webgpu';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { resources } from '../../core/memory';
 
 const gltf = new GLTFLoader();
 let decoderReady: Promise<void> | null = null;
@@ -111,7 +112,12 @@ export async function loadHumanGeometry(fileUrl: string): Promise<BufferGeometry
   packVec2(geometry, 'uv', true);
   packVec2(geometry, 'uv1', false);
   stripSkin(geometry);
-  const blank = new BufferGeometry();
+  const file = fileUrl.split('/').pop()?.replace(/\.glb$/i, '') || 'human-mesh';
+  resources.tag(geometry, { label: file, owner: 'humans' });
+  const blank = resources.geometry(() => new BufferGeometry(), {
+    label: 'human-gltf-detach',
+    owner: 'humans',
+  });
   asset.scene.traverse((obj) => {
     const other = obj as Mesh;
     if (!other.isMesh) return;
@@ -121,5 +127,8 @@ export async function loadHumanGeometry(fileUrl: string): Promise<BufferGeometry
     if (other.geometry === geometry) other.geometry = blank;
   });
   asset.animations.length = 0;
+  // The decoded mesh is the one we keep. The empty stand-in only broke the glTF
+  // scene's reference, and that scene is not added to the world.
+  blank.dispose();
   return geometry;
 }

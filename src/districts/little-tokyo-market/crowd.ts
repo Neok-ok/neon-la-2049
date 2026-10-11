@@ -10,6 +10,7 @@ import {
 import * as TSL from 'three/tsl';
 import type { CityQuery, PackedBlock } from '../../world/CityQuery';
 import type { QualitySettings, Tier } from '../../core/quality';
+import { resources } from '../../core/memory';
 import { hash2i } from '../../core/rng';
 import { U } from '../../atmosphere/uniforms';
 import { authoredLiftU } from '../../lighting/shade.ts';
@@ -244,16 +245,21 @@ function personGeometry(): BufferGeometry {
   box(0, 1.86, 0, 0.16, 0.12, 0.16, 10);
   box(-0.34, 0.98, 0.05, 0.16, 0.3, 0.13, 11);
   box(0, 1.14, 0, 0.48, 0.7, 0.28, 12);
-  const g = new BufferGeometry();
-  g.setAttribute('position', new BufferAttribute(new Float32Array(pos), 3));
-  g.setAttribute('normal', new BufferAttribute(new Float32Array(nor), 3));
-  g.setAttribute('part', new BufferAttribute(new Float32Array(part), 1));
-  g.setIndex(idx);
-  return g;
+  return resources.geometry(() => {
+    const g = new BufferGeometry();
+    g.setAttribute('position', new BufferAttribute(new Float32Array(pos), 3));
+    g.setAttribute('normal', new BufferAttribute(new Float32Array(nor), 3));
+    g.setAttribute('part', new BufferAttribute(new Float32Array(part), 1));
+    g.setIndex(idx);
+    return g;
+  }, { label: 'crowd-fallback', owner: 'humans' });
 }
 
+let fallbackSerial = 0;
+
 function crowdMaterial(): MeshBasicNodeMaterial {
-  const m = new MeshBasicNodeMaterial();
+  const key = fallbackSerial === 0 ? 'crowd-fallback' : `crowd-fallback-${fallbackSerial}`;
+  const m = resources.material(key, () => new MeshBasicNodeMaterial());
   m.name = 'Crowd';
   m.fog = true;
   // Solid canopy. A dithered disc broke into holes at street distance, and a flat disc
@@ -611,6 +617,7 @@ export class CrowdField {
       this.mesh.material = asset.material;
       if (prev !== asset.geometry) prev.dispose();
       if (this.fallbackMat) {
+        fallbackSerial += 1;
         this.fallbackMat.dispose();
         this.fallbackMat = null;
         sharedMat = null;
@@ -655,8 +662,11 @@ export class CrowdField {
     this.disposed = true;
     this.lodGen++;
     this.mesh.geometry.dispose();
-    this.fallbackMat?.dispose();
-    this.fallbackMat = null;
+    if (this.fallbackMat) {
+      fallbackSerial += 1;
+      this.fallbackMat.dispose();
+      this.fallbackMat = null;
+    }
     sharedMat = null;
     disposeCrowdResources();
     this.mesh.dispose();

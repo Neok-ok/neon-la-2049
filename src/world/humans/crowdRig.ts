@@ -9,6 +9,7 @@ import {
 } from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import type { Tier } from '../../core/quality';
+import { resources } from '../../core/memory';
 import { U } from '../../atmosphere/uniforms';
 import { loadHumanGeometry } from './gltfGeom';
 import { disposeHumanKtx, preferHumanKtx2, textureGpuBytes, transcodeKtx2 } from './ktx';
@@ -44,7 +45,11 @@ function loadPalette(): Promise<Texture> {
     if (data.byteLength !== PAL_W * PAL_H * 4) {
       throw new Error(`crowd palette ${data.byteLength} bytes, expected ${PAL_W * PAL_H * 4}`);
     }
-    const tex = new DataTexture(data, PAL_W, PAL_H, RGBAFormat, UnsignedByteType);
+    // Nearest uint16 bone pairs. Mip bias would average neighbouring bones, so this stays off the streamed list.
+    const tex = resources.texture(
+      () => new DataTexture(data, PAL_W, PAL_H, RGBAFormat, UnsignedByteType),
+      { label: 'crowd-palette', owner: 'humans' },
+    );
     tex.magFilter = NearestFilter;
     tex.minFilter = NearestFilter;
     tex.generateMipmaps = false;
@@ -67,6 +72,7 @@ function loadAtlasPng(): Promise<Texture> {
       tex.magFilter = LinearFilter;
       tex.minFilter = LinearFilter;
       tex.generateMipmaps = false;
+      resources.tag(tex, { label: 'crowd-atlas', owner: 'humans' });
       resolve(tex);
     }, undefined, reject);
   });
@@ -82,6 +88,7 @@ async function loadAtlas(renderer?: WebGPURenderer | null): Promise<{ texture: T
       tex.flipY = false;
       tex.generateMipmaps = false;
       tex.needsUpdate = true;
+      resources.tag(tex, { label: 'crowd-atlas', owner: 'humans' });
       return { texture: tex, gpuBytes: textureGpuBytes(tex, ATLAS_W, ATLAS_H), kind: 'ktx2' };
     } catch (err) {
       console.warn('crowd atlas ktx2', err);
@@ -95,8 +102,11 @@ function band(part: any, a: number, b: number) {
   return T.step(a, part).mul(T.step(part, b));
 }
 
+let rigSerial = 0;
+
 function crowdMaterial(palette: Texture, atlas: Texture): MeshStandardNodeMaterial {
-  const m = new MeshStandardNodeMaterial();
+  const key = rigSerial === 0 ? 'crowd-rig' : `crowd-rig-${rigSerial}`;
+  const m = resources.material(key, () => new MeshStandardNodeMaterial());
   m.name = 'CrowdRig';
   m.fog = true;
   const part = T.uv(1).x;
@@ -235,6 +245,7 @@ function sharedMaterial(renderer?: WebGPURenderer | null): Promise<MeshStandardN
       atlasTex = atlas.texture;
       atlasBytes = atlas.gpuBytes;
       atlasKind = atlas.kind;
+      resources.markStreamed(atlas.texture);
       crowdMat = crowdMaterial(palette, atlas.texture);
       return crowdMat;
     }).catch((err) => {
@@ -273,6 +284,7 @@ export function disposeCrowdResources(): void {
   atlasTex = null;
   atlasBytes = 0;
   atlasKind = 'none';
+  if (mat) rigSerial += 1;
   mat?.dispose();
   pal?.dispose();
   atl?.dispose();

@@ -6,6 +6,7 @@ import {
 } from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import { U } from '../../atmosphere/uniforms';
+import { resources } from '../../core/memory';
 import { NITS } from '../../lighting/presets.ts';
 
 const T = TSL as any;
@@ -16,7 +17,10 @@ const {
 
 // Placeholder until the low-mesh silhouette arrives. Swapping `.value` keeps the
 // cached hologram material bound to the same node.
-const dancerMaskTex = new DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
+const dancerMaskTex = resources.texture(
+  () => new DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1),
+  { label: 'dancer-mask-standin', owner: 'humans' },
+);
 dancerMaskTex.needsUpdate = true;
 dancerMaskTex.colorSpace = NoColorSpace;
 dancerMaskTex.wrapS = ClampToEdgeWrapping;
@@ -209,7 +213,7 @@ let shared: MeshBasicNodeMaterial | null = null;
 /** Instanced attributes: iHolo = (design, seed, slice, detail01), iTint = rgb. */
 export function getHoloMaterial(): MeshBasicNodeMaterial {
   if (shared) return shared;
-  const m = new MeshBasicNodeMaterial();
+  const m = resources.material('hologram', () => new MeshBasicNodeMaterial());
   m.name = 'Hologram';
   m.transparent = true;
   m.depthWrite = false;
@@ -276,7 +280,7 @@ let cardMat: MeshBasicNodeMaterial | null = null;
 /** Ground wash under a street-level projector. iCard = rgb + strength. */
 export function getHoloCardMaterial(): MeshBasicNodeMaterial {
   if (cardMat) return cardMat;
-  const m = new MeshBasicNodeMaterial();
+  const m = resources.material('hologram-spill', () => new MeshBasicNodeMaterial());
   m.name = 'HologramSpill';
   m.transparent = true;
   m.depthWrite = false;

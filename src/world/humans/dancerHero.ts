@@ -1,4 +1,4 @@
-// Nearest Veil House dancer, as a mesh, inside about 24 m on medium and above.
+// Nearest Veil House dancer, as a mesh, inside 82 m on medium and above.
 // The instanced hologram quad keeps getHoloMaterial. This is the one extra draw.
 // Far and low stay on that quad, masked by the low-mesh silhouette.
 import {
@@ -8,6 +8,7 @@ import {
 } from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import type { Tier } from '../../core/quality';
+import { resources } from '../../core/memory';
 import { U } from '../../atmosphere/uniforms';
 import { allHolograms } from '../holograms/registry';
 import { installDancerMask, releaseDancerMask } from '../holograms/material';
@@ -38,7 +39,11 @@ function loadPalette(): Promise<Texture> {
     return res.arrayBuffer();
   }).then((buf) => {
     const data = new Uint8Array(buf);
-    const tex = new DataTexture(data, PAL_W, PAL_H, RGBAFormat, UnsignedByteType);
+    // Nearest uint16 bone pairs. Leave this off the streamed list so mip bias cannot move a joint.
+    const tex = resources.texture(
+      () => new DataTexture(data, PAL_W, PAL_H, RGBAFormat, UnsignedByteType),
+      { label: 'dancer-palette', owner: 'humans' },
+    );
     tex.magFilter = NearestFilter;
     tex.minFilter = NearestFilter;
     tex.generateMipmaps = false;
@@ -59,6 +64,7 @@ function loadMaskPng(): Promise<Texture> {
       tex.magFilter = LinearFilter;
       tex.minFilter = LinearFilter;
       tex.generateMipmaps = false;
+      resources.tag(tex, { label: 'dancer-mask', owner: 'humans' });
       resolve(tex);
     }, undefined, reject);
   });
@@ -72,6 +78,7 @@ async function loadMaskTexture(renderer?: WebGPURenderer | null): Promise<{ text
       const tex = await transcodeKtx2(renderer as WebGPURenderer, await res.arrayBuffer());
       tex.generateMipmaps = false;
       tex.needsUpdate = true;
+      resources.tag(tex, { label: 'dancer-mask', owner: 'humans' });
       return { texture: tex, gpuBytes: textureGpuBytes(tex, MASK_W, MASK_H), kind: 'ktx2' };
     } catch (err) {
       console.warn('dancer mask ktx2', err);
@@ -81,8 +88,17 @@ async function loadMaskTexture(renderer?: WebGPURenderer | null): Promise<{ text
   return { texture, gpuBytes: MASK_W * MASK_H * 4, kind: 'png' };
 }
 
+let heroSerial = 0;
+let standinSerial = 0;
+
+function standinMaterial(): MeshBasicNodeMaterial {
+  const key = standinSerial === 0 ? 'dancer-hero-standin' : `dancer-hero-standin-${standinSerial}`;
+  return resources.material(key, () => new MeshBasicNodeMaterial());
+}
+
 function heroMaterial(palette: Texture): MeshBasicNodeMaterial {
-  const m = new MeshBasicNodeMaterial();
+  const key = heroSerial === 0 ? 'dancer-hero' : `dancer-hero-${heroSerial}`;
+  const m = resources.material(key, () => new MeshBasicNodeMaterial());
   m.name = 'DancerHero';
   m.transparent = true;
   m.depthWrite = false;
@@ -158,6 +174,7 @@ function sharedMask(renderer?: WebGPURenderer | null): Promise<void> {
         return;
       }
       installDancerMask(loaded.texture);
+      resources.markStreamed(loaded.texture);
       maskBytes = loaded.gpuBytes;
       maskKind = loaded.kind;
     }).catch((err) => {
@@ -194,6 +211,7 @@ export function disposeDancerResources(): void {
   paletteTex = null;
   maskBytes = 0;
   maskKind = 'none';
+  if (mat) heroSerial += 1;
   mat?.dispose();
   pal?.dispose();
   releaseDancerMask();
@@ -218,12 +236,16 @@ export class DancerHero {
   private owned: BufferGeometry | null = null;
   private disposed = false;
   private pending: DancerLod | null = null;
-  private readonly blank = new BufferGeometry();
+  private readonly blank: BufferGeometry;
   private dummyMat: MeshBasicNodeMaterial | null;
 
   constructor() {
-    this.blank.setAttribute('position', new BufferAttribute(new Float32Array(9), 3));
-    this.dummyMat = new MeshBasicNodeMaterial();
+    this.blank = resources.geometry(() => {
+      const g = new BufferGeometry();
+      g.setAttribute('position', new BufferAttribute(new Float32Array(9), 3));
+      return g;
+    }, { label: 'dancer-hero-blank', owner: 'humans' });
+    this.dummyMat = standinMaterial();
     this.mesh = new Mesh(this.blank, this.dummyMat);
     this.mesh.name = 'dancer-hero';
     this.mesh.frustumCulled = false;
@@ -271,6 +293,7 @@ export class DancerHero {
       }
       this.adopt(geometry);
       if (this.dummyMat) {
+        standinSerial += 1;
         this.dummyMat.dispose();
         this.dummyMat = null;
       }
@@ -294,10 +317,18 @@ export class DancerHero {
     this.allow = false;
     this.ready = false;
     this.releaseGeometry();
-    this.dummyMat?.dispose();
-    this.dummyMat = null;
+    if (this.dummyMat) {
+      standinSerial += 1;
+      this.dummyMat.dispose();
+      this.dummyMat = null;
+    }
     disposeDancerResources();
-    this.mesh.geometry = new BufferGeometry();
+    const blank = this.blank;
+    this.mesh.geometry = resources.geometry(() => new BufferGeometry(), {
+      label: 'dancer-hero-detached',
+      owner: 'humans',
+    });
+    blank.dispose();
     this.mesh.dispose();
     this.shown = 0;
     this.tris = 0;
