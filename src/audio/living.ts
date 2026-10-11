@@ -23,6 +23,7 @@ interface Comb {
   delay: DelayNode;
   fb: GainNode;
   damp: BiquadFilterNode;
+  into: GainNode;
   live: boolean;
 }
 
@@ -43,6 +44,10 @@ export class LivingSound {
   /** Sum of the dry rain, before the space low-pass. */
   private dry: GainNode | null = null;
   private air: BiquadFilterNode | null = null;
+  private early: DelayNode | null = null;
+  private earlyIn: GainNode | null = null;
+  private earlyGain: GainNode | null = null;
+  private earlyLive = false;
   private readonly surfaces: SurfaceNode[] = [];
   private impactFilter: BiquadFilterNode | null = null;
   private impactGain: GainNode | null = null;
@@ -78,7 +83,8 @@ export class LivingSound {
     this.master = master;
     this.tier = tier;
     const bus = ctx.createGain();
-    bus.gain.value = 1;
+    // Keeps the little-tokyo downpour under the -3 dBFS ceiling with the bed left alone.
+    bus.gain.value = 0.62;
     this.bus = bus;
     this.wireBus(tier);
 
@@ -120,6 +126,19 @@ export class LivingSound {
     this.wetBus = wetBus;
     this.wet = wet;
     wet.connect(bus);
+    air.connect(tank);
+    const early = ctx.createDelay(0.25);
+    early.delayTime.value = 0.001;
+    const earlyIn = ctx.createGain();
+    earlyIn.gain.value = 1;
+    const earlyGain = ctx.createGain();
+    earlyGain.gain.value = 0;
+    earlyIn.connect(early);
+    early.connect(earlyGain);
+    earlyGain.connect(bus);
+    this.early = early;
+    this.earlyIn = earlyIn;
+    this.earlyGain = earlyGain;
 
     const reverbIn = ctx.createGain();
     reverbIn.gain.value = 0;
@@ -242,17 +261,34 @@ export class LivingSound {
     const plan = TIER_PLAN[this.tier];
     if (this.air) aim(this.air.frequency, Math.max(180, space.airHz), time, 0.35, 'airHz', 1);
     const use = plan.combs > 0 && wet > 0.02;
+    const earlyLevel = !use ? 0
+      : space.kind === 'alley' ? 0.62
+        : space.kind === 'freeway' ? 0.38
+          : space.kind === 'interior' ? 0.16
+            : space.kind === 'open' ? 0.08
+              : 0.22;
+    if (this.early && this.earlyGain) {
+      this.connectEarly(earlyLevel > 0.02);
+      const delaySec = Math.max(0.008, Math.min(0.22, space.early));
+      if (time == null) {
+        this.early.delayTime.cancelScheduledValues(0);
+        this.early.delayTime.setValueAtTime(delaySec, 0);
+      } else aim(this.early.delayTime, delaySec, time, 0.4, 'early', 0.0005);
+      aim(this.earlyGain.gain, earlyLevel, time, 0.35, 'earlyGain');
+    }
     aim(this.wet?.gain, use ? wet : 0, time, 0.35, 'spaceWet');
     aim(this.reverbIn?.gain, use ? 0.35 : 0, time, 0.3, 'spaceSend');
+    const combCount = space.kind === 'alley' ? 0 : space.kind === 'interior' ? Math.min(1, plan.combs) : plan.combs;
     for (let i = 0; i < this.combs.length; i++) {
       const comb = this.combs[i]!;
-      const on = i < plan.combs && use;
+      const on = i < combCount && use;
       this.connectComb(comb, on);
       if (!on) continue;
       const base = i === 0 ? space.early : COMB_BASE[i]! * space.scale;
       const delay = Math.max(0.008, Math.min(0.22, base));
       aim(comb.delay.delayTime, delay, time, 0.4, 'comb', 0.0005);
-      aim(comb.fb.gain, Math.min(0.55, space.feedback), time, 0.4, 'combFb');
+      aim(comb.fb.gain, Math.min(0.72, space.feedback), time, 0.4, 'combFb');
+      aim(comb.into.gain, i === 0 ? 0.72 : 0.26, time, 0.4, 'combInto');
       const damp = space.lid > 0.5 ? Math.min(space.dampHz, 900) : space.dampHz;
       aim(comb.damp.frequency, damp, time, 0.4, 'combHz', 1);
     }
@@ -378,7 +414,6 @@ export class LivingSound {
     const g = ctx.createGain();
     g.gain.value = 0;
     g.connect(this.dry!);
-    if (this.tank) g.connect(this.tank);
     this.surfaces.push({ filter, gain: g, live: false });
   }
 
@@ -391,13 +426,13 @@ export class LivingSound {
     const fb = ctx.createGain();
     fb.gain.value = 0.3;
     const into = ctx.createGain();
-    into.gain.value = 0.22;
+    into.gain.value = 0.26;
     delay.connect(damp);
     damp.connect(fb);
     fb.connect(delay);
     delay.connect(into);
     into.connect(this.wetBus ?? this.wet!);
-    this.combs.push({ delay, fb, damp, live: false });
+    this.combs.push({ delay, fb, damp, into, live: false });
   }
 
   private addAllpass(ctx: BaseAudioContext): void {
@@ -513,12 +548,24 @@ export class LivingSound {
       src.connect(filter);
       filter.connect(gain);
       gain.connect(dry);
-      if (this.tank) gain.connect(this.tank);
       this.impactLive = true;
     } else if (!on && this.impactLive) {
       try { src.disconnect(filter); } catch { /* parked */ }
       try { gain.disconnect(); } catch { /* parked */ }
       this.impactLive = false;
+    }
+  }
+
+  private connectEarly(on: boolean): void {
+    const air = this.air;
+    const earlyIn = this.earlyIn;
+    if (!air || !earlyIn) return;
+    if (on && !this.earlyLive) {
+      air.connect(earlyIn);
+      this.earlyLive = true;
+    } else if (!on && this.earlyLive) {
+      try { air.disconnect(earlyIn); } catch { /* parked */ }
+      this.earlyLive = false;
     }
   }
 

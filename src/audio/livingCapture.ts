@@ -46,6 +46,9 @@ export interface LivingCapture {
 const SR = 44100;
 
 export async function captureLiving(): Promise<LivingCapture> {
+  const priorRandom = Math.random;
+  Math.random = mulberry32(2049);
+  try {
   const check = livingSelfCheck();
   const memory = (['low', 'medium', 'high', 'ultra'] as const).map((tier) => memoryFor(tier, SR));
   const files: LivingFile[] = [];
@@ -91,9 +94,19 @@ export async function captureLiving(): Promise<LivingCapture> {
   if (spin && !(spin.bands.approach! > spin.bands.leave! + 40)) {
     check.push(`spinner doppler ${spin.bands.approach} -> ${spin.bands.leave}`);
   }
+  const narrow = files.find((f) => f.id === 'space-alley');
   const wide = files.find((f) => f.id === 'space-boulevard');
   const lid = files.find((f) => f.id === 'space-freeway');
   const room = files.find((f) => f.id === 'space-interior');
+  if (narrow && wide && !(narrow.bands.air < wide.bands.air - 3)) {
+    check.push(`alley air ${narrow.bands.air} vs boulevard ${wide.bands.air}`);
+  }
+  if (narrow && wide && !(narrow.bands.slap50! > 0.2 && narrow.bands.slap50! > wide.bands.slap50! + 0.1)) {
+    check.push(`alley slap ${narrow.bands.slap50} vs boulevard ${wide.bands.slap50}`);
+  }
+  if (wide && !(wide.bands.slap220! > 0.1)) {
+    check.push(`boulevard slap ${wide.bands.slap220}`);
+  }
   if (lid && wide && !(lid.bands.air < wide.bands.air - 6)) {
     check.push(`freeway air ${lid.bands.air} vs boulevard ${wide.bands.air}`);
   }
@@ -107,6 +120,19 @@ export async function captureLiving(): Promise<LivingCapture> {
   }
   if (mix.file.peakDb > -3) check.push(`market mix ${mix.file.peakDb} dBFS over the -3 ceiling`);
   return { check, memory, runtimeBytes, planBytes, files };
+  } finally {
+    Math.random = priorRandom;
+  }
+}
+
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
 async function renderSurface(id: SurfaceId): Promise<LivingFile> {
@@ -272,7 +298,7 @@ async function finish(ctx: OfflineAudioContext, id: string): Promise<LivingFile>
     peakDb: db(peak),
     rmsDb: db(rms),
     clips: clipsOf(audio),
-    bands: bandsOf(audio),
+    bands: { ...bandsOf(audio), slap50: corrAt(audio, 0.05), slap220: corrAt(audio, 0.22) },
     wav: bytesToBase64(encodeWav(audio)),
   };
 }
@@ -289,6 +315,37 @@ function placeListener(ctx: BaseAudioContext): void {
   listener.upX.value = 0;
   listener.upY.value = 1;
   listener.upZ.value = 0;
+}
+
+function corrAt(buf: AudioBuffer, delaySec: number): number {
+  const ch = buf.getChannelData(0);
+  const lag = Math.max(1, Math.round(delaySec * buf.sampleRate));
+  const n = ch.length - lag;
+  if (n < 1000) return 0;
+  const step = 4;
+  let count = 0;
+  let ma = 0;
+  let mb = 0;
+  for (let i = 0; i < n; i += step) {
+    ma += ch[i]!;
+    mb += ch[i + lag]!;
+    count++;
+  }
+  ma /= count;
+  mb /= count;
+  let va = 0;
+  let vb = 0;
+  let cov = 0;
+  for (let i = 0; i < n; i += step) {
+    const a = ch[i]! - ma;
+    const b = ch[i + lag]! - mb;
+    va += a * a;
+    vb += b * b;
+    cov += a * b;
+  }
+  const den = Math.sqrt(va * vb);
+  const r = den > 0 ? cov / den : 0;
+  return Math.round(r * 1000) / 1000;
 }
 
 function db(v: number): number {

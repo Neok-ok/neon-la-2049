@@ -20,7 +20,7 @@ export const SURFACES: readonly SurfaceId[] = ['metal', 'glass', 'concrete', 'pu
 
 /** Resonance a drop excites. Written as biquad type, Hz and Q so the graph does not invent a second recipe. */
 export const SURFACE_TONE: Record<SurfaceId, { type: BiquadFilterType; freq: number; q: number; impact: number }> = {
-  metal: { type: 'bandpass', freq: 4600, q: 7.2, impact: 1 },
+  metal: { type: 'highpass', freq: 3000, q: 0.7, impact: 1 },
   glass: { type: 'bandpass', freq: 7400, q: 4.4, impact: 0.82 },
   concrete: { type: 'bandpass', freq: 920, q: 0.48, impact: 0.42 },
   puddle: { type: 'lowpass', freq: 340, q: 0.7, impact: 0.78 },
@@ -270,13 +270,15 @@ export function spaceEar(p: HearInput): SpaceEar {
   if (narrow) {
     return {
       kind: 'alley',
-      early: (2 * gap) / 340,
+      // 2W/c for a 7 m street is 41 ms. This graph drops a delay that short,
+      // so the alley slap is held at 50 ms, the round trip of an 8.5 m gap.
+      early: Math.max(0.05, (2 * gap) / 340),
       scale: 0.68,
-      feedback: 0.5,
-      dampHz: 2400,
-      wet: 0.55,
-      lid: 0.08,
-      airHz: 6400,
+      feedback: 0.7,
+      dampHz: 2800,
+      wet: 0.85,
+      lid: 0.2,
+      airHz: 5000,
     };
   }
   return {
