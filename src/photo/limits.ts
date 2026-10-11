@@ -13,8 +13,8 @@ export const LETTERBOX_RATIO: Record<LetterboxId, number | null> = {
 /**
  * maxEdge is the long side. maxPixels caps area. tile is the largest GPU buffer one capture tile may use.
  * dofScale is the gather resolution (0.5 = half the drawing buffer). dofRings is the number of
- * rings in the disc. dofPx is the blur clamp in full-resolution pixels. Wide circles sample a
- * prefilter mip so the taps stay overlapped instead of copying the picture. dofTaps counts the
+ * rings in the disc. dofPx is the blur clamp in full-resolution pixels. Wide circles gather a
+ * quarter-resolution blur so the taps stay overlapped instead of copying the picture. dofTaps counts the
  * disc, including the centre.
  */
 export const CAPTURE_CAPS: Record<Tier, {
@@ -145,9 +145,9 @@ export function lensTargetMemory(tier: Tier, viewW: number, viewH: number): Lens
     { name: 'scene-color', w, h, format: 'RGBA16F', bytes: w * h * RGBA16F_BYTES },
     { name: 'scene-depth', w, h, format: 'Depth32', bytes: w * h * DEPTH_BYTES },
     { name: 'dof-prefilter', w: dw, h: dh, format: 'RGBA16F', bytes: dw * dh * RGBA16F_BYTES },
-    // Mip chain of the prefilter, used so a wide disc stays filled. About one third of the base.
-    { name: 'dof-prefilter-mips', w: dw, h: dh, format: 'RGBA16F', bytes: Math.floor(dw * dh * RGBA16F_BYTES / 3) },
     { name: 'dof-gather', w: dw, h: dh, format: 'RGBA16F', bytes: dw * dh * RGBA16F_BYTES },
+    // Quarter-resolution plate the wide disc gathers. Half-res targets stay on every tier.
+    { name: 'dof-soft', w: Math.max(1, Math.floor(w * 0.25)), h: Math.max(1, Math.floor(h * 0.25)), format: 'RGBA16F', bytes: Math.max(1, Math.floor(w * 0.25)) * Math.max(1, Math.floor(h * 0.25)) * RGBA16F_BYTES },
   ];
   if (cap.heavyBloom) {
     let bw = Math.floor(w * 0.5);

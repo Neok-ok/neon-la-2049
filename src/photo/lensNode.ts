@@ -12,11 +12,11 @@
 // View-Z is reconstructed with the scene camera's near and far. A gather quad would otherwise
 // substitute its own orthographic range and push every pixel to the blur clamp.
 // A 720p frame hides a real circle of confusion, so once a pixel leaves the plane the radius
-// eases up, and the prefilter mip keeps those wider taps overlapped.
+// eases up. Wide circles gather a quarter-resolution blur, so the taps overlap into one disc.
 // Anamorphic squeeze stretches the gather vertically (oval bokeh after the desqueeze).
 // Edge fringing is a fraction of a pixel at the frame edge. Grain is a hashed value, heavier in the shadows.
 
-import { HalfFloatType, LinearFilter, LinearMipmapLinearFilter, Matrix4, NearestFilter, NodeUpdateType, Vector2, Vector3, type PerspectiveCamera } from 'three/webgpu';
+import { HalfFloatType, Matrix4, NearestFilter, NodeUpdateType, Vector2, Vector3, type PerspectiveCamera } from 'three/webgpu';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import * as TSL from 'three/tsl';
 import { gradeById } from './grades';
@@ -131,17 +131,36 @@ export function createLensRig(
       .add(color.sample(uv.add(T.vec2(hx.mul(-1), hy.mul(-1)))).rgb);
     return T.vec4(acc.mul(0.25), 1);
   })();
-  const prefilter = T.rtt(prefilterNode, null, null, {
-    ...rttOptions,
-    generateMipmaps: true,
-    minFilter: LinearMipmapLinearFilter,
-    magFilter: LinearFilter,
-  });
+  const prefilter = T.rtt(prefilterNode, null, null, rttOptions);
   prefilter.updateBeforeType = NodeUpdateType.NONE;
   prefilter.name = 'dof-prefilter';
 
-  // The disc scales with the circle. A prefilter mip covers the gap between taps, so a wide
-  // stop stays a filled disc instead of a stack of copies. Alpha stores the centre circle.
+  // A small plate already blurred by about ten pixels. Wide taps read this, so they cannot
+  // reprint a sharp sign at each sample.
+  const softNode = T.Fn(() => {
+    const uv = T.uv();
+    const texel = T.vec2(1, 1).div(T.max(uDrawSize, T.vec2(1, 1)));
+    const kernel: Array<[number, number, number]> = [
+      [0, 0, 1],
+      [6, 0, 0.75], [-6, 0, 0.75], [0, 6, 0.75], [0, -6, 0.75],
+      [5, 5, 0.5], [-5, 5, 0.5], [5, -5, 0.5], [-5, -5, 0.5],
+      [11, 0, 0.28], [-11, 0, 0.28], [0, 11, 0.28], [0, -11, 0.28],
+    ];
+    let acc = T.vec3(0, 0, 0);
+    let w = T.float(0);
+    for (const [x, y, k] of kernel) {
+      const sample = color.sample(T.clamp(uv.add(T.vec2(x, y).mul(texel)), T.vec2(0, 0), T.vec2(1, 1))).rgb;
+      acc = acc.add(sample.mul(k));
+      w = w.add(k);
+    }
+    return T.vec4(acc.div(T.max(w, T.float(0.0001))), 1);
+  })();
+  const soft = T.rtt(softNode, null, null, { ...rttOptions, resolutionScale: 0.25 });
+  soft.updateBeforeType = NodeUpdateType.NONE;
+  soft.name = 'dof-soft';
+
+  // Small circles read the half-res plate. Wide circles read the quarter-res blur and stay
+  // one disc. Alpha stores the centre circle for the upsample.
   const gatherNode = T.Fn(() => {
     const uv0 = T.uv();
     const viewDist = (uvNode: unknown) => T.abs(T.perspectiveDepthToViewZ(depth.sample(uvNode).r, uNear, uFar));
@@ -159,8 +178,6 @@ export function createLensRig(
     const centerCoc = cocAt(center);
     const reach = T.min(centerCoc, uMaxPx);
     const squeeze = T.mix(T.float(1), T.float(2), uAnamorphic);
-    // One extra mip past the tap spacing, so the blobs overlap into one disc.
-    const lod = T.log2(T.max(reach.div(rings * pxPerTexel), T.float(1))).add(1.1);
 
     let vel = T.vec2(0, 0);
     if (cap.motion) {
@@ -184,17 +201,21 @@ export function createLensRig(
     disc.forEach(([ox, oy], i) => {
       const along = cap.motion ? (i / n - 0.5) : 0;
       const distPx = T.length(T.vec2(ox, oy)).div(rings).mul(reach);
-      const edge = T.max(reach.mul(0.2), T.float(pxPerTexel));
-      const gate = T.float(1).sub(T.smoothstep(T.max(reach.sub(edge), T.float(0)), reach.add(edge.mul(0.25)), distPx));
-      const stretched = T.vec2(T.float(ox), T.float(oy).mul(squeeze)).div(rings).mul(reach).div(pxPerTexel);
-      const uv = T.clamp(uv0.add(stretched.mul(uDofTexel)).add(vel.mul(along)), T.vec2(0, 0), T.vec2(1, 1));
-      const dist = viewDist(uv);
+      const edge = T.max(reach.mul(0.22), T.float(pxPerTexel));
+      const gate = T.float(1).sub(T.smoothstep(T.max(reach.sub(edge), T.float(0)), reach.add(edge.mul(0.2)), distPx));
+      const dir = T.vec2(T.float(ox), T.float(oy).mul(squeeze)).div(rings);
+      const tightReach = T.min(reach, T.float(4));
+      const tightUv = T.clamp(uv0.add(dir.mul(tightReach).div(pxPerTexel).mul(uDofTexel)).add(vel.mul(along)), T.vec2(0, 0), T.vec2(1, 1));
+      const wideUv = T.clamp(uv0.add(dir.mul(reach).div(pxPerTexel).mul(uDofTexel)).add(vel.mul(along)), T.vec2(0, 0), T.vec2(1, 1));
+      const dist = viewDist(wideUv);
       const sampleCoc = cocAt(dist);
       // A sharper sample must not stamp a focused edge into this pixel's blur.
       const sharper = T.smoothstep(T.float(1.5), T.float(6), centerCoc.sub(sampleCoc));
       const closer = T.smoothstep(T.float(0.35), T.float(1.8), center.sub(dist));
       const w = gate.mul(T.float(1).sub(sharper.mul(0.94))).mul(T.float(1).sub(closer.mul(0.8)));
-      acc = acc.add(prefilter.sample(uv).level(lod).rgb.mul(w));
+      const useWide = T.smoothstep(T.float(2.2), T.float(5.5), reach);
+      const rgb = T.mix(prefilter.sample(tightUv).rgb, soft.sample(wideUv).rgb, useWide);
+      acc = acc.add(rgb.mul(w));
       wsum = wsum.add(w);
     });
     return T.vec4(acc.div(T.max(wsum, T.float(0.0001))), centerCoc);
@@ -296,7 +317,7 @@ export function createLensRig(
   }
 
   return finishRig(
-    scenePass, bloomNode, prefilter, gather, image, camera, viewToPrev,
+    scenePass, bloomNode, prefilter, soft, gather, image, camera, viewToPrev,
     {
       uFocus, uFocal, uFStop, uSensor, uNear, uFar, uViewH, uProjX, uProjY, uAnamorphic, uFlare, uCa,
       uGrain, uVignette, uGradeMix, uMotion, uGrainSeed, uBloom, uLift, uGain, uSat, uContrast, uGamma,
@@ -325,6 +346,7 @@ function finishRig(
   scenePass: LensRig['scenePass'],
   bloomNode: LensRig['bloom'],
   prefilter: Pass,
+  soft: Pass,
   gather: Pass,
   image: any,
   _camera: PerspectiveCamera,
@@ -453,6 +475,7 @@ function finishRig(
       }
       scenePass.updateBefore(frame);
       prefilter.updateBefore(frame);
+      soft.updateBefore(frame);
       gather.updateBefore(frame);
       bloomNode?.updateBefore(frame);
       const passType = scenePass.updateBeforeType;
@@ -469,6 +492,7 @@ function finishRig(
     dispose() {
       bloomNode?.dispose();
       prefilter.dispose?.();
+      soft.dispose?.();
       gather.dispose?.();
       scenePass.dispose?.();
     },
