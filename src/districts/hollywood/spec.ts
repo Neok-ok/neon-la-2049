@@ -2,6 +2,7 @@
 // The archetype id does not: `entertainment` is the unused Stage 1 body.
 import { localToGeo } from '../../world/geo';
 import type { FaceDir } from '../../world/fabric/types';
+import { storeyHeight } from '../../world/architecture/scale';
 
 export const BEARING = 0;
 export const BLOCK_A = 160;
@@ -12,8 +13,18 @@ export const STREET = 22;
  * Stays above 5 m so the mix is cars, not rickshaws.
  */
 export const LANE = 6.4;
-/** Office module inside BIBLE §4 (4.0–5.5 m). Roofs are whole floors of this. */
-export const FLOOR = 4.4;
+/**
+ * Storey module. Roofs that used to be N × 4.4 m snap to whole 3.6 m floors
+ * so the skyline stays in the same band and each floor is 3–4 m.
+ */
+export const FLOOR = 3.6;
+const LEGACY_FLOOR = 4.4;
+/** Glow mast. Not a storey. */
+export const MAST = 4.4;
+
+export function legacyFloors(n: number): number {
+  return storeyHeight(n * LEGACY_FLOOR, FLOOR);
+}
 
 export const LATTICE = {
   i0: 19,

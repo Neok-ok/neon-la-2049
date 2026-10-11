@@ -36,8 +36,8 @@ export const FREIGHT_I = -163;
 /** Clears the 180 m roof. Roof plant can reach about 204 m, but it sits on the block, not this centreline. */
 export const FREIGHT_Y = 200;
 
-/** Office module inside the §4 4.0–5.5 m band. Roofs snap to this. */
-export const MODULE = 5;
+/** Office storey. Roofs snap to this. Heroes keep their authored heights. */
+export const MODULE = 3.6;
 
 /** Two invented peaks. The field stays at or under 155 m so these two own the skyline. */
 export const HERO_A = { i: -163, j: 95, height: 180 } as const;

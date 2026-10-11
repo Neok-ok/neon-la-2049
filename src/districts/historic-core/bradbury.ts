@@ -17,6 +17,8 @@ import { levelGroup } from '../_shared/megatower/place';
 import { buildHeritage, type HeritageSign } from '../_shared/heritage/build';
 import { Mass, type Detail } from './mass';
 import { BRADBURY_FRONT, FACE_YAW, localToWorld } from './spec';
+import { GALLERY_Y } from './courtPlan';
+import { openDoorLeaf } from '../../world/architecture/trim';
 
 export const BRADBURY_LOD = [220, 700];
 export const bradburyTris: number[] = [];
@@ -33,8 +35,11 @@ const D = BRADBURY_FRONT * 2;
 const H = 22.4;
 /** Added to every depth authored with the wall at z = 0, so the pin stays the centre of the volume. */
 const F = BRADBURY_FRONT;
-const DOOR = 4.8;
-const DOOR_H = 7.2;
+/** Walk-through hole. A pale frame rises to 3.6 m around it; the stone stops at the head. */
+const DOOR = 2.2;
+const DOOR_H = 2.2;
+const FRAME_W = 3.2;
+const FRAME_H = 3.6;
 const TUNNEL = 8;
 const COURT = 14;
 const JACKET_H = 27;
@@ -73,7 +78,7 @@ function shellVolume(m: Mass, g: number): void {
   m.solid(0, -2, 2.2, 7.9, g, g + 0.06);
   m.solid(0, -9.2, 6.4, 6.3, g, g + 0.06);
 
-  // Lintel over the tunnel, and the jambs beside the 4.8 m door.
+  // Lintel over the tunnel, and the jambs beside the 2.2 m door.
   m.box(0, 0, F - TUNNEL / 2, g + DOOR_H, COURT, TUNNEL, H - DOOR_H, stone);
   m.solid(0, F - TUNNEL / 2, COURT, TUNNEL, g + DOOR_H, g + H);
   const jambW = (COURT - DOOR) / 2;
@@ -109,7 +114,7 @@ function courtDress(m: Mass, g: number): void {
   m.box(0, 0, F - (TUNNEL + COURT) / 2, g, COURT - 0.4, TUNNEL + COURT, 0.14, dark);
   m.box(1, 0, F - TUNNEL / 2, g, DOOR, TUNNEL, 0.14, dark);
 
-  const levels = [4.4, 8.8, 13.2, 17.6];
+  const levels = GALLERY_Y;
   const inner = COURT / 2 - 0.9;
   for (const y of levels) {
     m.box(1, -inner, F - (TUNNEL + COURT / 2), g + y, 1.7, COURT, 0.22, stone);
@@ -134,8 +139,8 @@ function courtDress(m: Mass, g: number): void {
     m.box(2, x, F - (TUNNEL + COURT / 2), g + H - 0.15, 0.32, COURT - 1.4, 0.28, dark);
   }
   for (const x of [-5.2, 5.2]) {
-    m.box(2, x, F - 15, g + 2.1, 0.18, 0.35, 1.1, warm);
-    m.box(2, x, F - 15, g + 6.6, 0.18, 0.35, 1.1, warm);
+    m.box(2, x, F - 15, g + 1.7, 0.18, 0.35, 1.1, warm);
+    m.box(2, x, F - 15, g + 4.8, 0.18, 0.35, 1.1, warm);
   }
 }
 
@@ -173,10 +178,11 @@ function ornament(m: Mass, g: number): HeritageSign[] {
   m.box(1, 0, F + 0.7, g + H + 0.2, 22, 1.05, 5.4, pale);
   m.box(1, -10.4, F + 0.58, g + H - 0.7, 8.4, 0.85, 2.6, pale);
   m.box(1, 10.4, F + 0.58, g + H - 0.7, 8.4, 0.85, 2.6, pale);
-  const jamb = DOOR / 2 + 0.7;
-  m.box(1, -jamb, F + 0.55, g, 1.15, 0.7, DOOR_H + 0.5, pale);
-  m.box(1, jamb, F + 0.55, g, 1.15, 0.7, DOOR_H + 0.5, pale);
-  m.box(1, 0, F + 0.62, g + DOOR_H, DOOR + 2.4, 0.8, 0.9, pale);
+  const jambW = 0.7;
+  const jamb = DOOR / 2 + jambW / 2;
+  m.box(1, -jamb, F + 0.55, g, jambW, 0.55, FRAME_H, pale);
+  m.box(1, jamb, F + 0.55, g, jambW, 0.55, FRAME_H, pale);
+  m.box(1, 0, F + 0.62, g + DOOR_H, FRAME_W, 0.55, FRAME_H - DOOR_H, pale);
   // Warm lobby light inside the tunnel, so the entry reads as a door rather than another window.
   m.box(1, 0, F - 1.4, g + 0.35, DOOR * 0.7, 0.22, DOOR_H - 0.8, warm);
   return built.signs;
@@ -224,10 +230,16 @@ export function buildBradbury(l: Landmark, env: LandmarkEnv) {
   const full = levels[0]!;
   const signMesh = makeSignMesh(signsFor(l, g, full.signs));
   signMesh.name = `${l.id}-signs`;
+  const leaf = openDoorLeaf('full', DOOR, DOOR_H);
+  if (leaf) {
+    const [hx, hz] = localToWorld(l.x, l.z, FACE_YAW, DOOR / 2, F + 0.35);
+    leaf.position.set(hx, g, hz);
+    leaf.rotation.y = FACE_YAW + 1.15;
+  }
   const r = Math.hypot(W, D) / 2 + 8;
   const object = env.lods.add(
     l.id,
-    [levelGroup(full.mesh, signMesh, full.court), levelGroup(levels[1]!.mesh, levels[1]!.court), levels[2]!.mesh],
+    [levelGroup(full.mesh, signMesh, full.court, leaf), levelGroup(levels[1]!.mesh, levels[1]!.court), levels[2]!.mesh],
     BRADBURY_LOD, l.x, l.z, g, g + JACKET_H, r,
   );
   env.beacons.add(l.x, g + H + 2.6, l.z, LightKind.Warm, 0.55);

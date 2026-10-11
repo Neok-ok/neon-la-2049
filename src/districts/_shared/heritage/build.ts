@@ -120,8 +120,10 @@ export function buildHeritage(plan: HeritagePlan, phrases: readonly number[] = P
   const stoneTint = plan.tint * (plan.family === 'gothic' ? 0.62 : plan.family === 'deco' ? 1.05 : 1);
   const lit = plan.lit;
   const seed = plan.seed;
-  const door = Math.max(0, Math.min(width * 0.46, plan.door));
-  const doorHead = door > 0 ? (plan.marquee ? 3.5 : 6.4) : 0;
+  // A heritage portal is a door. Grand entries stop at 3.2 × 3.6 m.
+  // Marquee heads were already inside that. Plain fronts were 6.4 m.
+  const door = Math.max(0, Math.min(width * 0.46, plan.door, 3.2));
+  const doorHead = door > 0 ? (plan.marquee ? 3.5 : 3.6) : 0;
 
   // Historic front. A door splits the base so the sidewalk can step under the marquee.
   // Skin mode leaves the volume to the caller (a landmark atrium, a reused wall).

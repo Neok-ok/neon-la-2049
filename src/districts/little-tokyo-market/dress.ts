@@ -8,6 +8,7 @@ import { SIGN_RGB } from '../../world/materials/signPalette';
 import { phraseSeed } from '../../world/materials/signPhrases';
 import type { TemplateId } from '../_shared/kit/templates';
 import { lifeSpot, type CrowdLifeSpot } from '../../world/crowdLife';
+import { planFlight } from '../../world/architecture/scale';
 
 /** Kit placement. Kept here (not imported from the three.js batcher) so this file stays worker-safe. */
 export interface MarketProp {
@@ -331,7 +332,7 @@ export function dressBlock(b: MarketBlock, layout: CityLayout): Dressing {
   claim('noodle-bar', 'noodle');
   claim('bibis-bar', 'bibi');
 
-  const SOFFIT = 2.62;
+  const SOFFIT = 2.35;
 
   for (const sl of slots) {
     const alongA = Math.abs(sl.os) > 0.5;
@@ -712,19 +713,31 @@ export function dressBlock(b: MarketBlock, layout: CityLayout): Dressing {
   if (rng.chance(0.38) && b.la > 30) {
     const deckY = 4.05;
     const deckLen = b.la - 16;
+    const flight = planFlight(deckY);
+    const steps = flight.risers;
+    const rise = flight.rise;
+    const run = flight.tread;
     addBox(0, 0, 1.7, deckLen, 0.16, deckY, Style.Industrial, 1, 0.02, 0.8);
-    const steps = 12;
-    const rise = deckY / steps;
-    const run = 0.42;
     const stairT = b.lb / 2 - 10;
     for (let i = 0; i < steps; i++) {
       const s = -deckLen / 2 - (steps - i) * run;
       addBox(s, stairT, 1.15, run * 0.98, rise * (i + 1), 0, Style.Solid, 1, 0.02, 0.75);
+      if (i % 4 === 0) {
+        addBox(s, stairT + 0.52, 0.06, 0.06, 1.05, rise * (i + 1), Style.Solid, 1, 0.02, 0.6);
+        addBox(s, stairT - 0.52, 0.06, 0.06, 1.05, rise * (i + 1), Style.Solid, 1, 0.02, 0.6);
+      }
     }
-    const [rx, rz] = world(0, 0.95);
-    prop('box', rx, b.ground + deckY + 0.55, rz, yawOf(a.bx, a.bz), deckLen * 0.95, 0.08, 0.06, [0.15, 0.15, 0.16], [0, 0, 0], 0.7, 2);
-    const [r2x, r2z] = world(0, -0.95);
-    prop('box', r2x, b.ground + deckY + 0.55, r2z, yawOf(a.bx, a.bz), deckLen * 0.95, 0.08, 0.06, [0.15, 0.15, 0.16], [0, 0, 0], 0.7, 2);
+    // Fabric rail, not a rank-2 prop, so medium and low still show a 1.05 m handrail.
+    for (const t of [0.78, -0.78]) {
+      addBox(0, t, 0.06, deckLen * 0.95, 0.08, deckY + 1.01, Style.Solid, 0, 0.04, 0.55);
+    }
+    const postN = Math.max(2, Math.floor(deckLen / 2.4));
+    for (let i = 0; i < postN; i++) {
+      const s = -deckLen * 0.45 + (postN === 1 ? 0 : (i / (postN - 1)) * deckLen * 0.9);
+      for (const t of [0.78, -0.78]) {
+        addBox(s, t, 0.06, 0.06, 1.05, deckY, Style.Solid, 1, 0.02, 0.6);
+      }
+    }
   }
 
   // bollards and a bin, low rank

@@ -41,7 +41,7 @@ export function installLongBeachInterior(layout: CityLayout = getLayout()): void
   registerInterior({
     id: 'long-beach-concourse',
     volume: placeVolume(f, 0, -5.4, 3.4, 5.6, -0.2, 3.8),
-    doors: [{ id: 'street', exterior: true, box: placeVolume(f, 0, 0.4, 1.05, 0.6, 0, 2.6) }],
+    doors: [{ id: 'street', exterior: true, box: placeVolume(f, 0, 0.4, 1.05, 0.6, 0, 2.2) }],
     showFromOutside: true,
     streamRadius: 46,
     muffle: 0.75,

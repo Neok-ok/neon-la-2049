@@ -11,8 +11,8 @@ export const STREET = 60;
  * Stays above 5 m so the mix is service vehicles, not rickshaws.
  */
 export const LANE = 11.5;
-/** Office module inside BIBLE §4 (4.0–5.5 m). Terminal roofs are whole floors of this. */
-export const FLOOR = 5.0;
+/** Storey. The 70 m terminal is 20 of these. The bay module below is a shed eave, not a floor. */
+export const FLOOR = 3.5;
 /** Hangar eave module, the top of the office range. */
 export const BAY = 5.5;
 
@@ -27,16 +27,18 @@ export const LATTICE = {
   id: 'lax-streets',
 } as const;
 
-/** 14 floors. The Stage 1 terminal was 70 m. */
-export const TERMINAL_H = 14 * FLOOR;
+/** 20 floors. The Stage 1 terminal stays 70 m. */
+export const TERMINAL_FLOORS = 20;
+export const TERMINAL_H = TERMINAL_FLOORS * FLOOR;
 /** Four bays. A clear-span shed, not stacked floors. */
 export const HANGAR_H = 4 * BAY;
 /** Two bays. A dock office beside the sheds. */
 export const SHED_H = 2 * BAY;
 /** Three bays. A flood mast, taller than the §4 street lamp so it clears the sheds. */
 export const PYLON_H = 3 * BAY;
-/** Eleven floors. The standby stack on the pad. It does not leave the ground. */
-export const STACK_H = 11 * FLOOR;
+/** Sixteen floors. One metre over the old 55 m stack, still a ground building. */
+export const STACK_FLOORS = 16;
+export const STACK_H = STACK_FLOORS * FLOOR;
 
 export const HALL_S = 148;
 export const HALL_A = 48;

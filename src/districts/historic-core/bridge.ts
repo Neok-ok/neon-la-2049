@@ -13,6 +13,7 @@ import { LightKind } from '../../world/landmarks/Beacons';
 import type { Landmark } from '../../world/layout';
 import { levelGroup } from '../_shared/megatower/place';
 import { Mass, type Detail } from './mass';
+import { planFlight } from '../../world/architecture/scale';
 import { AX, AZ, BLOCK_A, BRIDGE_YAW, BROADWAY_T, gridToWorld, localToWorld } from './spec';
 
 export const BRIDGE_LOD = [160, 520];
@@ -22,8 +23,11 @@ const DECK = 11.2;
 const SPAN = 16.4;
 const WIDTH = 3.6;
 const PIER = 7.4;
-const STEPS = 32;
-const TREAD = 0.34;
+/** Real risers. The bible's 32 × 0.35 m flight is the old lore, not this stair. */
+const FLIGHT = planFlight(DECK);
+const STEPS = FLIGHT.risers;
+const TREAD = FLIGHT.tread;
+const RISE = FLIGHT.rise;
 
 /** Panel normal faces +A (north), so a camera up the street looks at the figure. */
 const DANCER_YAW = Math.atan2(AX, AZ);
@@ -51,10 +55,11 @@ function structure(m: Mass, g: number): void {
   m.box(1, 0, -WIDTH / 2 + 0.12, g + DECK, SPAN, 0.16, 1.05, dark);
   m.box(1, 0, WIDTH / 2 - 0.12, g + DECK, 8.2, 0.16, 1.05, dark);
 
-  const n = m.max >= 2 ? STEPS : m.max === 1 ? 8 : 0;
-  const rise = DECK / Math.max(1, n);
-  const tread = TREAD * (STEPS / Math.max(1, n));
-  const zFar = WIDTH / 2 + tread * n;
+  // Same step count on mid and near. Stretching eight boxes into the run made 1.4 m rises.
+  const n = m.max >= 1 ? STEPS : 0;
+  const rise = RISE;
+  const tread = TREAD;
+  const zFar = WIDTH / 2 + tread * STEPS;
   for (const x of [-PIER, PIER]) {
     for (let i = 0; i < n; i++) {
       const y0 = g + rise * i;
@@ -63,8 +68,18 @@ function structure(m: Mass, g: number): void {
       if (m.max >= 2) m.solid(x, z, 1.55, tread * 0.96, y0, y0 + rise);
     }
     if (m.max >= 1) {
-      m.box(1, x - 0.85, (WIDTH / 2 + zFar) / 2, g, 0.12, zFar - WIDTH / 2, 1.05, dark);
-      m.box(1, x + 0.85, (WIDTH / 2 + zFar) / 2, g, 0.12, zFar - WIDTH / 2, 1.05, dark);
+      const stride = m.max >= 2 ? 1 : 4;
+      for (let i = 0; i < STEPS; i += stride) {
+        const top = g + rise * (i + 1);
+        const z = zFar - tread * (i + 0.5);
+        const railD = tread * (stride === 1 ? 0.92 : 3.6);
+        m.box(m.max >= 2 ? 2 : 1, x - 0.85, z, top + 0.97, 0.08, railD, 0.08, dark);
+        m.box(m.max >= 2 ? 2 : 1, x + 0.85, z, top + 0.97, 0.08, railD, 0.08, dark);
+        if (m.max >= 2 && i % 4 === 0) {
+          m.box(2, x - 0.85, z, top, 0.08, 0.08, 1.05, dark);
+          m.box(2, x + 0.85, z, top, 0.08, 0.08, 1.05, dark);
+        }
+      }
     }
     // Landing so the last tread meets the deck.
     m.box(1, x, WIDTH / 2 + 0.2, g + DECK - 0.45, 1.55, 0.7, 0.45, concrete);

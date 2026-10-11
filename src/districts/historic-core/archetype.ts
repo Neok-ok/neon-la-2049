@@ -200,7 +200,7 @@ registerArchetype('historic-core', (ctx) => {
         family,
         wrap,
         marquee,
-        door: marquee ? r.range(3.4, 5.6) : 0,
+        door: marquee ? r.range(2.2, 3.2) : 0,
         crown: family === 'deco' ? 'steps' : r.pick(CROWNS),
         blades: onHero ? r.int(3, 5) : r.int(1, 3),
         billboard,
