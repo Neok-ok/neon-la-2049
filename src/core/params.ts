@@ -29,6 +29,8 @@ export const params = {
   freeze: q.get('freeze') === '1',
   /** Hold the sea-wall breaker at the impact phase. Screenshots only. */
   surf: q.get('surf') === '1',
+  /** `full` turns off the reduced coastal lightning. Default is gentle. */
+  flash: q.get('flash') === 'full' ? 'full' as const : 'gentle' as const,
   seed: num('seed'),
   /** 1 force planar reflector, 0 force off, undefined = auto (high/ultra, real GPU, in the market). */
   refl: q.get('refl') === '1' ? 1 : q.get('refl') === '0' ? 0 : undefined,

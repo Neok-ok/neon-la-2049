@@ -65,6 +65,9 @@ function pick(s) {
     lod0: s.lod0,
     readyQueue: s.readyQueue,
     inFlight: s.inFlight ?? null,
+    airDraws: s.air?.draws ?? null,
+    coastImpact: s.coastImpact ?? null,
+    storm: s.storm ?? null,
   };
 }
 
@@ -227,6 +230,11 @@ if (PART.has('load')) {
 }
 
 if (PART.has('spots')) {
+  const spotFilter = process.env.SPOTS
+    ? new Set(process.env.SPOTS.split(',').map((s) => s.trim()).filter(Boolean))
+    : null;
+  const weather = process.env.WEATHER ?? 'rain';
+  const surf = process.env.SURF === '1' ? '&surf=1' : '';
   const spots = [
     ['dtla', () => window.__nla.dtlaView('street')],
     ['little-tokyo', () => window.__nla.marketView('street')],
@@ -239,7 +247,10 @@ if (PART.has('spots')) {
     ['east-la-interchange', () => window.__nla.eastLaView('interchange')],
     ['east-la-market', () => window.__nla.eastLaView('market')],
     ['harbor', () => window.__nla.harborView('street')],
-  ];
+    ['sea-wall', () => window.__nla.coastView('aerial')],
+    ['sea-wall-crest', () => window.__nla.coastView('crest')],
+    ['sea-wall-apron', () => window.__nla.coastView('apron')],
+  ].filter(([name]) => !spotFilter || spotFilter.has(name));
   const rows = [];
   const want = new Set((process.env.TIERS ?? 'low,medium,high,ultra,iphone').split(',').map((s) => s.trim()).filter(Boolean));
   const jobs = [
@@ -249,7 +260,7 @@ if (PART.has('spots')) {
   for (const job of jobs) {
     const ctx = await browser.newContext(job.ctx);
     const page = await ctx.newPage();
-    const booted = await boot(page, `${BASE}?mode=fly&quality=${job.tier}&freeze=1&ui=0&hud=1&time=22.5&weather=rain${webgl}`);
+    const booted = await boot(page, `${BASE}?mode=fly&quality=${job.tier}&freeze=1&ui=0&hud=1&time=22.5&weather=${weather}${surf}${webgl}`);
     for (const [name, after] of spots) {
       await arm(page);
       await page.evaluate(after);

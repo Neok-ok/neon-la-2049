@@ -8,8 +8,9 @@ import { planApron } from './apronPlan';
 import { attachHauler, updateHauler } from './hauler';
 import { attachPiers, updatePiers } from './piers';
 import { nearestWall, waveClock, type WaveState } from './profile';
+import { stormCtl, stormSnap, type StormDrive } from './storm';
 import { updateWall, wallSegmentCount, warmWall } from './surface';
-import { attachWaves, updateWaves } from './waves';
+import { attachWaves, updateWaves, waveStats } from './waves';
 
 export interface CoastClimate {
   fog: number;
@@ -19,6 +20,8 @@ export interface CoastClimate {
   crest: number;
   /** 0..1, 1 against the wall. */
   near: number;
+  storm: boolean;
+  intensity: number;
 }
 
 let installed = false;
@@ -58,6 +61,7 @@ export function updateCoast(
   wind: number,
   layout: CityQuery['layout'],
   holdSurf = false,
+  drive: StormDrive = { on: false, intensity: 0, overtop: false, windDir: 0, paused: false },
 ): CoastClimate {
   const hit = nearestWall(layout, cam.x, cam.z);
   let clock = time;
@@ -68,7 +72,19 @@ export function updateCoast(
   const state: WaveState = waveClock(clock, rain, wind);
   lastImpact = state.impact;
   updateWall(layout, cam.x, cam.z, tier);
-  updateWaves(layout, cam.x, cam.y, cam.z, tier, state, rain);
+  updateWaves(layout, cam.x, cam.y, cam.z, tier, state, rain, clock, wind, drive);
+  const drawn = waveStats();
+  stormSnap.on = drive.on;
+  stormSnap.intensity = drive.intensity;
+  stormSnap.phase = state.phase;
+  stormSnap.period = state.period;
+  stormSnap.impact = state.impact;
+  stormSnap.spray = drawn.spray;
+  stormSnap.overtop = drive.overtop;
+  stormSnap.gentle = stormCtl.gentle;
+  stormSnap.paused = drive.paused || holdSurf;
+  stormSnap.draws = drawn.draws;
+  stormSnap.tris = drawn.tris;
   updatePiers(cam.x, cam.z);
   updateHauler(cam.x, cam.z, dt);
   updateApron(cam.x, cam.z, planApron(layout));
@@ -86,5 +102,6 @@ export function updateCoast(
     surf *= 0.4;
     impact *= 0.25;
   }
-  return { fog, surf, impact, crest: onCrest ? 1 : 0, near };
+  stormSnap.near = near;
+  return { fog, surf, impact, crest: onCrest ? 1 : 0, near, storm: drive.on, intensity: drive.intensity };
 }

@@ -11,6 +11,7 @@ import type { CityLayout } from '../world/layout';
 import { U } from '../atmosphere/uniforms';
 import { NO_STREET_GRAPH, freewayRoutes, type FreewayTrafficSpec } from './trafficRegistry';
 import { TRENCH_LIP } from './trenchQuery';
+import { pastSeaWall } from '../districts/coastal-strip/profile';
 import { poseOn, streetGraph, type GraphEdge, type StreetGraph } from './streetGraph';
 
 const T = TSL as any;
@@ -28,7 +29,7 @@ const _fwd = new Vector3();
 interface Sample { x: number; y: number; z: number }
 
 function accept(layout: CityLayout, x: number, z: number): boolean {
-  if (!layout.inBounds(x, z) || layout.isOcean(x, z)) return false;
+  if (!layout.inBounds(x, z) || layout.isOcean(x, z) || pastSeaWall(layout, x, z)) return false;
   if (NO_STREET_GRAPH.has(layout.districtAt(x, z).id)) return false;
   if (layout.inLandmark(x, z, 2)) return false;
   return true;

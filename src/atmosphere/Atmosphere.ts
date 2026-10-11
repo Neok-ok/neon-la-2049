@@ -7,6 +7,7 @@ import { U } from './uniforms';
 import { Weather, type WeatherId } from './Weather';
 import { installSkyAndFog } from './SkyFog';
 import { applyAirLayers } from './airState';
+import { sampleCoastalFlash, stormSnap, thunderDelay } from '../districts/coastal-strip/storm';
 
 export class DayNight {
   /** 0..24 */
@@ -71,7 +72,14 @@ export class Atmosphere {
     scene.environmentIntensity = 0.3;
   }
 
-  update(dt: number, elapsed: number, renderer: WebGPURenderer): void {
+  /**
+   * `storm` suppresses the old heavy-rain flash so the preset does not double it.
+   * `coastal` is the gentle sea-wall flash (medium and up, near the wall).
+   */
+  update(
+    dt: number, elapsed: number, renderer: WebGPURenderer,
+    sky?: { storm: boolean; coastal: boolean; gentle: boolean },
+  ): { strike: boolean; delay: number; amount: number } {
     this.dayNight.update(dt);
     this.weather.update(dt);
     const w = this.weather.params;
@@ -120,14 +128,30 @@ export class Atmosphere {
     U.haze.value = 0.00003 + w.fog * 0.02;
     applyAirLayers(w.fog, w.layer, w.layerY, w.smogTint, night, Number(U.daylight.value));
 
-    // occasional lightning flash in heavy rain
-    if (w.rain > 0.85 && Math.random() < dt * 0.04) this.lightningT = 0.35;
-    this.lightningT = Math.max(0, this.lightningT - dt);
-    U.lightning.value = this.lightningT > 0 ? Math.max(0, Math.sin(this.lightningT * 60)) * (this.lightningT / 0.35) : 0;
+    // Heavy rain inland keeps the old flash. The sea-wall preset replaces it with a
+    // short, capped coastal flash so the two do not stack.
+    let strike = false;
+    let thunderDelayS = 0;
+    let thunderAmt = 0;
+    if (sky?.storm) {
+      this.lightningT = 0;
+      const flash = sampleCoastalFlash(elapsed, sky.gentle, sky.coastal);
+      U.lightning.value = flash.flash;
+      strike = flash.strike;
+      if (strike) {
+        thunderDelayS = thunderDelay(elapsed, sky.gentle);
+        thunderAmt = sky.gentle ? 0.09 : 0.16;
+      }
+    } else {
+      if (w.rain > 0.85 && Math.random() < dt * 0.04) this.lightningT = 0.35;
+      this.lightningT = Math.max(0, this.lightningT - dt);
+      U.lightning.value = this.lightningT > 0 ? Math.max(0, Math.sin(this.lightningT * 60)) * (this.lightningT / 0.35) : 0;
+    }
 
     this.hemi.color.copy(U.skyHorizon.value as Color).multiplyScalar(1.4);
     this.hemi.groundColor.setRGB(0.05, 0.045, 0.05).lerp(c(0.18, 0.1, 0.06), night * 0.6);
-    this.hemi.intensity = 0.55 + 1.3 * dayF + U.lightning.value * 3;
+    const bolt = sky?.storm ? U.lightning.value * (sky.gentle ? 0.85 : 1.6) : U.lightning.value * 3;
+    this.hemi.intensity = 0.55 + 1.3 * dayF + bolt;
     this.sun.position.copy(sd).multiplyScalar(1000);
     this.sun.intensity = Math.max(0, e) > 0 ? 2.4 * dayF * (1 - w.overcast * 0.75) : 0;
     this.sun.color.copy(U.sunColor.value as Color);
@@ -135,6 +159,8 @@ export class Atmosphere {
 
     this.exposure = 1.15 - 0.25 * dayF;
     renderer.toneMappingExposure = this.exposure;
+    stormSnap.flash = U.lightning.value;
+    return { strike, delay: thunderDelayS, amount: thunderAmt };
   }
 }
 

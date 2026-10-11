@@ -1,5 +1,6 @@
 // Pure module (worker-safe). Turns fabric output into packed vertex arrays for one chunk mesh.
 import type { CityLayout } from '../layout';
+import { nearestWall, pastSeaWall } from '../../districts/coastal-strip/profile';
 import { TRENCH_CUT, TRENCH_LIP, trenchDistance } from '../../vehicles/trenchQuery';
 import type { Box, FabricOutput } from './types';
 import { Style } from './types';
@@ -215,17 +216,31 @@ function emitGround(wr: Writer, layout: CityLayout, x0: number, z0: number, size
     }
   const archAt = (cx: number, cz: number): string =>
     layout.heightAt(cx, cz) > HILL_M ? 'hills-sparse' : layout.districtAt(cx, cz).archetype;
-  const lightsFor = (cx: number, cz: number): number =>
-    rules.groundLights ? (SPRAWL_LIGHTS[archAt(cx, cz)] ?? 0.6) : 0;
+  // One distance test per chunk. Inland chunks never walk the wall polyline per cell.
+  const coast = nearestWall(layout, x0 + size / 2, z0 + size / 2).dist < 1600 + size;
+  const bareBeach = (cx: number, cz: number): boolean => coast && pastSeaWall(layout, cx, cz);
+  const lightsFor = (cx: number, cz: number): number => {
+    if (bareBeach(cx, cz)) return 0;
+    return rules.groundLights ? (SPRAWL_LIGHTS[archAt(cx, cz)] ?? 0.6) : 0;
+  };
   // Ground tint is 1 + sodium + amount. Amount stays under 1 so the shader can split the hue.
+  // Seaward of the crest the beach stays bare: sheen 1, amount 0, so wet streaks stay off.
   const neonFor = (cx: number, cz: number): number => {
+    if (bareBeach(cx, cz)) return 2;
     const arch = archAt(cx, cz);
     const amt = Math.min(0.99, Math.max(0, STREET_NEON[arch] ?? 0.06));
     return 1 + (NEON_SHEEN.has(arch) ? 0 : 1) + amt;
   };
   const cut = chunkHitsTrench(layout, x0, z0, size);
+  let beach = false;
+  if (coast && flat && allLand && !cut) {
+    for (let j = 0; j < n && !beach; j++)
+      for (let i = 0; i < n; i++) {
+        if (pastSeaWall(layout, x0 + (i + 0.5) * cs, z0 + (j + 0.5) * cs)) { beach = true; break; }
+      }
+  }
 
-  if (flat && allLand && !rules.groundLights && !cut) {
+  if (flat && allLand && !rules.groundLights && !cut && !beach) {
     wr.quad([0, 0, size, size, 0, size, size, 0, 0, 0, 0, 0], [0, 1, 0], [x0, z0 + size, x0 + size, z0 + size, x0 + size, z0, x0, z0], [0, Style.Ground, 0, neonFor(x0 + size / 2, z0 + size / 2)]);
     return;
   }

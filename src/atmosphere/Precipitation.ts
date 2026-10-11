@@ -64,6 +64,8 @@ export class Precipitation {
 
     m.positionNode = Fn(() => {
       const c = attribute('corner', 'vec2');
+      // Tilt follows the wind. lightGain below samples `center`, the streak's
+      // un-rotated position, so a coastal lean does not move the light lookup.
       const vel = normalize(vec3(this.uWind.x, float(-speed), this.uWind.z));
       const toCam = normalize(cameraPosition.sub(center));
       const side = normalize(cross(vel, toCam));

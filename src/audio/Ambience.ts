@@ -144,6 +144,7 @@ export class Ambience {
   private machinery = 0;
   private surfGain: GainNode | null = null;
   private impactGain: GainNode | null = null;
+  private thunderGain: GainNode | null = null;
   /** 0..1 wash under the wall. Stored before the audio context exists. */
   private surfAmount = 0;
   /** 0..1 breaker transient, same clock as the visible swell. */
@@ -315,6 +316,16 @@ export class Ambience {
     this.impactGain.gain.value = 0;
     hit.connect(surfBp).connect(this.impactGain).connect(this.master);
 
+    // Distant thunder. Gain stays at zero until a coastal flash cues it.
+    // It does not move the rain, surf, or city gains.
+    const thunder = noise('brown', 3);
+    const thunderLp = ctx.createBiquadFilter();
+    thunderLp.type = 'lowpass';
+    thunderLp.frequency.value = 140;
+    this.thunderGain = ctx.createGain();
+    this.thunderGain.gain.value = 0;
+    thunder.connect(thunderLp).connect(this.thunderGain).connect(this.master);
+
     // Tyre hiss and a low rumble. Noise only, no tones.
     const tire = noise('white', 3);
     const tireBp = ctx.createBiquadFilter();
@@ -476,6 +487,27 @@ export class Ambience {
   /** 0..1. How much of the shared city rumble this district keeps. Not saved. */
   setCityPlace(amount: number): void {
     this.cityPlace = Number.isFinite(amount) ? Math.max(0, Math.min(1, amount)) : 1;
+  }
+
+  /**
+   * One distant crack on the master bus, `delay` seconds after the flash.
+   * Silent until a strike. Does not retune the other beds.
+   */
+  cueThunder(delay: number, amount: number): void {
+    const g = this.thunderGain;
+    const ctx = this.ctx;
+    if (!g || !ctx) return;
+    const t = ctx.currentTime + Math.max(0, delay);
+    const a = Math.max(0.0001, Math.min(0.2, amount));
+    const p = g.gain;
+    try {
+      p.cancelScheduledValues(t);
+      p.setValueAtTime(0.0001, t);
+      p.exponentialRampToValueAtTime(a, t + 0.06);
+      p.exponentialRampToValueAtTime(0.0001, t + 1.7);
+    } catch {
+      // A clock that is already past `t` rejects the ramp. The next strike still cues.
+    }
   }
 
   /** 0..1 wash, 0..1 impact, 0..1 crest wind. Stored before the audio context exists. */

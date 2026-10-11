@@ -49,11 +49,13 @@ import { sampleDistrictLook } from '../atmosphere/districtLook';
 import '../atmosphere/looks';
 import { setAirSample, setAirTier, airFlags } from '../atmosphere/airState';
 import { AirField, shaftCapFor } from '../atmosphere/AirField';
+import { fillEmptyAirLights } from '../atmosphere/airLights';
 import { wallaceCamera, type WallaceView } from '../districts/wallace-vernon/view';
 import { updateWallace } from '../districts/wallace-vernon/live';
 import { wallaceFaceSectorCount } from '../districts/wallace-vernon/faceDetail';
 import { coastCamera, type CoastView } from '../districts/coastal-strip/view';
 import { coastImpact, coastSegmentCount, installCoast, updateCoast } from '../districts/coastal-strip/live';
+import { applyStormTint, coastWorkLights, resolveStorm, stormCtl, stormSnap } from '../districts/coastal-strip/storm';
 import { installInteriors } from '../districts/interior-index';
 import { InteriorSystem } from '../world/interiors';
 import { installCivicHolos } from '../districts/civic-center/holos';
@@ -198,6 +200,7 @@ export class App {
       this.atmosphere.dayNight.frozen = true;
       this.atmosphere.weather.frozen = true;
     }
+    if (params.flash === 'full') stormCtl.gentle = false;
 
     this.streamer = new ChunkStreamer(this.scene, this.quality);
     this.landmarks = new Landmarks(this.query);
@@ -260,6 +263,10 @@ export class App {
           return !this.ambience.muted;
         },
         setWeather: (w) => this.atmosphere.weather.set(w),
+        setGentleFlash: () => {
+          stormCtl.gentle = !stormCtl.gentle;
+          return stormCtl.gentle;
+        },
         setTime: (h) => (this.atmosphere.dayNight.hours = h),
         nextShot: () => this.cams.cine.cut(),
         photo: () => this.togglePhoto(),
@@ -426,8 +433,18 @@ export class App {
     const walLm = this.wallaceLm;
     const inWallace = districtNow.id === 'wallace-vernon'
       || (!!walLm && Math.hypot(cam.x - walLm.x, cam.z - walLm.z) < walLm.reserveRadius + 40);
-    const coast = updateCoast(cam, this.quality.tier, simDt, this.elapsed, this.atmosphere.weather.params.rain, this.atmosphere.weather.params.wind, this.query.layout, params.surf);
-    const look = sampleDistrictLook(this.query.layout, cam.x, cam.z, alt, this.quality.tier, coast.near);
+    const wNow = this.atmosphere.weather;
+    const stormPreset = wNow.current === 'storm' || wNow.target === 'storm';
+    const stormDrive = resolveStorm(stormPreset, wNow.params.rain, wNow.params.wind);
+    const coast = updateCoast(
+      cam, this.quality.tier, simDt, this.elapsed, wNow.params.rain, wNow.params.wind, this.query.layout, params.surf,
+      { ...stormDrive, windDir: wNow.windDir, paused: photoOn },
+    );
+    const look = applyStormTint(
+      sampleDistrictLook(this.query.layout, cam.x, cam.z, alt, this.quality.tier, coast.near),
+      coast.near, stormDrive.on, stormDrive.intensity,
+    );
+    U.stormSky.value = stormDrive.on ? stormDrive.intensity * Math.min(1, Math.max(0, coast.near)) : 0;
     U.neonWet.value = look.neonWet;
     setAirTier(this.quality.tier);
     setAirSample({
@@ -456,7 +473,12 @@ export class App {
     this.lanes.update(simDt, this.camera, this.quality.laneTraffic);
     this.ground.update(simDt, this.camera, this.quality.groundTraffic, this.quality.freewayTraffic, this.quality.tier, this.elapsed);
     this.photoMod?.preAtmosphere();
-    this.atmosphere.update(simDt, this.elapsed, this.renderer);
+    const sky = this.atmosphere.update(simDt, this.elapsed, this.renderer, {
+      storm: stormDrive.on,
+      coastal: stormDrive.on && coast.near > 0.22 && this.quality.tier !== 'low',
+      gentle: stormCtl.gentle,
+    });
+    if (sky.strike) this.ambience.cueThunder(sky.delay, sky.amount * Math.max(0.35, coast.near));
     this.photoMod?.postAtmosphere();
     this.crowd.update(simDt, cam.x, cam.z, this.query, this.quality, this.atmosphere.weather.params.rain, this.elapsed, this.cams.pose().heading);
     this.haze.update(cam.x, cam.z, ground, alt, this.quality.tier);
@@ -486,7 +508,13 @@ export class App {
         this.lanes.collectSpinners(cam.x, cam.y, cam.z, range, out);
       },
     });
-    this.rain.update(simDt, cam, w.params.rain * aboveClouds, w.params.wind * (1 + coast.crest * 0.85), w.windDir, this.quality.rainCount);
+    if (coast.near > 0.2 && this.quality.tier !== 'low') {
+      const slots = this.quality.tier === 'medium' ? 2 : 4;
+      const lamps = coastWorkLights(this.query.layout, cam.x, cam.z, slots);
+      fillEmptyAirLights(lamps.map((p) => ({ ...p, radius: 18, r: 0.55, g: 0.64, b: 0.72 })));
+    }
+    const coastLean = 1 + Math.max(coast.crest * 0.85, coast.near * (stormDrive.on ? 0.35 : 0.08));
+    this.rain.update(simDt, cam, w.params.rain * aboveClouds, w.params.wind * coastLean, w.windDir, this.quality.rainCount);
     this.snow.update(simDt, cam, w.params.snow * aboveClouds, w.params.wind, w.windDir, this.quality.snowCount);
     const at = this.cams.mode === 'walk' ? this.cams.walk.pos : cam;
     this.interiors.update(simDt, this.cams.mode, at.x, at.y, at.z, w.params.rain);
@@ -1106,6 +1134,27 @@ export class App {
         },
         state: () => this.air.snapshot(),
       },
+      storm: {
+        on: (v?: boolean) => {
+          if (v !== undefined) stormCtl.force = v;
+          return stormSnap.on;
+        },
+        intensity: (v?: number) => {
+          if (v !== undefined) stormCtl.intensity = Math.max(0, Math.min(1, v));
+          return stormSnap.intensity;
+        },
+        phase: () => stormSnap.phase,
+        spray: () => stormSnap.spray,
+        overtop: (v?: boolean) => {
+          if (v !== undefined) stormCtl.overtop = v;
+          return stormSnap.overtop;
+        },
+        gentle: (v?: boolean) => {
+          if (v !== undefined) stormCtl.gentle = v;
+          return stormCtl.gentle;
+        },
+        state: () => ({ ...stormSnap }),
+      },
       stats: () => ({
         ...this.streamer.stats,
         fps: this.hud.fps,
@@ -1156,6 +1205,7 @@ export class App {
         photo: this.photoMod?.active ?? false,
         windows: windowState(),
         air: this.air.snapshot(),
+        storm: { ...stormSnap },
         qualityChoice: this.qualityChoice,
         autoTier: this.autoTier,
         autoReason: this.autoReason,

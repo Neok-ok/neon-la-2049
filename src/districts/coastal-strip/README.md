@@ -9,7 +9,8 @@ Stage 10. District `coastal-strip`, archetype `coastal-grey`, both sea walls, PO
 | `profile.ts` | Shared cross-section, 72 m / 128 m pieces, `waveClock`, towers. Pure. |
 | `collision.ts` | Stepped walkable slices, parapet, towers. Fixes the Stage 1 `hw`/`hd` swap. |
 | `surface.ts` | Near detail. One segment added or removed per frame. |
-| `waves.ts` | Swell ribbon, spray cards, wet sheet. Off on the low tier. |
+| `waves.ts` | Gerstner swell, Jacobian foam, breaker spray, overtopping sheets. Off on the low tier. |
+| `storm.ts` | Sea Wall Storm switches, tint, lightning clock, `__nla.storm`. No meshes. |
 | `apronPlan.ts` | Apron and stair layout. Pure, so the worker archetype can avoid it. |
 | `apron.ts` | Apron mesh and colliders. |
 | `piers.ts` | Two instanced drowned clusters. Unbranded. |
@@ -35,7 +36,8 @@ The kit is ribbed, coffered and panelled masses for 90–250 m residential block
 - Stair risers ≤ **0.40 m**, each step offset inland. A stack of floors in one footprint would auto-climb, because `floorBelow` looks 0.45 m up.
 - The ladder beside the lowest flight has solid rails and visual rungs. A vertical ladder is not a walkable stair.
 - Service ladders follow the steep face, offset about 0.7 m into the air. A vertical run at the upper lip sits inside the slope. Near segments wear a solid concrete skin so the Stage 1 window grid stays a far read.
-- Breakers: calm period ~9.2 s, storm ~4.8 s, impact at phase 0.78. Foam and spray emit, because night ambient turns a lit white into black. The shader and the surf bus read the same clock. Low tier: no ribbon, surf gain × 0.4, impact × 0.25. `surf=1` holds that impact for screenshots.
+- Breakers: calm period ~9.2 s, storm ~4.8 s, impact at phase 0.78. Foam and spray emit, because night ambient turns a lit white into black. The shader and the surf bus read the same clock. Low tier: no swell, surf gain × 0.4, impact × 0.25. `surf=1` holds that impact for screenshots. Spray cards sit a few metres seaward of the face (`seawardAcross`), not inside the concrete.
+- Sea Wall Storm (`?weather=storm`) is opt-in. It does not enter the Markov cycle. Gentle lightning is the default. Photo mode pauses the swell with the rest of `elapsed`. `pastSeaWall` drops fabric, street edges, lamps, signs, freeway dress, harbor hulls, and free fliers on the ocean side of the crest. The wall mesh is not moved. The far ocean stays matte so the shared environment does not paint lanes on the water.
 - Service-ladder rails use a cold `Style.Glow` at low intensity so they read at night. The concrete around them stays unlit.
 - Pier clusters sit in the water just seaward of the wall stations nearest the real Santa Monica and Venice pins. The wheel is a partial arc of struts. The Venice piece is a sine spine. No name, no gondolas.
 - One hauler and one patrol. Weight 0.2 so it does not steal lane traffic from downtown.
