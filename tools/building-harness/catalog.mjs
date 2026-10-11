@@ -35,7 +35,8 @@ function clusterTowers(block, dress) {
     if (hit) continue;
     const near = kit.filter((b) => b.family === body.family && Math.hypot(b.s - body.s, b.t - body.t) < 36);
     let faceS = body.s - body.la / 2;
-    const cheeks = near.filter((b) => b.base < 1 && b.la < 1.2 && b.s < body.s);
+    // Door cheeks are the tall thin wall. Treads (h ~ 0.17) and jambs sit in front of that face.
+    const cheeks = near.filter((b) => b.base < 1 && b.la < 1.2 && b.h > 2.5 && b.s < body.s);
     if (cheeks.length) {
       faceS = Math.min(...cheeks.map((b) => b.s - b.la / 2));
     }
