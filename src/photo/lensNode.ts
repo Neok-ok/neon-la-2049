@@ -227,8 +227,8 @@ export function createLensRig(
     }
     const safe = T.smoothstep(T.float(0.0001), T.float(0.02), wsum);
     const blurred = T.mix(sharp, acc.div(T.max(wsum, T.float(0.0001))), safe);
-    // A couple of pixels of circle is a real f/4 background, not a reason to leave the sharp plate.
-    const amt = T.smoothstep(T.float(1.15), T.float(4), centerCoc);
+    // Cross over in about a pixel. A long mix leaves a sharp copy sitting inside the disc.
+    const amt = T.smoothstep(T.float(0.75), T.float(1.7), centerCoc);
     let rgb = T.mix(sharp, blurred, amt);
 
     if (cap.caPx > 0) {
