@@ -113,7 +113,7 @@ export const POSTCARDS: readonly Postcard[] = [
   {
     id: 'sea-wall',
     name: 'Sea wall',
-    focal: 35, focus: 360, aperture: 0.16, roll: 0,
+    focal: 35, focus: 400, aperture: 0.16, roll: 0,
     grade: 'harbor', grain: 0.18, vignette: 0.44, bloom: 0.28, exposure: 0.96,
     letterbox: '2.39', rain: 0.28, fog: 0.0015, snow: 0, hours: 16.8,
     pose: (layout) => {
@@ -125,7 +125,7 @@ export const POSTCARDS: readonly Postcard[] = [
   {
     id: 'harbor-cranes',
     name: 'Harbor cranes',
-    focal: 55, focus: 360, aperture: 0.22, roll: 0,
+    focal: 55, focus: 400, aperture: 0.22, roll: 0,
     grade: 'harbor', grain: 0.2, vignette: 0.38, bloom: 0.34, exposure: 1.02,
     letterbox: '16:9', rain: 0.12, fog: 0.0007, snow: 0, hours: 17.8,
     // The wall lens looks into the sea wall. The aerial is the one that frames the cranes.
