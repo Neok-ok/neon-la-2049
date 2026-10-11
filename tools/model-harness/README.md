@@ -34,7 +34,7 @@ blender --background --python tools/model-harness/blender/build_spinner.py -- \
 | 3 | Bevel normal, AO, roughness and metal maps. High adds one subdivision. Maps are 1024 / 512 / 256 |
 | 4 | Same mesh as 3. The first tuned grade used a one-pixel wear test that sparkled under the rim light |
 | 5 | Drums set into the slab, shoulder flared toward the drum, diagonal door cut, deeper louvers, clean grade |
-| 6 | Door cut and louver field thick enough to read on the sheet, pressed drum ring, larger tail and amber lamps, lighter charcoal grade |
+| 6 | Door cut and louver field thick enough to read on the sheet, pressed drum ring, larger tail and amber lamps, lighter charcoal grade. This is the shipping cut |
 
 The script is the source of truth. Blender is Z-up with the nose on +Y; the glTF is Y-up with the nose on -Z, origin on the ground-contact centre. The M2 box is 5.45 × 2.32 × 1.36 m. The bar is `spinner-look-target.md`.
 
