@@ -280,7 +280,7 @@ PA is four short looping babble buffers (syllable-shaped noise through two inven
 
 ## Photo mode (`src/photo/`)
 
-The module is created on the first press of `P` or the toolbar Photo button (`import()`), and disposed on exit. Play mode does not build the depth pass, the grade, or a capture buffer. The frame loop's only extra work outside the mode is a null check, and `sessionWorstMs` does not record frames while the mode is up, so a flyover measured through `__nla.stats()` stays a play-mode figure.
+The module is created on the first press of `P` or the toolbar Photo button (`import()`), and disposed on exit. Play mode does not build the depth pass, the grade, or a capture buffer. The frame loop's only extra work outside the mode is a null check, and `sessionWorstMs` does not record frames while the mode is up, so a flyover measured through `__nla.stats()` stays a play-mode figure. A medium SwiftShader flight of the twenty districts, with photo mode never entered, matched the same flight from before this pass on geometry bytes and on the start and end heaps.
 
 Entering the mode freezes the simulation: `dt` to crowds, traffic, coast, harbor and the launch becomes 0, `elapsed` stops, and both the day clock and the weather machine are `frozen`. The pose you were in stays mid-stride. That is a shutter freeze, not a reset to a bind pose — people already carry a per-instance phase, so one frozen time does not plant every foot. Rain streaks stop because they fall on `U.time`, and the box still follows the photo camera. Audio ducks to 0.2 on the master gain and does not write `nla.audio`. Exit puts the duck, the clocks, the wetness and the snow cover back, then the mode you were in (fly, walk, cinematic) resumes from the pose it had.
 
