@@ -186,7 +186,7 @@ function weathering() {
 function dressMaterial(src: Material): Material {
   const kind = kindOf(src.name);
   const tex = src as PbrMat;
-  if (kind === 'body' || kind === 'recess' || kind === 'satin' || kind === 'livery' || kind === 'drum' || kind === 'rubber') {
+  if (kind === 'body' || kind === 'recess' || kind === 'satin' || kind === 'livery' || kind === 'drum' || kind === 'rubber' || kind === 'chip' || kind === 'fin') {
     const paint = {
       body: { color: 0x2a2e33, metalness: 0.82, roughness: 0.38, wet: 0.08 },
       satin: { color: 0x9aa2ab, metalness: 0.42, roughness: 0.46, wet: 0.1 },
