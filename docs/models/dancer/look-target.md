@@ -71,13 +71,13 @@ The mesh has to survive the treatment already in `getHoloMaterial`. A clean stud
 | Scan | Line count blends from 8 at detail 0 to 32 at detail 1. The sweep scrolls with time. |
 | Tear | A rare horizontal band (`hash` past 0.988, 22 bands) shifts sideways by `0.04 × detail` in uv. On the 15 m quad that is 0.6 m at full detail. |
 | Flicker | Most frames hold. A dip takes the whole figure to 0.72. A rarer spike adds brightness. |
-| Ghost | High: one extra slice on the nearest five panels in the city, 0.85 m back along the normal, dimmer. Ultra: a second slice. |
+| Ghost | High: one extra slice on the first five panels in the field's score order (distance over range, plus rank, plus view angle), 0.85 m back along the normal, dimmer. Ultra: a second slice. |
 | Spill | Broadway 36 m, Hollywood 48 m, onto concrete and the wet street. Low turns spill off. |
 | Haze | The shader already fades the panel with distance. Fog does not get a second pass. |
 
 A tear may slide a band. It leaves the head attached and the waist still a pinch. A glitch that deletes the raised arm, or that holds for more than a flash, fails.
 
-Low detail keeps the thin glyph: stroke weight about 18% of the close body, which is the shader's `thick` floor. The outer contour, the raised hand, and one skirt flare remain. Interior gaps may close.
+Low detail keeps the thin glyph. Close up, `thick` is 0.18, which only moves each radius a short way from its thin value toward its thick value. Past 160 m `thick` is 0 and every tier uses the thin radii. The outer contour, the raised hand, and one skirt flare remain. Interior gaps may close.
 
 ## How she reads
 

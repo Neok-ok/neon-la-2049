@@ -58,8 +58,8 @@
     <polygon points="72,206 88,206 90,210 72,210"/>
     <!-- Shaft. -->
     <polygon points="98,12 102,12 102,100 98,100"/>
-    <!-- Shallow dome. Centre x 100. -->
-    <polygon points="48,18 152,18 128,8 100,-5 72,8"/>
+    <!-- Shallow dome. Centre x 100. Rim at 1.98 m (local y 12), apex 2.15 m, width 1.05 m. -->
+    <polygon points="47.5,12 152.5,12 140,7 128,2 110,-1 100,-5 90,-1 72,2 60,7"/>
   </g>
 
   <!-- Side, chest depth 24 cm, coat depth 28 cm. Facing local +x. -->

@@ -10,7 +10,7 @@ The tier is a ceiling. Distance spends that ceiling, on the curve the shader alr
 |---|---|---|---|
 | Low | `#outer` shell. One skirt mass, arm up as a spike, veil as a single edge. Interior gaps may close. | Coarse scan (about 8 lines). No tear. No spill. No ground card. No ghost. | The thin sway only (`mot` floor 0.28). |
 | Medium | Bind body, three skirt steps, veil as one sheet, both arms, waist pinched to 4.2 m. | Scan, flicker, tear. Spill and a ground card when the tier has slots. No ghost. | Full idle. |
-| High | Faceted diamond, chevron hems, veil as two ribbons with the notch. | Medium, plus one ghost slice when this panel is among the five nearest in the city. | Full idle, and the close-range thicken. |
+| High | Faceted diamond, chevron hems, veil as two ribbons with the notch. | Medium, plus one ghost slice when this panel is among the first five in the field's score order. | Full idle, and the close-range thicken. |
 | Ultra | The high mesh. | A second ghost slice, same rule. | Same as high. |
 
 Ghost slices are a property of the hologram field, not of this figure alone. They step 0.85 m back and dim. High and ultra share one file, the way the spinner shares `spinner-high.glb` across Ultra and High.

@@ -28,16 +28,14 @@
     <polygon points="8,108 24,118 22,300 18,470 16,640 6,648 10,460 12,280 6,130"/>
   </g>
 
-  <!-- Low / distant shell. Waist filled, veil pulled into the left edge, arm as a spike. -->
+  <!-- Low / distant shell. One simple polygon: waist filled, veil as the left edge, arm as a spike. -->
   <g id="outer" class="mask" transform="translate(180,10)">
-    <polygon points="75,71 96,105 88,150 112,170 122,40 114,22 104,36 118,160 124,190 108,272 120,374 141,450 111,560 75,666 39,560 9,450 8,180 33,184 66,150 54,105"/>
+    <polygon points="118,22 126,50 116,158 114,260 118,340 120,374 141,450 111,560 75,666 39,560 9,450 8,180 33,184 66,150 54,105 75,71 96,105 100,150 108,78 110,22"/>
   </g>
 
-  <!-- Side blade. 3.6 m frame, 1.8 m at the skirt, veil behind (smaller x). -->
+  <!-- Side blade. One polygon, 1.8 m at the skirt (x 9–27), hand above the column. -->
   <g id="side" class="mask" transform="translate(360,10)">
-    <polygon points="18,666 24,560 27,450 22,374 20,326 16,272 20,184 22,150 22,105 18,71 14,105 14,150 12,184 12,272 14,326 10,374 9,450 12,560 14,666"/>
-    <polygon points="8,140 12,200 6,470 5,630 9,640 11,460 14,200"/>
-    <polygon points="18,190 25,120 23,26 17,30 16,150"/>
+    <polygon points="16,666 25,560 27,450 22,374 19,300 20,210 22,160 24,90 24,28 22,22 18,22 16,48 15,100 14,170 12,250 9,450 12,560 14,666"/>
   </g>
 
   <g id="guide">

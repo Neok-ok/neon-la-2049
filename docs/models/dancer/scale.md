@@ -50,7 +50,7 @@ The film's giant pink advertisement was lit from a screen on the order of 30 ft 
 
 `thick = smoothstep(160, 24, distance) × mix(0.18, 1, smoothstep(0.04, 0.28, detail))`
 
-Low forces `detail` to 0, so `thick` never leaves 0.18. Past 160 m every tier is the thin glyph. Inside 24 m, medium and above use the thick radii.
+Low forces `detail` to 0, so the mix stays at 0.18, and distance still multiplies it. Inside 24 m a low figure sits 0.18 of the way from the thin radii to the thick ones. At 160 m and beyond `thick` is 0 on every tier, and the radii are the thin column. Inside 24 m, medium and above climb from that floor toward 1 once `detail` passes about 0.28.
 
 | Shape | Centre uv | Thin rx | Thick rx | ry |
 |---|---|---:|---:|---:|
@@ -67,7 +67,7 @@ Low forces `detail` to 0, so `thick` never leaves 0.18. Past 160 m every tier is
 
 Sway and hip offsets are in the look-target. On the 15 m quad the thick middle chevron is about 7.8 m wide and the head is about 1.5 m wide and 12 m tall. They merge into one pink column. That column is the current silhouette, and it is the fail the overlap plate replaces.
 
-Triangles today: one quad per instance (2), plus ghost slices on the same draw. High adds one slice and ultra a second, each 0.85 m behind the plane, and only for the five nearest panels in the whole city. The dancer is not guaranteed a ghost if five other panels are closer.
+Triangles today: one quad per instance (2), plus ghost slices on the same draw. High adds one slice and ultra a second, each 0.85 m behind the plane. Slices go to the first five panels in the field's score order (`distance / range + rank × 0.42 + view angle × 0.1`), not a pure nearest-five. The dancer is not guaranteed a ghost if five other panels score better.
 
 ## Authoring frame
 
