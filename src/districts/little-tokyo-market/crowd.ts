@@ -24,6 +24,8 @@ const {
 } = T;
 
 const MAX = 720;
+/** Share of market walkers held in the lane ahead of the camera. */
+const LANE_PACK = 0.42;
 /** Full cycle (two steps) at the 1.5 m/s base walk. Frequency is speed / STRIDE. */
 const STRIDE = 1.42;
 const TAU = 6.28318530718;
@@ -526,6 +528,8 @@ export class CrowdField {
   private extraIdx: number[] = [];
   private crossIdx: number[] = [];
   private loopKey = '';
+  private lookHeading = 0;
+  private laneLoops = new Set<number>();
   private coatAttr: InstancedBufferAttribute;
   private canopyAttr: InstancedBufferAttribute;
   private motionAttr: InstancedBufferAttribute;
@@ -554,7 +558,7 @@ export class CrowdField {
     geo.setAttribute('iStyle', this.styleAttr);
   }
 
-  update(dt: number, x: number, z: number, query: CityQuery, quality: QualitySettings, rain: number, time = 0): void {
+  update(dt: number, x: number, z: number, query: CityQuery, quality: QualitySettings, rain: number, time = 0, heading = 0): void {
     const district = query.district(x, z);
     const share = crowdSources.get(district.id)?.share ?? 0;
     const want = Math.min(MAX, Math.round(quality.crowd * share));
@@ -570,6 +574,8 @@ export class CrowdField {
       return;
     }
     const blocks = query.cachedBlocks(x, z, radius);
+    this.lookHeading = heading;
+    const pack = district.id === 'little-tokyo-market';
     const bucket = rain < 0.08 ? 0 : rain < 0.35 ? 1 : rain < 0.75 ? 2 : 3;
     const key = `${district.id}:${want}:${blocks.length}:${blocks[0]?.seed ?? 0}:${blocks[blocks.length - 1]?.seed ?? 0}:${Math.round(x / 20)}:${Math.round(z / 20)}:${bucket}`;
     if (key !== this.loopKey) {
@@ -585,8 +591,9 @@ export class CrowdField {
         else if (loop.extra) this.extraIdx.push(i);
         else this.mainIdx.push(i);
       });
-      this.retarget(want, x, z, rain);
+      this.retarget(want, x, z, rain, pack);
     }
+    if (pack) this.markLaneLoops(x, z);
     const loops = this.loops;
     // No sidewalk in range: draw nobody. A vendor or a gaze slot is not a loop.
     // Keeping the mesh up parked those people at the origin and added a draw on
@@ -629,6 +636,7 @@ export class CrowdField {
       if (a.role !== 'walk' || a.hold) continue;
       const loop = loops[a.loop] ?? loops[0];
       if (!loop || loop.len < 1) continue;
+      if (pack && unit(i, 16) < LANE_PACK) this.keepInLane(i, a, loop, x, z);
       a.u = (a.u + (a.speed * dt) / loop.len) % 1;
       a.cycle = (a.cycle + (a.speed * dt) / STRIDE) % 1;
     }
@@ -671,16 +679,27 @@ export class CrowdField {
       const amp = moving ? 1 : 0;
       if (amp > 0 || (a.role === 'vendor' && quality.tier !== 'low' && a.x < 1e5 && dist < reach)) animated++;
       if (a.role !== 'walk' && a.x < 1e5) idle++;
-      const gy = a.x > 1e5 ? 0 : query.groundHeight(a.x, a.z);
-      _p.set(a.x, gy, a.z);
+      let px = a.x;
+      let pz = a.z;
+      const far = a.x > 1e5;
+      if (!far && a.role !== 'vendor' && dist < 1.05) {
+        const side = unit(i, 21) < 0.5 ? -1 : 1;
+        const lat = 1.2 + unit(i, 22) * 0.85;
+        const fwd = 0.35 + unit(i, 23) * 1.8;
+        const fx = Math.sin(this.lookHeading);
+        const fz = -Math.cos(this.lookHeading);
+        px = x + Math.cos(this.lookHeading) * side * lat + fx * fwd;
+        pz = z + Math.sin(this.lookHeading) * side * lat + fz * fwd;
+      }
+      const gy = far ? 0 : query.groundHeight(px, pz);
+      _p.set(px, gy, pz);
       _q.setFromAxisAngle(_up, a.yaw);
       coat.set(a.coat, i * 3);
       canopy.set(a.canopy, i * 3);
       const sheltered = a.role === 'awning' || a.role === 'vendor';
       const hasUmbrella = !sheltered && unit(i, 12) < holdUmbrella ? 1 : 0;
       const look = a.role === 'queue' ? 1 : a.role === 'gaze' ? 2 : a.role === 'awning' ? 3 : a.role === 'vendor' ? 4 : 0;
-      const hidden = a.x > 1e5 || (a.role !== 'vendor' && dist < 1.05);
-      _s.set(hidden ? 0 : 1, hidden ? 0 : 1, hidden ? 0 : 1);
+      _s.set(far ? 0 : 1, far ? 0 : 1, far ? 0 : 1);
       this.mesh.setMatrixAt(i, _m.compose(_p, _q, _s));
       motion.set([a.cycle, amp, hasUmbrella, look], i * 4);
       style.set([a.hood, a.hat, a.bag, a.shortCoat], i * 4);
@@ -699,7 +718,7 @@ export class CrowdField {
     publishCrowd(district.id, share, n, want, this.life);
   }
 
-  private retarget(want: number, x: number, z: number, rain: number): void {
+  private retarget(want: number, x: number, z: number, rain: number, pack: boolean): void {
     const n = Math.min(want, MAX);
     while (this.agents.length < n) {
       const i = this.agents.length;
@@ -783,8 +802,85 @@ export class CrowdField {
         a.role = 'walk';
         a.loop = this.pickLoop(i);
         a.speed = a.base;
+        if (pack && unit(i, 16) < LANE_PACK) {
+          const loop = this.loops[a.loop];
+          const u = loop ? this.uNear(loop, i, x, z, 7, 16) : null;
+          if (u != null) a.u = u;
+        }
       }
     }
+  }
+
+  /** Loops that pass through the 15 m lane in front of the camera. */
+  private markLaneLoops(x: number, z: number): void {
+    this.laneLoops.clear();
+    const fx = Math.sin(this.lookHeading);
+    const fz = -Math.cos(this.lookHeading);
+    const rx = Math.cos(this.lookHeading);
+    const rz = Math.sin(this.lookHeading);
+    for (let li = 0; li < this.loops.length; li++) {
+      const loop = this.loops[li]!;
+      if (loop.kind !== 'walk' || loop.len < 1) continue;
+      const steps = 24;
+      for (let s = 0; s < steps; s++) {
+        const p = pointOn(loop, s / steps);
+        const dx = p.x - x;
+        const dz = p.z - z;
+        const along = dx * fx + dz * fz;
+        const side = dx * rx + dz * rz;
+        if (along > 1 && along < 18 && Math.abs(side) < 4) {
+          this.laneLoops.add(li);
+          break;
+        }
+      }
+    }
+  }
+
+  /** Walkers on the lane in front of the camera stay in that 15 m stretch. */
+  private keepInLane(i: number, a: Agent, loop: Loop, x: number, z: number): void {
+    if (!this.laneLoops.has(a.loop)) return;
+    const fx = Math.sin(this.lookHeading);
+    const fz = -Math.cos(this.lookHeading);
+    const rx = Math.cos(this.lookHeading);
+    const rz = Math.sin(this.lookHeading);
+    const p = pointOn(loop, a.u);
+    const dx = p.x - x;
+    const dz = p.z - z;
+    const along = dx * fx + dz * fz;
+    const side = dx * rx + dz * rz;
+    if (along >= 5 && along <= 20 && Math.abs(side) < 9) return;
+    const u = this.uNear(loop, i, x, z, 7, 16);
+    if (u != null) a.u = u;
+  }
+
+  /** A point on `loop` that sits `along0`..`along1` metres ahead, within 7.5 m to the side. */
+  private uNear(loop: Loop, i: number, x: number, z: number, along0: number, along1: number): number | null {
+    const fx = Math.sin(this.lookHeading);
+    const fz = -Math.cos(this.lookHeading);
+    const rx = Math.cos(this.lookHeading);
+    const rz = Math.sin(this.lookHeading);
+    const want = along0 + unit(i, 17) * (along1 - along0);
+    const steps = 28;
+    let best = -1;
+    let bestScore = 1e9;
+    for (let s = 0; s < steps; s++) {
+      const u = (s + 0.5) / steps;
+      const p = pointOn(loop, u);
+      const dx = p.x - x;
+      const dz = p.z - z;
+      const along = dx * fx + dz * fz;
+      const side = dx * rx + dz * rz;
+      if (along < along0 || along > along1 || Math.abs(side) > 4) continue;
+      const score = Math.abs(along - want) + Math.abs(side) * 0.25;
+      if (score < bestScore) {
+        bestScore = score;
+        best = u;
+      }
+    }
+    if (best < 0) return null;
+    const span = along1 - along0 > 8 ? 3.2 : 2.4;
+    const jitter = ((unit(i, 18) - 0.5) * span) / Math.max(loop.len, 1);
+    return (best + jitter + 1) % 1;
   }
 
   private pickLoop(i: number): number {

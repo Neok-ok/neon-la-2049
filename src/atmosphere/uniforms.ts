@@ -38,6 +38,10 @@ export const U = {
   lightning: uniform(0),
   /** 0..1 how strongly street-level rain should pick up neon (set from the district under the camera). */
   neonWet: uniform(0.35),
+  /** 0 = magenta/cyan rain tint, 1 = sodium. Follows the district under the camera. */
+  sheen: uniform(1),
+  /** Camera metres above the ground. Ground neon fades out as this rises. */
+  camAlt: uniform(2),
   /** Extra ground-fog in a dressed market, 0..1. */
   streetFog: uniform(0),
   /** 1 when the planar wet reflector is drawing, so the fake neon streaks step back. */

@@ -71,51 +71,57 @@ const SPRAWL_LIGHTS: Record<string, number> = {
   // Flood carpet for the apron. The old spaceport key is unused. Under the basin (0.52), above industrial (0.35).
   'lax-apron': 0.46,
   'hills-sparse': 0.15,
+  // Live ids. Without these keys the ground inherited the 0.6 fallback.
+  'civic-center': 0.32,
+  'k-megablock': 0.42,
 };
 
-/** How strongly wet streets reflect neon, by archetype (0..1). */
+/**
+ * Wet-street amount by archetype, 0..1. Hue is separate: only the streets in
+ * NEON_SHEEN stay magenta/cyan. Everyone else is a thin sodium sheen, or black at 0.
+ */
 const STREET_NEON: Record<string, number> = {
-  'street-market': 1,
-  'little-tokyo-market': 1,
-  'neon-canyon': 1,
-  'historic-core': 1,
-  entertainment: 1,
-  // Wet violet. Under the canyon (1), above the basin (0.16). Fades by ~520 m, so a 1 km aerial is the carpet.
-  'hollywood-strip': 0.86,
-  'megablock-market': 0.8,
-  'megablock-downtown': 0.72,
-  // Wet sodium and neon. Under downtown (0.72), above the basin (0.16) and Lakewood (0.08).
-  'long-beach-core': 0.28,
-  'financial-megatowers': 0.55,
-  'megatower-core': 0.5,
-  'sprawl-dense': 0.35,
-  // Wet amber above the basin (0.16), a step above Westside (0.35), well under Hollywood (0.86).
-  'east-la-sprawl': 0.38,
-  // Copies sprawl-dense so the amber carpet does not change. Stage 14 owns basin-sprawl.
-  'westside-sprawl': 0.35,
-  // Faint amber sheen: under Westside 0.35, a small step above South LA 0.10. Fades by ~520 m.
-  'basin-sprawl': 0.16,
-  'megablock-residential': 0.3,
-  'lakewood-megablocks': 0.08,
-  'south-la-megablocks': 0.1,
-  civic: 0.2,
-  'coastal-grey': 0.04,
-  industrial: 0.1,
-  // No market-neon carpet. Rain in the precinct stays a dark amber haze.
+  'street-market': 0.5,
+  'little-tokyo-market': 0.62,
+  'neon-canyon': 0.5,
+  'historic-core': 0.58,
+  entertainment: 0.5,
+  'hollywood-strip': 0.5,
+  'megablock-market': 0.1,
+  'megablock-downtown': 0.1,
+  'long-beach-core': 0.08,
+  'financial-megatowers': 0.08,
+  'megatower-core': 0.08,
+  'sprawl-dense': 0.05,
+  'east-la-sprawl': 0.06,
+  'westside-sprawl': 0.05,
+  'basin-sprawl': 0.04,
+  'megablock-residential': 0.05,
+  'lakewood-megablocks': 0.04,
+  'south-la-megablocks': 0.05,
+  civic: 0.04,
+  'civic-center': 0.04,
+  'k-megablock': 0.05,
+  'coastal-grey': 0,
+  industrial: 0.02,
   'wallace-vernon': 0,
-  'industrial-dense': 0.1,
-  // A little wet amber. Under Westside 0.35. Fades by ~520 m, so a 1 km aerial is the carpet.
-  'southeast-refinery': 0.18,
-  // Wet amber under the belt (0.18) and above unused industrial (0.1). Fades by ~520 m.
-  'south-bay-refinery': 0.12,
-  // Wet sodium under the South Bay (0.12) and above unused `port` (0.1).
-  'harbor-port': 0.11,
-  port: 0.1,
-  spaceport: 0.15,
-  // Sparse wayfinding. Under industrial (0.1). Fades by ~520 m, so a 1 km aerial is the carpet.
-  'lax-apron': 0.08,
-  'hills-sparse': 0.05,
+  'industrial-dense': 0.02,
+  'southeast-refinery': 0.04,
+  'south-bay-refinery': 0.03,
+  'harbor-port': 0.02,
+  port: 0.02,
+  spaceport: 0.02,
+  'lax-apron': 0.02,
+  'hills-sparse': 0,
 };
+
+/** Magenta/cyan rain. Every other archetype is sodium (or black when the amount is 0). */
+const NEON_SHEEN = new Set([
+  'street-market', 'little-tokyo-market', 'neon-canyon', 'historic-core', 'entertainment', 'hollywood-strip',
+]);
+
+/** Same ground swap as generator.ts HILL_ARCHETYPE_THRESHOLD. Not imported: the worker boundary. */
+const HILL_M = 45;
 
 class Writer {
   pos: number[] = [];
@@ -207,10 +213,16 @@ function emitGround(wr: Writer, layout: CityLayout, x0: number, z0: number, size
       land[j * n + i] = isLand;
       if (!isLand) allLand = false;
     }
+  const archAt = (cx: number, cz: number): string =>
+    layout.heightAt(cx, cz) > HILL_M ? 'hills-sparse' : layout.districtAt(cx, cz).archetype;
   const lightsFor = (cx: number, cz: number): number =>
-    rules.groundLights ? (SPRAWL_LIGHTS[layout.districtAt(cx, cz).archetype] ?? 0.6) : 0;
-  // ground tint channel carries 1 + neon reflection strength (read by the city material)
-  const neonFor = (cx: number, cz: number): number => 1 + (STREET_NEON[layout.districtAt(cx, cz).archetype] ?? 0.2);
+    rules.groundLights ? (SPRAWL_LIGHTS[archAt(cx, cz)] ?? 0.6) : 0;
+  // Ground tint is 1 + sodium + amount. Amount stays under 1 so the shader can split the hue.
+  const neonFor = (cx: number, cz: number): number => {
+    const arch = archAt(cx, cz);
+    const amt = Math.min(0.99, Math.max(0, STREET_NEON[arch] ?? 0.06));
+    return 1 + (NEON_SHEEN.has(arch) ? 0 : 1) + amt;
+  };
   const cut = chunkHitsTrench(layout, x0, z0, size);
 
   if (flat && allLand && !rules.groundLights && !cut) {

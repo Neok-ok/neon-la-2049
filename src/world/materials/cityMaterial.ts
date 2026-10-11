@@ -18,7 +18,8 @@ const {
 } = T;
 
 const ALBEDO = [0.06, 0.2, 0.15, 0.2, 0.24, 0.3, 0.22, 0.3, 0.25, 0.17, 0.14, 0.13, 0.19, 0.1, 0.085, 0.18, 0.155, 0.17, 0.28, 0.24];
-const WARMTH = [0, 0.55, 0.25, 0.7, 0.9, 0.5, 0.75, 0.3, 0.8, 0.6, 0.45, 0.35, 0.6, 0.9, 0.95, 0.62, 0.48, 0.4, 0.58, 0.22];
+// Coastal (index 5) is a step cooler than the old 0.5 so the sea wall reads grey, not beige.
+const WARMTH = [0, 0.55, 0.25, 0.7, 0.9, 0.12, 0.75, 0.3, 0.8, 0.6, 0.45, 0.35, 0.6, 0.9, 0.95, 0.62, 0.48, 0.4, 0.58, 0.22];
 
 let shared: MeshStandardNodeMaterial | null = null;
 let detail = false;
@@ -140,13 +141,17 @@ function compose(m: MeshStandardNodeMaterial, living: boolean): void {
   const groundLights = mix(gLights, gAvg, smoothstep(0.3, 1.0, gFoot)).mul(warmC).mul(isGround).mul(step(0.001, lit)).mul(2.0);
 
   // ---- fake neon reflections on wet streets (near camera only) ----
-  // ground bdata.w = 1 + district neon amount (see mesher emitGround)
-  const neonAmt = clamp(tint.sub(1.0), 0, 1).mul(isGround);
+  // Ground bdata.w is 1 + sheen + amount (see mesher emitGround). Sheen 0 is magenta/cyan
+  // on Broadway, Little Tokyo and Hollywood. Sheen 1 is sodium, or black when the amount is ~0.
+  const band = tint.sub(1.0);
+  const sodium = step(float(1.0), band);
+  const neonAmt = clamp(mix(band, band.sub(1.0), sodium), 0.0, 1.0).mul(isGround);
   const fres = pow(float(1).sub(clamp(viewToCam.y, 0, 1)), 2.5);
   const nA = mx_noise_float(vec3(wpos.x.mul(0.045), wpos.z.mul(0.045), 4.0));
-  const nB = mx_noise_float(vec3(wpos.x.mul(0.11), wpos.z.mul(0.11), 9.0));
-  const neonCol = mix(mix(vec3(1.0, 0.18, 0.55), vec3(0.15, 0.85, 1.0), smoothstep(-0.25, 0.25, nA)), vec3(1.0, 0.55, 0.15), smoothstep(0.15, 0.5, nB));
-  const streaks = mx_noise_float(vec3(wpos.x.mul(0.9), wpos.z.mul(0.9), 1.0)).mul(0.5).add(0.5);
+  const streaks = mx_noise_float(vec3(wpos.x.mul(1.6), wpos.z.mul(0.42), 2.0));
+  const magCyan = mix(vec3(1.0, 0.14, 0.5), vec3(0.12, 0.78, 1.0), smoothstep(-0.15, 0.35, nA));
+  const neonCol = mix(magCyan, vec3(0.92, 0.52, 0.16), sodium);
+  const streakOn = smoothstep(0.55, 0.84, streaks);
 
   // ---- albedo ----
   const stain = mx_noise_float(vec3(facade.x.mul(0.11), facade.y.mul(0.018), seed.mul(37.0))).mul(0.5).add(0.5);
@@ -171,9 +176,13 @@ function compose(m: MeshStandardNodeMaterial, living: boolean): void {
   const wet = U.wetness;
   const darken = mix(1.0, 0.55, wet.mul(isGround.add(isRoof).min(1)).add(wet.mul(isWall).mul(0.35)));
   baseColor = baseColor.mul(darken);
-  const neonRefl = neonCol.mul(fres).mul(wet).mul(puddle.mul(0.75).add(0.25)).mul(streaks.mul(0.6).add(0.4))
-    .mul(U.night.mul(0.8).add(0.2)).mul(U.signPower).mul(neonAmt).mul(smoothstep(140.0, 520.0, distCam).oneMinus())
-    .mul(mix(float(1.15), float(0.4), U.reflMix));
+  // Streaks and puddles only. A constant floor painted the whole lane, including a 0.1 weight.
+  const mask = mix(streakOn.mul(0.8), puddle.mul(0.18), sodium);
+  const altFade = smoothstep(72.0, 26.0, U.camAlt);
+  const neonRefl = neonCol.mul(fres).mul(wet).mul(mask)
+    .mul(U.night.mul(0.88).add(0.04)).mul(U.signPower).mul(neonAmt).mul(altFade)
+    .mul(smoothstep(140.0, 520.0, distCam).oneMinus())
+    .mul(mix(float(1.05), float(0.35), U.reflMix));
 
   const upness = clamp(normalLocal.y, 0, 1);
   const snowAmt = U.snow.mul(smoothstep(0.55, 0.95, upness)).mul(

@@ -55,8 +55,8 @@ import { marketPin } from '../districts/east-la/locate';
 import { harborHum, mountHarbor, updateHarbor } from '../districts/harbor/field';
 import { setRefineryFlame } from '../districts/_shared/refinery/flames';
 import { installArtsHolos } from '../districts/arts-district/holos';
-import { artsRiverBoost } from '../districts/arts-district/plan';
-import { eastDistance } from '../districts/south-la-megablocks/spec';
+import { sampleDistrictLook } from '../atmosphere/districtLook';
+import '../atmosphere/looks';
 import { wallaceCamera, type WallaceView } from '../districts/wallace-vernon/view';
 import { updateWallace } from '../districts/wallace-vernon/live';
 import { wallaceFaceSectorCount } from '../districts/wallace-vernon/faceDetail';
@@ -93,11 +93,14 @@ const T = TSL as any;
 const DEG = Math.PI / 180;
 const MODES: ModeId[] = ['fly', 'walk', 'cine'];
 
-/** Default opening view: above Little Tokyo looking south-east toward the Wallace pyramid. */
+/** Opening seat above the inversion: Little Tokyo azimuth, nose on the pyramid's lower tiers. */
 function defaultPose(): Pose {
   const [x, z] = geoToLocal(34.0505, -118.2405);
   const [px, pz] = geoToLocal(34.005, -118.2);
-  return { position: new Vector3(x, 230, z), heading: Math.atan2(px - x, -(pz - z)), pitch: -0.08 };
+  const dist = Math.hypot(px - x, pz - z) || 1;
+  const y = 540;
+  const pitch = Math.atan2(1100 - y, dist);
+  return { position: new Vector3(x, y, z), heading: Math.atan2(px - x, -(pz - z)), pitch };
 }
 
 export class App {
@@ -430,60 +433,20 @@ export class App {
     const alt = cam.y - ground;
     const districtNow = this.query.district(cam.x, cam.z);
     const inMarket = districtNow.id === 'little-tokyo-market';
-    const inDtla = districtNow.id === 'dtla';
-    const inHistoric = districtNow.id === 'historic-core';
-    const inK = districtNow.id === 'k-megablock';
-    const inLake = districtNow.id === 'lakewood-megablocks';
-    const inSouth = districtNow.id === 'south-la-megablocks';
     const inArts = districtNow.id === 'arts-district';
     const inSoutheast = districtNow.id === 'southeast-industrial';
-    const inSouthBay = districtNow.id === 'south-bay-refineries';
-    const inHarbor = districtNow.id === 'harbor';
-    const inLong = districtNow.id === 'long-beach';
     const inEast = districtNow.id === 'east-la';
-    const southAmber = inSouth ? Math.max(0, 1 - eastDistance(cam.x, cam.z) / 1500) : 0;
     const walLm = this.query.layout.landmarkById('wallace-pyramid');
     const inWallace = districtNow.id === 'wallace-vernon'
       || (!!walLm && Math.hypot(cam.x - walLm.x, cam.z - walLm.z) < walLm.reserveRadius + 40);
     const coast = updateCoast(cam, this.quality.tier, simDt, this.elapsed, this.atmosphere.weather.params.rain, this.atmosphere.weather.params.wind, this.query.layout, params.surf);
-    const inCoast = districtNow.id === 'coastal-strip' || coast.near > 0.45;
-    const inCanyon = inDtla || (districtNow.id === 'financial-megatowers' && alt < 40);
-    U.neonWet.value = inMarket && alt < 140 ? 0.92
-      : inHistoric && alt < 120 ? 0.88
-        : inCanyon && alt < 90 ? 0.62
-          : inK && alt < 48 ? 0.5
-            : inSouth && alt < 46 ? 0.42 + southAmber * 0.14
-              : inLake && alt < 46 ? 0.38
-                : inLong && alt < 72 ? 0.46
-                  : inEast && alt < 40 ? 0.4
-                    : inArts && alt < 50 ? 0.26
-                    : inSouthBay && alt < 60 ? 0.16
-                      : inHarbor && alt < 55 ? 0.14
-                        : inCoast ? 0.06
-                          : 0.22;
-    const districtFog = inMarket ? Math.max(0, Math.min(1, 1 - alt / 70)) * 0.8
-      : inHistoric && alt < 90 ? 0.42 * (1 - alt / 90)
-        : inDtla && alt < 80 ? 0.28 * (1 - alt / 80)
-          : inK && alt < 40 ? 0.36 * (1 - alt / 40)
-            : inSouth && alt < 40 ? 0.34 * (1 - alt / 40)
-              : inLake && alt < 40 ? 0.30 * (1 - alt / 40)
-                : inWallace && alt < 110 ? 0.78 * (1 - alt / 110)
-                  : 0;
-    const artsFogK = this.quality.tier === 'low' ? 0.25
-      : this.quality.tier === 'medium' ? 0.55
-        : this.quality.tier === 'high' ? 0.85
-          : 1;
-    const artsFog = inArts && alt < 42
-      ? (0.46 + artsRiverBoost(this.query.layout, cam.x, cam.z) * 0.28) * (1 - alt / 42) * artsFogK
-      : 0;
-    const sbFogK = this.quality.tier === 'low' ? 0.35
-      : this.quality.tier === 'medium' ? 0.6
-        : this.quality.tier === 'high' ? 0.85
-          : 1;
-    const sbFog = inSouthBay && alt < 80 ? 0.4 * (1 - alt / 80) * sbFogK : 0;
-    const harborFog = inHarbor && alt < 90 ? 0.46 * (1 - alt / 90) * sbFogK : 0;
-    const longFog = inLong && alt < 70 ? 0.22 * (1 - alt / 70) * sbFogK : 0;
-    U.streetFog.value = Math.max(districtFog, coast.fog, artsFog, sbFog, harborFog, longFog);
+    const look = sampleDistrictLook(this.query.layout, cam.x, cam.z, alt, this.quality.tier, coast.near);
+    U.neonWet.value = look.neonWet;
+    let streetFog = Math.max(look.streetFog, coast.fog);
+    if (inWallace) streetFog = Math.max(streetFog, 0.78 * Math.max(0, 1 - alt / 110));
+    U.streetFog.value = streetFog;
+    U.sheen.value = look.sheen;
+    U.camAlt.value = alt;
     const dtSafe = Math.max(dt, 1e-4);
     this.query.warm(cam.x, cam.z, cam.x + ((cam.x - this.lastCam.x) / dtSafe) * 0.45, cam.z + ((cam.z - this.lastCam.z) / dtSafe) * 0.45);
     this.lastCam.copy(cam);
@@ -502,7 +465,7 @@ export class App {
     this.photoMod?.preAtmosphere();
     this.atmosphere.update(simDt, this.elapsed, this.renderer);
     this.photoMod?.postAtmosphere();
-    this.crowd.update(simDt, cam.x, cam.z, this.query, this.quality, this.atmosphere.weather.params.rain, this.elapsed);
+    this.crowd.update(simDt, cam.x, cam.z, this.query, this.quality, this.atmosphere.weather.params.rain, this.elapsed, this.cams.pose().heading);
     this.haze.update(cam.x, cam.z, ground, alt, this.quality.tier);
     const wantRefl = params.refl === 1 || (
       params.refl !== 0 && !this.software && (this.quality.tier === 'high' || this.quality.tier === 'ultra')

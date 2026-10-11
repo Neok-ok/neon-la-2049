@@ -38,7 +38,8 @@ export class DayNight {
 const c = (r: number, g: number, b: number) => new Color(r, g, b);
 const NIGHT = { zenith: c(0.006, 0.007, 0.011), horizon: c(0.085, 0.056, 0.04), fog: c(0.05, 0.037, 0.03) };
 const DUSK = { zenith: c(0.07, 0.07, 0.09), horizon: c(0.5, 0.28, 0.16), fog: c(0.36, 0.23, 0.15) };
-const DAY = { zenith: c(0.33, 0.35, 0.37), horizon: c(0.58, 0.55, 0.49), fog: c(0.5, 0.48, 0.43) };
+// Cold steel grey-blue. Orange stays on DUSK and on the smog weather, not on a clear noon.
+const DAY = { zenith: c(0.22, 0.31, 0.42), horizon: c(0.40, 0.49, 0.58), fog: c(0.36, 0.44, 0.52) };
 const SMOG_TINT = c(0.85, 0.55, 0.3);
 const SNOW_TINT = c(0.85, 0.9, 1.0);
 
@@ -86,8 +87,10 @@ export class Atmosphere {
       // smog tint (brown-orange) and snow (cold white-grey)
       tmpA.copy(out).multiply(SMOG_TINT).multiplyScalar(1.25);
       out.lerp(tmpA, w.smogTint * 0.6);
-      tmpB.copy(out).multiply(SNOW_TINT).multiplyScalar(1.2);
-      out.lerp(tmpB, w.snow);
+      // A dark sodium night stays brown if snow only multiplies it. Lerp toward the cold tint.
+      const snowLift = tmpB.copy(SNOW_TINT).multiplyScalar(0.55);
+      tmpA.copy(out).lerp(snowLift, 0.85);
+      out.lerp(tmpA, w.snow);
       return out;
     };
     mixSet('zenith', U.skyZenith.value as Color);
@@ -97,11 +100,16 @@ export class Atmosphere {
     (U.skyZenith.value as Color).lerp(U.skyHorizon.value as Color, w.overcast * 0.5);
 
     (U.sunDir.value as Vector3).copy(sd);
-    (U.sunColor.value as Color).setRGB(1, 0.86 - duskF * 0.25, 0.72 - duskF * 0.4);
+    const sun = U.sunColor.value as Color;
+    sun.setRGB(1, 0.86 - duskF * 0.25, 0.72 - duskF * 0.4);
+    // Noon light goes cold with the sky. Dusk keeps the orange set above.
+    const dayCool = smoothstep(0.55, 0.95, dayF) * (1 - duskF);
+    sun.lerp(tmpB.setRGB(0.76, 0.84, 0.94), dayCool * 0.65);
     U.daylight.value = dayF * (1 - w.overcast * 0.75);
     U.night.value = night;
-    U.windowLit.value = 0.35 + 0.65 * smoothstep(0.25, -0.05, e);
-    U.signPower.value = 0.55 + 0.45 * night;
+    // Day keeps a few windows and a dim sign. It is not night with the lights left on.
+    U.windowLit.value = 0.12 + 0.88 * smoothstep(0.25, -0.05, e);
+    U.signPower.value = 0.14 + 0.86 * night;
     U.time.value = elapsed % 3600;
     U.wetness.value = this.weather.wetness;
     U.rain.value = w.rain;
