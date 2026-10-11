@@ -11,11 +11,16 @@ export const LETTERBOX_RATIO: Record<LetterboxId, number | null> = {
 };
 
 /** maxEdge is the long side. maxPixels caps area. tile is the largest GPU buffer one capture tile may use. */
-export const CAPTURE_CAPS: Record<Tier, { maxEdge: number; maxPixels: number; tile: number; dofTaps: number; dofPx: number; heavyBloom: boolean }> = {
-  low: { maxEdge: 1280, maxPixels: 1280 * 720, tile: 480, dofTaps: 5, dofPx: 5, heavyBloom: false },
-  medium: { maxEdge: 1920, maxPixels: 1920 * 1080, tile: 640, dofTaps: 9, dofPx: 8, heavyBloom: false },
-  high: { maxEdge: 2560, maxPixels: 2560 * 1440, tile: 768, dofTaps: 13, dofPx: 14, heavyBloom: true },
-  ultra: { maxEdge: 2560, maxPixels: 2560 * 1440, tile: 1024, dofTaps: 17, dofPx: 18, heavyBloom: true },
+export const CAPTURE_CAPS: Record<Tier, {
+  maxEdge: number; maxPixels: number; tile: number;
+  dofTaps: number; dofPx: number; heavyBloom: boolean;
+  /** Motion smear and anamorphic streak. Low keeps the gather small and skips both. */
+  motion: boolean; motionPx: number; flareTaps: number; caPx: number;
+}> = {
+  low: { maxEdge: 1280, maxPixels: 1280 * 720, tile: 480, dofTaps: 5, dofPx: 6, heavyBloom: false, motion: false, motionPx: 0, flareTaps: 0, caPx: 0 },
+  medium: { maxEdge: 1920, maxPixels: 1920 * 1080, tile: 640, dofTaps: 9, dofPx: 10, heavyBloom: false, motion: true, motionPx: 8, flareTaps: 4, caPx: 0.65 },
+  high: { maxEdge: 2560, maxPixels: 2560 * 1440, tile: 768, dofTaps: 13, dofPx: 16, heavyBloom: true, motion: true, motionPx: 14, flareTaps: 8, caPx: 1.05 },
+  ultra: { maxEdge: 2560, maxPixels: 2560 * 1440, tile: 1024, dofTaps: 17, dofPx: 22, heavyBloom: true, motion: true, motionPx: 18, flareTaps: 12, caPx: 1.35 },
 };
 
 export interface FrameSize {

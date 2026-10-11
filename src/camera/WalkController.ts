@@ -5,6 +5,7 @@ import { applyViewFov, gameplayHeld, lookScale } from '../input/controls';
 import type { Input } from '../input/Input';
 import type { CityQuery } from '../world/CityQuery';
 import { nearestSeat } from '../world/seats';
+import { advanceShake, walkStormOffset } from './shake';
 
 export const HUMAN = { eye: 1.7, radius: 0.32, height: 1.8, walk: 1.5, run: 4.2 };
 
@@ -111,7 +112,9 @@ export class WalkController implements Controller {
     this.bob += moving * dt * 2.2;
     const bobY = Math.sin(this.bob * Math.PI) * 0.025 * Math.min(1, moving / 1.5);
     const eye = this.seated ? 1.15 : HUMAN.eye;
-    this.camera.position.set(this.pos.x, this.pos.y + eye + bobY, this.pos.z);
+    advanceShake(dt);
+    const shiver = walkStormOffset();
+    this.camera.position.set(this.pos.x + shiver.x, this.pos.y + eye + bobY + shiver.y, this.pos.z + shiver.z);
     this.camera.rotation.set(this.pitch, -this.heading, 0, 'YXZ');
   }
 }

@@ -2,6 +2,9 @@
 import { Raycaster, Vector2, Vector3, type Object3D } from 'three/webgpu';
 import { U } from '../atmosphere/uniforms';
 import { applyAirLayers } from '../atmosphere/airState';
+import { apertureFromFStop, formatFStop, fStopFromAperture, FSTOP_MAX, FSTOP_MIN } from '../camera/lensModel';
+import { pollPad } from '../camera/gamepad';
+import { calmCamera, reducedMotion, setCalmCamera } from '../camera/reducedMotion';
 import { frameSize, visibleFraction } from './limits';
 import { GRADES } from './grades';
 import { POSTCARDS, postcardById } from './postcards';
@@ -34,15 +37,19 @@ export class PhotoMode {
   private readonly ndc = new Vector2();
   private readonly scale = new Vector3(1, 1, 1);
   private grainSeed = 0;
+  private afClock = 0;
+  private afWant = 12;
+  private syncing = false;
   private lastImageUrl: string | null = null;
   private postcardId = '';
   private saved = { weatherFrozen: false, dayFrozen: false, snowCover: 0, wetness: 0, hours: 22, fov: 60 };
   private savedMatrix = new Array<number>(16).fill(0);
   private readonly state: PhotoState = {
-    focal: 35, focus: 12, aperture: 0.35, roll: 0, exposure: 1,
+    focal: 35, focus: 12, aperture: 0.35, fStop: fStopFromAperture(0.35), anamorphic: 0, motion: 0.2,
+    roll: 0, exposure: 1,
     grade: 'plain', grain: 0.12, vignette: 0.28, bloom: 0.28,
     letterbox: 'off', rain: 0, fog: 0.0016, snow: 0, hours: 22,
-    orbit: false, guide: 'off', size: '1080', postcard: '',
+    orbit: false, autofocus: true, chrome: true, guide: 'off', size: '1080', postcard: '',
   };
 
   private readonly root: HTMLDivElement;
@@ -57,10 +64,16 @@ export class PhotoMode {
   private sizeSel!: HTMLSelectElement;
   private orbitBtn!: HTMLButtonElement;
   private guideBtn!: HTMLButtonElement;
+  private afBtn!: HTMLButtonElement;
+  private scopeBtn!: HTMLButtonElement;
+  private hideBtn!: HTMLButtonElement;
+  private playBtn!: HTMLButtonElement;
+  private calmBox!: HTMLInputElement;
 
   constructor(private host: PhotoHost) {
     this.cam = new PhotoCamera(host.canvas, host.layout);
     this.cam.onTap = (x, y) => this.focusAt(x, y);
+    this.cam.onFStop = (dir) => this.nudgeFStop(dir);
     this.raycaster.far = 2000;
     this.root = el('div', 'photo-ui');
     this.bars = el('div', 'photo-bars');
@@ -80,14 +93,29 @@ export class PhotoMode {
         this.orbitBtn.classList.toggle('on', this.cam.orbit);
       })),
       (this.guideBtn = button('Guide', () => this.cycleGuide())),
-      button('Shutter', () => { void this.capture({ kind: this.state.size }); }),
+      (this.afBtn = button('AF', () => this.toggleAf())),
+      (this.scopeBtn = button('Scope', () => this.toggleScope())),
+      (this.hideBtn = button('Hide', () => this.setChrome(!this.state.chrome))),
+      button('Mark', () => this.markPath()),
+      (this.playBtn = button('Play', () => this.playPath())),
+      button('Shutter', () => { void this.capture({ kind: this.state.size }); }, 'shutter'),
     );
     this.readout = el('div', 'photo-readout');
     this.sheet = el('div', 'photo-sheet');
     this.sheet.hidden = matchMedia('(pointer: coarse)').matches;
     this.buildSheet();
+    const dock = el('div', 'photo-dock');
+    dock.append(
+      button('AF', () => this.toggleAf()),
+      button('f−', () => this.nudgeFStop(-1)),
+      button('f+', () => this.nudgeFStop(1)),
+      button('Scope', () => this.toggleScope()),
+      button('Hide', () => this.setChrome(!this.state.chrome)),
+      button('Shutter', () => { void this.capture({ kind: this.state.size }); }, 'shutter'),
+    );
+    const reveal = button('Show', () => this.setChrome(true), 'photo-reveal');
     const veil = el('div', 'photo-veil', 'Exposing');
-    this.root.append(this.bars, this.guide, bar, this.readout, this.sheet, veil);
+    this.root.append(this.bars, this.guide, bar, dock, this.readout, this.sheet, reveal, veil);
     this.root.hidden = true;
     document.body.appendChild(this.root);
   }
@@ -115,8 +143,13 @@ export class PhotoMode {
     const tier = this.host.tier();
     this.state.focal = this.cam.focal;
     this.state.focus = this.cam.focus;
+    this.afWant = this.cam.focus;
     this.state.roll = this.cam.roll;
-    this.state.aperture = 0.35;
+    this.setAperture(0.35);
+    this.state.anamorphic = 0;
+    this.state.motion = tier === 'low' ? 0 : 0.2;
+    this.state.autofocus = true;
+    this.state.chrome = true;
     this.state.exposure = 1;
     this.state.grade = 'plain';
     this.state.grain = 0.12;
@@ -137,6 +170,7 @@ export class PhotoMode {
     this.active = true;
     this.root.hidden = false;
     document.body.classList.add('photo-on');
+    this.applyChrome();
     this.cam.attach();
     this.placeOverlays();
   }
@@ -160,7 +194,7 @@ export class PhotoMode {
     cam.matrix.decompose(cam.position, cam.quaternion, this.scale);
     cam.matrixAutoUpdate = true;
     this.host.restoreView(this.saved.fov);
-    document.body.classList.remove('photo-on', 'photo-busy');
+    document.body.classList.remove('photo-on', 'photo-busy', 'photo-clean');
     this.root.hidden = true;
   }
 
@@ -197,13 +231,41 @@ export class PhotoMode {
     const input = this.host.input;
     if (input.wasPressed('BracketLeft')) this.state.hours = (this.state.hours + 23) % 24;
     if (input.wasPressed('BracketRight')) this.state.hours = (this.state.hours + 1) % 24;
-    this.cam.update(dt, input);
+    if (input.wasPressed('KeyG')) this.cycleGrade(1);
+    if (input.wasPressed('KeyL')) this.cycleLetterbox();
+    if (input.wasPressed('KeyH')) this.setChrome(!this.state.chrome);
+    if (input.wasPressed('KeyK')) void this.capture({ kind: this.state.size });
+    if (input.wasPressed('KeyF')) this.toggleAf(true);
+    if (input.wasPressed('KeyO')) this.toggleScope();
+    if (input.wasPressed('Comma')) this.nudgeFStop(-1);
+    if (input.wasPressed('Period')) this.nudgeFStop(1);
+    const pad = pollPad();
+    if (pad.a) void this.capture({ kind: this.state.size });
+    if (pad.b) {
+      this.exit();
+      return;
+    }
+    if (pad.x) this.markPath();
+    if (pad.y) this.playPath();
+    if (pad.rb) this.cam.focal = clamp(this.cam.focal * 1.15, 18, 200);
+    if (pad.lb) this.cam.focal = clamp(this.cam.focal / 1.15, 18, 200);
+    if (pad.up) this.state.exposure = clamp(this.state.exposure + 0.06, 0.4, 2.2);
+    if (pad.down) this.state.exposure = clamp(this.state.exposure - 0.06, 0.4, 2.2);
+    if (pad.right) this.cycleGrade(1);
+    if (pad.left) this.cycleGrade(-1);
+    this.cam.update(dt, input, pad);
+    if (this.cam.focusTouched) {
+      this.cam.focusTouched = false;
+      this.state.autofocus = false;
+      this.afWant = this.cam.focus;
+    } else if (this.state.autofocus && !this.cam.playing) this.trackFocus(dt);
     this.cam.apply(this.host.camera);
     this.state.focal = this.cam.focal;
     this.state.focus = this.cam.focus;
     this.state.roll = this.cam.roll;
     this.state.orbit = this.cam.orbit;
     this.orbitBtn.classList.toggle('on', this.cam.orbit);
+    this.paintToggles();
     this.placeOverlays();
   }
 
@@ -226,11 +288,19 @@ export class PhotoMode {
     if (this.active) this.rebuild();
   }
 
-  setLens(p: Partial<Pick<PhotoState, 'focal' | 'focus' | 'aperture' | 'roll'>>): void {
+  setLens(p: Partial<Pick<PhotoState, 'focal' | 'focus' | 'aperture' | 'fStop' | 'anamorphic' | 'motion' | 'autofocus' | 'roll'>>): void {
     if (!this.active) return;
     if (p.focal != null) this.cam.focal = clamp(p.focal, 18, 200);
-    if (p.focus != null) this.cam.focus = clamp(p.focus, 0.4, 400);
-    if (p.aperture != null) this.state.aperture = clamp(p.aperture, 0, 1);
+    if (p.focus != null) {
+      this.cam.focus = clamp(p.focus, 0.4, 400);
+      this.afWant = this.cam.focus;
+      this.state.autofocus = false;
+    }
+    if (p.fStop != null) this.setFStop(p.fStop);
+    else if (p.aperture != null) this.setAperture(p.aperture);
+    if (p.anamorphic != null) this.state.anamorphic = clamp(p.anamorphic, 0, 1);
+    if (p.motion != null) this.state.motion = clamp(p.motion, 0, 1);
+    if (p.autofocus != null) this.state.autofocus = p.autofocus;
     if (p.roll != null) this.cam.roll = clamp(p.roll, -Math.PI / 6, Math.PI / 6);
     if (this.cam.orbit) this.cam.captureTarget();
     this.pullSliders();
@@ -270,7 +340,10 @@ export class PhotoMode {
     this.cam.focal = card.focal;
     this.cam.focus = card.focus;
     this.cam.roll = card.roll;
-    this.state.aperture = card.aperture;
+    this.setAperture(card.aperture);
+    this.state.anamorphic = card.letterbox === '2.39' ? 0.35 : 0;
+    this.state.motion = 0;
+    this.state.autofocus = false;
     this.state.grade = card.grade;
     this.state.grain = card.grain;
     this.state.vignette = card.vignette;
@@ -331,13 +404,20 @@ export class PhotoMode {
   }
 
   private shade() {
+    const scope = this.state.anamorphic;
     return {
       focus: this.cam.focus,
       aperture: this.state.aperture,
+      fStop: this.state.fStop,
+      focal: this.cam.focal,
+      anamorphic: scope,
+      flare: scope > 0.05 ? 0.22 + scope * 0.55 : 0.06,
+      motion: reducedMotion() ? 0 : this.state.motion,
       bloom: this.state.bloom,
       grain: this.state.grain,
       vignette: this.state.vignette,
       grade: this.state.grade,
+      gradeMix: 1,
       grainSeed: this.grainSeed,
     };
   }
@@ -345,6 +425,116 @@ export class PhotoMode {
   private rebuild(): void {
     this.pipeline?.dispose();
     this.pipeline = createPhotoPipeline(this.host.renderer, this.host.scene, this.host.camera, this.host.tier());
+  }
+
+  private setFStop(f: number): void {
+    this.state.fStop = clamp(f, FSTOP_MIN, FSTOP_MAX);
+    this.state.aperture = apertureFromFStop(this.state.fStop);
+  }
+
+  private setAperture(a: number): void {
+    this.state.aperture = clamp(a, 0, 1);
+    this.state.fStop = fStopFromAperture(this.state.aperture);
+  }
+
+  private nudgeFStop(dir: number): void {
+    this.setFStop(this.state.fStop * Math.pow(2, dir * -1 / 3));
+    this.pullSliders();
+  }
+
+  private toggleAf(forceOn = false): void {
+    this.state.autofocus = forceOn ? true : !this.state.autofocus;
+    if (this.state.autofocus) {
+      const d = this.distanceAt(0, 0);
+      if (d != null) {
+        this.afWant = d;
+        this.cam.focus = d;
+      }
+    }
+    this.paintToggles();
+  }
+
+  private toggleScope(): void {
+    const on = this.state.anamorphic < 0.5;
+    this.state.anamorphic = on ? 1 : 0;
+    if (on && this.state.letterbox === 'off') this.state.letterbox = '2.39';
+    this.pullSliders();
+    this.placeOverlays();
+  }
+
+  private setChrome(on: boolean): void {
+    this.state.chrome = on;
+    this.applyChrome();
+  }
+
+  private applyChrome(): void {
+    document.body.classList.toggle('photo-clean', this.active && !this.state.chrome);
+    this.paintToggles();
+  }
+
+  private paintToggles(): void {
+    this.afBtn.classList.toggle('on', this.state.autofocus);
+    this.scopeBtn.classList.toggle('on', this.state.anamorphic > 0.5);
+    this.playBtn.classList.toggle('on', this.cam.playing);
+    this.hideBtn.classList.toggle('on', !this.state.chrome);
+    this.root.querySelectorAll('.photo-dock button').forEach((node) => {
+      const b = node as HTMLButtonElement;
+      if (b.textContent === 'AF') b.classList.toggle('on', this.state.autofocus);
+      if (b.textContent === 'Scope') b.classList.toggle('on', this.state.anamorphic > 0.5);
+    });
+  }
+
+  private cycleGrade(dir: number): void {
+    const ids = GRADES.map((g) => g.id);
+    const i = Math.max(0, ids.indexOf(this.state.grade));
+    this.state.grade = ids[(i + dir + ids.length) % ids.length]!;
+    this.gradeSel.value = this.state.grade;
+  }
+
+  private cycleLetterbox(): void {
+    const ids = LETTERS.map(([id]) => id);
+    const i = Math.max(0, ids.indexOf(this.state.letterbox));
+    this.state.letterbox = ids[(i + 1) % ids.length]!;
+    this.boxSel.value = this.state.letterbox;
+    this.placeOverlays();
+  }
+
+  private markPath(): void {
+    const n = this.cam.markKnot();
+    this.host.flash(n >= 8 ? 'Path holds 8 marks. The oldest one was dropped.' : `Mark ${n}. Play glides between them.`);
+    this.paintToggles();
+  }
+
+  private playPath(): void {
+    const on = this.cam.togglePlay();
+    if (!on && this.cam.marks.length < 2) this.host.flash('Mark two spots, then play.');
+    this.paintToggles();
+  }
+
+  private trackFocus(dt: number): void {
+    this.afClock += dt;
+    if (this.afClock >= 0.15) {
+      this.afClock = 0;
+      const d = this.distanceAt(0, 0);
+      if (d != null) this.afWant = d;
+    }
+    const k = 1 - Math.exp(-Math.max(0, dt) * 5);
+    this.cam.focus += (this.afWant - this.cam.focus) * k;
+  }
+
+  private distanceAt(ndcX: number, ndcY: number): number | null {
+    this.ndc.set(ndcX, ndcY);
+    this.raycaster.setFromCamera(this.ndc, this.host.camera);
+    const hits = this.raycaster.intersectObjects(this.host.scene.children, true);
+    for (const hit of hits) {
+      if (skipObject(hit.object)) continue;
+      return Math.max(0.4, hit.distance);
+    }
+    const { origin, direction } = this.raycaster.ray;
+    if (Math.abs(direction.y) < 1e-4) return null;
+    const ground = this.host.layout.heightAt(origin.x, origin.z);
+    const t = (ground - origin.y) / direction.y;
+    return t > 0.4 ? t : null;
   }
 
   private cycleGuide(): void {
@@ -363,6 +553,8 @@ export class PhotoMode {
     for (const hit of hits) {
       if (skipObject(hit.object)) continue;
       this.cam.focus = Math.max(0.4, hit.distance);
+      this.afWant = this.cam.focus;
+      this.state.autofocus = false;
       if (this.cam.orbit) this.cam.captureTarget();
       this.pullSliders();
       return;
@@ -375,6 +567,8 @@ export class PhotoMode {
     const t = (g - origin.y) / direction.y;
     if (t > 0.4) {
       this.cam.focus = t;
+      this.afWant = t;
+      this.state.autofocus = false;
       if (this.cam.orbit) this.cam.captureTarget();
       this.pullSliders();
     }
@@ -419,16 +613,24 @@ export class PhotoMode {
     }
     const size = frameSize(this.state.size, this.state.size === 'wallpaper' ? '9:19.5' : this.state.letterbox, this.host.tier(), vw, vh);
     const roll = Math.round(this.cam.roll * 180 / Math.PI);
-    this.readout.textContent = `${Math.round(this.cam.focal)} mm · ${this.cam.focus.toFixed(1)} m · roll ${roll}° · save ${size.w}×${size.h}${size.capped ? ' (capped)' : ''}`;
+    const af = this.state.autofocus ? 'AF' : 'MF';
+    const path = this.cam.marks.length ? ` · ${this.cam.playing ? 'play' : 'marks'} ${this.cam.marks.length}` : '';
+    this.readout.textContent = `${Math.round(this.cam.focal)} mm · ${formatFStop(this.state.fStop)} · ${this.cam.focus.toFixed(1)} m · ${af} · roll ${roll}°${path} · save ${size.w}×${size.h}${size.capped ? ' (capped)' : ''}`;
   }
 
   private buildSheet(): void {
     this.slider('Focal', 'focal', 0, 1000, 1, () => logTo(18, 200, this.cam.focal), (v) => { this.cam.focal = fromLog(18, 200, v); }, () => `${Math.round(this.cam.focal)} mm`);
     this.slider('Focus', 'focus', 0, 1000, 1, () => logTo(0.4, 400, this.cam.focus), (v) => {
       this.cam.focus = fromLog(0.4, 400, v);
+      this.afWant = this.cam.focus;
+      if (!this.syncing) this.state.autofocus = false;
       if (this.cam.orbit) this.cam.captureTarget();
     }, () => `${this.cam.focus.toFixed(1)} m`);
-    this.slider('Aperture', 'aperture', 0, 100, 1, () => this.state.aperture * 100, (v) => { this.state.aperture = v / 100; }, () => this.state.aperture.toFixed(2));
+    this.slider('f-stop', 'fstop', 0, 1000, 1, () => logTo(FSTOP_MIN, FSTOP_MAX, this.state.fStop), (v) => {
+      this.setFStop(fromLog(FSTOP_MIN, FSTOP_MAX, v));
+    }, () => formatFStop(this.state.fStop));
+    this.slider('Scope', 'scope', 0, 100, 1, () => this.state.anamorphic * 100, (v) => { this.state.anamorphic = v / 100; }, () => this.state.anamorphic.toFixed(2));
+    this.slider('Motion', 'motion', 0, 100, 1, () => this.state.motion * 100, (v) => { this.state.motion = v / 100; }, () => reducedMotion() ? 'off' : this.state.motion.toFixed(2));
     this.slider('Roll', 'roll', -30, 30, 1, () => this.cam.roll * 180 / Math.PI, (v) => { this.cam.roll = v * Math.PI / 180; }, () => `${Math.round(this.cam.roll * 180 / Math.PI)}°`);
     this.slider('Exposure', 'exposure', 40, 220, 1, () => this.state.exposure * 100, (v) => { this.state.exposure = v / 100; }, () => this.state.exposure.toFixed(2));
     this.slider('Grain', 'grain', 0, 100, 1, () => this.state.grain * 100, (v) => { this.state.grain = v / 100; }, () => this.state.grain.toFixed(2));
@@ -464,6 +666,13 @@ export class PhotoMode {
     const row = el('div', 'photo-picks');
     row.append(this.gradeSel, this.boxSel, this.sizeSel, cards);
     this.sheet.append(row);
+    const calm = el('label', 'photo-check');
+    this.calmBox = document.createElement('input');
+    this.calmBox.type = 'checkbox';
+    this.calmBox.checked = calmCamera();
+    this.calmBox.addEventListener('change', () => setCalmCamera(this.calmBox.checked));
+    calm.append(this.calmBox, document.createTextNode(' Calm camera (no shake, no smear)'));
+    this.sheet.append(calm);
   }
 
   private slider(label: string, key: string, min: number, max: number, step: number, read: () => number, write: (v: number) => void, text: () => string): void {
@@ -488,6 +697,7 @@ export class PhotoMode {
   }
 
   private pullSliders(): void {
+    this.syncing = true;
     const set = (key: string, value: number) => {
       const input = this.sliders.get(key);
       if (!input) return;
@@ -496,7 +706,9 @@ export class PhotoMode {
     };
     set('focal', logTo(18, 200, this.cam.focal));
     set('focus', logTo(0.4, 400, this.cam.focus));
-    set('aperture', this.state.aperture * 100);
+    set('fstop', logTo(FSTOP_MIN, FSTOP_MAX, this.state.fStop));
+    set('scope', this.state.anamorphic * 100);
+    set('motion', this.state.motion * 100);
     set('roll', this.cam.roll * 180 / Math.PI);
     set('exposure', this.state.exposure * 100);
     set('grain', this.state.grain * 100);
@@ -510,6 +722,9 @@ export class PhotoMode {
     this.boxSel.value = this.state.letterbox;
     this.sizeSel.value = this.state.size;
     this.orbitBtn.classList.toggle('on', this.cam.orbit);
+    if (this.calmBox) this.calmBox.checked = calmCamera();
+    this.paintToggles();
+    this.syncing = false;
   }
 
   private drawGuide(): void {
@@ -556,9 +771,10 @@ function el(tag: string, cls: string, text = ''): HTMLDivElement {
   return node as HTMLDivElement;
 }
 
-function button(label: string, fn: () => void): HTMLButtonElement {
+function button(label: string, fn: () => void, cls = ''): HTMLButtonElement {
   const b = document.createElement('button');
   b.textContent = label;
+  if (cls) b.className = cls;
   b.addEventListener('click', (e) => {
     e.stopPropagation();
     fn();

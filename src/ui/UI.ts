@@ -15,6 +15,7 @@ export interface UICallbacks {
   setGentleFlash(): boolean;
   setTime(h: number): void;
   nextShot(): void;
+  restartTour(): void;
   start(m: ModeId): void;
   photo(): void;
 }
@@ -29,6 +30,7 @@ export class UI {
   private soundBtn: HTMLButtonElement;
   private volume: HTMLInputElement;
   private nextBtn: HTMLButtonElement;
+  private tourBtn: HTMLButtonElement;
   private toast: HTMLDivElement;
   private toastTimer = 0;
 
@@ -50,7 +52,11 @@ export class UI {
     photoBtn.title = 'Photo mode (P)';
     this.bar.appendChild(photoBtn);
     this.nextBtn = button('Next shot ▸', () => cb.nextShot());
+    this.nextBtn.title = 'Skip to the next beat (N)';
     this.bar.appendChild(this.nextBtn);
+    this.tourBtn = button('Tour', () => cb.restartTour());
+    this.tourBtn.title = 'Restart the city tour (T)';
+    this.bar.appendChild(this.tourBtn);
     // secondary controls collapse behind a toggle on phones / narrow screens
     const more = document.createElement('div');
     more.className = 'more';
@@ -150,7 +156,7 @@ export class UI {
   showHelp(): void {
     this.flash(
       'Fly: WASD thrust · mouse/arrow keys steer · Space/E up · C/Q down · Shift boost · V cockpit<br/>' +
-        'Walk: WASD · mouse look · Shift run · E sit at a stall<br/>1 Fly · 2 Walk · 3 Cinematic · F toggle fly/walk · N next shot · P photo mode · H HUD · M mute · volume slider remembers · [ ] time −/+1 h · B next weather<br/>Settings: graphics, field of view, look sensitivity, invert look, and desktop keys. Saved on this device.<br/>Photo: one finger looks, two fingers move and pinch the lens, tap focuses, Z/X roll, R level, Esc exits',
+        'Walk: WASD · mouse look · Shift run · E sit at a stall<br/>1 Fly · 2 Walk · 3 Cinematic · F toggle fly/walk · N next beat · T restart tour · P photo mode · H HUD · M mute · volume slider remembers · [ ] time −/+1 h · B next weather<br/>Gamepad in the tour: A or RB next beat, Y restart. In the spinner, sticks fly.<br/>Settings: graphics, field of view, look sensitivity, invert look, and desktop keys. Saved on this device.<br/>Photo: one finger looks, two fingers move and pinch the lens, tap focuses, wheel zooms, shift+wheel changes f-stop. G grade, L frame, O scope, K shutter, F autofocus, H hides the buttons, Z/X roll, R level, Esc exits. Gamepad: sticks move and look, LB/RB focal length, LT/RT focus, A shutter, B exit, X mark, Y play.',
       7000,
     );
   }
@@ -172,6 +178,7 @@ export class UI {
     for (const [id, b] of this.modeBtns) b.classList.toggle('active', id === m);
     this.letterbox.classList.toggle('on', m === 'cine');
     this.nextBtn.style.display = m === 'cine' ? '' : 'none';
+    this.tourBtn.style.display = m === 'cine' ? '' : 'none';
   }
 
   setQualityValue(v: Tier | 'auto'): void {
