@@ -44,7 +44,7 @@
 
   <h3>Rain on a material</h3>
   <figure>
-    <figcaption>Metal. A high-passed hiss and a bright tick.</figcaption>
+    <figcaption>Metal. A short ring near 4 kHz. The hits sit about 22 dB above the steady hiss.</figcaption>
     <audio controls src="clips/rain-metal.wav"></audio>
   </figure>
   <figure>
@@ -92,11 +92,11 @@
     <audio controls src="clips/siren-pass.wav"></audio>
   </figure>
   <figure>
-    <figcaption>Spinner flyby. The whine falls from 1166 Hz to 841 Hz.</figcaption>
+    <figcaption>Spinner flyby. It crosses from the left ear to the right, swells as it passes, and the whine falls from 1166 Hz to 841 Hz.</figcaption>
     <audio controls src="clips/spinner-flyby.wav"></audio>
   </figure>
   <figure>
-    <figcaption>A sign in the open, then the same sign behind a building.</figcaption>
+    <figcaption>A sign in the open, with a 120 Hz transformer hum, then the same sign behind a building. The hiss dies. A little of the hum remains.</figcaption>
     <audio controls src="clips/neon-open.wav"></audio>
     <audio controls src="clips/neon-behind.wav"></audio>
   </figure>
@@ -106,16 +106,16 @@
   </figure>
 
   <h2 id="surfaces">Surfaces</h2>
-  <p>One looping noise buffer, already allocated by the city bed, feeds a biquad per material and a short impact envelope. The impact is a gain shape into a bandpass. It is not a sample. Cloth gets a low-pass and a soft hit. Metal gets a high-pass and a sharp one. Glass keeps the most air. A puddle is the low end.</p>
+  <p>One looping noise buffer, already allocated by the city bed, feeds a biquad per material and a short impact envelope. The impact is a gain shape into a bandpass. It is not a sample. Cloth gets a low-pass and a soft hit. Metal is a narrow ring near 4 kHz, kept quieter than the tick so the drop reads. Glass keeps the most air. A puddle is the low end.</p>
   <table>
     <thead><tr><th>Clip</th><th>Peak</th><th>RMS</th><th>Low</th><th>High</th><th>Air</th></tr></thead>
     <tbody>
-      <tr><td>Metal</td><td>−10.6 dB</td><td>−23.3</td><td>−36.8</td><td>8.9</td><td>10.7</td></tr>
-      <tr><td>Glass</td><td>−11.2</td><td>−31.1</td><td>−48.4</td><td>4.2</td><td>0.2</td></tr>
+      <tr><td>Metal</td><td>−11.5 dB</td><td>−34.0</td><td>−50.5</td><td>3.0</td><td>−12.4</td></tr>
+      <tr><td>Glass</td><td>−11.3</td><td>−30.5</td><td>−47.6</td><td>5.4</td><td>0.5</td></tr>
       <tr><td>Concrete</td><td>−16.2</td><td>−31.4</td><td>−12.6</td><td>1.0</td><td>−7.5</td></tr>
       <tr><td>Puddle</td><td>−17.3</td><td>−34.4</td><td>−2.1</td><td>−17.8</td><td>−25.2</td></tr>
       <tr><td>Fabric</td><td>−16.7</td><td>−32.0</td><td>−3.0</td><td>−11.3</td><td>−31.4</td></tr>
-      <tr><td>Umbrella</td><td>−11.7</td><td>−30.2</td><td>−26.5</td><td>5.1</td><td>−5.3</td></tr>
+      <tr><td>Umbrella</td><td>−11.9</td><td>−30.8</td><td>−27.0</td><td>4.4</td><td>−5.9</td></tr>
     </tbody>
   </table>
   <p class="note">Band columns are relative levels inside the clip, not absolute loudness. Air is everything above 8 kHz. None of these clips clipped.</p>
@@ -137,7 +137,7 @@
   <h2 id="city">Sirens, spinners, signs, crowds</h2>
   <p>A distant siren is a sawtooth through a soft clip, panned, with the pitch scaled by the closing speed. The wail itself moves slowly between 620 and 780 Hz. Doppler is applied on top. The clip is the real in-game gain, so it is quiet.</p>
   <p>Spinner flybys already existed. The pitch law is now <code>f = f0 × 340 / (340 − v)</code> with the closing speed clamped, instead of a small linear bend. On this pass the bandpass centre falls from 1166 Hz to 841 Hz. Web Audio no longer applies velocity on the panner, so the ratio is written onto the filter by hand.</p>
-  <p>A transformer hum is a 120 Hz sine that only comes up within about 16 m of a sign, and it rolls off quickly. Occlusion is a ray march through lots and landmark footprints. Medium cuts the gain. High and Ultra also drop a low-pass into the voice. The two neon clips are the same noise: open, then through a 700 Hz low-pass. The open clip peaks at −25 dB. Behind the building it peaks at −43 dB, and the high band falls from −0.8 to −27.</p>
+  <p>A transformer hum is a 120 Hz sine that only comes up within about 16 m of a sign, and it rolls off quickly. Occlusion is a ray march through lots and landmark footprints. Medium cuts the gain. High and Ultra also drop a low-pass into the voice. The two neon clips are the same noise plus a 120 Hz hum and a quiet 240 Hz harmonic. Open, the clip peaks at −24.6 dB. Behind the building the hiss is low-passed at 700 Hz, the peak falls to −41.9 dB, and the high band falls from −0.8 to −27. The hum is quieter, and it is still there.</p>
   <p>Crowd murmur still follows the district fill. When people are actually standing within 18 m, the level can rise, and it never falls below that district fill or above full. Umbrellas come from the crowd’s own fraction, and from the player walking in rain with no awning overhead.</p>
 
   <h2 id="storm">The sea wall</h2>

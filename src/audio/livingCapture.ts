@@ -6,7 +6,6 @@ import { applyCityMix, mountCityGraph } from './graph';
 import { LivingSound } from './living';
 import { spinnerVoice } from './mix';
 import { VOICE_CAP } from './registry';
-import { setPos } from './synth';
 import type { Tier } from '../core/quality';
 import {
   SURFACE_TONE,
@@ -75,8 +74,11 @@ export async function captureLiving(): Promise<LivingCapture> {
   const concrete = files.find((f) => f.id === 'rain-concrete');
   const puddle = files.find((f) => f.id === 'rain-puddle');
   const fabric = files.find((f) => f.id === 'rain-fabric');
-  if (metal && concrete && metal.bands.high < concrete.bands.high + 3) {
+  if (metal && concrete && !(metal.bands.high > concrete.bands.high)) {
     check.push(`metal high ${metal.bands.high} vs concrete ${concrete.bands.high}`);
+  }
+  if (metal && concrete && metal.peakDb - metal.rmsDb < concrete.peakDb - concrete.rmsDb + 4) {
+    check.push(`metal crest ${(metal.peakDb - metal.rmsDb).toFixed(1)} vs concrete ${(concrete.peakDb - concrete.rmsDb).toFixed(1)}`);
   }
   if (glass && concrete && glass.bands.air < concrete.bands.air) {
     check.push(`glass air ${glass.bands.air} vs concrete ${concrete.bands.air}`);
@@ -186,10 +188,20 @@ async function renderSpinner(): Promise<LivingFile> {
   const graph = mountCityGraph(ctx, ctx.destination, 0);
   const approach = spinnerVoice({ dist: 80, closing: 55 }, 0, false);
   const leave = spinnerVoice({ dist: 80, closing: -55 }, 0, false);
-  graph.spinner.gain.setValueAtTime(approach.gain, 0);
+  const close = spinnerVoice({ dist: 16, closing: 20 }, 0, false);
+  const pan = graph.spinnerPan;
+  graph.spinner.gain.setValueAtTime(approach.gain * 0.35, 0);
+  graph.spinner.gain.linearRampToValueAtTime(close.gain * 2.4, seconds * 0.46);
+  graph.spinner.gain.linearRampToValueAtTime(leave.gain * 0.35, seconds);
   graph.spinnerFilter.frequency.setValueAtTime(approach.freq, 0);
+  graph.spinnerFilter.frequency.linearRampToValueAtTime(close.freq, seconds * 0.46);
   graph.spinnerFilter.frequency.linearRampToValueAtTime(leave.freq, seconds);
-  setPos(graph.spinnerPan, 40, 8, 0);
+  pan.positionX.setValueAtTime(-42, 0);
+  pan.positionX.linearRampToValueAtTime(42, seconds);
+  pan.positionY.setValueAtTime(7, 0);
+  pan.positionZ.setValueAtTime(24, 0);
+  pan.positionZ.linearRampToValueAtTime(4, seconds * 0.46);
+  pan.positionZ.linearRampToValueAtTime(28, seconds);
   const file = await finish(ctx, 'spinner-flyby');
   file.bands.approach = Math.round(approach.freq);
   file.bands.leave = Math.round(leave.freq);
@@ -219,6 +231,20 @@ async function renderNeon(occluded: boolean): Promise<LivingFile> {
   } else {
     open.connect(g);
   }
+  const hum = ctx.createOscillator();
+  hum.type = 'sine';
+  hum.frequency.value = 120;
+  const hum2 = ctx.createOscillator();
+  hum2.type = 'sine';
+  hum2.frequency.value = 240;
+  const humGain = ctx.createGain();
+  humGain.gain.value = occluded ? 0.02 : 0.05;
+  const hum2Gain = ctx.createGain();
+  hum2Gain.gain.value = occluded ? 0.006 : 0.016;
+  hum.connect(humGain).connect(g);
+  hum2.connect(hum2Gain).connect(g);
+  hum.start(0);
+  hum2.start(0);
   g.connect(ctx.destination);
   return finish(ctx, occluded ? 'neon-behind' : 'neon-open');
 }
@@ -265,7 +291,7 @@ function solo(id: SurfaceId, input: HearInput, tier: Tier, level: number): Livin
   frame.level = level;
   const plan = TIER_PLAN[tier];
   frame.impact = plan.drips > 0 ? level * 4.8 * SURFACE_TONE[id].impact : 0;
-  frame.interval = id === 'metal' || id === 'glass' ? 0.16 : id === 'fabric' ? 0.55 : 0.22;
+  frame.interval = id === 'metal' || id === 'glass' ? 0.11 : id === 'fabric' ? 0.55 : 0.22;
   return frame;
 }
 

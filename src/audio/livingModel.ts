@@ -19,13 +19,13 @@ export type OcclusionMode = 'off' | 'gain' | 'lowpass';
 export const SURFACES: readonly SurfaceId[] = ['metal', 'glass', 'concrete', 'puddle', 'fabric', 'umbrella'];
 
 /** Resonance a drop excites. Written as biquad type, Hz and Q so the graph does not invent a second recipe. */
-export const SURFACE_TONE: Record<SurfaceId, { type: BiquadFilterType; freq: number; q: number; impact: number }> = {
-  metal: { type: 'highpass', freq: 3000, q: 0.7, impact: 1 },
-  glass: { type: 'bandpass', freq: 7400, q: 4.4, impact: 0.82 },
-  concrete: { type: 'bandpass', freq: 920, q: 0.48, impact: 0.42 },
-  puddle: { type: 'lowpass', freq: 340, q: 0.7, impact: 0.78 },
-  fabric: { type: 'lowpass', freq: 1100, q: 0.6, impact: 0.42 },
-  umbrella: { type: 'bandpass', freq: 2700, q: 1.45, impact: 0.62 },
+export const SURFACE_TONE: Record<SurfaceId, { type: BiquadFilterType; freq: number; q: number; impact: number; body: number }> = {
+  metal: { type: 'bandpass', freq: 4200, q: 6.5, impact: 1.45, body: 0.32 },
+  glass: { type: 'bandpass', freq: 7400, q: 4.4, impact: 0.82, body: 0.85 },
+  concrete: { type: 'bandpass', freq: 920, q: 0.48, impact: 0.42, body: 1 },
+  puddle: { type: 'lowpass', freq: 340, q: 0.7, impact: 0.78, body: 1 },
+  fabric: { type: 'lowpass', freq: 1100, q: 0.6, impact: 0.42, body: 1 },
+  umbrella: { type: 'bandpass', freq: 2700, q: 1.45, impact: 0.62, body: 0.9 },
 };
 
 export interface HearInput {
@@ -481,7 +481,7 @@ export function evaluateLiving(p: HearInput, tier: Tier): LivingFrame {
 }
 
 /** Grouped tones for the 1- and 3-filter tiers. Six filters use SURFACE_TONE directly. */
-export function surfaceVoices(w: SurfaceWeights, count: number): Array<{ gain: number; type: BiquadFilterType; freq: number; q: number }> {
+export function surfaceVoices(w: SurfaceWeights, count: number): Array<{ gain: number; type: BiquadFilterType; freq: number; q: number; body: number }> {
   if (count >= 6) {
     return SURFACES.map((id) => ({ gain: w[id], ...SURFACE_TONE[id] }));
   }
@@ -596,23 +596,25 @@ export function livingSelfCheck(): string[] {
   return fail;
 }
 
-function mixVoice(w: SurfaceWeights, ids: SurfaceId[]): { gain: number; type: BiquadFilterType; freq: number; q: number } {
+function mixVoice(w: SurfaceWeights, ids: SurfaceId[]): { gain: number; type: BiquadFilterType; freq: number; q: number; body: number } {
   let gain = 0;
   let freq = 0;
   let q = 0;
+  let body = 0;
   for (const id of ids) gain += w[id];
   if (gain < 1e-5) {
     const tone = SURFACE_TONE[ids[0]!];
-    return { gain: 0, type: tone.type, freq: tone.freq, q: tone.q };
+    return { gain: 0, type: tone.type, freq: tone.freq, q: tone.q, body: tone.body };
   }
   for (const id of ids) {
     const tone = SURFACE_TONE[id];
     const share = w[id] / gain;
     freq += tone.freq * share;
     q += tone.q * share;
+    body += tone.body * share;
   }
   const lead = w[ids[0]!] >= w[ids[1]!] ? ids[0]! : ids[1]!;
-  return { gain, type: SURFACE_TONE[lead].type, freq, q };
+  return { gain, type: SURFACE_TONE[lead].type, freq, q, body };
 }
 
 function normalizeWeights(w: SurfaceWeights): SurfaceWeights {

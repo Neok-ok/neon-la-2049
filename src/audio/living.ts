@@ -234,7 +234,7 @@ export class LivingSound {
       const voice = voices[i];
       if (on && voice && sounding) {
         this.connectSurface(node, true);
-        const g = frame.level * voice.gain;
+        const g = frame.level * voice.gain * voice.body;
         aim(node.gain.gain, g, when, 0.2, 'surface');
         aim(node.filter.frequency, voice.freq, when, 0.25, 'surfaceHz', 1);
         aim(node.filter.Q, Math.max(0.1, voice.q), when, 0.25, 'surfaceQ', 0.05);
@@ -349,7 +349,11 @@ export class LivingSound {
 
   private applySiren(frame: LivingFrame, time: number | null): void {
     const plan = TIER_PLAN[this.tier];
-    if (!plan.siren || !this.sirenOsc || !this.sirenGain || !this.sirenPan) return;
+    if (!this.sirenOsc || !this.sirenGain || !this.sirenPan) return;
+    if (!plan.siren) {
+      this.connectSiren(false);
+      return;
+    }
     const on = frame.siren.on && frame.siren.gain > HEARD;
     this.connectSiren(on);
     if (!on) {
@@ -363,7 +367,11 @@ export class LivingSound {
 
   private applyHum(frame: LivingFrame, time: number | null): void {
     const plan = TIER_PLAN[this.tier];
-    if (!plan.hum || !this.humOsc || !this.humGain || !this.humPan) return;
+    if (!this.humOsc || !this.humGain || !this.humPan) return;
+    if (!plan.hum) {
+      this.connectHum(false);
+      return;
+    }
     const on = frame.hum > HEARD;
     this.connectHum(on);
     if (!on) {
