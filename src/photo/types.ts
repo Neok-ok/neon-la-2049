@@ -9,7 +9,7 @@ import type { Tier } from '../core/quality';
 import type { CityLayout } from '../world/layout';
 import type { CityQuery } from '../world/CityQuery';
 
-export type GradeId = 'plain' | 'sodium' | 'neon' | 'ash' | 'harbor';
+export type GradeId = 'plain' | 'sodium' | 'neon' | 'ash' | 'harbor' | 'orange' | 'cyan' | 'amber';
 export type LetterboxId = 'off' | '16:9' | '2.39' | '9:19.5' | '1:1';
 export type CaptureKind = 'screen' | '1080' | '1440' | 'wallpaper';
 export type SaveMethod = 'share' | 'download' | 'tab' | 'overlay';
@@ -46,6 +46,12 @@ export interface PhotoState {
   focal: number;
   focus: number;
   aperture: number;
+  /** f-number. Wide open is 1.4. The aperture slider is the same control, stored both ways. */
+  fStop: number;
+  /** 0 is a round iris. 1 is a 2× squeeze: oval bokeh, horizontal flare, edge fringing. */
+  anamorphic: number;
+  /** 0 locks the shutter. 1 is the longest smear this tier allows. */
+  motion: number;
   roll: number;
   exposure: number;
   grade: GradeId;
@@ -58,6 +64,10 @@ export interface PhotoState {
   snow: number;
   hours: number;
   orbit: boolean;
+  /** Continuous autofocus on the centre of the frame. A tap sets the distance and turns this off. */
+  autofocus: boolean;
+  /** When false, the photo bar hides. Letterbox mattes stay. */
+  chrome: boolean;
   guide: 'off' | 'left' | 'right';
   size: CaptureKind;
   postcard: string;

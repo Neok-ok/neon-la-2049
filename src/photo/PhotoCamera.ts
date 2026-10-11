@@ -2,6 +2,8 @@
 // controllers stay where they were; this one owns the lens until exit.
 import { Euler, MathUtils, Vector3, type PerspectiveCamera } from 'three/webgpu';
 import { forwardOf } from '../camera/types';
+import { CameraSpline, type SplineKnot } from '../camera/spline';
+import type { Pad } from '../camera/gamepad';
 import type { Input } from '../input/Input';
 import type { CityLayout } from '../world/layout';
 import type { PhotoPose } from './postcards';
@@ -34,6 +36,20 @@ export class PhotoCamera {
   private listening = false;
 
   onTap: ((clientX: number, clientY: number) => void) | null = null;
+  /** Shift+wheel. Positive is wider (a smaller f-number). */
+  onFStop: ((dir: number) => void) | null = null;
+  /** True when the eye would be inside a building. The free camera steps back out. */
+  blocked: ((x: number, y: number, z: number) => boolean) | null = null;
+  private safeX = 0;
+  private safeY = 2;
+  private safeZ = 0;
+  playing = false;
+  /** Set when a trigger pulled focus, so photo mode can leave autofocus. */
+  focusTouched = false;
+  readonly marks: PhotoMark[] = [];
+
+  private path: CameraSpline<PathSample> | null = null;
+  private pathDist = 0;
 
   constructor(private canvas: HTMLCanvasElement, private layout: CityLayout) {
     this.foci = [this.entry, this.aim];
@@ -58,6 +74,7 @@ export class PhotoCamera {
     this.entry.copy(cam.position);
     this.captureTarget();
     this.clampPos();
+    this.remember();
   }
 
   setPose(p: PhotoPose): void {
@@ -69,6 +86,7 @@ export class PhotoCamera {
     this.roll = 0;
     this.clampPos();
     this.captureTarget();
+    this.remember();
   }
 
   /** Look-at point the orbit and the streamer both use. */
@@ -90,15 +108,23 @@ export class PhotoCamera {
     return this.foci;
   }
 
-  update(dt: number, input: Input): void {
+  update(dt: number, input: Input, pad: Pad | null = null): void {
+    if (this.playing && this.path && !this.userMoved(input, pad)) {
+      this.advancePath(dt);
+      this.remember();
+      return;
+    }
+    if (this.playing) this.playing = false;
     const ground = this.layout.heightAt(this.x, this.z);
     const alt = Math.max(0, this.y - ground);
     const speed = Math.min(160, 6 + alt * 0.08) * (input.boost ? 3.2 : 1);
     const step = speed * dt;
     forwardOf(this.heading, this.pitch, this.fwd);
     this.right.set(Math.cos(this.heading), 0, Math.sin(this.heading));
-    const sx = input.strafe * step;
-    const sy = input.forward * step;
+    const lx = pad?.lx ?? 0;
+    const ly = pad?.ly ?? 0;
+    const sx = (input.strafe + lx) * step;
+    const sy = (input.forward + ly) * step;
     const sz = input.vertical * step;
     if (this.orbit) {
       this.target.x += this.right.x * sx + this.fwd.x * sy;
@@ -112,10 +138,17 @@ export class PhotoCamera {
       this.clampPos();
     }
     if (input.turn || input.tilt) this.look(input.turn * 280 * dt, input.tilt * 220 * dt);
+    if (pad && (pad.rx || pad.ry)) this.look(pad.rx * 280 * dt, -pad.ry * 220 * dt);
+    if (pad && (pad.lt > 0.05 || pad.rt > 0.05)) {
+      this.focus = MathUtils.clamp(this.focus * Math.exp((pad.rt - pad.lt) * dt * 1.6), 0.4, 8000);
+      this.focusTouched = true;
+      if (this.orbit) this.captureTarget();
+    }
     if (input.key('KeyZ')) this.roll -= dt * 0.7;
     if (input.key('KeyX')) this.roll += dt * 0.7;
     if (input.wasPressed('KeyR')) this.roll = 0;
     this.roll = MathUtils.clamp(this.roll, -ROLL_MAX, ROLL_MAX);
+    this.remember();
   }
 
   apply(cam: PerspectiveCamera): void {
@@ -255,9 +288,119 @@ export class PhotoCamera {
     }
   };
 
+  markKnot(): number {
+    this.playing = false;
+    if (this.marks.length >= 8) this.marks.shift();
+    this.marks.push({
+      x: this.x, y: this.y, z: this.z,
+      heading: this.heading, pitch: this.pitch, roll: this.roll,
+      focal: this.focal, focus: this.focus,
+    });
+    return this.marks.length;
+  }
+
+  clearPath(): void {
+    this.marks.length = 0;
+    this.path = null;
+    this.playing = false;
+  }
+
+  /** Glide through the marked knots. Needs two. */
+  togglePlay(): boolean {
+    if (this.playing) {
+      this.playing = false;
+      return false;
+    }
+    if (this.marks.length < 2) return false;
+    let heading = this.marks[0]!.heading;
+    const knots: Array<SplineKnot<PathSample>> = this.marks.map((m, i) => {
+      if (i > 0) heading = approachAngle(heading, m.heading);
+      const look = new Vector3();
+      forwardOf(heading, m.pitch, look);
+      return {
+        p: new Vector3(m.x, m.y, m.z),
+        look: new Vector3(m.x, m.y, m.z).add(look),
+        data: { heading, pitch: m.pitch, roll: m.roll, focal: m.focal, focus: m.focus },
+      };
+    });
+    this.path = new CameraSpline(knots);
+    this.pathDist = 0;
+    this.playing = true;
+    return true;
+  }
+
+  private advancePath(dt: number): void {
+    const path = this.path;
+    if (!path) return;
+    this.pathDist += dt * 6;
+    if (this.pathDist >= path.length) {
+      this.pathDist = path.length;
+      this.playing = false;
+    }
+    const hit = path.at(this.pathDist);
+    this.x = hit.position.x;
+    this.y = hit.position.y;
+    this.z = hit.position.z;
+    this.heading = hit.data.heading;
+    this.pitch = hit.data.pitch;
+    this.roll = hit.data.roll;
+    this.focal = hit.data.focal;
+    this.focus = hit.data.focus;
+    this.clampPos();
+    this.captureTarget();
+    this.remember();
+  }
+
+  private remember(): void {
+    if (this.blocked?.(this.x, this.y, this.z)) {
+      this.x = this.safeX;
+      this.y = this.safeY;
+      this.z = this.safeZ;
+      return;
+    }
+    this.safeX = this.x;
+    this.safeY = this.y;
+    this.safeZ = this.z;
+  }
+
+  private userMoved(input: Input, pad: Pad | null): boolean {
+    const stick = Math.abs(pad?.lx ?? 0) + Math.abs(pad?.ly ?? 0) + Math.abs(pad?.rx ?? 0) + Math.abs(pad?.ry ?? 0);
+    return Math.abs(input.forward) + Math.abs(input.strafe) + Math.abs(input.turn) + Math.abs(input.tilt) + stick > 0.25;
+  }
+
   private onWheel = (e: WheelEvent): void => {
     e.preventDefault();
+    if (e.shiftKey) {
+      this.onFStop?.(e.deltaY > 0 ? -1 : 1);
+      return;
+    }
     const next = Math.exp(Math.log(this.focal) - e.deltaY * 0.0012);
     this.focal = MathUtils.clamp(next, FOCAL_MIN, FOCAL_MAX);
   };
+}
+
+export interface PhotoMark {
+  x: number;
+  y: number;
+  z: number;
+  heading: number;
+  pitch: number;
+  roll: number;
+  focal: number;
+  focus: number;
+}
+
+interface PathSample {
+  heading: number;
+  pitch: number;
+  roll: number;
+  focal: number;
+  focus: number;
+}
+
+function approachAngle(from: number, to: number): number {
+  let d = to - from;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  return from + d;
 }

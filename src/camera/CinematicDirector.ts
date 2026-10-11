@@ -9,6 +9,13 @@ import type { CityQuery } from '../world/CityQuery';
 import { Rng, trueRandomSeed } from '../core/rng';
 import type { Landmark, District } from '../world/layout';
 import type { SpinnerTraffic } from '../vehicles/SpinnerTraffic';
+import type { GradeId } from '../photo/types';
+import { raiseClear } from './clearance';
+import { CinematicTour, type TourView } from './CinematicTour';
+import { damp, smootherstep } from './easing';
+import { pollPad } from './gamepad';
+import { reducedMotion } from './reducedMotion';
+import { gameplayHeld } from '../input/controls';
 
 type ShotType = 'flyover' | 'orbit' | 'street' | 'crane' | 'telephoto' | 'tracking' | 'seawall' | 'rooftop' | 'trench';
 
@@ -55,6 +62,17 @@ export class CinematicDirector implements Controller {
   prefetch: Vector3 | null = null;
   /** debug/automation: freeze the current shot (no clock, no fades) */
   hold = false;
+  /** Short black dip over a tour cut, 0..1. */
+  private dip = 0;
+  private smoothY = Number.NaN;
+  private wasCalm = false;
+  private tour: CinematicTour | null = null;
+  /** Lens the play-mode post stage reads. Plain when no tour sample exists yet. */
+  lens: TourView = {
+    focalMm: 40, fStop: 5.6, focus: 80, anamorphic: 0, flare: 0.08,
+    grain: 0.16, vignette: 0.3, grade: 'cyan', gradeMix: 0.25,
+    motion: 0.4, beat: '', beatIndex: 0, beatCount: 0,
+  };
 
   constructor(
     private camera: PerspectiveCamera,
@@ -65,18 +83,51 @@ export class CinematicDirector implements Controller {
 
   enter(_from: Pose): void {
     this.active = true;
-    this.shot = this.plan();
+    this.tour = CinematicTour.build(this.query);
+    this.shot = this.tour ? null : this.plan();
     this.t = 0;
+    this.dip = 0;
     this.fade(0);
   }
 
   exit(): void {
     this.active = false;
+    this.tour = null;
     this.prefetch = null;
     this.fade(0);
   }
 
+  /** Start the authored glide again. */
+  restartTour(): void {
+    this.tour = CinematicTour.build(this.query);
+    this.shot = null;
+    this.t = 0;
+    this.dip = 1;
+    this.active = true;
+  }
+
+  beatList(): Array<{ id: string; name: string }> {
+    return this.tour?.beats.map((b) => ({ id: b.id, name: b.name })) ?? [];
+  }
+
+  /** Hold a beat for a still. Index follows beatList. */
+  showBeat(index: number): boolean {
+    if (!this.tour) this.tour = CinematicTour.build(this.query);
+    if (!this.tour) return false;
+    this.active = true;
+    this.hold = true;
+    this.shot = null;
+    this.tour.seekBeat(index);
+    this.publishTour(16 / 9);
+    return true;
+  }
+
   get label(): string {
+    if (this.tour?.active) {
+      const n = this.lens.beatCount;
+      const i = Math.min(n, this.lens.beatIndex + 1);
+      return n ? `tour ${i}/${n} · ${this.lens.beat}` : 'tour';
+    }
     return this.shot ? `${this.shot.type} · ${this.shot.anchor}` : '';
   }
 
@@ -85,8 +136,14 @@ export class CinematicDirector implements Controller {
     return { position: this.pos.clone(), heading: Math.atan2(d.x, -d.z), pitch: Math.asin(MathUtils.clamp(d.y, -1, 1)) };
   }
 
-  /** Skip to the next shot (UI button / N key). */
+  /** Skip to the next shot (UI button / N key / gamepad). */
   cut(): void {
+    if (this.tour?.active) {
+      this.tour.skip();
+      this.dip = 1;
+      if (!this.tour.active) this.finishTour();
+      return;
+    }
     this.t = 1e9;
   }
 
@@ -112,12 +169,31 @@ export class CinematicDirector implements Controller {
     this.t = 0.35;
     this.next = null;
     this.prefetch = null;
+    this.tour?.suspend();
+    this.tour = null;
     this.active = true;
   }
 
   update(dt: number): void {
-    if (!this.active || !this.shot) return;
-    if (!this.hold) this.t += dt;
+    if (!this.active) return;
+    const pad = pollPad();
+    if (!gameplayHeld()) {
+      if (pad.a || pad.rb) this.cut();
+      if (pad.y) this.restartTour();
+    }
+    if (this.tour?.active) {
+      this.dip = Math.max(0, this.dip - dt * 2.4);
+      this.tour.update(dt, this.hold, this.camera.aspect || 16 / 9);
+      this.publishTour(this.camera.aspect || 16 / 9);
+      this.fade(this.hold ? 0 : this.dip);
+      if (!this.tour.active) this.finishTour();
+      return;
+    }
+    if (!this.shot) return;
+    const calm = reducedMotion();
+    if (calm && !this.wasCalm) this.smoothY = Number.NaN;
+    this.wasCalm = calm;
+    if (!this.hold && !calm) this.t += dt;
     const s = this.shot;
     if (!this.next && s.duration - this.t < 3) {
       this.next = this.plan();
@@ -131,8 +207,13 @@ export class CinematicDirector implements Controller {
     }
     const cur = this.shot;
     const u = Math.min(1, this.t / cur.duration);
-    const ok = cur.eval(u, this.pos, this.look);
+    const eased = cur.type === 'tracking' ? u : smootherstep(u);
+    const ok = cur.eval(eased, this.pos, this.look);
     if (ok === false) this.t = cur.duration; // shot invalidated (e.g. tracked car respawned)
+    const safe = raiseClear(this.query, this.pos.x, this.pos.y, this.pos.z, 2);
+    if (!Number.isFinite(this.smoothY) || Math.abs(safe - this.smoothY) > 40) this.smoothY = safe;
+    else this.smoothY = damp(this.smoothY, safe, 3.5, dt);
+    this.pos.y = this.smoothY;
     // slow fades on ~1/3 of transitions, hard cuts otherwise
     const fadeIn = cur.signature.charCodeAt(0) % 3 === 0 ? Math.min(1, this.t / 0.8) : 1;
     const fadeOut = cur.signature.charCodeAt(1) % 3 === 0 ? Math.min(1, (cur.duration - this.t) / 0.8) : 1;
@@ -144,6 +225,54 @@ export class CinematicDirector implements Controller {
       this.camera.fov = cur.fov;
       this.camera.updateProjectionMatrix();
     }
+    this.publishProcedural(cur);
+  }
+
+  private finishTour(): void {
+    this.tour = null;
+    this.shot = this.plan();
+    this.next = null;
+    this.t = 0;
+    this.dip = 0;
+  }
+
+  private publishTour(aspect: number): void {
+    const tour = this.tour;
+    if (!tour) return;
+    this.pos.copy(tour.position);
+    this.look.copy(tour.aim);
+    this.prefetch = tour.prefetch.clone();
+    this.lens = { ...tour.lens };
+    this.camera.position.copy(this.pos);
+    this.camera.up.set(0, 1, 0);
+    this.camera.lookAt(this.look);
+    this.camera.filmGauge = 35;
+    this.camera.aspect = aspect;
+    if (Math.abs(this.camera.getFocalLength() - tour.lens.focalMm) > 0.08) {
+      this.camera.setFocalLength(tour.lens.focalMm);
+    }
+  }
+
+  private publishProcedural(cur: Shot): void {
+    const dist = Math.max(0.8, this.pos.distanceTo(this.look));
+    const focal = this.camera.getFocalLength();
+    const tele = cur.type === 'telephoto' || focal > 70;
+    const grade: GradeId = cur.type === 'seawall' ? 'harbor' : tele ? 'orange' : 'cyan';
+    this.lens = {
+      focalMm: focal,
+      fStop: tele ? 2.8 : cur.type === 'street' || cur.type === 'crane' ? 4 : 5.6,
+      focus: dist,
+      anamorphic: 0,
+      flare: tele ? 0.2 : 0.08,
+      grain: 0.18,
+      vignette: 0.32,
+      grade,
+      gradeMix: 0.34,
+      motion: reducedMotion() ? 0 : 0.45,
+      beat: cur.type,
+      beatIndex: 0,
+      beatCount: 0,
+    };
   }
 
   // ------------------------------------------------------------------ planning
@@ -243,6 +372,12 @@ export class CinematicDirector implements Controller {
     const dur = r.range(8, 13);
     const start = new Vector3(p[0], alt + this.query.groundHeight(p[0], p[1]), p[1]);
     const dir = forwardOf(heading, 0, new Vector3());
+    for (let k = 0; k <= 6; k++) {
+      const x = start.x + dir.x * speed * dur * (k / 6);
+      const z = start.z + dir.z * speed * dur * (k / 6);
+      const roof = this.query.landmarkTopAt(x, z, 24);
+      if (start.y < roof + 28) start.y = roof + 36;
+    }
     const pitchDrift = r.range(-0.06, 0.06);
     return {
       type: 'flyover', anchor: d.id, duration: dur, fov: r.range(42, 64), focus: start.clone(),

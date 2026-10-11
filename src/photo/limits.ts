@@ -11,11 +11,16 @@ export const LETTERBOX_RATIO: Record<LetterboxId, number | null> = {
 };
 
 /** maxEdge is the long side. maxPixels caps area. tile is the largest GPU buffer one capture tile may use. */
-export const CAPTURE_CAPS: Record<Tier, { maxEdge: number; maxPixels: number; tile: number; dofTaps: number; dofPx: number; heavyBloom: boolean }> = {
-  low: { maxEdge: 1280, maxPixels: 1280 * 720, tile: 480, dofTaps: 5, dofPx: 5, heavyBloom: false },
-  medium: { maxEdge: 1920, maxPixels: 1920 * 1080, tile: 640, dofTaps: 9, dofPx: 8, heavyBloom: false },
-  high: { maxEdge: 2560, maxPixels: 2560 * 1440, tile: 768, dofTaps: 13, dofPx: 14, heavyBloom: true },
-  ultra: { maxEdge: 2560, maxPixels: 2560 * 1440, tile: 1024, dofTaps: 17, dofPx: 18, heavyBloom: true },
+export const CAPTURE_CAPS: Record<Tier, {
+  maxEdge: number; maxPixels: number; tile: number;
+  dofTaps: number; dofPx: number; heavyBloom: boolean;
+  /** Motion smear and anamorphic streak. Low keeps the gather small and skips both. */
+  motion: boolean; motionPx: number; flareTaps: number; caPx: number;
+}> = {
+  low: { maxEdge: 1280, maxPixels: 1280 * 720, tile: 480, dofTaps: 5, dofPx: 6, heavyBloom: false, motion: false, motionPx: 0, flareTaps: 0, caPx: 0 },
+  medium: { maxEdge: 1920, maxPixels: 1920 * 1080, tile: 640, dofTaps: 9, dofPx: 10, heavyBloom: false, motion: true, motionPx: 8, flareTaps: 4, caPx: 0.65 },
+  high: { maxEdge: 2560, maxPixels: 2560 * 1440, tile: 768, dofTaps: 13, dofPx: 16, heavyBloom: true, motion: true, motionPx: 14, flareTaps: 8, caPx: 1.05 },
+  ultra: { maxEdge: 2560, maxPixels: 2560 * 1440, tile: 1024, dofTaps: 33, dofPx: 28, heavyBloom: true, motion: true, motionPx: 22, flareTaps: 16, caPx: 1.6 },
 };
 
 export interface FrameSize {
@@ -83,6 +88,10 @@ export function dofOffsets(taps: number): Array<[number, number]> {
     [0.72, 0.72], [-0.72, 0.72], [0.72, -0.72], [-0.72, -0.72],
     [1.55, 0.35], [-1.55, 0.35], [0.35, 1.55], [-0.35, -1.55],
     [1.35, -1.15], [-1.35, 1.15], [1.7, 1.15], [-1.7, -0.85],
+    [2.15, 0.25], [-2.15, 0.25], [0.25, 2.15], [-0.25, -2.15],
+    [1.65, 1.65], [-1.65, 1.65], [1.65, -1.65], [-1.65, -1.65],
+    [2.45, 0.95], [-2.45, 0.95], [0.95, 2.45], [-0.95, -2.45],
+    [2.2, -1.45], [-2.2, 1.45], [1.15, -2.35], [-1.15, 2.35],
   ];
   return all.slice(0, Math.max(1, Math.min(all.length, taps)));
 }

@@ -3,7 +3,6 @@ import { Vector3 } from 'three/webgpu';
 import { forwardOf } from '../camera/types';
 import type { CityLayout } from '../world/layout';
 import type { CityQuery } from '../world/CityQuery';
-import { wallaceCamera } from '../districts/wallace-vernon/view';
 import { broadwayCamera } from '../districts/historic-core/view';
 import { marketCamera } from '../districts/little-tokyo-market/view';
 import { laxCamera } from '../districts/lax-spaceport/view';
@@ -60,6 +59,30 @@ function eyeOf(p: RawPose | null): PhotoPose | null {
 
 const back = new Vector3();
 
+/** Beyond the near tower, so it can fall soft while the pyramid stays the focus. */
+function pyramidPostcard(layout: CityLayout): PhotoPose | null {
+  const py = layout.landmarkById('wallace-pyramid');
+  if (!py) return null;
+  const sat = layout.landmarkById('wallace-satellite-a');
+  const near = sat ?? py;
+  const dx = py.x - near.x;
+  const dz = py.z - near.z;
+  const len = Math.hypot(dx, dz) || 1;
+  const tx = len < 2 ? 1 : dx / len;
+  const tz = len < 2 ? 0 : dz / len;
+  const dist = 4700;
+  const side = 1300;
+  const x = py.x - tx * dist - tz * side;
+  const z = py.z - tz * dist + tx * side;
+  const y = 190;
+  const lookX = py.x * 0.62 + near.x * 0.38;
+  const lookZ = py.z * 0.62 + near.z * 0.38;
+  const lookY = Math.max(80, py.height * 0.32);
+  const heading = Math.atan2(lookX - x, -(lookZ - z));
+  const pitch = Math.atan2(lookY - y, Math.hypot(lookX - x, lookZ - z) || 1);
+  return { x, y, z, heading, pitch };
+}
+
 /** Step back along the street so a long lens still frames the canyon instead of the near wall. */
 function pullBack(pose: PhotoPose, meters: number, lift: number, query: CityQuery): PhotoPose {
   forwardOf(pose.heading, 0, back);
@@ -74,24 +97,20 @@ export const POSTCARDS: readonly Postcard[] = [
   {
     id: 'wallace-dusk',
     name: 'Pyramid dusk',
-    focal: 40, focus: 220, aperture: 0.18, roll: 0,
-    grade: 'sodium', grain: 0.22, vignette: 0.42, bloom: 0.46, exposure: 1.06,
-    letterbox: '2.39', rain: 0, fog: 0.0024, snow: 0, hours: 18.6,
-    pose: (layout) => {
-      // The fly controller puts the cockpit 1.22 m above the stored spinner pose.
-      const eye = eyeOf(wallaceCamera(layout, 'approach'));
-      return eye ? { ...eye, y: eye.y + 1.22 } : null;
-    },
+    focal: 28, focus: 1900, aperture: 0.9, roll: 0,
+    grade: 'orange', grain: 0.22, vignette: 0.42, bloom: 0.42, exposure: 1.04,
+    letterbox: '2.39', rain: 0, fog: 0.0017, snow: 0, hours: 19.7,
+    pose: (layout) => pyramidPostcard(layout),
   },
   {
     id: 'broadway-rain',
     name: 'Canyon rain',
-    focal: 120, focus: 32, aperture: 0.48, roll: 0,
-    grade: 'neon', grain: 0.28, vignette: 0.5, bloom: 0.55, exposure: 0.94,
-    letterbox: '2.39', rain: 0.92, fog: 0.0021, snow: 0, hours: 22.2,
+    focal: 55, focus: 14, aperture: 0.86, roll: 0,
+    grade: 'neon', grain: 0.28, vignette: 0.5, bloom: 0.55, exposure: 0.96,
+    letterbox: '2.39', rain: 0.72, fog: 0.0016, snow: 0, hours: 22.2,
     pose: (layout, query) => {
       const eye = eyeOf(broadwayCamera(layout, 'street'));
-      return eye ? pullBack(eye, 26, 6, query) : null;
+      return eye ? pullBack(eye, 12, 1.4, query) : null;
     },
   },
   {

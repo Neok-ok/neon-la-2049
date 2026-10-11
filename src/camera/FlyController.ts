@@ -8,6 +8,7 @@ import type { Input } from '../input/Input';
 import { CityQuery } from '../world/CityQuery';
 import { createSpinnerMesh, mountSpinnerLod } from '../vehicles/spinnerModel';
 import type { Tier } from '../core/quality';
+import { advanceShake, applyFlightShake, flightAmp } from './shake';
 
 const v1 = new Vector3(), v2 = new Vector3(), v3 = new Vector3();
 /** Chase camera sits off the tail so the nose does not cover the thing you flew in to see. */
@@ -169,6 +170,8 @@ export class FlyController implements Controller {
     this.camera.up.set(0, 1, 0);
     this.camera.lookAt(target2);
     if (this.cockpit) this.camera.rotateZ(this.bank * 0.6);
+    advanceShake(dt);
+    applyFlightShake(this.camera, this.heading, flightAmp(this.vel.length(), this.boostSpeed));
     this.spinner.visible = !this.cockpit;
   }
 }

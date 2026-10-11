@@ -68,6 +68,9 @@ import { CinematicDirector } from '../camera/CinematicDirector';
 import { CameraSystem } from '../camera/CameraSystem';
 import type { ModeId, Pose } from '../camera/types';
 import type { PhotoMode } from '../photo/PhotoMode';
+import { createPlayLens, type PlayLens } from '../photo/playLens';
+import { setDisturbance } from '../camera/disturbance';
+import { formatFStop } from '../camera/lensModel';
 import type { PhotoHost } from '../photo/types';
 import { U } from '../atmosphere/uniforms';
 import { GroundHaze } from '../atmosphere/GroundHaze';
@@ -133,6 +136,7 @@ export class App {
   private lastCam = new Vector3();
 
   private pipeline: RenderPipeline | null = null;
+  private playLens: PlayLens | null = null;
   private timer = new Timer();
   private elapsed = 0;
   private frames = 0;
@@ -269,6 +273,10 @@ export class App {
         },
         setTime: (h) => (this.atmosphere.dayNight.hours = h),
         nextShot: () => this.cams.cine.cut(),
+        restartTour: () => {
+          this.cams.setMode('cine');
+          this.cams.cine.restartTour();
+        },
         photo: () => this.togglePhoto(),
         start: (m) => {
           this.ambience.start();
@@ -319,6 +327,14 @@ export class App {
     return p;
   }
 
+  /** Cinematic mode draws through the lens rig. Walk and fly keep buildPipeline. */
+  private renderCine(): void {
+    if (!this.playLens) {
+      this.playLens = createPlayLens(this.renderer, this.scene, this.camera, this.quality.tier, this.quality.bloom);
+    }
+    this.playLens.render(this.camera, this.cams.cine.lens);
+  }
+
   private buildPipeline(): void {
     this.pipeline?.dispose();
     this.pipeline = null;
@@ -348,6 +364,8 @@ export class App {
     this.interiors.setTier(tier);
     if (had !== this.quality.bloom) this.buildPipeline();
     this.photoMod?.retier();
+    this.playLens?.dispose();
+    this.playLens = null;
     this.cams.fly.setSpinnerTier(tier);
     this.slowMs = 0;
     this.ui.setAppliedTier(tier);
@@ -368,6 +386,7 @@ export class App {
     if (k.wasPressed('Digit3')) this.cams.setMode('cine');
     if (k.wasPressed('KeyF')) this.cams.setMode(this.cams.mode === 'fly' ? 'walk' : 'fly');
     if (k.wasPressed('KeyN') && this.cams.mode === 'cine') this.cams.cine.cut();
+    if (k.wasPressed('KeyT') && this.cams.mode === 'cine') this.cams.cine.restartTour();
     if (k.wasPressed('KeyH')) this.hud.toggle();
     if (k.wasPressed('KeyM')) {
       this.ambience.start();
@@ -418,6 +437,7 @@ export class App {
     this.frames++;
 
     if (this.started && !photoOn) this.handleKeys();
+    setDisturbance(this.atmosphere.weather.params.wind, this.atmosphere.weather.params.rain);
     if (photoOn) this.photoMod!.update(dt);
     else this.cams.update(dt);
 
@@ -560,6 +580,7 @@ export class App {
     this.applyLapdShelter();
 
     if (photoOn) this.photoMod!.render();
+    else if (this.cams.mode === 'cine') this.renderCine();
     else if (this.pipeline) this.pipeline.render();
     else this.renderer.render(this.scene, this.camera);
 
@@ -620,6 +641,9 @@ export class App {
       ['district', `${d.name} (stage ${d.stage})`],
       ['sky', `${a.dayNight.label} · ${a.weather.label} · wet ${a.weather.wetness.toFixed(2)}`],
       ['mode', this.cams.mode === 'cine' ? `cinematic · ${this.cams.cine.label}` : this.cams.mode],
+      ['lens', this.cams.mode === 'cine'
+        ? `${this.cams.cine.lens.focalMm.toFixed(0)} mm · ${formatFStop(this.cams.cine.lens.fStop)} · ${this.cams.cine.lens.grade}`
+        : '—'],
       ['interior', this.interiors.hudLabel()],
     ];
   }
@@ -768,7 +792,7 @@ export class App {
       photo: {
         enter: () => this.enterPhoto(),
         exit: () => this.exitPhoto(),
-        setLens: (p: { focal?: number; focus?: number; aperture?: number; roll?: number }) => this.photoMod?.setLens(p),
+        setLens: (p: Parameters<PhotoMode['setLens']>[0]) => this.photoMod?.setLens(p),
         setLook: (p: Parameters<PhotoMode['setLook']>[0]) => this.photoMod?.setLook(p),
         setShot: (p: Parameters<PhotoMode['setShot']>[0]) => this.photoMod?.setShot(p),
         postcard: (id: string) => this.photoMod?.postcard(id) ?? false,
@@ -784,6 +808,18 @@ export class App {
       setWeather: (w: WeatherId, instant = true) => this.atmosphere.weather.set(w, instant),
       cut: () => this.cams.cine.cut(),
       holdShot: (on: boolean) => (this.cams.cine.hold = on),
+      tour: {
+        beats: () => this.cams.cine.beatList(),
+        show: (index: number) => {
+          this.cams.setMode('cine');
+          return this.cams.cine.showBeat(index);
+        },
+        restart: () => {
+          this.cams.setMode('cine');
+          this.cams.cine.restartTour();
+        },
+        lens: () => this.cams.cine.lens,
+      },
       /** Walk mode on the centre line of the street nearest to (x, z) or to a landmark/POI id, facing along it. */
       streetView: (target: string | number, zArg = 0, along = 0) => {
         let x = typeof target === 'number' ? target : 0, z = zArg;
