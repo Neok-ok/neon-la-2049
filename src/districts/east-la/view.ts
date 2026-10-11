@@ -105,15 +105,19 @@ export function eastLaCamera(layout: CityLayout, kind: EastLaView): EastPose | n
     );
   }
   if ((kind === 'interchange' || kind === 'deck') && cross) {
-    const g = layout.heightAt(cross.x, cross.z);
+    // The interchange stance frames the 5/10, where the GRID DOWN plate is.
+    const framed = kind === 'interchange'
+      ? (eastLaCrossings(layout).find((c) => c.id === 'el-5-10') ?? cross)
+      : cross;
+    const g = layout.heightAt(framed.x, framed.z);
     const along = kind === 'deck' ? 70 : 46;
     const side = kind === 'deck' ? 28 : 22;
     const eye = {
-      x: cross.x + cross.tx * along + cross.rx * side,
+      x: framed.x + framed.tx * along + framed.rx * side,
       y: g + (kind === 'deck' ? 22 : 16),
-      z: cross.z + cross.tz * along + cross.rz * side,
+      z: framed.z + framed.tz * along + framed.rz * side,
     };
-    return fly(eye, { x: cross.x, y: g + DECK_TOP + 1.4, z: cross.z }, true);
+    return fly(eye, { x: framed.x, y: g + DECK_TOP + 1.4, z: framed.z }, true);
   }
 
   if (kind === 'river') {

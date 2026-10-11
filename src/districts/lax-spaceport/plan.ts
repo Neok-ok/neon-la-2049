@@ -2,9 +2,9 @@
 // No three.js. The chunk worker and the main thread have to agree.
 import { Rng } from '../../core/rng';
 import { Style, SignColor, type FaceDir, type StyleId } from '../../world/fabric/types';
-import { CELL, PHRASE_WAY, phraseSeed } from '../../world/materials/signPhrases';
+import { PHRASE_WAY, phraseSeed } from '../../world/materials/signPhrases';
 import {
-  BAY, DOOR_J, HALL_A, HALL_B, HALL_S, HANGAR_H, PYLON_H, SHED_H, TERMINAL_H,
+  BAY, HALL_A, HALL_B, HALL_S, HANGAR_H, PYLON_H, SHED_H, TERMINAL_H,
   isPad, isTerminal,
 } from './spec';
 
@@ -141,21 +141,8 @@ export function planLax(b: LaxBlock): LaxPlan {
       face: 'a+', along: 0,
       y: 16, w: 8, h: 2.2, color: SignColor.Cyan, kind: 0, seed: phraseSeed(WAY[(Math.abs(b.j) + 1) % WAY.length]!),
     });
-    if (b.j === DOOR_J) {
-      const apronS = HALL_S + HALL_A / 2 + 2.8;
-      signs.push({
-        s: apronS, t: -28, hb: 0, ha: 0, face: 'a+', along: 0,
-        y: 32, w: 14, h: 3.4, color: SignColor.White, kind: 0, seed: phraseSeed(CELL.DEPART),
-      });
-      signs.push({
-        s: apronS, t: -28, hb: 0, ha: 0, face: 'a+', along: 0,
-        y: 27.2, w: 14, h: 3.2, color: SignColor.Cyan, kind: 0, seed: phraseSeed(CELL.CALDERA),
-      });
-      signs.push({
-        s: apronS, t: 52, hb: 0, ha: 0, face: 'a+', along: 0,
-        y: 56, w: 36, h: 12, color: SignColor.Cyan, kind: 0, seed: phraseSeed(CELL.COLONY),
-      });
-    }
+    // DEPART, CALDERA and the colony line are world signs beside the glyph board.
+    // A fabric sign at this apron landed in the terminal camera and hid the hall.
     const curb = at(b, HALL_S + HALL_A / 2 + 6, 0);
     pools.push({
       x: curb.x, y: b.ground + 0.08, z: curb.z, yaw: 0,

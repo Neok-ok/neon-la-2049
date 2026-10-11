@@ -243,10 +243,10 @@ function signsFor(l: Landmark, yaw: number): Sign[] {
     // over the door, readable from the steps. Atlas cell is the invented "SECTOR 5", not a badge.
     at(0, 9.4, -HQ.podiumD / 2 - 0.5, 9.2, 1.55, out, phraseSeed(39), 0),
     at(0, 8.4, -42.7, 6.4, 1.2, out, phraseSeed(39), 0),
-    // Where the shaft glyph loop stood. A plate, not a projector.
-    at(0, 46, -HQ.shaftD / 2 - 0.55, 12, 2.8, out, phraseSeed(CELL.BASELINE), 0),
-    // Beside the directory, toward the door. The lobby stays a soffit.
-    at(8.2, HQ.lobbyFloor + 1.65, -50.55, 2.6, 0.72, out, phraseSeed(CELL.PAPER_ONLY), 0),
+    // Where the shaft glyph loop stood. A plate, not a projector. Tall enough to read from the steps.
+    at(0, 36, -HQ.shaftD / 2 - 0.55, 16, 7, out, phraseSeed(CELL.BASELINE), 0),
+    // Screen-right of the door (local −X), clear of the column that cuts the other side.
+    at(-3.4, HQ.lobbyFloor + 2.35, -51.6, 3.1, 0.88, out, phraseSeed(CELL.PAPER_ONLY), 0),
   ];
 }
 

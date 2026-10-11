@@ -78,8 +78,9 @@ export function laxCamera(layout: CityLayout, kind: LaxView): LaxPose | null {
     return walk(feet, { x: west.x - 32, y: westG + 150, z: west.z });
   }
   if (kind === 'terminal') {
-    const feet = { x: door.x + 10, y: doorG, z: door.z - 16 };
-    return walk(feet, { x: door.x - 18, y: doorG + 26, z: door.z + 4 });
+    // Far enough back that the hall is in frame, aimed at the glyph so DEPART and CALDERA flank it.
+    const feet = { x: door.x - 16, y: doorG, z: door.z - 46 };
+    return walk(feet, { x: door.x - 46, y: doorG + 16, z: door.z + 6 });
   }
   if (kind === 'interior') {
     const feet = { x: door.x, y: doorG, z: door.z + 4.8 };

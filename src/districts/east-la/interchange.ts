@@ -261,12 +261,13 @@ export function mountEastLaInterchanges(layout: CityLayout): Group | null {
     addCrossing(layout, c, depth, concrete, glow);
     if (c.id !== 'el-5-10') continue;
     const grade = layout.heightAt(c.x, c.z);
+    // On the approach the interchange camera already frames, facing back at that camera.
     paper.push({
-      x: c.x + c.vx * 36,
-      y: grade + 2.8,
-      z: c.z + c.vz * 36,
-      yaw: Math.atan2(-c.vx, -c.vz),
-      w: 7.2, h: 1.8,
+      x: c.x + c.tx * 22 + c.rx * 7,
+      y: grade + 6.2,
+      z: c.z + c.tz * 22 + c.rz * 7,
+      yaw: Math.atan2(c.tx, c.tz),
+      w: 22, h: 5.2,
       color: SignColor.Amber,
       seed: phraseSeed(CELL.GRID_DOWN),
       kind: 0,

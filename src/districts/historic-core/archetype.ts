@@ -154,12 +154,12 @@ registerArchetype('historic-core', (ctx) => {
     if (b.i === BRADBURY_I && b.j === BRADBURY_J && geom.face === 'b-') {
       occupied.push([BRADBURY_HOLE.s0 - 0.4, BRADBURY_HOLE.s1 + 0.4]);
       const shutterS = BRADBURY_HOLE.s1 + 8;
-      occupied.push([shutterS - 2.4, shutterS + 2.4]);
+      occupied.push([shutterS - 3.6, shutterS + 3.6]);
       const faceT = -b.lb / 2;
-      ctx.box(shutterS, faceT + 0.28, 0.42, 3.6, 2.7, {
-        style: Style.Solid, lit: 0.03, tint: 0.32, base: 0.3,
+      ctx.box(shutterS, faceT + 0.28, 0.42, 6.2, 3.4, {
+        style: Style.Solid, lit: 0.03, tint: 0.32, base: 0.2,
       });
-      ctx.sign(shutterS, faceT, 0, 0, 'b-', 0, 1.65, 3.2, 0.9, SignColor.Amber, 0, phraseSeed(CELL.CURFEW));
+      ctx.sign(shutterS, faceT, 0, 0, 'b-', 0, 2.15, 5.6, 1.45, SignColor.Amber, 0, phraseSeed(CELL.CURFEW));
     }
 
     const runs = freeRuns(geom.span, occupied, 12);
