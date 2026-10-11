@@ -57,6 +57,8 @@ import { setRefineryFlame } from '../districts/_shared/refinery/flames';
 import { installArtsHolos } from '../districts/arts-district/holos';
 import { sampleDistrictLook } from '../atmosphere/districtLook';
 import '../atmosphere/looks';
+import { setAirSample, setAirTier, airFlags } from '../atmosphere/airState';
+import { AirField, shaftCapFor } from '../atmosphere/AirField';
 import { wallaceCamera, type WallaceView } from '../districts/wallace-vernon/view';
 import { updateWallace } from '../districts/wallace-vernon/live';
 import { wallaceFaceSectorCount } from '../districts/wallace-vernon/faceDetail';
@@ -133,6 +135,7 @@ export class App {
   landmarks!: Landmarks;
   interiors!: InteriorSystem;
   readonly haze = new GroundHaze();
+  readonly air = new AirField(this.scene);
   readonly wet: WetReflector;
   private readonly software: boolean;
   private lastCam = new Vector3();
@@ -247,7 +250,7 @@ export class App {
     fly.blocksExtra = (x, y, z) => this.interiors.blocksFly(x, y, z);
     this.interiors.bind({
       toggle: [this.streamer.root, this.holos.group, this.crowd.mesh, ...this.traffic.nodes, ...this.ground.nodes],
-      suppress: [this.rain.mesh, this.snow.mesh, this.haze.group, this.wet.mesh, ...this.lanes.nodes, fly.spinner],
+      suppress: [this.rain.mesh, this.snow.mesh, this.haze.group, this.wet.mesh, this.air.glowMesh, this.air.breathMesh, ...this.lanes.nodes, fly.spinner],
       landmarks: this.landmarks.root,
     });
     const walk = new WalkController(this.camera, this.input, this.query);
@@ -442,6 +445,12 @@ export class App {
     const coast = updateCoast(cam, this.quality.tier, simDt, this.elapsed, this.atmosphere.weather.params.rain, this.atmosphere.weather.params.wind, this.query.layout, params.surf);
     const look = sampleDistrictLook(this.query.layout, cam.x, cam.z, alt, this.quality.tier, coast.near);
     U.neonWet.value = look.neonWet;
+    setAirTier(this.quality.tier);
+    setAirSample({
+      ground: look.ground, mid: look.mid, deck: look.deck,
+      tintR: look.tintR, tintG: look.tintG, tintB: look.tintB,
+      tintMix: look.tintMix, breath: look.breath,
+    });
     let streetFog = Math.max(look.streetFog, coast.fog);
     if (inWallace) streetFog = Math.max(streetFog, 0.78 * Math.max(0, 1 - alt / 110));
     U.streetFog.value = streetFog;
@@ -481,6 +490,18 @@ export class App {
 
     const w = this.atmosphere.weather;
     const aboveClouds = MathUtils.clamp(1 - (cam.y - 1400) / 600, 0, 1);
+    this.air.update({
+      tier: this.quality.tier,
+      camX: cam.x, camY: cam.y, camZ: cam.z, alt, time: this.elapsed,
+      cameraQuat: this.camera.quaternion,
+      query: this.query,
+      holos: this.holos.glowMarks,
+      signs: (out, range, minArea) => this.streamer.collectSignGlows(cam.x, cam.y, cam.z, range, minArea, out),
+      craft: (out, range) => {
+        this.traffic.collectCraft(cam.x, cam.y, cam.z, range, out);
+        this.lanes.collectSpinners(cam.x, cam.y, cam.z, range, out);
+      },
+    });
     this.rain.update(simDt, cam, w.params.rain * aboveClouds, w.params.wind * (1 + coast.crest * 0.85), w.windDir, this.quality.rainCount);
     this.snow.update(simDt, cam, w.params.snow * aboveClouds, w.params.wind, w.windDir, this.quality.snowCount);
     const at = this.cams.mode === 'walk' ? this.cams.walk.pos : cam;
@@ -1154,6 +1175,28 @@ export class App {
         return true;
       },
       windows: windowsApi(this.query.layout),
+      air: {
+        toggle: (layer: 'ground' | 'mid' | 'deck' | 'halos' | 'shafts' | 'rain' | 'breath', on?: boolean) => {
+          airFlags[layer] = on ?? !airFlags[layer];
+          return this.air.snapshot();
+        },
+        searchlights: (n?: number) => {
+          if (n !== undefined) airFlags.shaftCap = n < 0 ? -1 : Math.max(0, Math.min(4, n | 0));
+          return airFlags.shaftCap < 0 ? shaftCapFor(this.quality.tier) : airFlags.shaftCap;
+        },
+        heights: (h?: { groundY?: number; groundW?: number; deckY?: number; deckW?: number; layerY?: number }) => {
+          if (h) {
+            if (h.groundY !== undefined) airFlags.groundY = h.groundY;
+            if (h.groundW !== undefined) airFlags.groundW = h.groundW;
+            if (h.deckY !== undefined) airFlags.deckY = h.deckY;
+            if (h.deckW !== undefined) airFlags.deckW = h.deckW;
+            if (h.layerY !== undefined) airFlags.layerY = h.layerY;
+          }
+          const s = this.air.snapshot();
+          return { groundY: s.groundY, groundW: s.groundW, deckY: s.deckY, deckW: s.deckW, layerY: s.layerY };
+        },
+        state: () => this.air.snapshot(),
+      },
       stats: () => ({
         ...this.streamer.stats,
         fps: this.hud.fps,
@@ -1202,6 +1245,7 @@ export class App {
         sessionWorstMs: this.sessionWorstMs,
         photo: this.photoMod?.active ?? false,
         windows: windowState(),
+        air: this.air.snapshot(),
         qualityChoice: this.qualityChoice,
         autoTier: this.autoTier,
         autoReason: this.autoReason,

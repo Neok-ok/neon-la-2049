@@ -23,6 +23,26 @@ export const U = {
   layerDensity: uniform(0.0008),
   layerY: uniform(260),
   layerW: uniform(115),
+  /**
+   * Analytic street band and high deck (D5). Densities are 0 on the low tier, so that
+   * tier keeps today's exponential fog. Not a second pass.
+   */
+  groundBand: uniform(0),
+  groundY: uniform(12),
+  groundW: uniform(15),
+  deckDensity: uniform(0),
+  deckY: uniform(1320),
+  deckW: uniform(240),
+  /** Hue multiply on the low fog. Luminance stays near 1 so night streets stay dark. */
+  airTint: uniform(new Color(1, 1, 1)),
+  airTintMix: uniform(0),
+  deckColor: uniform(new Color(0.06, 0.04, 0.03)),
+  deckTint: uniform(0),
+  /** 0 low, ~0.6 medium, 1 high/ultra. Rain streaks ignore lights when this is 0. */
+  rainReact: uniform(0),
+  /** How many of the fixed light / shaft slots the rain shader reads. */
+  rainSlots: uniform(0),
+  shaftSlots: uniform(0),
   fogColor: uniform(new Color(0.1, 0.08, 0.07)),
   skyZenith: uniform(new Color(0.02, 0.025, 0.035)),
   skyHorizon: uniform(new Color(0.12, 0.09, 0.07)),

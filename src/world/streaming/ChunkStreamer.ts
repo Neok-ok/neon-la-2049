@@ -15,6 +15,8 @@ import { getLayout } from '../layout';
 import { buildDetails, type ChunkBlock } from '../detail/registry';
 import { hologramsFromSignBuffer } from '../holograms/fromSigns';
 import type { HologramSpec } from '../holograms/types';
+import { SIGN_RGB } from '../materials/signPalette';
+import type { GlowMark } from '../../atmosphere/AirField';
 
 export const CHUNK = 500;
 export const SUPER = 2000;
@@ -33,6 +35,8 @@ interface Slot {
   dist: number;
   /** Large kind-2 billboards promoted to the hologram field. Cleared on dispose. */
   panels: HologramSpec[];
+  /** LOD0 signs big enough to halo. Stride 7: x, y, z, r, g, b, area. World space. */
+  glows: Float32Array | null;
 }
 
 interface Super {
@@ -142,7 +146,7 @@ export class ChunkStreamer {
   }
 
   private mkSlot(key: string, x0: number, z0: number, size: number): Slot {
-    return { key, x0, z0, size, want: -1, shownLod: -1, shown: null, pendingLod: -1, dist: 0, panels: [] };
+    return { key, x0, z0, size, want: -1, shownLod: -1, shown: null, pendingLod: -1, dist: 0, panels: [], glows: null };
   }
 
   private disposeSlot(s: Slot): void {
@@ -151,6 +155,7 @@ export class ChunkStreamer {
     s.shownLod = -1;
     s.want = -1;
     s.panels = [];
+    s.glows = null;
   }
 
   /**
@@ -165,6 +170,52 @@ export class ChunkStreamer {
       }
     }
     return out;
+  }
+
+  /**
+   * Nearest LOD0 signs above `minArea`, appended to `out` (the caller clears it).
+   * Capped so a dressed market chunk cannot hand the halo pass thousands of blades.
+   */
+  collectSignGlows(x: number, y: number, z: number, range: number, minArea: number, out: GlowMark[]): void {
+    const r2 = range * range;
+    const pad = range + CHUNK;
+    for (const s of this.supers.values()) {
+      for (const slot of this.visibleSlots(s)) {
+        if (slot.shownLod !== 0 || !slot.glows) continue;
+        const dx0 = slot.x0 + slot.size * 0.5 - x;
+        const dz0 = slot.z0 + slot.size * 0.5 - z;
+        if (dx0 * dx0 + dz0 * dz0 > pad * pad) continue;
+        const g = slot.glows;
+        for (let i = 0; i < g.length; i += 7) {
+          const area = g[i + 6] ?? 0;
+          if (area < minArea) continue;
+          const gx = g[i] ?? 0;
+          const gy = g[i + 1] ?? 0;
+          const gz = g[i + 2] ?? 0;
+          const dx = gx - x;
+          const dy = gy - y;
+          const dz = gz - z;
+          const d2 = dx * dx + dy * dy + dz * dz;
+          if (d2 > r2) continue;
+          if (out.length >= 64) {
+            let far = 0;
+            for (let k = 1; k < out.length; k++) if ((out[k]?.d2 ?? 0) > (out[far]?.d2 ?? 0)) far = k;
+            if (d2 >= (out[far]?.d2 ?? 0)) continue;
+            const item = out[far];
+            if (!item) continue;
+            item.x = gx; item.y = gy; item.z = gz;
+            item.r = g[i + 3] ?? 1; item.g = g[i + 4] ?? 1; item.b = g[i + 5] ?? 1;
+            item.area = area; item.d2 = d2;
+            continue;
+          }
+          out.push({
+            x: gx, y: gy, z: gz,
+            r: g[i + 3] ?? 1, g: g[i + 4] ?? 1, b: g[i + 5] ?? 1,
+            area, d2,
+          });
+        }
+      }
+    }
   }
 
   private visibleSlots(s: Super): Slot[] {
@@ -329,6 +380,7 @@ export class ChunkStreamer {
     const n = r.signs.length / SIGN_STRIDE;
     if (n > 0) g.add(this.buildSigns(r.signs, n));
     slot.panels = hologramsFromSignBuffer(slot.key, slot.x0, slot.z0, r.signs, n);
+    slot.glows = lod === 0 ? packSignGlows(r.signs, n, slot.x0, slot.z0) : null;
     if (lod === 0 && this.quality.streetDetail) {
       const blocks: ChunkBlock[] = [];
       for (let i = 0; i < r.blocks.length; i += BLOCK_STRIDE) {
@@ -365,6 +417,22 @@ export class ChunkStreamer {
     mesh.name = 'signs';
     return mesh;
   }
+}
+
+/** Signs of at least 8 m². Smaller blades stay on the sign mesh and do not grow a halo. */
+function packSignGlows(signs: Float32Array, n: number, x0: number, z0: number): Float32Array | null {
+  const tmp: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const o = i * SIGN_STRIDE;
+    const w = signs[o + 4] ?? 0;
+    const h = signs[o + 5] ?? 0;
+    const area = w * h;
+    if (area < 8) continue;
+    const color = Math.max(0, Math.min(SIGN_RGB.length - 1, Math.round(signs[o + 6] ?? 0)));
+    const rgb = SIGN_RGB[color] ?? SIGN_RGB[2] ?? [1, 0.55, 0.12];
+    tmp.push((signs[o] ?? 0) + x0, signs[o + 1] ?? 0, (signs[o + 2] ?? 0) + z0, rgb[0], rgb[1], rgb[2], area);
+  }
+  return tmp.length ? new Float32Array(tmp) : null;
 }
 
 function disposeGroup(g: Object3D): void {
