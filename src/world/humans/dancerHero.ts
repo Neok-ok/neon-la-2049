@@ -2,18 +2,18 @@
 // The instanced hologram quad keeps getHoloMaterial. This is the one extra draw.
 // Far and low stay on that quad, masked by the low-mesh silhouette.
 import {
-  AdditiveBlending, BufferGeometry, DataTexture, DoubleSide, Mesh, MeshBasicNodeMaterial,
+  AdditiveBlending, BufferAttribute, BufferGeometry, DataTexture, DoubleSide, LinearFilter, Mesh, MeshBasicNodeMaterial,
   NearestFilter, NoColorSpace, RGBAFormat, TextureLoader, UnsignedByteType, Vector3,
-  type Texture,
+  type Texture, type WebGPURenderer,
 } from 'three/webgpu';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import * as TSL from 'three/tsl';
 import type { Tier } from '../../core/quality';
 import { U } from '../../atmosphere/uniforms';
 import { allHolograms } from '../holograms/registry';
-import { installDancerMask } from '../holograms/material';
+import { installDancerMask, releaseDancerMask } from '../holograms/material';
 import type { HologramSpec } from '../holograms/types';
+import { loadHumanGeometry, retainedGeometryBytes } from './gltfGeom';
+import { disposeHumanKtx, preferHumanKtx2, textureGpuBytes, transcodeKtx2 } from './ktx';
 import { paletteSkin } from './paletteSkin';
 
 const T = TSL as any;
@@ -30,37 +30,6 @@ type DancerLod = 'medium' | 'high';
 
 function url(file: string): string {
   return `${import.meta.env.BASE_URL}models/humans/${file}`;
-}
-
-const gltf = new GLTFLoader();
-let decoderReady: Promise<void> | null = null;
-
-function ensureDecoder(): Promise<void> {
-  if (!decoderReady) {
-    gltf.setMeshoptDecoder(MeshoptDecoder);
-    decoderReady = MeshoptDecoder.ready;
-  }
-  return decoderReady;
-}
-
-function loadGeometry(lod: DancerLod): Promise<BufferGeometry> {
-  return ensureDecoder().then(() => new Promise((resolve, reject) => {
-    gltf.load(url(`dancer-${lod}.glb`), (asset) => {
-      let best: BufferGeometry | null = null;
-      let n = 0;
-      asset.scene.traverse((obj) => {
-        const mesh = obj as { isMesh?: boolean; geometry?: BufferGeometry };
-        if (!mesh.isMesh || !mesh.geometry) return;
-        const count = mesh.geometry.getAttribute('position')?.count ?? 0;
-        if (count >= n) {
-          n = count;
-          best = mesh.geometry;
-        }
-      });
-      if (!best) reject(new Error(`dancer ${lod} has no mesh`));
-      else resolve(best);
-    }, undefined, reject);
-  }));
 }
 
 function loadPalette(): Promise<Texture> {
@@ -81,13 +50,35 @@ function loadPalette(): Promise<Texture> {
   });
 }
 
-function loadMask(): Promise<void> {
+const MASK_W = 256;
+const MASK_H = 512;
+
+function loadMaskPng(): Promise<Texture> {
   return new Promise((resolve, reject) => {
     new TextureLoader().load(url('dancer-mask.png'), (tex) => {
-      installDancerMask(tex);
-      resolve();
+      tex.magFilter = LinearFilter;
+      tex.minFilter = LinearFilter;
+      tex.generateMipmaps = false;
+      resolve(tex);
     }, undefined, reject);
   });
+}
+
+async function loadMaskTexture(renderer?: WebGPURenderer | null): Promise<{ texture: Texture; gpuBytes: number; kind: 'ktx2' | 'png' }> {
+  if (preferHumanKtx2(renderer)) {
+    try {
+      const res = await fetch(url('dancer-mask.ktx2'));
+      if (!res.ok) throw new Error(`dancer mask ktx2 ${res.status}`);
+      const tex = await transcodeKtx2(renderer as WebGPURenderer, await res.arrayBuffer());
+      tex.generateMipmaps = false;
+      tex.needsUpdate = true;
+      return { texture: tex, gpuBytes: textureGpuBytes(tex, MASK_W, MASK_H), kind: 'ktx2' };
+    } catch (err) {
+      console.warn('dancer mask ktx2', err);
+    }
+  }
+  const texture = await loadMaskPng();
+  return { texture, gpuBytes: MASK_W * MASK_H * 4, kind: 'png' };
 }
 
 function heroMaterial(palette: Texture): MeshBasicNodeMaterial {
@@ -128,22 +119,84 @@ function heroMaterial(palette: Texture): MeshBasicNodeMaterial {
   return m;
 }
 
-const geometries = new Map<DancerLod, Promise<BufferGeometry>>();
-let materialPromise: Promise<MeshBasicNodeMaterial> | null = null;
+let epoch = 0;
+let materialPromise: Promise<MeshBasicNodeMaterial | null> | null = null;
+let heroMat: MeshBasicNodeMaterial | null = null;
+let paletteTex: Texture | null = null;
 let maskPromise: Promise<void> | null = null;
+let maskBytes = 0;
+let maskKind: 'ktx2' | 'png' | 'none' = 'none';
 
-function sharedMaterial(): Promise<MeshBasicNodeMaterial> {
-  if (!materialPromise) materialPromise = loadPalette().then(heroMaterial);
+function sharedMaterial(): Promise<MeshBasicNodeMaterial | null> {
+  if (heroMat) return Promise.resolve(heroMat);
+  if (!materialPromise) {
+    const e = epoch;
+    materialPromise = loadPalette().then((palette) => {
+      if (e !== epoch) {
+        palette.dispose();
+        return null;
+      }
+      paletteTex = palette;
+      heroMat = heroMaterial(palette);
+      return heroMat;
+    }).catch((err) => {
+      materialPromise = null;
+      throw err;
+    });
+  }
   return materialPromise;
 }
 
-function sharedMask(): Promise<void> {
+function sharedMask(renderer?: WebGPURenderer | null): Promise<void> {
+  if (maskKind !== 'none') return Promise.resolve();
   if (!maskPromise) {
-    maskPromise = loadMask().catch((err) => {
+    const e = epoch;
+    maskPromise = loadMaskTexture(renderer).then((loaded) => {
+      if (e !== epoch) {
+        loaded.texture.dispose();
+        return;
+      }
+      installDancerMask(loaded.texture);
+      maskBytes = loaded.gpuBytes;
+      maskKind = loaded.kind;
+    }).catch((err) => {
+      maskPromise = null;
       console.warn('dancer mask', err);
     });
   }
   return maskPromise;
+}
+
+export interface DancerTextureMemory {
+  paletteBytes: number;
+  maskBytes: number;
+  maskKind: 'ktx2' | 'png' | 'none';
+}
+
+export function dancerTextureMemory(): DancerTextureMemory {
+  const image = paletteTex?.image as { data?: ArrayBufferView } | undefined;
+  return {
+    paletteBytes: image?.data?.byteLength ?? 0,
+    maskBytes,
+    maskKind,
+  };
+}
+
+/** Drop the hero material, palette, and mask. The hologram quad keeps its own material. */
+export function disposeDancerResources(): void {
+  epoch++;
+  materialPromise = null;
+  maskPromise = null;
+  const mat = heroMat;
+  const pal = paletteTex;
+  heroMat = null;
+  paletteTex = null;
+  maskBytes = 0;
+  maskKind = 'none';
+  mat?.dispose();
+  pal?.dispose();
+  releaseDancerMask();
+  disposeHumanKtx();
 }
 
 function hemOf(spec: HologramSpec): number {
@@ -161,46 +214,110 @@ export class DancerHero {
   private loaded: DancerLod | null = null;
   private gen = 0;
   private trisPer = 0;
+  private owned: BufferGeometry | null = null;
+  private disposed = false;
+  private pending: DancerLod | null = null;
+  private readonly blank = new BufferGeometry();
+  private dummyMat: MeshBasicNodeMaterial | null;
 
   constructor() {
-    this.mesh = new Mesh(new BufferGeometry(), new MeshBasicNodeMaterial());
+    this.blank.setAttribute('position', new BufferAttribute(new Float32Array(9), 3));
+    this.dummyMat = new MeshBasicNodeMaterial();
+    this.mesh = new Mesh(this.blank, this.dummyMat);
     this.mesh.name = 'dancer-hero';
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = 7;
     this.mesh.scale.setScalar(0);
-    void sharedMask();
   }
 
-  setLod(tier: Tier): void {
+  /** Triangles of the hero mesh kept in memory. Zero on low, and while it is still loading. */
+  residentTriangles(): number {
+    return this.owned ? this.trisPer : 0;
+  }
+
+  geometryResident(): number {
+    return retainedGeometryBytes(this.owned);
+  }
+
+  setLod(tier: Tier, renderer?: WebGPURenderer | null): void {
+    if (this.disposed) return;
+    void sharedMask(renderer);
     this.allow = tier !== 'low';
     if (!this.allow) {
+      this.gen++;
+      this.pending = null;
+      this.releaseGeometry();
       this.mesh.scale.setScalar(0);
       this.shown = 0;
       this.tris = 0;
+      this.ready = false;
+      this.loaded = null;
       return;
     }
     const lod: DancerLod = tier === 'medium' ? 'medium' : 'high';
-    if (this.loaded === lod && this.ready) return;
+    if ((this.loaded === lod && this.ready) || this.pending === lod) return;
+    this.pending = lod;
     const gen = ++this.gen;
-    let geo = geometries.get(lod);
-    if (!geo) {
-      geo = loadGeometry(lod);
-      geometries.set(lod, geo);
-    }
-    void Promise.all([sharedMaterial(), geo]).then(([material, geometry]) => {
-      if (gen !== this.gen) return;
-      this.mesh.geometry = geometry;
+    const geometryPromise = loadHumanGeometry(url(`dancer-${lod}.glb`));
+    void Promise.all([
+      sharedMaterial(),
+      geometryPromise,
+    ]).then(([material, geometry]) => {
+      if (gen === this.gen) this.pending = null;
+      if (gen !== this.gen || this.disposed || !material) {
+        geometry.dispose();
+        return;
+      }
+      this.adopt(geometry);
+      if (this.dummyMat) {
+        this.dummyMat.dispose();
+        this.dummyMat = null;
+      }
       this.mesh.material = material;
       this.trisPer = (geometry.index?.count ?? geometry.getAttribute('position').count) / 3;
       this.loaded = lod;
       this.ready = true;
-    }).catch((err) => {
+    }).catch(async (err) => {
+      if (gen === this.gen) this.pending = null;
+      const geometry = await geometryPromise.catch(() => null);
+      if (geometry && geometry !== this.owned && geometry !== this.mesh.geometry) geometry.dispose();
       console.warn('dancer hero', err);
     });
   }
 
+  /** Free the hero mesh, its palette, and the mask. The hologram panels stay. */
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.gen++;
+    this.allow = false;
+    this.ready = false;
+    this.releaseGeometry();
+    this.dummyMat?.dispose();
+    this.dummyMat = null;
+    disposeDancerResources();
+    this.mesh.geometry = new BufferGeometry();
+    this.mesh.dispose();
+    this.shown = 0;
+    this.tris = 0;
+  }
+
+  private releaseGeometry(): void {
+    const old = this.owned;
+    this.owned = null;
+    this.mesh.geometry = this.blank;
+    old?.dispose();
+  }
+
+  private adopt(geometry: BufferGeometry): void {
+    const old = this.owned;
+    this.owned = geometry;
+    this.mesh.geometry = geometry;
+    if (old && old !== geometry) old.dispose();
+  }
+
   update(cam: Vector3): void {
-    if (!this.allow || !this.ready) {
+    if (this.disposed || !this.allow || !this.ready) {
       this.mesh.scale.setScalar(0);
       this.shown = 0;
       this.tris = 0;

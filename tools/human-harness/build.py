@@ -127,6 +127,12 @@ def write_palettes():
             'period': 6.28318530718 / 1.2,
             'palette': {'width': dwidth, 'height': dheight, 'min': dlo, 'max': dhi, 'file': 'dancer-palette.bin'},
         },
+        'textures': {
+            'atlas': 'crowd-atlas.ktx2',
+            'atlasFallback': 'crowd-atlas.png',
+            'mask': 'dancer-mask.ktx2',
+            'maskFallback': 'dancer-mask.png',
+        },
     }
     (OUT / 'manifest.json').write_text(json.dumps(manifest, indent=2))
     # Touch the struct import so a future packed header can reuse it.
@@ -141,6 +147,7 @@ def run(cmd):
 def main():
     write_atlas(OUT / 'crowd-atlas.png')
     write_mask(OUT / 'dancer-mask.png')
+    run(['node', str(ROOT / 'scripts' / 'encode-human-ktx2.mjs')])
     write_palettes()
     report = write_scores()
     print(json.dumps({k: {lod: v['iou'] for lod, v in d.items()} for k, d in report.items()}, indent=2))

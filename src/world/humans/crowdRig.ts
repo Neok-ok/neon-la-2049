@@ -5,13 +5,13 @@
 import {
   BufferGeometry, DataTexture, LinearFilter, MeshStandardNodeMaterial, NearestFilter,
   NoColorSpace, RGBAFormat, SRGBColorSpace, TextureLoader, UnsignedByteType,
-  type Texture,
+  type Texture, type WebGPURenderer,
 } from 'three/webgpu';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import * as TSL from 'three/tsl';
 import type { Tier } from '../../core/quality';
 import { U } from '../../atmosphere/uniforms';
+import { loadHumanGeometry } from './gltfGeom';
+import { disposeHumanKtx, preferHumanKtx2, textureGpuBytes, transcodeKtx2 } from './ktx';
 import { paletteSkin } from './paletteSkin';
 
 const T = TSL as any;
@@ -35,37 +35,6 @@ function url(file: string): string {
   return `${import.meta.env.BASE_URL}models/humans/${file}`;
 }
 
-const gltf = new GLTFLoader();
-let decoderReady: Promise<void> | null = null;
-
-function ensureDecoder(): Promise<void> {
-  if (!decoderReady) {
-    gltf.setMeshoptDecoder(MeshoptDecoder);
-    decoderReady = MeshoptDecoder.ready;
-  }
-  return decoderReady;
-}
-
-function loadGeometry(lod: CrowdLod): Promise<BufferGeometry> {
-  return ensureDecoder().then(() => new Promise((resolve, reject) => {
-    gltf.load(url(`crowd-${lod}.glb`), (asset) => {
-      let best: BufferGeometry | null = null;
-      let n = 0;
-      asset.scene.traverse((obj) => {
-        const mesh = obj as { isMesh?: boolean; geometry?: BufferGeometry };
-        if (!mesh.isMesh || !mesh.geometry) return;
-        const count = mesh.geometry.getAttribute('position')?.count ?? 0;
-        if (count >= n) {
-          n = count;
-          best = mesh.geometry;
-        }
-      });
-      if (!best) reject(new Error(`crowd ${lod} has no mesh`));
-      else resolve(best);
-    }, undefined, reject);
-  }));
-}
-
 function loadPalette(): Promise<Texture> {
   return fetch(url('crowd-palette.bin')).then((res) => {
     if (!res.ok) throw new Error(`crowd palette ${res.status}`);
@@ -87,7 +56,10 @@ function loadPalette(): Promise<Texture> {
   });
 }
 
-function loadAtlas(): Promise<Texture> {
+const ATLAS_W = 512;
+const ATLAS_H = 512;
+
+function loadAtlasPng(): Promise<Texture> {
   return new Promise((resolve, reject) => {
     new TextureLoader().load(url('crowd-atlas.png'), (tex) => {
       tex.colorSpace = SRGBColorSpace;
@@ -98,6 +70,25 @@ function loadAtlas(): Promise<Texture> {
       resolve(tex);
     }, undefined, reject);
   });
+}
+
+async function loadAtlas(renderer?: WebGPURenderer | null): Promise<{ texture: Texture; gpuBytes: number; kind: 'ktx2' | 'png' }> {
+  if (preferHumanKtx2(renderer)) {
+    try {
+      const res = await fetch(url('crowd-atlas.ktx2'));
+      if (!res.ok) throw new Error(`crowd atlas ktx2 ${res.status}`);
+      const tex = await transcodeKtx2(renderer as WebGPURenderer, await res.arrayBuffer());
+      tex.colorSpace = SRGBColorSpace;
+      tex.flipY = false;
+      tex.generateMipmaps = false;
+      tex.needsUpdate = true;
+      return { texture: tex, gpuBytes: textureGpuBytes(tex, ATLAS_W, ATLAS_H), kind: 'ktx2' };
+    } catch (err) {
+      console.warn('crowd atlas ktx2', err);
+    }
+  }
+  const texture = await loadAtlasPng();
+  return { texture, gpuBytes: ATLAS_W * ATLAS_H * 4, kind: 'png' };
 }
 
 function band(part: any, a: number, b: number) {
@@ -222,24 +213,88 @@ export interface CrowdRigAsset {
   triangles: number;
 }
 
-let materialPromise: Promise<MeshStandardNodeMaterial> | null = null;
-const geometries = new Map<CrowdLod, Promise<BufferGeometry>>();
+let epoch = 0;
+let materialPromise: Promise<MeshStandardNodeMaterial | null> | null = null;
+let paletteTex: Texture | null = null;
+let atlasTex: Texture | null = null;
+let atlasBytes = 0;
+let atlasKind: 'ktx2' | 'png' | 'none' = 'none';
+let crowdMat: MeshStandardNodeMaterial | null = null;
 
-function sharedMaterial(): Promise<MeshStandardNodeMaterial> {
+function sharedMaterial(renderer?: WebGPURenderer | null): Promise<MeshStandardNodeMaterial | null> {
+  if (crowdMat) return Promise.resolve(crowdMat);
   if (!materialPromise) {
-    materialPromise = Promise.all([loadPalette(), loadAtlas()]).then(([palette, atlas]) => crowdMaterial(palette, atlas));
+    const e = epoch;
+    materialPromise = Promise.all([loadPalette(), loadAtlas(renderer)]).then(([palette, atlas]) => {
+      if (e !== epoch) {
+        palette.dispose();
+        atlas.texture.dispose();
+        return null;
+      }
+      paletteTex = palette;
+      atlasTex = atlas.texture;
+      atlasBytes = atlas.gpuBytes;
+      atlasKind = atlas.kind;
+      crowdMat = crowdMaterial(palette, atlas.texture);
+      return crowdMat;
+    }).catch((err) => {
+      materialPromise = null;
+      throw err;
+    });
   }
   return materialPromise;
 }
 
-export function loadCrowdRig(lod: CrowdLod): Promise<CrowdRigAsset> {
-  let geo = geometries.get(lod);
-  if (!geo) {
-    geo = loadGeometry(lod);
-    geometries.set(lod, geo);
-  }
-  return Promise.all([sharedMaterial(), geo]).then(([material, geometry]) => {
+export interface CrowdTextureMemory {
+  paletteBytes: number;
+  atlasBytes: number;
+  atlasKind: 'ktx2' | 'png' | 'none';
+}
+
+/** Palette is raw uint16 pairs. Compressing it would quantize the bones. */
+export function crowdTextureMemory(): CrowdTextureMemory {
+  const image = paletteTex?.image as { data?: ArrayBufferView } | undefined;
+  return {
+    paletteBytes: image?.data?.byteLength ?? 0,
+    atlasBytes,
+    atlasKind,
+  };
+}
+
+/** Drop the shared material, palette, and atlas. In-flight loads dispose themselves. */
+export function disposeCrowdResources(): void {
+  epoch++;
+  materialPromise = null;
+  const mat = crowdMat;
+  const pal = paletteTex;
+  const atl = atlasTex;
+  crowdMat = null;
+  paletteTex = null;
+  atlasTex = null;
+  atlasBytes = 0;
+  atlasKind = 'none';
+  mat?.dispose();
+  pal?.dispose();
+  atl?.dispose();
+  disposeHumanKtx();
+}
+
+export function loadCrowdRig(lod: CrowdLod, renderer?: WebGPURenderer | null): Promise<CrowdRigAsset | null> {
+  const e = epoch;
+  const geometryPromise = loadHumanGeometry(url(`crowd-${lod}.glb`));
+  return Promise.all([
+    sharedMaterial(renderer),
+    geometryPromise,
+  ]).then(([material, geometry]) => {
+    if (e !== epoch || !material) {
+      geometry.dispose();
+      return null;
+    }
     const triangles = (geometry.index?.count ?? geometry.getAttribute('position').count) / 3;
     return { geometry, material, triangles };
+  }).catch(async (err) => {
+    const geometry = await geometryPromise.catch(() => null);
+    geometry?.dispose();
+    throw err;
   });
 }

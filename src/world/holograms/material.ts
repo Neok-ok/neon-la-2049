@@ -28,7 +28,10 @@ dancerMaskTex.generateMipmaps = false;
 const dancerMaskNode = texture(dancerMaskTex);
 const dancerMaskReady = uniform(0);
 
-/** Swap the 1×1 stand-in for the approved dancer silhouette. Linear, clamped. */
+let installedMask: Texture | null = null;
+
+/** Swap the 1×1 stand-in for the approved dancer silhouette. Linear, clamped.
+ *  A KTX2 mask is already Y-flipped in the file. Compressed uploads ignore flipY. */
 export function installDancerMask(source: Texture): void {
   source.colorSpace = NoColorSpace;
   source.wrapS = ClampToEdgeWrapping;
@@ -36,9 +39,22 @@ export function installDancerMask(source: Texture): void {
   source.magFilter = LinearFilter;
   source.minFilter = LinearFilter;
   source.generateMipmaps = false;
-  source.flipY = true;
+  const compressed = (source as Texture & { isCompressedTexture?: boolean }).isCompressedTexture === true;
+  if (!compressed) source.flipY = true;
+  const prev = installedMask;
+  installedMask = source;
   dancerMaskNode.value = source;
   dancerMaskReady.value = 1;
+  if (prev && prev !== source) prev.dispose();
+}
+
+/** Back to the 1×1 stand-in. The installed mask is freed. */
+export function releaseDancerMask(): void {
+  const prev = installedMask;
+  installedMask = null;
+  dancerMaskNode.value = dancerMaskTex;
+  dancerMaskReady.value = 0;
+  prev?.dispose();
 }
 
 function ellipse(p: any, cx: any, cy: any, rx: any, ry: any): any {

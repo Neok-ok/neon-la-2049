@@ -94,6 +94,7 @@ import { HUD } from '../ui/HUD';
 import { UI } from '../ui/UI';
 import { CrowdField } from '../districts/little-tokyo-market/crowd';
 import { DancerHero } from '../world/humans/dancerHero';
+import { humanMemory } from '../world/humans/memory';
 import { marketCamera, type MarketView } from '../districts/little-tokyo-market/view';
 import { marketSpots } from '../districts/little-tokyo-market/spots';
 import { setSeats } from '../world/seats';
@@ -271,8 +272,12 @@ export class App {
     this.rain = new Precipitation('rain', ultra.rainCount);
     this.snow = new Precipitation('snow', ultra.snowCount);
     this.scene.add(this.rain.mesh, this.snow.mesh, this.crowd.mesh, this.dancer.mesh, this.haze.group);
-    this.crowd.setLod(this.quality.tier);
-    this.dancer.setLod(this.quality.tier);
+    this.crowd.setLod(this.quality.tier, r);
+    this.dancer.setLod(this.quality.tier, r);
+    addEventListener('pagehide', () => {
+      this.crowd.dispose();
+      this.dancer.dispose();
+    });
     installInteriors();
     this.interiors = new InteriorSystem(this.scene, this.query, this.quality.tier);
     this.interiors.setExteriorListener((suspended) => { this.exteriorSuspended = suspended; });
@@ -442,8 +447,8 @@ export class App {
     this.playLens?.dispose();
     this.playLens = null;
     this.cams.fly.setSpinnerTier(tier);
-    this.crowd.setLod(tier);
-    this.dancer.setLod(tier);
+    this.crowd.setLod(tier, this.renderer);
+    this.dancer.setLod(tier, this.renderer);
     this.slowMs = 0;
     this.ui.setAppliedTier(tier);
   }
@@ -1604,6 +1609,14 @@ export class App {
         crowdRigged: this.crowd.rigged ? 1 : 0,
         dancerTris: this.dancer.tris,
         dancerHero: this.dancer.shown,
+        humanMemory: humanMemory({
+          tier: this.quality.tier,
+          crowdGeomBytes: this.crowd.geometryResident(),
+          crowdTriangles: this.crowd.bodyTriangles(),
+          dancerGeomBytes: this.dancer.geometryResident(),
+          dancerTriangles: this.dancer.residentTriangles(),
+          instanceBytes: this.crowd.instanceResident(),
+        }),
         holo: this.holos.shown,
         holoCandidates: this.holos.candidates,
         holoCards: this.holos.cards,

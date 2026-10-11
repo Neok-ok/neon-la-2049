@@ -5,7 +5,7 @@
 // people hold a static pose. The umbrella stays on the right hand.
 import {
   BufferAttribute, BufferGeometry, DynamicDrawUsage, InstancedBufferAttribute, InstancedMesh, Matrix4, MeshBasicNodeMaterial,
-  Quaternion, Vector3,
+  Quaternion, Vector3, type WebGPURenderer,
 } from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import type { CityQuery, PackedBlock } from '../../world/CityQuery';
@@ -19,7 +19,8 @@ import { streetGraph, visitBins } from '../../vehicles/streetGraph';
 import { axisLamp } from '../../vehicles/trafficSignals';
 import { dressBlock, pedestrianLoops, stallFrontLoop, type MarketBlock } from './dress';
 import { marketSpots } from './spots';
-import { crowdLodForTier, loadCrowdRig } from '../../world/humans/crowdRig';
+import { crowdLodForTier, disposeCrowdResources, loadCrowdRig } from '../../world/humans/crowdRig';
+import { retainedGeometryBytes } from '../../world/humans/gltfGeom';
 
 const T = TSL as any;
 const {
@@ -27,6 +28,7 @@ const {
 } = T;
 
 const MAX = 720;
+const INSTANCE_ATTRS = ['iCoat', 'iCanopy', 'iMotion', 'iStyle', 'iExtra'] as const;
 /** Share of market walkers held in the lane ahead of the camera. */
 const LANE_PACK = 0.42;
 /** Full cycle (two steps) at the 1.5 m/s base walk. Frequency is speed / STRIDE. */
@@ -560,11 +562,15 @@ export class CrowdField {
   private motionAttr: InstancedBufferAttribute;
   private styleAttr: InstancedBufferAttribute;
   private extraAttr: InstancedBufferAttribute;
+  private fallbackMat: MeshBasicNodeMaterial | null = null;
+  private disposed = false;
+  private loading = false;
 
   constructor() {
     const geo = personGeometry();
     this.trisPer = (geo.index?.count ?? 0) / 3;
     if (!sharedMat) sharedMat = crowdMaterial();
+    this.fallbackMat = sharedMat;
     this.mesh = new InstancedMesh(geo, sharedMat, MAX);
     this.mesh.name = 'crowd';
     this.mesh.frustumCulled = false;
@@ -583,22 +589,86 @@ export class CrowdField {
     this.bindAttrs(geo);
   }
 
-  /** Ultra shares the high mesh. The box people stay up until the file arrives. */
-  setLod(tier: Tier): void {
+  /** Ultra shares the high mesh. The box people stay up until the file arrives.
+   *  The previous LOD geometry is disposed. Only one body mesh stays resident. */
+  setLod(tier: Tier, renderer?: WebGPURenderer | null): void {
+    if (this.disposed) return;
     const lod = crowdLodForTier(tier);
-    if (this.lodName === lod) return;
+    if (this.lodName === lod && (this.rigged || this.loading)) return;
     this.lodName = lod;
+    this.loading = true;
     const gen = ++this.lodGen;
-    void loadCrowdRig(lod).then((asset) => {
-      if (gen !== this.lodGen) return;
+    void loadCrowdRig(lod, renderer).then((asset) => {
+      if (gen === this.lodGen) this.loading = false;
+      if (!asset || gen !== this.lodGen || this.disposed) {
+        asset?.geometry.dispose();
+        return;
+      }
+      const prev = this.mesh.geometry;
+      this.detachInstance(prev);
       this.bindAttrs(asset.geometry);
       this.mesh.geometry = asset.geometry;
       this.mesh.material = asset.material;
+      if (prev !== asset.geometry) prev.dispose();
+      if (this.fallbackMat) {
+        this.fallbackMat.dispose();
+        this.fallbackMat = null;
+        sharedMat = null;
+      }
       this.trisPer = asset.triangles;
       this.rigged = true;
     }).catch((err) => {
+      if (gen === this.lodGen) this.loading = false;
       console.warn('crowd rig', err);
     });
+  }
+
+  /** Triangles in the one body mesh. The box fallback until the plate arrives. */
+  bodyTriangles(): number {
+    if (this.disposed) return 0;
+    const geo = this.mesh.geometry;
+    const n = geo.index?.count ?? geo.getAttribute('position')?.count ?? 0;
+    return n / 3;
+  }
+
+  /** Body buffers, not the shared instance attributes. */
+  geometryResident(): number {
+    if (this.disposed) return 0;
+    return retainedGeometryBytes(this.mesh.geometry, new Set(INSTANCE_ATTRS));
+  }
+
+  /** Instance matrix plus per-person variation. Sized to MAX on every tier. */
+  instanceResident(): number {
+    if (this.disposed) return 0;
+    let bytes = this.mesh.instanceMatrix.array?.byteLength ?? 0;
+    bytes += this.coatAttr.array.byteLength;
+    bytes += this.canopyAttr.array.byteLength;
+    bytes += this.motionAttr.array.byteLength;
+    bytes += this.styleAttr.array.byteLength;
+    bytes += this.extraAttr.array.byteLength;
+    return bytes;
+  }
+
+  /** Free the body, the palette, the atlas, and the instance buffers. */
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.lodGen++;
+    this.mesh.geometry.dispose();
+    this.fallbackMat?.dispose();
+    this.fallbackMat = null;
+    sharedMat = null;
+    disposeCrowdResources();
+    this.mesh.dispose();
+    this.rigged = false;
+    this.count = 0;
+    this.mesh.count = 0;
+  }
+
+  private detachInstance(geo: BufferGeometry): void {
+    for (const name of INSTANCE_ATTRS) {
+      if (geo.getAttribute(name)) geo.deleteAttribute(name);
+    }
   }
 
   private bindAttrs(geo: BufferGeometry): void {
@@ -610,6 +680,7 @@ export class CrowdField {
   }
 
   update(dt: number, x: number, z: number, query: CityQuery, quality: QualitySettings, rain: number, time = 0, heading = 0): void {
+    if (this.disposed) return;
     const district = query.district(x, z);
     const share = crowdSources.get(district.id)?.share ?? 0;
     const want = Math.min(MAX, Math.round(quality.crowd * share));

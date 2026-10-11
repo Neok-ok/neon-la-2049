@@ -70,5 +70,11 @@
       "max": 4.0,
       "file": "dancer-palette.bin"
     }
+  },
+  "textures": {
+    "atlas": "crowd-atlas.ktx2",
+    "atlasFallback": "crowd-atlas.png",
+    "mask": "dancer-mask.ktx2",
+    "maskFallback": "dancer-mask.png"
   }
 }
