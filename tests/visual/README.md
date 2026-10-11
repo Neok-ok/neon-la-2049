@@ -25,7 +25,7 @@ Walk shots load once per quality and then resize, because the feet do not move w
 
 Frame time, draw calls, triangles and LOD0 are written into the report. They are not a pass/fail gate.
 
-The PNG is the WebGL canvas, read in the same turn as the frame that drew it. Headless SwiftShader does not return from a compositor screenshot. The HTML shell (loading plate, HUD, touch sticks) is not part of the image.
+The PNG is the WebGL canvas, read in the same turn as the frame that drew it. Headless SwiftShader does not return from a compositor screenshot. While chunks upload, the runner keeps the drawing buffer at the shot size and rasterizes a single pixel, then draws the real frame for the PNG. The HTML shell (loading plate, HUD, touch sticks) is not part of the image.
 
 ## Run
 

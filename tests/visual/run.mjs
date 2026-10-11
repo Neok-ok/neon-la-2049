@@ -61,26 +61,51 @@ function pick(list, allowed, label) {
 async function keepFrames(context) {
   await context.addInitScript(() => {
     window.__visualFrames = true;
+    window.__visualDraw = false;
     window.__rafIdle = true;
     window.__grabFrame = false;
+    window.__warmLeft = 0;
     window.__lastPng = '';
     window.__grabErr = '';
     window.__held = null;
+    // Rasterize one pixel while chunks upload. setSize wedges SwiftShader;
+    // the viewport leaves the drawing buffer alone.
+    const armDraw = () => {
+      const renderer = window.__nla?.app?.renderer;
+      if (!renderer) return;
+      if (window.__visualDraw) renderer.setViewport(0, 0, innerWidth, innerHeight);
+      else renderer.setViewport(0, 0, 1, 1);
+    };
     const run = (cb) => {
       window.__held = null;
       window.__rafIdle = false;
       try {
+        armDraw();
+        const shot = window.__visualDraw && window.__warmLeft === 0 && window.__grabFrame;
+        const tDraw = performance.now();
         cb(performance.now());
-        if (window.__grabFrame) {
+        if (shot) window.__shotFrame = performance.now() - tDraw;
+        if (window.__visualDraw && window.__warmLeft > 0) window.__warmLeft--;
+        else if (window.__grabFrame) {
           const canvas = window.__nla?.app?.canvas ?? document.querySelector('canvas');
+          const gl = canvas?.getContext?.('webgl2');
+          if (gl && gl.drawingBufferWidth > 0) {
+            gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4));
+          }
           window.__lastPng = canvas ? canvas.toDataURL('image/png') : '';
           window.__grabFrame = false;
           window.__visualFrames = false;
+          window.__visualDraw = false;
         }
       } catch (err) {
-        window.__grabErr = err instanceof Error ? err.message : String(err);
-        window.__grabFrame = false;
-        window.__visualFrames = false;
+        const message = err instanceof Error ? err.message : String(err);
+        window.__grabErr = message;
+        console.error(`visual frame: ${message}`);
+        if (window.__grabFrame) {
+          window.__grabFrame = false;
+          window.__visualFrames = false;
+          window.__visualDraw = false;
+        }
       } finally {
         window.__rafIdle = true;
       }
@@ -148,31 +173,64 @@ function startPreview() {
 }
 
 async function settle(page) {
-  await page.evaluate(() => { window.__visualFrames = true; });
-  await page.waitForFunction(() => window.__nla?.stats, null, { timeout: 120_000 });
+  await page.evaluate(() => {
+    window.__visualFrames = true;
+    window.__visualDraw = false;
+  });
+  await page.waitForFunction(() => window.__nla?.stats, null, { timeout: 240_000, polling: 200 });
   await page.evaluate(() => {
     window.__idleN = 0;
     window.__camStill = 0;
     window.__cam = null;
   });
-  await page.waitForFunction(() => {
-    const nla = window.__nla;
-    const idle = !!(nla?.isIdle?.() && nla.stats().queryPending === 0);
-    window.__idleN = idle ? (window.__idleN || 0) + 1 : 0;
-    const c = nla?.app?.camera;
-    if (!c) return false;
-    const p = [c.position.x, c.position.y, c.position.z, c.rotation.x, c.rotation.y, c.rotation.z];
-    const prev = window.__cam;
-    window.__cam = p;
-    if (!prev) {
-      window.__camStill = 0;
-      return false;
+  const settleDeadline = Date.now() + 420_000;
+  let ready = false;
+  let polls = 0;
+  while (Date.now() < settleDeadline) {
+    const s = await page.evaluate(() => {
+      const nla = window.__nla;
+      const idle = !!(nla?.isIdle?.() && nla.stats().queryPending === 0);
+      window.__idleN = idle ? (window.__idleN || 0) + 1 : 0;
+      const c = nla?.app?.camera;
+      if (!c) return { ready: false };
+      const p = [c.position.x, c.position.y, c.position.z, c.rotation.x, c.rotation.y, c.rotation.z];
+      const prev = window.__cam;
+      window.__cam = p;
+      let moved = 0;
+      if (!prev) window.__camStill = 0;
+      else {
+        moved = Math.hypot(p[0] - prev[0], p[1] - prev[1], p[2] - prev[2]);
+        for (let i = 3; i < 6; i++) moved += Math.abs(p[i] - prev[i]);
+        window.__camStill = moved < 0.03 ? (window.__camStill || 0) + 1 : 0;
+      }
+      const st = nla.stats();
+      return {
+        ready: window.__idleN >= 3 && window.__camStill >= 6,
+        idleN: window.__idleN,
+        camStill: window.__camStill,
+        moved: Math.round(moved * 1000) / 1000,
+        lod0: st.lod0,
+        queue: st.readyQueue,
+        inflight: st.inFlight,
+        pending: st.queryPending,
+        draws: st.drawCalls,
+        frame: Math.round(st.frameMs),
+        frames: nla.app?.frames,
+        err: window.__grabErr || '',
+      };
+    });
+    if (s.ready) {
+      ready = true;
+      trace(`settled lod0=${s.lod0} draws=${s.draws} frame=${s.frame}ms frames=${s.frames}`);
+      break;
     }
-    let moved = Math.hypot(p[0] - prev[0], p[1] - prev[1], p[2] - prev[2]);
-    for (let i = 3; i < 6; i++) moved += Math.abs(p[i] - prev[i]);
-    window.__camStill = moved < 0.03 ? (window.__camStill || 0) + 1 : 0;
-    return window.__idleN >= 3 && window.__camStill >= 6;
-  }, null, { timeout: 180_000, polling: 400 });
+    if (polls % 8 === 0) {
+      trace(`wait idle=${s.idleN} cam=${s.camStill} lod0=${s.lod0} q=${s.queue} fly=${s.inflight} pend=${s.pending} draws=${s.draws} frame=${s.frame}ms frames=${s.frames} ${s.err}`);
+    }
+    polls++;
+    await sleep(400);
+  }
+  if (!ready) throw new Error('timed out waiting for the city to settle');
   await page.evaluate(() => document.getElementById('loading')?.remove());
 }
 
@@ -180,6 +238,7 @@ async function readStats(page) {
   return page.evaluate(() => {
     const s = window.__nla?.stats?.() ?? null;
     const c = window.__nla?.app?.camera;
+    if (s && window.__shotFrame) s.frameMs = window.__shotFrame;
     if (s && c) {
       s.cam = [c.position.x, c.position.y, c.position.z].map((n) => Math.round(n * 10) / 10);
     }
@@ -211,7 +270,7 @@ function markdown(rows, started) {
     '',
     failed.length
       ? `**${failed.length} of ${rows.length} images failed.**`
-      : `**${rows.length} images matched.**`,
+      : `**${rows.length} image${rows.length === 1 ? '' : 's'} matched.**`,
     '',
     '| Shot | View | Quality | Result | Mismatch | Frame ms | Draws | Triangles | LOD0 |',
     '|---|---|---|---|---:|---:|---:|---:|---:|',
@@ -235,13 +294,16 @@ function writeDataUrl(dest, dataUrl) {
 }
 
 async function grabCanvas(page, dest) {
+  trace('draw');
   await page.evaluate(() => {
     window.__lastPng = '';
     window.__grabErr = '';
     window.__visualFrames = true;
+    window.__visualDraw = true;
+    window.__warmLeft = 1;
     window.__grabFrame = true;
   });
-  await page.waitForFunction(() => !!(window.__lastPng || window.__grabErr), null, { timeout: 240_000 });
+  await page.waitForFunction(() => !!(window.__lastPng || window.__grabErr), null, { timeout: 180_000, polling: 200 });
   const dataUrl = await page.evaluate(() => {
     if (window.__grabErr) throw new Error(window.__grabErr);
     return window.__lastPng;
@@ -251,10 +313,9 @@ async function grabCanvas(page, dest) {
 
 async function captureOne(page, dest) {
   await settle(page);
-  const stats = await readStats(page);
   mkdirSync(dirname(dest), { recursive: true });
   await grabCanvas(page, dest);
-  return stats;
+  return readStats(page);
 }
 
 function trace(line) {
@@ -310,6 +371,7 @@ async function main() {
     const diff = join(DIFF, name);
     const t0 = Date.now();
     try {
+      trace(`start ${name}`);
       const stats = await captureOne(page, actual);
       const bad = assertShotStats(stats, quality);
       if (bad) throw new Error(bad);
@@ -342,7 +404,7 @@ async function main() {
         mismatch: result.mismatch ?? null,
         frameMs: stats.frameMs != null ? Math.round(stats.frameMs * 10) / 10 : null,
         draws: stats.drawCalls ?? null,
-        tris: stats.triangles ?? null,
+        tris: stats.triangles != null ? Math.round(stats.triangles) : null,
         lod0: stats.lod0 ?? null,
         cam: stats.cam ?? null,
         seconds: Math.round((Date.now() - t0) / 100) / 10,
@@ -364,8 +426,12 @@ async function main() {
           const ctx = await browser.newContext({ viewport: VIEWS[views[0]], deviceScaleFactor: 1 });
           await keepFrames(ctx);
           const page = await ctx.newPage();
+          page.setDefaultTimeout(180_000);
           const errors = [];
           page.on('pageerror', (err) => errors.push(String(err)));
+          page.on('console', (msg) => {
+            if (msg.type() === 'error' || msg.text().startsWith('visual ')) trace(`console ${msg.text()}`);
+          });
           await page.goto(`${url}?${queryFor(shot, quality)}`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
           for (const view of views) {
             await page.setViewportSize(VIEWS[view]);
@@ -378,8 +444,12 @@ async function main() {
             const ctx = await browser.newContext({ viewport: VIEWS[view], deviceScaleFactor: 1 });
             await keepFrames(ctx);
             const page = await ctx.newPage();
+            page.setDefaultTimeout(180_000);
             const errors = [];
             page.on('pageerror', (err) => errors.push(String(err)));
+            page.on('console', (msg) => {
+              if (msg.type() === 'error' || msg.text().startsWith('visual ')) trace(`console ${msg.text()}`);
+            });
             await page.goto(`${url}?${queryFor(shot, quality)}`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
             await shoot(page, shot, view, quality);
             if (errors.length) console.warn(`${shot.id} ${view} ${quality}: ${errors.slice(0, 3).join(' | ')}`);
@@ -405,7 +475,7 @@ async function main() {
   }, null, 2));
   console.log(body);
   const failed = rows.filter((r) => !r.ok);
-  if (failed.length) process.exitCode = 1;
+  process.exit(failed.length ? 1 : 0);
 }
 
 main().catch((e) => {
