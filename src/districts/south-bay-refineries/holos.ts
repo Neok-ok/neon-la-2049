@@ -1,5 +1,5 @@
-// One hazard board and one share ad. Existing designs, registerHologram only.
-// The glyphs are noise. The wedge is not a carrier. No refinery name.
+// One hazard board. The share ad is gone. Existing design, registerHologram only.
+// The glyphs are noise. No refinery name.
 import { SignColor } from '../../world/fabric/types';
 import type { CityLayout } from '../../world/layout';
 import { registerHologram } from '../../world/holograms/api';
@@ -22,17 +22,5 @@ export function installSouthBayHolos(layout: CityLayout): void {
     rank: 0,
     band: 'street',
     spill: 14,
-  });
-  registerHologram({
-    id: 'south-bay-share',
-    x: door.x + 9.5, y: y + 8.6, z,
-    yaw: 0,
-    w: 16, h: 10,
-    design: 'lease-loop',
-    color: SignColor.Cyan,
-    seed: 0.74,
-    rank: 1,
-    band: 'street',
-    spill: 12,
   });
 }

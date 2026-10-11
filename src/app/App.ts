@@ -221,7 +221,7 @@ export class App {
     installSouthLaHolos(this.query.layout);
     installArtsHolos(this.query.layout);
     installHollywoodHolos(this.query.layout);
-    installLaxHolos(this.query.layout);
+    this.scene.add(installLaxHolos(this.query.layout));
     installSouthBayHolos(this.query.layout);
     installHarborHolos(this.query.layout);
     installLongBeachHolos(this.query.layout);

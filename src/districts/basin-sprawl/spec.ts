@@ -1,6 +1,7 @@
 // Basin sprawl numbers. The shared planner stays free of this district's streets.
 // The default district covers every unnamed sector, on the existing north-aligned grid.
 import type { SprawlParams } from '../_shared/sprawl/plan';
+import { PHRASE_PAPER } from '../../world/materials/signPhrases';
 
 export const BEARING = 0;
 /** Centre-to-centre spacing. Matches `defaultDistrict.grid.block` in the JSON. */
@@ -49,4 +50,5 @@ export const BASIN_PARAMS: SprawlParams = {
   lit: [0.08, 0.22],
   tint: [0.42, 0.64],
   strips: { a: STRIP_A, b: STRIP_B },
+  phrases: PHRASE_PAPER,
 };

@@ -50,7 +50,7 @@ export function getSignMaterial(): MeshBasicNodeMaterial {
     const sv = mix(puv.y, float(1).sub(puv.x), tall);
     const su = fract(su0.add(U.time.mul(0.12).mul(scroll)));
 
-    // phraseSeed(i) = (i + 0.5) / 64, so floor(seed * 64) recovers the cell. Random seeds land somewhere too.
+    // phraseSeed(i) = (i + 0.5) / (cols*rows), so floor(seed * (cols*rows - 0.001)) recovers the cell.
     const idx = floor(seed.mul(SIGN_ATLAS_COLS * SIGN_ATLAS_ROWS - 0.001));
     const col = idx.mod(SIGN_ATLAS_COLS);
     const row = floor(idx.div(SIGN_ATLAS_COLS));

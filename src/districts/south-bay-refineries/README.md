@@ -26,7 +26,7 @@ Blocks whose centre is reserved (the freeways that already cross the polygon), o
 
 `south-bay-control` is one `buildCorridorRoom` on block i = −64, j = −36, south face (33.902364 N / 118.309133 W). Warmth 0.4, corridor 3.4 × 2.2 × 3.2 m, room 7.2 × 5.8 × 3.6 m, no window, no rides, no scene lights, stream radius 42 m, muffle 0.72, hum 0.28. POI `south-bay-control` is that threshold, so `at=south-bay-control` lands on it.
 
-`south-bay-hazard` is glyph-loop, amber, 12 × 16 m, street band, rank 0. `south-bay-share` is lease-loop, cyan, 16 × 10 m, street band, rank 1. Both face south from the door (yaw 0). The glyphs are noise. The wedge is the existing share ad. No refinery name and no new design.
+`south-bay-hazard` is glyph-loop, amber, 12 × 16 m, street band, rank 0, facing south from the door (yaw 0). The share ad is gone. The glyphs are noise. No refinery name and no new design.
 
 ## Traffic
 

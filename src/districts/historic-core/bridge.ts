@@ -13,7 +13,7 @@ import { LightKind } from '../../world/landmarks/Beacons';
 import type { Landmark } from '../../world/layout';
 import { levelGroup } from '../_shared/megatower/place';
 import { Mass, type Detail } from './mass';
-import { AX, AZ, BRIDGE_YAW, localToWorld } from './spec';
+import { AX, AZ, BLOCK_A, BRIDGE_YAW, BROADWAY_T, gridToWorld, localToWorld } from './spec';
 
 export const BRIDGE_LOD = [160, 520];
 export const bridgeTris: number[] = [];
@@ -27,8 +27,13 @@ const TREAD = 0.34;
 
 /** Panel normal faces +A (north), so a camera up the street looks at the figure. */
 const DANCER_YAW = Math.atan2(AX, AZ);
-const DANCER_H = 46;
-const DANCER_W = 14;
+const DANCER_H = 68;
+const DANCER_W = 15;
+/** Veil hem in the shader. The quad is planted so this uv sits on the street. */
+const DANCER_HEM = 0.02;
+/** Broadway crossing nearest the deck. An 18 m intersection, not the 3.6 m bridge. */
+const DANCER_S = -7 * BLOCK_A;
+const DANCER_T = BROADWAY_T;
 
 const concrete = { style: Style.Civic, lit: 0.06, tint: 0.62, seed: 0.31 };
 const dark = { style: Style.Solid, lit: 0.02, tint: 0.4, seed: 0.18 };
@@ -79,12 +84,14 @@ function signsFor(l: Landmark, g: number): Sign[] {
   }];
 }
 
-function placeDancer(l: Landmark, g: number): void {
+function placeDancer(env: LandmarkEnv): void {
+  const [x, z] = gridToWorld(DANCER_S, DANCER_T);
+  const g = env.layout.heightAt(x, z);
   registerHologram({
     id: 'joi-bridge-dancer',
-    x: l.x,
-    y: g + DECK + DANCER_H / 2,
-    z: l.z,
+    x,
+    y: g + 0.12 + DANCER_H * (0.5 - DANCER_HEM),
+    z,
     yaw: DANCER_YAW,
     w: DANCER_W,
     h: DANCER_H,
@@ -93,7 +100,7 @@ function placeDancer(l: Landmark, g: number): void {
     seed: 0.37,
     rank: 0,
     band: 'tower',
-    spill: 28,
+    spill: 36,
   });
 }
 
@@ -115,9 +122,9 @@ export function buildCanyonBridge(l: Landmark, env: LandmarkEnv) {
   const object = env.lods.add(
     l.id,
     [levelGroup(full.mesh, signMesh), levels[1]!.mesh, levels[2]!.mesh],
-    BRIDGE_LOD, l.x, l.z, g, g + DECK + DANCER_H, Math.hypot(SPAN, 14),
+    BRIDGE_LOD, l.x, l.z, g, g + DECK + 2, Math.hypot(SPAN, 14),
   );
-  placeDancer(l, g);
+  placeDancer(env);
   for (const x of [-PIER, PIER]) {
     const [wx, wz] = localToWorld(l.x, l.z, BRIDGE_YAW, x, 0);
     env.beacons.add(wx, g + DECK + 1.4, wz, LightKind.Warm, 2.2);

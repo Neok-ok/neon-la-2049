@@ -13,7 +13,7 @@ Sector 5 central. The real LAPD block and the real City Hall, on the downtown 38
 | `dress.ts` | both | Cold pylons, bollards, benches, rare steam, cold pools, sidewalk and forecourt loops. |
 | `details.ts` | main | Street kit for `civic-center`. Shared steam and pool materials. |
 | `crowd.ts` | main | `registerCrowdSource`. The mesh stays in the market module. |
-| `holos.ts` | main | One `registerHologram`: `lapd-shaft-notice`, glyph-loop, on the shaft toward the steps. |
+| `holos.ts` | main | Empty. The shaft notice is a kind-0 BASELINE plate on the tower mesh. |
 | `view.ts` | main | `__nla.civicView('approach' \| 'steps' \| 'hall' \| 'lobby' \| 'plaza')`. |
 
 ## What was built
@@ -22,7 +22,7 @@ Sector 5 central. The real LAPD block and the real City Hall, on the downtown 38
 * **City Hall.** Jacketed base 92 × 62 × 28 m, pale shaft 34 m to 100 m, neck to 114 m, pyramid to 132 m, lamp to 138 m. Stair on local +Z. Switch distances 420 / 1,500 m.
 * **Mall.** Fabric suppressed from 100 m past LAPD to 52 m short of City Hall, 40 m off the axis. A landmark slab paves the gap.
 * **Pads.** `lapd-pad-a` and `b` are the plaza-side approaches (the hero shot uses `a`). `c` and `d` use the far side. `lapd-pad-circuit` is a slow loop over the deck. Open lanes: `altBias` 0, fade 70 m, police 1. Avenues keep `altBias` 7 and fade 220 m. `hold-lapd` is untouched.
-* **Words.** Atlas cells only: SECTOR 5 (`phraseSeed(39)`) and 2049 (`phraseSeed(62)`). No seal, no department wordmark.
+* **Words.** Atlas cells only: SECTOR 5 (`phraseSeed(39)`), 2049 (`phraseSeed(62)`), BASELINE on the shaft, PAPER ONLY beside the directory. No seal, no department wordmark. The lobby is still a soffit.
 
 `confidence: invented` for the stair, the lobby plan, the pad positions, the jacket, the lamp and the light bands. The sites and the two heights are the real buildings (BIBLE §5.2, §5.3).
 

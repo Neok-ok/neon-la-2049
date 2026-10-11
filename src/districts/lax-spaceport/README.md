@@ -24,7 +24,7 @@ The rumble is `Ambience.setMachinery`, added to the district bed and clamped to 
 
 ## Holograms and the concourse
 
-`holos.ts` calls `registerHologram` only. `lax-glyph` (glyph-loop, 18 × 44 m, white) and `lax-lease` (lease-loop, 36 × 12 m, cyan) face north from the door hall, tower band. The board is Caldera Passage and the wedge is a Ninth Ring share desk. The glyphs are noise. No new shader and no carrier name.
+`holos.ts` calls `registerHologram` only for `lax-glyph` (glyph-loop, 18 × 44 m, white), facing north from the door hall, tower band. DEPART and CALDERA are kind-0 signs beside it. The colony line `CALDERA BERTH IS OPEN` is a kind-0 sign where the lease wedge stood. The glyphs are noise. No new shader and no carrier name.
 
 `lax-concourse` is one `buildCorridorRoom` on that door (33.937916 N, 118.408611 W). Warmth 0.16, corridor 4.2 × 3.2 × 3.4 m, room 8.4 × 7.2 × 3.6 m, yaw π, no window, no rides, stream radius 48 m, muffle 0.75, hum 0. POI `lax-concourse` is that threshold, so `at=lax-concourse` lands on it. `at=lax-spaceport-towers` lands on the pin.
 

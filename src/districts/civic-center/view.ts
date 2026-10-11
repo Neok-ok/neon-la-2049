@@ -70,7 +70,7 @@ export function civicCamera(layout: CityLayout, kind: CivicView, lanes: readonly
     const [dx, dz] = localToWorld(lapd.x, lapd.z, yaw, 0, -52);
     const y = g + treadTop(STAIR, lz);
     return {
-      x, y, z, heading: headingTo(x, z, dx, dz), pitch: 0.34, mode: 'walk',
+      x, y, z, heading: headingTo(x, z, dx, dz), pitch: 0.46, mode: 'walk',
       feet: { x, y, z },
     };
   }

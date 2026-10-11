@@ -14,7 +14,7 @@ const PANELS: Array<{ phrase: number; color: number }> = [
   { phrase: 51, color: SignColor.Violet },
   { phrase: 53, color: SignColor.Cyan },
   { phrase: 2, color: SignColor.Yellow },
-  { phrase: 4, color: SignColor.Pink },
+  { phrase: 54, color: SignColor.Pink },
   { phrase: 62, color: SignColor.Amber },
 ];
 

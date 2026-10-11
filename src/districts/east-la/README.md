@@ -61,7 +61,7 @@ Ground above 45 m (the Montebello overlap on the east edge) stays `hills-sparse`
 
 `__nla.eastLaView('aerial'|'interchange'|'market'|'river'|'interior'|'street'|'deck')`.
 
-`aerial` is about 1 km up over the 10/710. `interchange` stands on the nearest open street node. `deck` is a low fly over the same junction. `market` stands at a stall. `river` looks west toward downtown from the east bank. `interior` stands at the counter.
+`aerial` is about 1 km up over the 10/710. `interchange` frames the GRID DOWN plate on the 5/10 wall, outside the freeway reserve. `deck` is a low fly over the 10/710. `market` stands at a stall. `river` looks west toward downtown from the east bank. `interior` stands at the counter.
 
 ## Known gaps
 

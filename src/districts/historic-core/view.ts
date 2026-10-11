@@ -1,8 +1,8 @@
 // Screenshot and debug cameras for Stage 6 (`__nla.broadwayView`).
 import type { CityLayout } from '../../world/layout';
 import {
-  AX, AZ, BRADBURY_FRONT, BRADBURY_S, BRADBURY_T, BRIDGE_S, BRIDGE_T, BX, BZ,
-  FACE_YAW, headingAlong, localToWorld,
+  AX, AZ, BLOCK_A, BLOCK_B, BRADBURY_FRONT, BRADBURY_HOLE, BRADBURY_I, BRADBURY_J,
+  BRADBURY_S, BRADBURY_T, BROADWAY_T, BX, BZ, FACE_YAW, STREET, headingAlong, localToWorld,
 } from './spec';
 
 export type BroadwayView = 'street' | 'bridge' | 'bradbury' | 'spinner' | 'atrium';
@@ -26,22 +26,27 @@ function at(layout: CityLayout, s: number, t: number, eye: number): { x: number;
 
 export function broadwayCamera(layout: CityLayout, kind: BroadwayView): BroadwayPose | null {
   if (kind === 'street') {
-    // West sidewalk, just north of the Bradbury, looking south down the canyon.
-    // Just off the centreline, so both façades frame the street instead of one wall filling the frame.
-    const p = at(layout, BRADBURY_S + 42, -210.6, 0);
+    // North-west of the Bradbury shutter, looking south down the east wall.
+    // Standing in the street plane of the north face hides the plate behind that wall.
+    const shutterS = (BRADBURY_I + 0.5) * BLOCK_A + BRADBURY_HOLE.s1 + 8;
+    const shutterT = (BRADBURY_J + 0.5) * BLOCK_B - (BLOCK_B - STREET) / 2 - 0.35;
+    const p = at(layout, shutterS + 28, shutterT - 18, 0);
+    const look = at(layout, shutterS - 36, shutterT + 1, 6);
+    const horiz = Math.hypot(look.x - p.x, look.z - p.z) || 1;
     return {
       x: p.x, y: p.g, z: p.z,
-      heading: headingAlong(-AX, -AZ),
-      pitch: 0.16,
+      heading: headingAlong(look.x - p.x, look.z - p.z),
+      pitch: Math.atan2(look.y - (p.g + 1.7), horiz),
       mode: 'walk',
       feet: { x: p.x, y: p.g, z: p.z },
     };
   }
 
   if (kind === 'bridge') {
-    // Just north of the deck, a few metres off the centreline, looking up at the figure.
-    const p = at(layout, BRIDGE_S + 26, BRIDGE_T + 3.2, 0);
-    const target = at(layout, BRIDGE_S, BRIDGE_T, 20);
+    // North of the Broadway intersection, off the centreline, so the feet stay in frame.
+    const s = -7 * BLOCK_A;
+    const p = at(layout, s + 50, BROADWAY_T + 4.2, 0);
+    const target = at(layout, s, BROADWAY_T, 20);
     const horiz = Math.hypot(target.x - p.x, target.z - p.z) || 1;
     const pitch = Math.atan2(target.y - (p.g + 1.7), horiz);
     return {

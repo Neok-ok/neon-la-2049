@@ -10,7 +10,8 @@ import { phraseSeed } from '../../../world/materials/signPhrases';
 /** Matches the global hill swap in fabric/generator.ts. Left alone on purpose. */
 const HILL_GROUND = 45;
 
-const PHRASE = [2, 4, 7, 1, 56, 57, 60, 11];
+const FOOD_PHRASE = [2, 4, 7, 1, 56, 57, 60, 11];
+let activePhrases: readonly number[] = FOOD_PHRASE;
 
 export interface SprawlFace {
   x0: number;
@@ -59,6 +60,8 @@ export interface SprawlParams {
   rise?: SprawlFace;
   /** Segmented wall where a sidewalk probe hits a reserved corridor. Omitted means off. */
   walls?: boolean;
+  /** Atlas cells for strip signs. Omitted keeps the food list. */
+  phrases?: readonly number[];
 }
 
 export interface SprawlBlock {
@@ -266,7 +269,7 @@ function signOn(
     y, w, h,
     color: rng.pick([SignColor.Amber, SignColor.White, SignColor.Red]),
     kind: 0,
-    seed: phraseSeed(PHRASE[rng.int(0, PHRASE.length - 1)]!),
+    seed: phraseSeed(activePhrases[rng.int(0, activePhrases.length - 1)]!),
   });
 }
 
@@ -450,6 +453,12 @@ function closedFace(sides: Sides, face: FaceDir): boolean {
 
 export function planSprawl(block: SprawlBlock, params: SprawlParams, layout: CityLayout): SprawlPlan {
   if (block.ground > HILL_GROUND) return EMPTY;
+  const prevPhrases = activePhrases;
+  activePhrases = params.phrases?.length ? params.phrases : FOOD_PHRASE;
+  const done = <T>(value: T): T => {
+    activePhrases = prevPhrases;
+    return value;
+  };
   const module = params.module ?? 3.4;
   const capH = params.cap ?? 60;
   const storeys = params.storeys ?? [3, 10];
@@ -490,7 +499,7 @@ export function planSprawl(block: SprawlBlock, params: SprawlParams, layout: Cit
       plan.edge = true;
       addWalls(boxes, layout, block, cap, sides);
     }
-    return plan;
+    return done(plan);
   }
 
   const sides = params.walls ? corridorSides(layout, block) : { ap: false, am: false, bp: false, bm: false };
@@ -512,7 +521,7 @@ export function planSprawl(block: SprawlBlock, params: SprawlParams, layout: Cit
   if (sides.bp) t1 -= inset;
   const la = s1 - s0;
   const lb = t1 - t0;
-  if (la < 14 || lb < 12) return plan;
+  if (la < 14 || lb < 12) return done(plan);
 
   const riseDist = params.rise ? faceDistance(block.cx, block.cz, params.rise) : Infinity;
   let hi = storeys[1];
@@ -573,7 +582,7 @@ export function planSprawl(block: SprawlBlock, params: SprawlParams, layout: Cit
     remember(ms, mt, h);
     clutter(boxes, layout, block, cap, rng, ms, mt, mla * 0.8, mlb * 0.8, h);
   }
-  return plan;
+  return done(plan);
 }
 
 export function fillSprawlBlock(ctx: FabricCtx, params: SprawlParams): void {

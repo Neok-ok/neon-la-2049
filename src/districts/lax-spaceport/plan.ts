@@ -2,7 +2,7 @@
 // No three.js. The chunk worker and the main thread have to agree.
 import { Rng } from '../../core/rng';
 import { Style, SignColor, type FaceDir, type StyleId } from '../../world/fabric/types';
-import { phraseSeed } from '../../world/materials/signPhrases';
+import { PHRASE_WAY, phraseSeed } from '../../world/materials/signPhrases';
 import {
   BAY, HALL_A, HALL_B, HALL_S, HANGAR_H, PYLON_H, SHED_H, TERMINAL_H,
   isPad, isTerminal,
@@ -86,8 +86,8 @@ export interface LaxPlan {
   pools: LaxPool[];
 }
 
-/** SECTOR 5, 2049, OPEN LATE, VENDING. Atlas cells only. */
-const WAY = [39, 62, 2, 58] as const;
+/** SECTOR 12, DEPART, CALDERA, 2049. Atlas cells only. */
+const WAY = PHRASE_WAY;
 
 function at(b: LaxBlock, s: number, t: number): { x: number; z: number } {
   return {
@@ -141,6 +141,8 @@ export function planLax(b: LaxBlock): LaxPlan {
       face: 'a+', along: 0,
       y: 16, w: 8, h: 2.2, color: SignColor.Cyan, kind: 0, seed: phraseSeed(WAY[(Math.abs(b.j) + 1) % WAY.length]!),
     });
+    // DEPART, CALDERA and the colony line are world signs beside the glyph board.
+    // A fabric sign at this apron landed in the terminal camera and hid the hall.
     const curb = at(b, HALL_S + HALL_A / 2 + 6, 0);
     pools.push({
       x: curb.x, y: b.ground + 0.08, z: curb.z, yaw: 0,

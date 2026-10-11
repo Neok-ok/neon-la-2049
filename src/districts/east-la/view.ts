@@ -2,6 +2,7 @@
 import type { CityLayout } from '../../world/layout';
 import type { FaceDir } from '../../world/fabric/types';
 import { eastLaCrossings, type Crossing } from './crossings';
+import { gridDownSite } from './interchange';
 import { counterOrigin, searchSprawl, worldAt, type Found } from './locate';
 import { DECK_TOP, DISTRICT, HUB } from './spec';
 
@@ -104,16 +105,31 @@ export function eastLaCamera(layout: CityLayout, kind: EastLaView): EastPose | n
       true,
     );
   }
+  if (kind === 'interchange') {
+    const site = gridDownSite(layout);
+    if (site) {
+      const nx = Math.sin(site.yaw);
+      const nz = Math.cos(site.yaw);
+      return fly(
+        { x: site.x + nx * 24, y: site.y + 1.4, z: site.z + nz * 24 },
+        { x: site.x, y: site.y, z: site.z },
+        true,
+      );
+    }
+  }
   if ((kind === 'interchange' || kind === 'deck') && cross) {
-    const g = layout.heightAt(cross.x, cross.z);
+    const framed = kind === 'deck'
+      ? cross
+      : (eastLaCrossings(layout).find((c) => c.id === 'el-5-10') ?? cross);
+    const g = layout.heightAt(framed.x, framed.z);
     const along = kind === 'deck' ? 70 : 46;
     const side = kind === 'deck' ? 28 : 22;
     const eye = {
-      x: cross.x + cross.tx * along + cross.rx * side,
+      x: framed.x + framed.tx * along + framed.rx * side,
       y: g + (kind === 'deck' ? 22 : 16),
-      z: cross.z + cross.tz * along + cross.rz * side,
+      z: framed.z + framed.tz * along + framed.rz * side,
     };
-    return fly(eye, { x: cross.x, y: g + DECK_TOP + 1.4, z: cross.z }, true);
+    return fly(eye, { x: framed.x, y: g + DECK_TOP + 1.4, z: framed.z }, true);
   }
 
   if (kind === 'river') {
