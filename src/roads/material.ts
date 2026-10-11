@@ -160,13 +160,12 @@ function richSolid(): MeshStandardNodeMaterial {
     const mag = vec3(0.72, 0.08, 0.36);
     const cyan = vec3(0.08, 0.42, 0.58);
     const local = mix(mix(mag, cyan, smoothstep(0.3, 0.7, band)), vec3(1.0, 0.5, 0.16), sodium);
-    const wet = U.wetness.mul(step(k, 0.5));
     const altFade = smoothstep(80, 18, U.camAlt);
     // Puddles carry reflected neon. The wet sheet stays a dark sheen so asphalt
     // stays black even where a district's neonWet is high.
-    const sheenAmt = puddleAmt().mul(0.55).add(wet.mul(0.12));
+    const sheenAmt = puddleAmt().mul(0.9);
     const glow = local.mul(fres).mul(sheenAmt).mul(U.night).mul(U.neonWet)
-      .mul(U.signPower).mul(mix(float(1), float(0.28), U.reflMix)).mul(altFade).mul(step(k, 0.5)).mul(14.0);
+      .mul(U.signPower).mul(mix(float(1), float(0.28), U.reflMix)).mul(altFade).mul(step(k, 0.5)).mul(18.0);
     return lampShell(head).add(roadLit(albedo, head)).add(glow);
   })();
   richMat = m;
