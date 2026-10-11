@@ -69,6 +69,8 @@ import { WalkController } from '../camera/WalkController';
 import { CinematicDirector } from '../camera/CinematicDirector';
 import { CameraSystem } from '../camera/CameraSystem';
 import type { ModeId, Pose } from '../camera/types';
+import type { PhotoMode } from '../photo/PhotoMode';
+import type { PhotoHost } from '../photo/types';
 import { U } from '../atmosphere/uniforms';
 import { GroundHaze } from '../atmosphere/GroundHaze';
 import { WetReflector } from '../atmosphere/WetReflector';
@@ -137,6 +139,10 @@ export class App {
   private loopStart = 0;
   private boot = { initMs: 0, firstFrameMs: 0, interactiveMs: 0 };
   private started = false;
+  private photoMod: PhotoMode | null = null;
+  private photoGate: Promise<PhotoMode> | null = null;
+  private captureLock = false;
+  private spinnerWasVisible = false;
   private loadingEl = document.getElementById('loading');
   private startMs = performance.now();
 
@@ -262,6 +268,7 @@ export class App {
         setWeather: (w) => this.atmosphere.weather.set(w),
         setTime: (h) => (this.atmosphere.dayNight.hours = h),
         nextShot: () => this.cams.cine.cut(),
+        photo: () => this.togglePhoto(),
         start: (m) => {
           this.ambience.start();
           this.started = true;
@@ -337,6 +344,7 @@ export class App {
     this.streamer.invalidateLod0();
     this.interiors.setTier(tier);
     if (had !== this.quality.bloom) this.buildPipeline();
+    this.photoMod?.retier();
     this.slowMs = 0;
   }
 
@@ -345,6 +353,7 @@ export class App {
     this.camera.updateProjectionMatrix();
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, this.quality.pixelRatio));
     this.renderer.setSize(innerWidth, innerHeight, false);
+    this.photoMod?.onResize();
   }
 
   private handleKeys(): void {
@@ -384,18 +393,28 @@ export class App {
     this.timer.update(time);
     const raw = this.timer.getDelta();
     const dt = Math.min(raw, 0.1);
+    if (this.captureLock) {
+      this.input.endFrame();
+      return;
+    }
+    const photoWas = this.photoMod?.active ?? false;
+    if (!photoWas) this.touch?.update();
+    if (this.input.wasPressed('KeyP')) this.togglePhoto();
+    if (this.photoMod?.active && this.input.wasPressed('Escape')) this.exitPhoto();
+    const photoOn = this.photoMod?.active ?? false;
+    const simDt = photoOn ? 0 : dt;
     if (this.frames === 0) {
       this.loopStart = performance.now();
       this.boot.firstFrameMs = this.loopStart - this.startMs;
-    } else if (this.frames > 2) {
+    } else if (this.frames > 2 && !photoOn) {
       this.sessionWorstMs = Math.max(this.sessionWorstMs, raw * 1000);
     }
-    this.elapsed += dt;
+    if (!photoOn) this.elapsed += dt;
     this.frames++;
 
-    this.touch?.update();
-    if (this.started) this.handleKeys();
-    this.cams.update(dt);
+    if (this.started && !photoOn) this.handleKeys();
+    if (photoOn) this.photoMod!.update(dt);
+    else this.cams.update(dt);
 
     const cam = this.camera.position;
     const ground = this.query.groundHeight(cam.x, cam.z);
@@ -417,7 +436,7 @@ export class App {
     const walLm = this.query.layout.landmarkById('wallace-pyramid');
     const inWallace = districtNow.id === 'wallace-vernon'
       || (!!walLm && Math.hypot(cam.x - walLm.x, cam.z - walLm.z) < walLm.reserveRadius + 40);
-    const coast = updateCoast(cam, this.quality.tier, dt, this.elapsed, this.atmosphere.weather.params.rain, this.atmosphere.weather.params.wind, this.query.layout, params.surf);
+    const coast = updateCoast(cam, this.quality.tier, simDt, this.elapsed, this.atmosphere.weather.params.rain, this.atmosphere.weather.params.wind, this.query.layout, params.surf);
     const inCoast = districtNow.id === 'coastal-strip' || coast.near > 0.45;
     const inCanyon = inDtla || (districtNow.id === 'financial-megatowers' && alt < 40);
     U.neonWet.value = inMarket && alt < 140 ? 0.92
@@ -461,16 +480,20 @@ export class App {
     this.lastCam.copy(cam);
 
     const foci = [cam];
-    if (this.cams.mode === 'cine' && this.cams.cine.prefetch) foci.push(this.cams.cine.prefetch);
+    if (photoOn) {
+      for (const f of this.photoMod!.focusPoints()) foci.push(f);
+    } else if (this.cams.mode === 'cine' && this.cams.cine.prefetch) foci.push(this.cams.cine.prefetch);
     this.streamer.update(foci);
     this.landmarks.update(cam, this.quality.landmarkLod);
-    updateWallace(cam, this.quality.tier, dt);
+    updateWallace(cam, this.quality.tier, simDt);
     this.holos.update(this.camera, this.quality, this.streamer.billboards());
-    this.traffic.update(dt, this.camera, this.quality.traffic);
-    this.lanes.update(dt, this.camera, this.quality.laneTraffic);
-    this.ground.update(dt, this.camera, this.quality.groundTraffic, this.quality.freewayTraffic, this.quality.tier, this.elapsed);
-    this.atmosphere.update(dt, this.elapsed, this.renderer);
-    this.crowd.update(dt, cam.x, cam.z, this.query, this.quality, this.atmosphere.weather.params.rain, this.elapsed);
+    this.traffic.update(simDt, this.camera, this.quality.traffic);
+    this.lanes.update(simDt, this.camera, this.quality.laneTraffic);
+    this.ground.update(simDt, this.camera, this.quality.groundTraffic, this.quality.freewayTraffic, this.quality.tier, this.elapsed);
+    this.photoMod?.preAtmosphere();
+    this.atmosphere.update(simDt, this.elapsed, this.renderer);
+    this.photoMod?.postAtmosphere();
+    this.crowd.update(simDt, cam.x, cam.z, this.query, this.quality, this.atmosphere.weather.params.rain, this.elapsed);
     this.haze.update(cam.x, cam.z, ground, alt, this.quality.tier);
     const wantRefl = params.refl === 1 || (
       params.refl !== 0 && !this.software && (this.quality.tier === 'high' || this.quality.tier === 'ultra')
@@ -486,12 +509,12 @@ export class App {
 
     const w = this.atmosphere.weather;
     const aboveClouds = MathUtils.clamp(1 - (cam.y - 1400) / 600, 0, 1);
-    this.rain.update(dt, cam, w.params.rain * aboveClouds, w.params.wind * (1 + coast.crest * 0.85), w.windDir, this.quality.rainCount);
-    this.snow.update(dt, cam, w.params.snow * aboveClouds, w.params.wind, w.windDir, this.quality.snowCount);
+    this.rain.update(simDt, cam, w.params.rain * aboveClouds, w.params.wind * (1 + coast.crest * 0.85), w.windDir, this.quality.rainCount);
+    this.snow.update(simDt, cam, w.params.snow * aboveClouds, w.params.wind, w.windDir, this.quality.snowCount);
     const at = this.cams.mode === 'walk' ? this.cams.walk.pos : cam;
-    this.interiors.update(dt, this.cams.mode, at.x, at.y, at.z, w.params.rain);
+    this.interiors.update(simDt, this.cams.mode, at.x, at.y, at.z, w.params.rain);
     const ride = this.interiors.consumeRide();
-    if (ride && this.cams.mode === 'walk') {
+    if (ride && this.cams.mode === 'walk' && !photoOn) {
       this.cams.walk.pos.set(ride.x, ride.y, ride.z);
       this.cams.walk.heading = ride.heading;
       this.camera.position.set(ride.x, ride.y + 1.7, ride.z);
@@ -526,11 +549,12 @@ export class App {
       this.nearestSpinner(cam),
     );
 
-    if (this.pipeline) this.pipeline.render();
+    if (photoOn) this.photoMod!.render();
+    else if (this.pipeline) this.pipeline.render();
     else this.renderer.render(this.scene, this.camera);
 
     this.hud.tick(raw, () => this.hudLines(alt));
-    this.adaptQuality(raw);
+    if (!photoOn) this.adaptQuality(raw);
     this.input.endFrame();
 
     if (this.loadingEl && (this.streamer.isIdle() || performance.now() - this.startMs > 8000) && this.frames > 5) {
@@ -571,13 +595,102 @@ export class App {
   }
 
   /** Debug / automation hooks (screenshots, console). */
+  private loadPhoto(): Promise<PhotoMode> {
+    if (this.photoMod) return Promise.resolve(this.photoMod);
+    if (!this.photoGate) {
+      this.photoGate = import('../photo/PhotoMode').then((m) => {
+        if (!this.photoMod) this.photoMod = new m.PhotoMode(this.photoHost());
+        return this.photoMod;
+      });
+    }
+    return this.photoGate;
+  }
+
+  private togglePhoto(): void {
+    if (this.captureLock) return;
+    if (this.photoMod?.active) {
+      this.exitPhoto();
+      return;
+    }
+    if (this.photoMod) {
+      this.beginPhoto();
+      return;
+    }
+    void this.loadPhoto().then(() => {
+      if (!this.photoMod?.active) this.beginPhoto();
+    });
+  }
+
+  private async enterPhoto(): Promise<boolean> {
+    const photo = await this.loadPhoto();
+    if (!photo.active) this.beginPhoto();
+    return photo.active;
+  }
+
+  private beginPhoto(): void {
+    if (!this.photoMod || this.photoMod.active || this.captureLock) return;
+    this.ui.hideTitle();
+    this.started = true;
+    this.ambience.start();
+    if (document.pointerLockElement) document.exitPointerLock();
+    this.spinnerWasVisible = this.cams.fly.spinner.visible;
+    this.cams.fly.spinner.visible = false;
+    this.photoMod.enter();
+  }
+
+  private exitPhoto(): void {
+    if (!this.photoMod?.active || this.captureLock) return;
+    this.photoMod.exit();
+    this.cams.fly.spinner.visible = this.spinnerWasVisible;
+  }
+
+  private photoHost(): PhotoHost {
+    return {
+      camera: this.camera,
+      scene: this.scene,
+      renderer: this.renderer,
+      canvas: this.canvas,
+      input: this.input,
+      ambience: this.ambience,
+      weather: this.atmosphere.weather,
+      dayNight: this.atmosphere.dayNight,
+      layout: this.query.layout,
+      query: this.query,
+      tier: () => this.quality.tier,
+      backend: () => this.backend,
+      exposure: () => this.atmosphere.exposure,
+      lock: (on) => { this.captureLock = on; },
+      mode: () => this.cams.mode,
+      flash: (html) => this.ui.flash(html),
+      restoreView: (fov) => {
+        this.camera.fov = fov;
+        this.camera.aspect = innerWidth / Math.max(1, innerHeight);
+        this.camera.clearViewOffset();
+        this.camera.updateProjectionMatrix();
+      },
+    };
+  }
+
   debugApi() {
+    const app = this;
     return {
       app: this,
       isIdle: () => this.frames > 10 && this.streamer.isIdle(),
       resetPeaks: () => {
         this.sessionWorstMs = 0;
         this.streamer.resetPeaks();
+      },
+      photo: {
+        enter: () => this.enterPhoto(),
+        exit: () => this.exitPhoto(),
+        setLens: (p: { focal?: number; focus?: number; aperture?: number; roll?: number }) => this.photoMod?.setLens(p),
+        setLook: (p: Parameters<PhotoMode['setLook']>[0]) => this.photoMod?.setLook(p),
+        setShot: (p: Parameters<PhotoMode['setShot']>[0]) => this.photoMod?.setShot(p),
+        postcard: (id: string) => this.photoMod?.postcard(id) ?? false,
+        capture: (req?: Parameters<PhotoMode['capture']>[0]) => this.photoMod?.capture(req) ?? Promise.resolve(null),
+        get active() { return app.photoMod?.active ?? false; },
+        state: () => this.photoMod?.snapshot() ?? null,
+        lastImage: () => this.photoMod?.lastImage() ?? null,
       },
       setMode: (m: ModeId) => this.cams.setMode(m),
       setPose: (x: number, y: number, z: number, yawDeg = 0, pitchDeg = 0) =>
@@ -1113,6 +1226,7 @@ export class App {
         gpuGeomBytes: geometryBytes(this.scene),
         jsHeap: (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize ?? null,
         sessionWorstMs: this.sessionWorstMs,
+        photo: this.photoMod?.active ?? false,
         qualityChoice: this.qualityChoice,
         autoTier: this.autoTier,
         autoReason: this.autoReason,

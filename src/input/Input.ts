@@ -17,6 +17,8 @@ export class Input {
   private pressed = new Set<string>();
   readonly touch: TouchState = { moveX: 0, moveY: 0, lookX: 0, lookY: 0, up: false, down: false, boost: false };
   pointerLockWanted = false;
+  /** Photo mode owns the pointer. Mouse look stays at zero while this is set. */
+  suspendPointer = false;
 
   constructor(private canvas: HTMLCanvasElement) {
     window.addEventListener('keydown', (e) => {
@@ -29,7 +31,7 @@ export class Input {
     window.addEventListener('blur', () => this.keys.clear());
 
     canvas.addEventListener('mousedown', (e) => {
-      if (e.button !== 0) return;
+      if (this.suspendPointer || e.button !== 0) return;
       this.dragging = true;
       if (this.pointerLockWanted && document.pointerLockElement !== canvas) {
         canvas.requestPointerLock?.()?.catch?.(() => {});
@@ -37,6 +39,7 @@ export class Input {
     });
     window.addEventListener('mouseup', () => (this.dragging = false));
     window.addEventListener('mousemove', (e) => {
+      if (this.suspendPointer) return;
       if (document.pointerLockElement === canvas || this.dragging) {
         this.lookDX += e.movementX;
         this.lookDY += e.movementY;

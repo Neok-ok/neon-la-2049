@@ -42,6 +42,8 @@ export class Ambience {
   private roomGain: GainNode | null = null;
   /** Master level before mute. Remembered in localStorage. */
   private volume = audioPrefs.volume;
+  /** Photo mode ducks the bus without writing the saved volume. */
+  private duck = 1;
   private resumeArmed = false;
   private rainLevel = 0;
   private windLevel = 0;
@@ -228,7 +230,13 @@ export class Ambience {
   }
 
   private masterLevel(): number {
-    return this.muted || this.volume <= 0.001 ? 0 : this.volume;
+    return this.muted || this.volume <= 0.001 ? 0 : this.volume * this.duck;
+  }
+
+  /** 0..1 multiplier on the master. Not stored in `nla.audio`. */
+  setDuck(v: number): void {
+    this.duck = Math.max(0, Math.min(1, v));
+    this.applyMaster();
   }
 
   get context(): AudioContext | null {

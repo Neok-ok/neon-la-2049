@@ -1,7 +1,8 @@
 // Re-runnable Stage X6 survey. SwiftShader WebGL2 unless GPU=1.
 //   npm run preview   (or BASE_URL=http://localhost:5173/)
 //   node scripts/iphone-survey.mjs
-// Env: BASE_URL, OUT, CHROME, GPU=1, PART=load|spots|flyover|guard (default all)
+// Env: BASE_URL, OUT, CHROME, GPU=1, PART=load|spots|flyover|photo (default load,spots,flyover)
+// Photo: TIERS=low,medium,high,ultra (default all), PHOTO=perf|stills|all (default all)
 import { chromium } from 'playwright';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -330,6 +331,140 @@ if (PART.has('flyover')) {
     samples,
   };
   await ctx.close();
+}
+
+if (PART.has('photo')) {
+  const tiers = (process.env.TIERS ?? 'low,medium,high,ultra').split(',').map((s) => s.trim()).filter(Boolean);
+  const photoPart = process.env.PHOTO ?? 'all';
+  const wantPerf = photoPart === 'all' || photoPart === 'perf';
+  const wantStills = photoPart === 'all' || photoPart === 'stills';
+  const perfCards = ['wallace-dusk', 'broadway-rain', 'market-stall'];
+  const stillCards = ['wallace-dusk', 'broadway-rain', 'market-stall', 'lax-gantry', 'sea-wall', 'harbor-cranes'];
+  report.parts.photo = { perf: [], stills: [], errors: [] };
+
+  // A postcard can land in a district that is not loaded yet. The ordinary settle
+  // treats leftover lod0 as "already dressed" and returns before the new blocks arrive.
+  async function settleMoved(page) {
+    const t0 = Date.now();
+    let busy = false;
+    while (Date.now() - t0 < 25_000) {
+      const s = await page.evaluate(() => window.__nla.stats());
+      if (s.inFlight > 0 || s.readyQueue > 0) busy = true;
+      if (busy && s.inFlight === 0 && s.readyQueue === 0 && s.lod0 >= 2) break;
+      await page.waitForTimeout(250);
+    }
+    return settle(page, 120_000);
+  }
+
+  async function openPhoto(page, tier) {
+    const booted = await boot(
+      page,
+      `${BASE}?mode=fly&quality=${tier}&ui=0&hud=1&time=22&weather=rain${webgl}`,
+    );
+    page.setDefaultTimeout(300_000);
+    await arm(page);
+    await settle(page, 180_000);
+    const entered = await page.evaluate(async () => {
+      const ok = await window.__nla.photo.enter();
+      return { ok, active: window.__nla.photo.active, errors: null };
+    });
+    return { booted, entered };
+  }
+
+  if (wantPerf) {
+    for (const tier of tiers) {
+      const ctx = await browser.newContext(iphone);
+      const page = await ctx.newPage();
+      const opened = await openPhoto(page, tier);
+      const rows = [];
+      for (const id of perfCards) {
+        const jumped = await page.evaluate((card) => window.__nla.photo.postcard(card), id);
+        const sampled = await settleMoved(page);
+        await arm(page);
+        await page.waitForTimeout(2000);
+        const live = await page.evaluate(() => ({ s: window.__nla.stats(), raf: window.__x6raf?.worst ?? 0 }));
+        rows.push({
+          id, tier, jumped, settled: sampled.settled,
+          ...pick(live.s),
+          frameMs: live.s?.frameMs ?? null,
+          rafWorstMs: Math.round(live.raf),
+          view: 'iphone',
+          note: 'rafWorstMs is a fresh 2s window inside photo mode. sessionWorstMs stays the play-mode peak.',
+        });
+        console.log('PHOTO', JSON.stringify(rows[rows.length - 1]));
+      }
+      const captures = [];
+      for (const kind of ['screen', '1080', '1440', 'wallpaper']) {
+        const shot = await page.evaluate(async (k) => {
+          const before = window.__nla.stats();
+          const r = await window.__nla.photo.capture({ kind: k, present: false });
+          if (typeof window.gc === 'function') window.gc();
+          const after = window.__nla.stats();
+          return { r, heapAfter: after.jsHeap, canvas: `${before.canvasWidth}x${before.canvasHeight}` };
+        }, kind);
+        captures.push({ kind, ...shot.r, heapAfter: shot.heapAfter, canvas: shot.canvas });
+        console.log('CAP', tier, kind, JSON.stringify(shot.r));
+      }
+      report.parts.photo.perf.push({
+        tier,
+        errors: opened.booted.errors.slice(0, 8),
+        entered: opened.entered,
+        rows,
+        captures,
+      });
+      await ctx.close();
+    }
+  }
+
+  if (wantStills) {
+    const ctx = await browser.newContext({ ...desktop, viewport: { width: 1600, height: 900 }, deviceScaleFactor: 1 });
+    const page = await ctx.newPage();
+    const opened = await openPhoto(page, 'medium');
+    report.parts.photo.errors.push(...opened.booted.errors.slice(0, 8));
+    const stills = [];
+    for (const id of stillCards) {
+      await arm(page);
+      await page.evaluate((card) => window.__nla.photo.postcard(card), id);
+      await settleMoved(page);
+      const shot = await page.evaluate(async () => {
+        const state = window.__nla.photo.state();
+        const r = await window.__nla.photo.capture({ kind: '1080', exact: { w: 1920, h: 1080 }, present: false });
+        return { state, r, img: window.__nla.photo.lastImage() };
+      });
+      const file = `${id}-1920x1080.jpg`;
+      if (shot.img) writeFileSync(join(OUT, file), Buffer.from(shot.img.split(',')[1], 'base64'));
+      const meta = { id, file, state: shot.state, capture: shot.r };
+      writeFileSync(join(OUT, `${id}-1920x1080.json`), JSON.stringify(meta, null, 2));
+      stills.push({ id, file, ok: shot.r?.ok, bytes: shot.r?.bytes, ms: shot.r?.ms, capped: shot.r?.capped, center: shot.r?.center });
+      console.log('STILL', JSON.stringify(stills[stills.length - 1]));
+      if (id === 'broadway-rain') {
+        const wide = await page.evaluate(async () => {
+          const state = window.__nla.photo.state();
+          const r = await window.__nla.photo.capture({ kind: '1080', present: false });
+          return { state, r, img: window.__nla.photo.lastImage() };
+        });
+        const wideName = `broadway-rain-${wide.r.width}x${wide.r.height}.jpg`;
+        if (wide.img) writeFileSync(join(OUT, wideName), Buffer.from(wide.img.split(',')[1], 'base64'));
+        writeFileSync(join(OUT, wideName.replace(/\.jpg$/, '.json')), JSON.stringify({ id: 'broadway-rain', file: wideName, state: wide.state, capture: wide.r }, null, 2));
+        stills.push({ id: 'broadway-rain-239', file: wideName, ok: wide.r?.ok, bytes: wide.r?.bytes, ms: wide.r?.ms });
+        console.log('STILL', JSON.stringify(stills[stills.length - 1]));
+      }
+      if (id === 'sea-wall') {
+        const wall = await page.evaluate(async () => {
+          const state = window.__nla.photo.state();
+          const r = await window.__nla.photo.capture({ kind: 'wallpaper', present: false });
+          return { state, r, img: window.__nla.photo.lastImage() };
+        });
+        const wallName = `sea-wall-wallpaper-${wall.r.width}x${wall.r.height}.jpg`;
+        if (wall.img) writeFileSync(join(OUT, wallName), Buffer.from(wall.img.split(',')[1], 'base64'));
+        writeFileSync(join(OUT, wallName.replace(/\.jpg$/, '.json')), JSON.stringify({ id: 'sea-wall', file: wallName, state: wall.state, capture: wall.r }, null, 2));
+        stills.push({ id: 'sea-wall-wallpaper', file: wallName, ok: wall.r?.ok, bytes: wall.r?.bytes, ms: wall.r?.ms, capped: wall.r?.capped });
+        console.log('STILL', JSON.stringify(stills[stills.length - 1]));
+      }
+    }
+    report.parts.photo.stills = stills;
+    await ctx.close();
+  }
 }
 
 writeFileSync(join(OUT, 'survey.json'), JSON.stringify(report, null, 2));
