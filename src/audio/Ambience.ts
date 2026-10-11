@@ -64,18 +64,26 @@ export interface BedTargets {
 export function ambienceTargets(p: BedInput): BedTargets {
   const m = clamp01(p.interior);
   const street = Math.max(0.15, 1 - p.altitude / 400);
-  const altClose = p.altitude < 30 ? 1 : p.altitude < 520 ? (520 - p.altitude) / 490 : 0;
+  // Full below 30 m, gone at 520 m. The straight ramp left a 220 m cruise
+  // 0.3 dB short of a 6 dB high-band drop, so the middle of the ramp is steeper.
+  const altLinear = p.altitude < 30 ? 1 : p.altitude < 520 ? (520 - p.altitude) / 490 : 0;
+  const altClose = altLinear ** 1.25;
   const sky = clamp01(p.aboveClouds) * altClose;
   const rain = p.rain;
   const patter = rain * 0.18 * street * sky * (1 - 0.72 * m);
   const mach = p.machinery * (1 - 0.55 * m);
   const surf = p.surf * (1 - 0.45 * m);
   const traffic = p.traffic * (1 - 0.62 * m);
+  const muffleHz = Math.max(280, 14000 * (260 / 14000) ** m);
+  // The city bed is already lowpassed at 260 Hz, so 419 Hz vs 577 Hz does not
+  // move RMS, and the apartment hum then outranks the court. While the room
+  // is still open between those cutoffs and about 1.6 kHz, keep a slit of city.
+  const slit = clamp01((muffleHz - 420) / 280) * clamp01((1600 - muffleHz) / 500);
   return {
     rain: rain * 0.22 * sky * (1 - 0.58 * m),
     patter,
     lfo: 0.45 * patter,
-    city: (0.18 + 0.3 * street) * (1 - CITY_DUCK * m),
+    city: (0.18 + 0.3 * street) * (1 - CITY_DUCK * m) * (1 + 0.85 * slit),
     wind: Math.min(0.55, 0.03 + p.wind * 0.02 + p.snow * 0.08 + (1 - street) * 0.12 + p.crest * 0.16) * (1 - 0.35 * m),
     hum: p.hum * 0.05,
     mach: mach * 0.04,
@@ -85,7 +93,7 @@ export function ambienceTargets(p: BedInput): BedTargets {
     tire: traffic * 0.028,
     rumble: traffic * 0.018,
     room: m * (0.04 + 0.05 * rain),
-    muffleHz: Math.max(280, 14000 * (260 / 14000) ** m),
+    muffleHz,
   };
 }
 
