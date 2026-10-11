@@ -53,7 +53,15 @@ async function boot(page, url) {
 
 async function shot(page, name) {
   await settle(page);
-  await page.waitForTimeout(800);
+  // Pin the clock so rain streaks and the occupancy bucket match across the pair.
+  // A SwiftShader frame can be longer than a second, so wait for the next frame
+  // to upload U.time before the pixels are read.
+  const frame = await page.evaluate(() => {
+    const app = window.__nla.app;
+    app.elapsed = 180;
+    return app.frames;
+  });
+  await page.waitForFunction((n) => window.__nla.app.frames > n + 1, frame, { timeout: 30_000 });
   const file = join(OUT, `${name}.png`);
   await page.screenshot({ path: file, type: 'png' });
   const stats = await page.evaluate(() => {

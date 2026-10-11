@@ -33,8 +33,8 @@ export const W = {
   range: uniform(0),
   rainRange: uniform(0),
   silRange: uniform(0),
-  /** World-space radius that picks up a hero room. About one or two cells. */
-  radius: uniform(3.8),
+  /** World-space radius that picks up a hero room. One pane, not the neighbours. */
+  radius: uniform(1.85),
   hero0: uniform(new Vector3(FAR, FAR, FAR)),
   hero1: uniform(new Vector3(FAR, FAR, FAR)),
   hero2: uniform(new Vector3(FAR, FAR, FAR)),
