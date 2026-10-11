@@ -30,7 +30,7 @@ export function looping(ctx: BaseAudioContext, buf: AudioBuffer): AudioBufferSou
 
 const tongues = new WeakMap<BaseAudioContext, AudioBuffer[]>();
 
-/** Second formant of each invented babble recipe. The playback filter sits here. */
+/** Second formant of each invented babble recipe. Baked into the buffer. Playback is unfiltered. */
 export const TONGUE_F2 = [1280, 1760, 980, 1540];
 
 /** Four unintelligible babble loops. Formant pairs are invented, not a recording of speech. */

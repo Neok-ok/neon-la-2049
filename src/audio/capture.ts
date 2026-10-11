@@ -94,17 +94,16 @@ function peakOf(buf: AudioBuffer): number {
   return Math.round(m * 1000) / 1000;
 }
 
+/** Same mono full-sample RMS as the offline full-bus meter. A per-channel step read sits about 2 dB hotter. */
 function rmsOf(buf: AudioBuffer): number {
+  const ch0 = buf.getChannelData(0);
+  const ch1 = buf.numberOfChannels > 1 ? buf.getChannelData(1) : ch0;
   let s = 0;
-  let n = 0;
-  for (let c = 0; c < buf.numberOfChannels; c++) {
-    const d = buf.getChannelData(c);
-    for (let i = 0; i < d.length; i += 8) {
-      s += d[i]! * d[i]!;
-      n++;
-    }
+  for (let i = 0; i < ch0.length; i++) {
+    const m = 0.5 * (ch0[i]! + ch1[i]!);
+    s += m * m;
   }
-  return Math.round(Math.sqrt(s / Math.max(1, n)) * 1000) / 1000;
+  return Math.round(Math.sqrt(s / Math.max(1, ch0.length)) * 1000) / 1000;
 }
 
 function encodeWav(buffer: AudioBuffer): Uint8Array {

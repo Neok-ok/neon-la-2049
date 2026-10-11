@@ -36,8 +36,11 @@ export interface MixOut {
   open: number;
 }
 
-/** Street PA coefficient. Tuned so a Broadway tongue alone sits near −32 dB RMS. */
-export const PA_COEFF = 0.085;
+/**
+ * Street PA coefficient. The unfiltered Broadway tongue at 0.085 measured
+ * −41.5 dB RMS. 0.254 is the one step that puts that solo near −32 dB.
+ */
+export const PA_COEFF = 0.254;
 
 /**
  * Shared city-rumble weight. Loud streets stay at 1. The coast, the basin,
@@ -91,7 +94,9 @@ export function mixTargets(m: MixIn, out?: MixOut): MixOut {
   dest.pa = m.bed.pa * PA_COEFF * street * (1 - 0.92 * clamp01(m.interior)) * (0.4 + 0.6 * floor);
   dest.canyon = clamp01(m.bed.canyon);
   dest.awning = awning;
-  dest.horn = m.hornEnv * m.bed.foghorn * night * hornStreet * 0.18 * open;
+  // 0.18 put the harbor blast louder than Broadway. 0.06 keeps the night sub
+  // in front of the day and leaves the harbor under the market.
+  dest.horn = m.hornEnv * m.bed.foghorn * night * hornStreet * 0.06 * open;
   dest.street = street;
   dest.open = open;
   return dest;

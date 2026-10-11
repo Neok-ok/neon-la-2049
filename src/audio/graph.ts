@@ -2,7 +2,7 @@
 // delay. Nodes are created once. The frame loop only moves gains.
 import { bedOrQuiet, SLOT_KINDS, type SlotKind } from './registry';
 import { canyonDelay, canyonFeedback, mixTargets, slotLevel, type MixIn } from './mix';
-import { looping, noiseBuffer, panner, setPos, tongueBuffer, TONGUE_F2 } from './synth';
+import { looping, noiseBuffer, panner, setPos, tongueBuffer } from './synth';
 
 export interface StreetSlot {
   kind: SlotKind;
@@ -68,13 +68,11 @@ export function mountCityGraph(ctx: BaseAudioContext, master: AudioNode, slots: 
 
   const pa: GainNode[] = [];
   const sum = ctx.createGain();
+  // The buffer is already formant-filtered. A second band-pass sat between the
+  // formants and left the tongue near −48 dB, so the playback filter is gone.
   for (let i = 0; i < tongues.length; i++) {
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.frequency.value = TONGUE_F2[i]!;
-    filter.Q.value = 0.7;
     const g = gain(ctx, 0);
-    looping(ctx, tongues[i]!).connect(filter).connect(g).connect(sum);
+    looping(ctx, tongues[i]!).connect(g).connect(sum);
     pa.push(g);
   }
   sum.connect(master);
