@@ -37,7 +37,7 @@ export function createPlayLens(
       renderer.getDrawingBufferSize(size);
       rig.setTile(null, size.x, size.y);
       rig.advance(cam, size.y);
-      pipeline.render();
+      rig.present(renderer, pipeline);
     },
     dispose() {
       pipeline.dispose();

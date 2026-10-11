@@ -10,17 +10,22 @@ export const LETTERBOX_RATIO: Record<LetterboxId, number | null> = {
   '1:1': 1,
 };
 
-/** maxEdge is the long side. maxPixels caps area. tile is the largest GPU buffer one capture tile may use. */
+/**
+ * maxEdge is the long side. maxPixels caps area. tile is the largest GPU buffer one capture tile may use.
+ * dofScale is the gather resolution (0.5 = half the drawing buffer). dofRings is the disc radius in
+ * gather texels; dofPx is that radius in full-resolution pixels and is the blur clamp.
+ * dofTaps counts the disc, including the centre.
+ */
 export const CAPTURE_CAPS: Record<Tier, {
   maxEdge: number; maxPixels: number; tile: number;
-  dofTaps: number; dofPx: number; heavyBloom: boolean;
+  dofTaps: number; dofRings: number; dofScale: number; dofPx: number; heavyBloom: boolean;
   /** Motion smear and anamorphic streak. Low keeps the gather small and skips both. */
   motion: boolean; motionPx: number; flareTaps: number; caPx: number;
 }> = {
-  low: { maxEdge: 1280, maxPixels: 1280 * 720, tile: 480, dofTaps: 5, dofPx: 6, heavyBloom: false, motion: false, motionPx: 0, flareTaps: 0, caPx: 0 },
-  medium: { maxEdge: 1920, maxPixels: 1920 * 1080, tile: 640, dofTaps: 9, dofPx: 10, heavyBloom: false, motion: true, motionPx: 8, flareTaps: 4, caPx: 0.65 },
-  high: { maxEdge: 2560, maxPixels: 2560 * 1440, tile: 768, dofTaps: 13, dofPx: 16, heavyBloom: true, motion: true, motionPx: 14, flareTaps: 8, caPx: 1.05 },
-  ultra: { maxEdge: 2560, maxPixels: 2560 * 1440, tile: 1024, dofTaps: 33, dofPx: 28, heavyBloom: true, motion: true, motionPx: 22, flareTaps: 16, caPx: 1.6 },
+  low: { maxEdge: 1280, maxPixels: 1280 * 720, tile: 480, dofTaps: 20, dofRings: 2, dofScale: 0.5, dofPx: 4, heavyBloom: false, motion: false, motionPx: 0, flareTaps: 0, caPx: 0 },
+  medium: { maxEdge: 1920, maxPixels: 1920 * 1080, tile: 640, dofTaps: 39, dofRings: 3, dofScale: 0.5, dofPx: 6, heavyBloom: false, motion: true, motionPx: 8, flareTaps: 4, caPx: 0.22 },
+  high: { maxEdge: 2560, maxPixels: 2560 * 1440, tile: 768, dofTaps: 64, dofRings: 4, dofScale: 0.5, dofPx: 8, heavyBloom: true, motion: true, motionPx: 14, flareTaps: 8, caPx: 0.35 },
+  ultra: { maxEdge: 2560, maxPixels: 2560 * 1440, tile: 1024, dofTaps: 64, dofRings: 4, dofScale: 0.5, dofPx: 8, heavyBloom: true, motion: true, motionPx: 22, flareTaps: 16, caPx: 0.45 },
 };
 
 export interface FrameSize {
@@ -80,18 +85,84 @@ export function visibleFraction(viewW: number, viewH: number, letterbox: Letterb
   return { x: 0, y: (1 - fh) / 2, w: 1, h: fh };
 }
 
-/** Disc offsets. Index 0 is the center. Low uses five taps; ultra uses seventeen. */
-export function dofOffsets(taps: number): Array<[number, number]> {
-  const all: Array<[number, number]> = [
-    [0, 0],
-    [1, 0], [-1, 0], [0, 1], [0, -1],
-    [0.72, 0.72], [-0.72, 0.72], [0.72, -0.72], [-0.72, -0.72],
-    [1.55, 0.35], [-1.55, 0.35], [0.35, 1.55], [-0.35, -1.55],
-    [1.35, -1.15], [-1.35, 1.15], [1.7, 1.15], [-1.7, -0.85],
-    [2.15, 0.25], [-2.15, 0.25], [0.25, 2.15], [-0.25, -2.15],
-    [1.65, 1.65], [-1.65, 1.65], [1.65, -1.65], [-1.65, -1.65],
-    [2.45, 0.95], [-2.45, 0.95], [0.95, 2.45], [-0.95, -2.45],
-    [2.2, -1.45], [-2.2, 1.45], [1.15, -2.35], [-1.15, 2.35],
+/**
+ * Unit-spacing disc. Ring r sits on a circle of radius r (gather texels) with about one texel
+ * between samples, so a bilinear prefilter fills the disc instead of copying the picture.
+ * Index 0 is the centre. Odd rings are rotated half a step so the rings nest.
+ */
+export function dofDisc(rings: number): Array<[number, number]> {
+  const pts: Array<[number, number]> = [[0, 0]];
+  const n = Math.max(0, Math.min(8, Math.round(rings)));
+  for (let ring = 1; ring <= n; ring++) {
+    const count = Math.max(6, Math.round(2 * Math.PI * ring));
+    const spin = (ring % 2) * 0.5;
+    for (let i = 0; i < count; i++) {
+      const a = ((i + spin) / count) * Math.PI * 2;
+      pts.push([Math.cos(a) * ring, Math.sin(a) * ring]);
+    }
+  }
+  return pts;
+}
+
+const RGBA16F_BYTES = 8;
+const DEPTH_BYTES = 4;
+
+export interface LensTarget {
+  name: string;
+  w: number;
+  h: number;
+  format: 'RGBA16F' | 'Depth32';
+  bytes: number;
+}
+
+export interface LensMemory {
+  tier: Tier;
+  viewW: number;
+  viewH: number;
+  dofScale: number;
+  targets: LensTarget[];
+  /** Prefilter + disc gather only. */
+  dofBytes: number;
+  bytes: number;
+}
+
+/**
+ * GPU targets the lens rig allocates for a drawing buffer of viewW×viewH.
+ * Scene colour and depth stay full resolution. The depth-of-field pair is dofScale
+ * (half resolution on every tier, including Medium and Low). Bloom, when the tier
+ * has it, is the five-mip dual Kawase chain at half resolution and below.
+ * Depth is the pass depth texture (unsigned int, 4 bytes). DoF targets are RGBA16F
+ * with no depth buffer.
+ */
+export function lensTargetMemory(tier: Tier, viewW: number, viewH: number): LensMemory {
+  const cap = CAPTURE_CAPS[tier];
+  const w = Math.max(1, Math.floor(viewW));
+  const h = Math.max(1, Math.floor(viewH));
+  const dw = Math.max(1, Math.floor(w * cap.dofScale));
+  const dh = Math.max(1, Math.floor(h * cap.dofScale));
+  const targets: LensTarget[] = [
+    { name: 'scene-color', w, h, format: 'RGBA16F', bytes: w * h * RGBA16F_BYTES },
+    { name: 'scene-depth', w, h, format: 'Depth32', bytes: w * h * DEPTH_BYTES },
+    { name: 'dof-prefilter', w: dw, h: dh, format: 'RGBA16F', bytes: dw * dh * RGBA16F_BYTES },
+    { name: 'dof-gather', w: dw, h: dh, format: 'RGBA16F', bytes: dw * dh * RGBA16F_BYTES },
   ];
-  return all.slice(0, Math.max(1, Math.min(all.length, taps)));
+  if (cap.heavyBloom) {
+    let bw = Math.floor(w * 0.5);
+    let bh = Math.floor(h * 0.5);
+    const push = (name: string, tw: number, th: number) => {
+      const mw = Math.max(1, tw);
+      const mh = Math.max(1, th);
+      targets.push({ name, w: mw, h: mh, format: 'RGBA16F', bytes: mw * mh * RGBA16F_BYTES });
+    };
+    push('bloom-bright', bw, bh);
+    for (let i = 0; i < 5; i++) {
+      push(`bloom-h${i}`, bw, bh);
+      push(`bloom-v${i}`, bw, bh);
+      bw = Math.floor(bw / 2);
+      bh = Math.floor(bh / 2);
+    }
+  }
+  const dofBytes = targets.filter((t) => t.name.startsWith('dof-')).reduce((sum, t) => sum + t.bytes, 0);
+  const bytes = targets.reduce((sum, t) => sum + t.bytes, 0);
+  return { tier, viewW: w, viewH: h, dofScale: cap.dofScale, targets, dofBytes, bytes };
 }

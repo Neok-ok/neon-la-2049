@@ -23,6 +23,7 @@ const LETTERS: Array<[LetterboxId, string]> = [
 
 const FOCUS_MIN = 0.4;
 const FOCUS_MAX = 8000;
+const DEFAULT_FSTOP = 4;
 
 const SIZES: Array<[PhotoState['size'], string]> = [
   ['screen', 'Screen'],
@@ -42,13 +43,15 @@ export class PhotoMode {
   private grainSeed = 0;
   private afClock = 0;
   private afWant = 12;
+  /** Retry a postcard subject lock until the street geometry is streamed in. */
+  private lockUntil = 0;
   private syncing = false;
   private lastImageUrl: string | null = null;
   private postcardId = '';
   private saved = { weatherFrozen: false, dayFrozen: false, snowCover: 0, wetness: 0, hours: 22, fov: 60 };
   private savedMatrix = new Array<number>(16).fill(0);
   private readonly state: PhotoState = {
-    focal: 35, focus: 12, aperture: 0.35, fStop: fStopFromAperture(0.35), anamorphic: 0, motion: 0.2,
+    focal: 35, focus: 12, aperture: apertureFromFStop(DEFAULT_FSTOP), fStop: DEFAULT_FSTOP, anamorphic: 0, motion: 0.2,
     roll: 0, exposure: 1,
     grade: 'plain', grain: 0.12, vignette: 0.28, bloom: 0.28,
     letterbox: 'off', rain: 0, fog: 0.0016, snow: 0, hours: 22,
@@ -141,10 +144,12 @@ export class PhotoMode {
     this.state.focus = this.cam.focus;
     this.afWant = this.cam.focus;
     this.state.roll = this.cam.roll;
-    this.setAperture(0.35);
+    this.setFStop(DEFAULT_FSTOP);
     this.state.anamorphic = 0;
     this.state.motion = tier === 'low' ? 0 : 0.2;
     this.state.autofocus = true;
+    this.afClock = 1;
+    this.lockUntil = 0;
     this.state.chrome = true;
     this.state.exposure = 1;
     this.state.grade = 'plain';
@@ -250,11 +255,13 @@ export class PhotoMode {
     if (pad.right) this.cycleGrade(1);
     if (pad.left) this.cycleGrade(-1);
     this.cam.update(dt, input, pad);
+    if (this.lockUntil > performance.now()) this.tryLockSubject();
     if (this.cam.focusTouched) {
       this.cam.focusTouched = false;
       this.state.autofocus = false;
+      this.lockUntil = 0;
       this.afWant = this.cam.focus;
-    } else if (this.state.autofocus && !this.cam.playing) this.trackFocus(dt);
+    } else if (this.lockUntil <= performance.now() && this.state.autofocus && !this.cam.playing) this.trackFocus(dt);
     this.cam.apply(this.host.camera);
     this.state.focal = this.cam.focal;
     this.state.focus = this.cam.focus;
@@ -352,9 +359,11 @@ export class PhotoMode {
     this.state.hours = card.hours;
     this.state.postcard = id;
     this.postcardId = id;
+    this.lockUntil = card.lockSubject ? performance.now() + 8000 : 0;
     if (this.cam.orbit) this.cam.captureTarget();
     void this.host.query.prime(pose.x, pose.z);
     this.cam.apply(this.host.camera);
+    if (card.lockSubject) this.tryLockSubject();
     this.pullSliders();
     this.placeOverlays();
     return true;
@@ -441,7 +450,7 @@ export class PhotoMode {
   private toggleAf(forceOn = false): void {
     this.state.autofocus = forceOn ? true : !this.state.autofocus;
     if (this.state.autofocus) {
-      const d = this.distanceAt(0, 0);
+      const d = this.subjectDistance();
       if (d != null) {
         this.afWant = d;
         this.cam.focus = d;
@@ -511,11 +520,43 @@ export class PhotoMode {
     this.afClock += dt;
     if (this.afClock >= 0.15) {
       this.afClock = 0;
-      const d = this.distanceAt(0, 0);
+      const d = this.subjectDistance();
       if (d != null) this.afWant = d;
     }
     const k = 1 - Math.exp(-Math.max(0, dt) * 5);
     this.cam.focus += (this.afWant - this.cam.focus) * k;
+  }
+
+  /** Street-scale hit nearest the middle of the frame. Skips the sky and the far end of a canyon. */
+  private subjectInRange(): number | null {
+    const samples: Array<[number, number]> = [
+      [0, 0], [0.12, 0], [-0.12, 0], [0.28, 0.04], [-0.28, 0.04], [0.28, -0.1], [-0.28, -0.1],
+    ];
+    let best: { d: number; off: number } | null = null;
+    for (const [x, y] of samples) {
+      const d = this.distanceAt(x, y);
+      if (d == null || d < 3.5 || d > 42) continue;
+      const off = Math.hypot(x, y);
+      if (!best || off < best.off - 0.025 || (Math.abs(off - best.off) <= 0.025 && d < best.d)) best = { d, off };
+    }
+    return best?.d ?? null;
+  }
+
+  /** Focus the central subject when it is near, otherwise the centre ray (a vista or the pyramid). */
+  private subjectDistance(): number | null {
+    return this.subjectInRange() ?? this.distanceAt(0, 0);
+  }
+
+  private tryLockSubject(): void {
+    if (this.lockUntil <= performance.now()) return;
+    this.host.camera.updateMatrixWorld();
+    const d = this.subjectInRange();
+    if (d == null) return;
+    this.lockUntil = 0;
+    if (Math.abs(this.cam.focus - d) < 0.05) return;
+    this.cam.focus = d;
+    this.afWant = d;
+    this.pullSliders();
   }
 
   private distanceAt(ndcX: number, ndcY: number): number | null {
@@ -619,7 +660,10 @@ export class PhotoMode {
     this.slider('Focus', 'focus', 0, 1000, 1, () => logTo(FOCUS_MIN, FOCUS_MAX, this.cam.focus), (v) => {
       this.cam.focus = fromLog(FOCUS_MIN, FOCUS_MAX, v);
       this.afWant = this.cam.focus;
-      if (!this.syncing) this.state.autofocus = false;
+      if (!this.syncing) {
+        this.state.autofocus = false;
+        this.lockUntil = 0;
+      }
       if (this.cam.orbit) this.cam.captureTarget();
     }, () => `${this.cam.focus.toFixed(1)} m`);
     this.slider('f-stop', 'fstop', 0, 1000, 1, () => logTo(FSTOP_MIN, FSTOP_MAX, this.state.fStop), (v) => {

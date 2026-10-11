@@ -8,6 +8,7 @@ import { marketCamera } from '../districts/little-tokyo-market/view';
 import { laxCamera } from '../districts/lax-spaceport/view';
 import { coastCamera } from '../districts/coastal-strip/view';
 import { harborCamera } from '../districts/harbor/view';
+import { apertureFromFStop } from '../camera/lensModel';
 import type { GradeId, LetterboxId } from './types';
 
 export interface PhotoPose {
@@ -35,6 +36,8 @@ export interface Postcard {
   fog: number;
   snow: number;
   hours: number;
+  /** After the pose is applied, focus the street subject under the frame instead of the stored distance. */
+  lockSubject?: boolean;
   pose: (layout: CityLayout, query: CityQuery) => PhotoPose | null;
 }
 
@@ -105,7 +108,7 @@ export const POSTCARDS: readonly Postcard[] = [
   {
     id: 'broadway-rain',
     name: 'Canyon rain',
-    focal: 55, focus: 14, aperture: 0.86, roll: 0,
+    focal: 55, focus: 14, aperture: apertureFromFStop(4), roll: 0, lockSubject: true,
     grade: 'neon', grain: 0.28, vignette: 0.5, bloom: 0.55, exposure: 0.96,
     letterbox: '2.39', rain: 0.72, fog: 0.0016, snow: 0, hours: 22.2,
     pose: (layout, query) => {

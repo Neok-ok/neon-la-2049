@@ -6,15 +6,17 @@
 //
 // Circle of confusion, millimetres, then pixels of the film height:
 //   c = (f^2 / (N * (S - f))) * |S - D| / D
-// Anamorphic squeeze stretches the gather vertically (oval bokeh after the desqueeze)
-// and stretches the grain the other way. Flare is a short horizontal sum of highlights,
-// not a baked kernel. Grain is a hashed value, heavier in the shadows.
+// The blur is a half-resolution disc: a box prefilter, then samples that stay one texel
+// apart and fade out past the clamped radius. The full-resolution picture is kept wherever
+// the circle is under a pixel, and the upsample rejects a neighbour whose focus does not match.
+// Anamorphic squeeze stretches the gather vertically (oval bokeh after the desqueeze).
+// Edge fringing is a fraction of a pixel at the frame edge. Grain is a hashed value, heavier in the shadows.
 
-import { Matrix4, Vector2, Vector3, type PerspectiveCamera } from 'three/webgpu';
+import { HalfFloatType, Matrix4, NearestFilter, NodeUpdateType, Vector2, Vector3, type PerspectiveCamera } from 'three/webgpu';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import * as TSL from 'three/tsl';
 import { gradeById } from './grades';
-import { CAPTURE_CAPS, dofOffsets } from './limits';
+import { CAPTURE_CAPS, dofDisc } from './limits';
 import type { GradeId } from './types';
 import type { Tier } from '../core/quality';
 
@@ -50,8 +52,15 @@ export interface LensRig {
   /** Cheap glow on low and medium, and the bloom node's strength when that node exists. */
   setBloom(amount: number): void;
   setTile(rect: { vx: number; vy: number; vw: number; vh: number; fullW: number; fullH: number } | null, drawW: number, drawH: number): void;
+  /** Film height and projection. Capture tiles change the aspect without a motion step. */
+  syncCamera(camera: PerspectiveCamera): void;
   /** Call once per displayed frame, never between capture tiles. */
   advance(camera: PerspectiveCamera, viewHeightPx: number): void;
+  /**
+   * Scene, half-res prefilter, disc gather, then bloom, then the pipeline.
+   * The pipeline's own pass updates are muted so a capture tile is not one frame behind.
+   */
+  present(renderer: object, pipeline: { render(): void }): void;
   dispose(): void;
 }
 
@@ -63,7 +72,8 @@ export function createLensRig(
   bloomSpec: BloomSpec | null = null,
 ): LensRig {
   const cap = CAPTURE_CAPS[tier];
-  const taps = dofOffsets(cap.dofTaps);
+  const disc = dofDisc(cap.dofRings);
+  const pxPerTexel = 1 / cap.dofScale;
   const uFocus = T.uniform(12);
   const uFocal = T.uniform(35);
   const uFStop = T.uniform(4);
@@ -92,26 +102,50 @@ export function createLensRig(
   const uTileScale = T.uniform(new Vector2(1, 1));
   const uTileOffset = T.uniform(new Vector2());
   const uFullSize = T.uniform(new Vector2(1, 1));
+  const uDrawSize = T.uniform(new Vector2(1, 1));
+  const uDofTexel = T.uniform(new Vector2(1, 1));
+  let tiled = false;
 
   const scenePass = T.pass(scene, camera, { samples: 0 });
   const color = scenePass.getTextureNode('output');
   const depth = scenePass.getTextureNode('depth');
 
-  const viewDist = (uvNode: unknown) => T.abs(T.perspectiveDepthToViewZ(depth.sample(uvNode).r, T.cameraNear, T.cameraFar));
+  const rttOptions = { type: HalfFloatType, depthBuffer: false, generateMipmaps: false, resolutionScale: cap.dofScale };
 
-  const optical = T.Fn(() => {
+  // Box-downsample the linear picture so each disc sample is already a small average, not a copy of a sign.
+  const prefilterNode = T.Fn(() => {
+    const uv = T.uv();
+    const texel = T.vec2(1, 1).div(T.max(uDrawSize, T.vec2(1, 1)));
+    const hx = texel.x.mul(0.5);
+    const hy = texel.y.mul(0.5);
+    const acc = color.sample(uv.add(T.vec2(hx, hy))).rgb
+      .add(color.sample(uv.add(T.vec2(hx.mul(-1), hy))).rgb)
+      .add(color.sample(uv.add(T.vec2(hx, hy.mul(-1)))).rgb)
+      .add(color.sample(uv.add(T.vec2(hx.mul(-1), hy.mul(-1)))).rgb);
+    return T.vec4(acc.mul(0.25), 1);
+  })();
+  const prefilter = T.rtt(prefilterNode, null, null, rttOptions);
+  prefilter.updateBeforeType = NodeUpdateType.NONE;
+  prefilter.name = 'dof-prefilter';
+
+  // Gather stays on the texel grid. The circle of confusion only decides which rings contribute,
+  // so a wide stop cannot pull the samples apart into stacks. Alpha stores the centre CoC for the upsample.
+  const gatherNode = T.Fn(() => {
     const uv0 = T.uv();
-    // Full-frame pixels, so a capture tile blurs by the same fraction of the picture as the viewfinder.
-    const texel = T.vec2(1, 1).div(T.max(uFullSize, T.vec2(1, 1)));
+    const viewDist = (uvNode: unknown) => T.abs(T.perspectiveDepthToViewZ(depth.sample(uvNode).r, T.cameraNear, T.cameraFar));
+    const cocAt = (distNode: unknown) => {
+      const f = T.max(uFocal, T.float(1));
+      const nStop = T.max(uFStop, T.float(1.1));
+      const sMm = T.max(uFocus, T.float(0.35)).mul(1000);
+      const dMm = T.max(distNode, T.float(0.35)).mul(1000);
+      const cocMm = f.mul(f).div(nStop.mul(T.max(sMm.sub(f), T.float(1)))).mul(T.abs(sMm.sub(dMm))).div(dMm);
+      return cocMm.div(T.max(uSensor, T.float(1))).mul(T.max(uViewH, T.float(1)));
+    };
     const center = viewDist(uv0);
-    const f = T.max(uFocal, T.float(1));
-    const nStop = T.max(uFStop, T.float(1.1));
-    const sMm = T.max(uFocus, T.float(0.35)).mul(1000);
-    const dMm = T.max(center, T.float(0.35)).mul(1000);
-    const cocMm = f.mul(f).div(nStop.mul(T.max(sMm.sub(f), T.float(1)))).mul(T.abs(sMm.sub(dMm))).div(dMm);
-    const cocPx = cocMm.div(T.max(uSensor, T.float(1))).mul(T.max(uViewH, T.float(1)));
-    const radius = T.min(cocPx, uMaxPx);
+    const centerCoc = cocAt(center);
+    const reach = T.min(centerCoc, uMaxPx);
     const squeeze = T.mix(T.float(1), T.float(2), uAnamorphic);
+    const feather = T.float(pxPerTexel).mul(0.75);
 
     let vel = T.vec2(0, 0);
     if (cap.motion) {
@@ -125,40 +159,86 @@ export function createLensRig(
       const pw = T.max(T.abs(clip.w), T.float(0.0001));
       const raw = T.vec2(clip.x.div(pw).sub(ndcX), clip.y.div(pw).sub(ndcY)).mul(0.5);
       const vlen = T.max(T.length(raw), T.float(0.00001));
-      const capUv = uMotionPx.div(T.max(uFullSize.y, T.float(1)));
+      const capUv = uMotionPx.div(T.max(uDrawSize.y, T.float(1)));
       vel = raw.mul(T.min(capUv, vlen).div(vlen)).mul(uMotion);
     }
 
     let acc = T.vec3(0, 0, 0);
     let wsum = T.float(0);
-    const n = Math.max(1, taps.length - 1);
-    taps.forEach(([ox, oy], i) => {
+    const n = Math.max(1, disc.length - 1);
+    disc.forEach(([ox, oy], i) => {
       const along = cap.motion ? (i / n - 0.5) : 0;
-      const uv = T.clamp(
-        uv0.add(T.vec2(ox, T.float(oy).mul(squeeze)).mul(texel).mul(radius)).add(vel.mul(along)),
-        T.vec2(0, 0),
-        T.vec2(1, 1),
-      );
+      const distPx = T.length(T.vec2(ox, oy)).mul(pxPerTexel);
+      const gate = T.float(1).sub(T.smoothstep(T.max(reach.sub(feather), T.float(0)), reach.add(feather), distPx));
+      const stretched = T.vec2(ox, T.float(oy).mul(squeeze));
+      const uv = T.clamp(uv0.add(stretched.mul(uDofTexel)).add(vel.mul(along)), T.vec2(0, 0), T.vec2(1, 1));
       const dist = viewDist(uv);
-      const front = T.smoothstep(T.float(0), T.float(0.8), center.sub(dist));
-      const w = T.float(1).sub(front.mul(0.9));
-      acc = acc.add(color.sample(uv).rgb.mul(w));
+      const sampleCoc = cocAt(dist);
+      // A sharper sample must not stamp a focused edge into this pixel's blur.
+      const sharper = T.smoothstep(T.float(0.35), T.float(1.8), centerCoc.sub(sampleCoc));
+      const closer = T.smoothstep(T.float(0.35), T.float(1.8), center.sub(dist));
+      const w = gate.mul(T.float(1).sub(sharper.mul(0.94))).mul(T.float(1).sub(closer.mul(0.8)));
+      acc = acc.add(prefilter.sample(uv).rgb.mul(w));
       wsum = wsum.add(w);
     });
+    return T.vec4(acc.div(T.max(wsum, T.float(0.0001))), centerCoc);
+  })();
+  const gather = T.rtt(gatherNode, null, null, { ...rttOptions, magFilter: NearestFilter, minFilter: NearestFilter });
+  gather.updateBeforeType = NodeUpdateType.NONE;
+  gather.name = 'dof-gather';
+
+  const optical = T.Fn(() => {
+    const uv0 = T.uv();
+    const viewDist = (uvNode: unknown) => T.abs(T.perspectiveDepthToViewZ(depth.sample(uvNode).r, T.cameraNear, T.cameraFar));
+    const cocAt = (distNode: unknown) => {
+      const f = T.max(uFocal, T.float(1));
+      const nStop = T.max(uFStop, T.float(1.1));
+      const sMm = T.max(uFocus, T.float(0.35)).mul(1000);
+      const dMm = T.max(distNode, T.float(0.35)).mul(1000);
+      const cocMm = f.mul(f).div(nStop.mul(T.max(sMm.sub(f), T.float(1)))).mul(T.abs(sMm.sub(dMm))).div(dMm);
+      return cocMm.div(T.max(uSensor, T.float(1))).mul(T.max(uViewH, T.float(1)));
+    };
+    const centerCoc = cocAt(viewDist(uv0));
     const sharp = color.sample(uv0).rgb;
-    const blurred = acc.div(T.max(wsum, T.float(0.0001)));
-    const amt = T.smoothstep(T.float(0.35), T.float(2.2), cocPx);
+
+    // Manual bilinear of the half-res disc. Hardware filtering would blend a focused texel into a blurred one.
+    const coord = uv0.div(T.max(uDofTexel, T.vec2(1e-6, 1e-6))).sub(0.5);
+    const frac = T.fract(coord);
+    const origin = T.floor(coord);
+    let acc = T.vec3(0, 0, 0);
+    let wsum = T.float(0);
+    const corners: Array<[number, number, any, any]> = [
+      [0, 0, T.float(1).sub(frac.x), T.float(1).sub(frac.y)],
+      [1, 0, frac.x, T.float(1).sub(frac.y)],
+      [0, 1, T.float(1).sub(frac.x), frac.y],
+      [1, 1, frac.x, frac.y],
+    ];
+    for (const [ix, iy, wx, wy] of corners) {
+      const uv = T.clamp(origin.add(T.vec2(ix + 0.5, iy + 0.5)).mul(uDofTexel), T.vec2(0, 0), T.vec2(1, 1));
+      const sample = gather.sample(uv);
+      const agree = T.float(1).sub(T.smoothstep(T.float(0.5), T.float(2.5), T.abs(sample.a.sub(centerCoc))));
+      const w = wx.mul(wy).mul(agree);
+      acc = acc.add(sample.rgb.mul(w));
+      wsum = wsum.add(w);
+    }
+    const safe = T.smoothstep(T.float(0.0001), T.float(0.02), wsum);
+    const blurred = T.mix(sharp, acc.div(T.max(wsum, T.float(0.0001))), safe);
+    // Stay on the full-resolution picture until the circle is actually wider than a pixel.
+    const amt = T.smoothstep(T.float(0.85), T.float(3.4), centerCoc);
     let rgb = T.mix(sharp, blurred, amt);
 
     if (cap.caPx > 0) {
-      const edge = T.abs(uv0.x.sub(0.5)).mul(2);
-      const shift = edge.mul(edge).mul(uCa).div(T.max(uFullSize.x, T.float(1)));
+      const uvFrame = uv0.mul(uTileScale).add(uTileOffset);
+      const edge = T.abs(uvFrame.x.sub(0.5)).mul(2);
+      const shift = edge.mul(edge).mul(uCa).div(T.max(uDrawSize.x, T.float(1)));
+      const base = color.sample(uv0);
       const r = color.sample(T.clamp(uv0.add(T.vec2(shift, 0)), T.vec2(0, 0), T.vec2(1, 1))).r;
       const b = color.sample(T.clamp(uv0.sub(T.vec2(shift, 0)), T.vec2(0, 0), T.vec2(1, 1))).b;
-      const fringe = T.smoothstep(T.float(0.15), T.float(1), edge).mul(0.55);
-      rgb = T.vec3(T.mix(rgb.r, r, fringe), rgb.g, T.mix(rgb.b, b, fringe));
+      const fringe = T.smoothstep(T.float(0.72), T.float(1), edge).mul(0.18);
+      rgb = T.vec3(rgb.r.add(r.sub(base.r).mul(fringe)), rgb.g, rgb.b.add(b.sub(base.b).mul(fringe)));
     }
 
+    const texel = T.vec2(1, 1).div(T.max(uDrawSize, T.vec2(1, 1)));
     if (cap.flareTaps > 0) {
       const offsets = flareOffsets(cap.flareTaps);
       let streak = T.vec3(0, 0, 0);
@@ -198,12 +278,15 @@ export function createLensRig(
   }
 
   return finishRig(
-    scenePass, bloomNode, image, camera, viewToPrev,
+    scenePass, bloomNode, prefilter, gather, image, camera, viewToPrev,
     {
       uFocus, uFocal, uFStop, uSensor, uViewH, uProjX, uProjY, uAnamorphic, uFlare, uCa,
       uGrain, uVignette, uGradeMix, uMotion, uGrainSeed, uBloom, uLift, uGain, uSat, uContrast, uGamma,
-      uTileScale, uTileOffset, uFullSize,
+      uTileScale, uTileOffset, uFullSize, uDrawSize, uDofTexel,
     },
+    () => tiled,
+    (next) => { tiled = next; },
+    cap.dofScale,
   );
 }
 
@@ -211,16 +294,27 @@ interface Uniforms {
   uFocus: any; uFocal: any; uFStop: any; uSensor: any; uViewH: any; uProjX: any; uProjY: any;
   uAnamorphic: any; uFlare: any; uCa: any; uGrain: any; uVignette: any; uGradeMix: any;
   uMotion: any; uGrainSeed: any; uBloom: any; uLift: any; uGain: any; uSat: any; uContrast: any; uGamma: any;
-  uTileScale: any; uTileOffset: any; uFullSize: any;
+  uTileScale: any; uTileOffset: any; uFullSize: any; uDrawSize: any; uDofTexel: any;
+}
+
+interface Pass {
+  updateBeforeType: string;
+  updateBefore(frame: object): void;
+  dispose?: () => void;
 }
 
 function finishRig(
   scenePass: LensRig['scenePass'],
   bloomNode: LensRig['bloom'],
+  prefilter: Pass,
+  gather: Pass,
   image: any,
   _camera: PerspectiveCamera,
   viewToPrev: Matrix4,
   u: Uniforms,
+  isTiled: () => boolean,
+  setTiled: (next: boolean) => void,
+  dofScale: number,
 ): LensRig {
   const displayed = T.renderOutput(image);
   const printed = T.Fn(() => {
@@ -250,6 +344,14 @@ function finishRig(
   const prevProj = new Matrix4();
   const lastPos = new Vector3();
   let primed = false;
+  let passesReady = false;
+
+  const syncCamera = (camera: PerspectiveCamera) => {
+    camera.updateMatrixWorld();
+    u.uSensor.value = Math.max(1, camera.getFilmHeight());
+    u.uProjX.value = camera.projectionMatrix.elements[0] || 1;
+    u.uProjY.value = camera.projectionMatrix.elements[5] || 1;
+  };
 
   return {
     node: printed,
@@ -280,25 +382,33 @@ function finishRig(
       if (bloomNode) bloomNode.strength.value = v;
     },
     setTile(rect, drawW, drawH) {
+      const dw = Math.max(1, drawW);
+      const dh = Math.max(1, drawH);
+      u.uDrawSize.value.set(dw, dh);
+      const rw = Math.max(1, Math.floor(dw * dofScale));
+      const rh = Math.max(1, Math.floor(dh * dofScale));
+      u.uDofTexel.value.set(1 / rw, 1 / rh);
       if (!rect) {
+        setTiled(false);
         u.uTileScale.value.set(1, 1);
         u.uTileOffset.value.set(0, 0);
-        u.uFullSize.value.set(Math.max(1, drawW), Math.max(1, drawH));
+        u.uFullSize.value.set(dw, dh);
+        u.uViewH.value = dh;
       } else {
+        setTiled(true);
         const fw = Math.max(1, rect.fullW);
         const fh = Math.max(1, rect.fullH);
         u.uTileScale.value.set(rect.vw / fw, rect.vh / fh);
         u.uTileOffset.value.set(rect.vx / fw, rect.vy / fh);
         u.uFullSize.value.set(fw, fh);
+        // A capture tile is 1:1 with the output, so the circle uses the full frame height.
+        u.uViewH.value = fh;
       }
-      u.uViewH.value = Math.max(1, u.uFullSize.value.y);
     },
+    syncCamera,
     advance(camera: PerspectiveCamera, viewHeightPx: number) {
-      camera.updateMatrixWorld();
-      u.uSensor.value = Math.max(1, camera.getFilmHeight());
-      u.uViewH.value = Math.max(1, viewHeightPx);
-      u.uProjX.value = camera.projectionMatrix.elements[0] || 1;
-      u.uProjY.value = camera.projectionMatrix.elements[5] || 1;
+      syncCamera(camera);
+      if (!isTiled()) u.uViewH.value = Math.max(1, viewHeightPx);
       // A cut or a beat jump is not motion. One smeared frame would sit on screen for a long time.
       if (primed && lastPos.distanceTo(camera.position) > 40) primed = false;
       lastPos.copy(camera.position);
@@ -313,8 +423,33 @@ function finishRig(
       prevView.copy(camera.matrixWorldInverse);
       prevProj.copy(camera.projectionMatrix);
     },
+    present(renderer, pipeline) {
+      const frame = { renderer };
+      // The first build assigns the half-res quads. Their textures are filled on the explicit pass below.
+      if (!passesReady) {
+        pipeline.render();
+        gather.updateBefore(frame);
+        passesReady = true;
+      }
+      scenePass.updateBefore(frame);
+      prefilter.updateBefore(frame);
+      gather.updateBefore(frame);
+      bloomNode?.updateBefore(frame);
+      const passType = scenePass.updateBeforeType;
+      const bloomType = bloomNode?.updateBeforeType;
+      scenePass.updateBeforeType = NodeUpdateType.NONE;
+      if (bloomNode) bloomNode.updateBeforeType = NodeUpdateType.NONE;
+      try {
+        pipeline.render();
+      } finally {
+        scenePass.updateBeforeType = passType;
+        if (bloomNode && bloomType !== undefined) bloomNode.updateBeforeType = bloomType;
+      }
+    },
     dispose() {
       bloomNode?.dispose();
+      prefilter.dispose?.();
+      gather.dispose?.();
       scenePass.dispose?.();
     },
   };

@@ -1,7 +1,7 @@
 // Photo post chain. Built on enter, disposed on exit. Normal play never constructs it.
 // Scatter (depth of field, smear, flare) reads the linear scene colour. The print
 // (grade, grain, vignette) runs after renderOutput(), on top of the renderer's tone map.
-import { Vector2, type Scene, type WebGPURenderer, type PerspectiveCamera, RenderPipeline, NodeUpdateType } from 'three/webgpu';
+import { Vector2, type Scene, type WebGPURenderer, type PerspectiveCamera, RenderPipeline } from 'three/webgpu';
 import { CAPTURE_CAPS } from './limits';
 import { createLensRig, type LensFrame, type LensRig } from './lensNode';
 import { fStopFromAperture } from '../camera/lensModel';
@@ -61,7 +61,7 @@ export function createPhotoPipeline(
       rig.setTile(null, drawSize.x, drawSize.y);
       return;
     }
-    rig.setTile(rect, rect.fullW, rect.fullH);
+    rig.setTile(rect, rect.vw, rect.vh);
   }
 
   return {
@@ -88,26 +88,14 @@ export function createPhotoPipeline(
     setTile,
     render() {
       renderer.getDrawingBufferSize(drawSize);
+      rig.setTile(null, drawSize.x, drawSize.y);
       rig.advance(camera, drawSize.y);
-      pipeline.render();
+      rig.present(renderer, pipeline);
     },
     renderTile() {
-      // PassNode and BloomNode redraw once per animation frame. The shutter renders
-      // every tile inside that frame, so call them directly. Do not advance the
-      // motion matrices between tiles or the smear changes across the picture.
-      const frame = { renderer };
-      const passType = rig.scenePass.updateBeforeType;
-      const bloomType = rig.bloom?.updateBeforeType;
-      rig.scenePass.updateBeforeType = NodeUpdateType.NONE;
-      if (rig.bloom) rig.bloom.updateBeforeType = NodeUpdateType.NONE;
-      try {
-        rig.scenePass.updateBefore(frame);
-        rig.bloom?.updateBefore(frame);
-        pipeline.render();
-      } finally {
-        rig.scenePass.updateBeforeType = passType;
-        if (rig.bloom && bloomType !== undefined) rig.bloom.updateBeforeType = bloomType;
-      }
+      // Do not advance the motion matrices between tiles or the smear changes across the picture.
+      rig.syncCamera(camera);
+      rig.present(renderer, pipeline);
     },
     dispose() {
       pipeline.dispose();
