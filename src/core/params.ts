@@ -34,4 +34,10 @@ export const params = {
   seed: num('seed'),
   /** 1 force planar reflector, 0 force off, undefined = auto (high/ultra, real GPU, in the market). */
   refl: q.get('refl') === '1' ? 1 : q.get('refl') === '0' ? 0 : undefined,
+  /** Memory overlay. Does not change the picture by itself. */
+  mem: q.get('mem') === '1',
+  /** Throw if a texture, geometry, render target or material is constructed outside the resource manager. */
+  memguard: q.get('memguard') === '1',
+  /** `android` | `ios` | `desktop`, or a tab budget in megabytes. */
+  budget: q.get('budget') ?? undefined,
 };

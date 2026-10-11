@@ -1,3 +1,4 @@
+import './core/memory/install';
 import './ui/styles.css';
 import { App } from './app/App';
 import { seedVisitedAssets } from './app/assetCache';

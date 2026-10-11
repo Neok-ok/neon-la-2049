@@ -118,10 +118,13 @@ async function prefetchPair(): Promise<void> {
  * A cache hit (repeat visit) uploads KTX2. Otherwise the procedural atlases stay,
  * and a real GPU prefetches the files for the next visit.
  */
-export async function prepareAtlases(renderer: WebGPURenderer): Promise<void> {
+export async function prepareAtlases(renderer: WebGPURenderer, opts?: { preferCompressed?: boolean }): Promise<void> {
   if (ktx2Flag === '0') return;
-  const force = ktx2Flag === '1';
-  if (!force && (isSoftware(renderer) || !hasCompressed(renderer))) return;
+  // Phones wait for KTX2 so the 8 MB sign canvas is never uploaded next to it.
+  // Software renderers stay procedural: a Basis transcode to RGBA would be larger.
+  const compressed = hasCompressed(renderer);
+  const force = ktx2Flag === '1' || (opts?.preferCompressed === true && !isSoftware(renderer) && compressed);
+  if (!force && (isSoftware(renderer) || !compressed)) return;
 
   const [cachedWin, cachedSign] = await Promise.all([
     cacheMatchBuffer(windowUrl),

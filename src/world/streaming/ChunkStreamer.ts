@@ -7,6 +7,11 @@ import {
   Quaternion, Sphere, Vector3, type Object3D, type Scene,
 } from 'three/webgpu';
 import type { QualitySettings } from '../../core/quality';
+import { geometryBytes } from '../../core/memory/estimate';
+import { estimateStreamingBytes, fitRadii } from '../../core/memory/residency';
+import { resources } from '../../core/memory/resources';
+import { pickLod } from '../../core/memory/sse';
+import { DistrictHlod } from './hlod';
 import type { ChunkWorkerRequest, ChunkWorkerResponse } from '../fabric/chunk.worker';
 import { BLOCK_STRIDE, SIGN_STRIDE } from '../fabric/mesher';
 import { chunkNeedsFarDetail, farDetailsReady } from '../../districts/detailGate';
@@ -38,7 +43,32 @@ interface Slot {
   panels: HologramSpec[];
   /** LOD0 signs big enough to halo. Stride 7: x, y, z, r, g, b, area. World space. */
   glows: Float32Array | null;
+  /** CPU bytes of the mesh currently showing, including detail batches. */
+  bytes: number;
 }
+
+/** What the memory budget allows the streamer to keep. Infinity matches the old distance rules. */
+export interface StreamPolicy {
+  fovY: number;
+  viewportHeight: number;
+  sseThreshold: number;
+  sseScale: number;
+  farScale: number;
+  maxGeometryBytes: number;
+  floorLod0: number;
+  suspended: boolean;
+}
+
+const OPEN_POLICY: StreamPolicy = {
+  fovY: Math.PI / 3,
+  viewportHeight: 720,
+  sseThreshold: 8,
+  sseScale: 1,
+  farScale: 1,
+  maxGeometryBytes: Number.POSITIVE_INFINITY,
+  floorLod0: 320,
+  suspended: false,
+};
 
 interface Super {
   sx: number;
@@ -78,7 +108,6 @@ export class ChunkStreamer {
   private nextId = 1;
   private ready: Array<{ job: Job; res: ChunkWorkerResponse }> = [];
   private layout = getLayout();
-  private signGeo = new PlaneGeometry(1, 1);
   stats = {
     supersFar: 0, chunksNear: 0, lod0: 0, inFlight: 0, readyQueue: 0, lastGenMs: 0, boxes: 0,
     /** Meshes built on the main thread this frame. */
@@ -98,6 +127,7 @@ export class ChunkStreamer {
   constructor(scene: Scene, public quality: QualitySettings) {
     this.root.name = 'city-fabric';
     scene.add(this.root);
+    this.root.add(this.hlod.root);
     this.spawnWorkers(quality.workers);
   }
 
@@ -110,7 +140,7 @@ export class ChunkStreamer {
         this.jobs.delete(e.data.id);
         if (!job) return;
         this.stats.lastGenMs = e.data.ms;
-        if (job.slot.want === job.lod) this.ready.push({ job, res: e.data });
+        if (job.slot.want === job.lod) this.enqueueReady(job, e.data);
         else if (job.slot.pendingLod === job.lod) job.slot.pendingLod = -1;
       };
       w.onerror = (e) => console.error('chunk worker error', e);
@@ -121,6 +151,11 @@ export class ChunkStreamer {
 
   setQuality(q: QualitySettings): void {
     this.quality = q;
+  }
+
+  /** Called every frame from the governor. A wide budget leaves the tier radii alone. */
+  setPolicy(p: StreamPolicy): void {
+    this.policy = p;
   }
 
   /**
@@ -140,6 +175,14 @@ export class ChunkStreamer {
   private detailHeld: Array<{ job: Job; res: ChunkWorkerResponse }> = [];
   private readonly requestScratch: Slot[] = [];
   private readonly billboardScratch: HologramSpec[] = [];
+  private policy: StreamPolicy = { ...OPEN_POLICY };
+  private readonly hlod = new DistrictHlod();
+  private farCap = Number.POSITIVE_INFINITY;
+  private underFrames = 0;
+  private suspendApplied = false;
+  private signBase = resources.sharedGeometry('sign-quad', () => new PlaneGeometry(1, 1));
+  /** Residency numbers for the memory overlay and the debug API. */
+  readonly memory = { residentBytes: 0, far: 0, near: 0, lod0: 0, hlod: 0, suspended: false, sse: false };
 
   /** True when nothing is queued or in flight (used by screenshot automation). */
   isIdle(): boolean {
@@ -152,7 +195,7 @@ export class ChunkStreamer {
   }
 
   private mkSlot(key: string, x0: number, z0: number, size: number): Slot {
-    return { key, x0, z0, size, want: -1, shownLod: -1, shown: null, pendingLod: -1, dist: 0, panels: [], glows: null };
+    return { key, x0, z0, size, want: -1, shownLod: -1, shown: null, pendingLod: -1, dist: 0, panels: [], glows: null, bytes: 0 };
   }
 
   private disposeSlot(s: Slot): void {
@@ -162,6 +205,7 @@ export class ChunkStreamer {
     s.want = -1;
     s.panels = [];
     s.glows = null;
+    s.bytes = 0;
   }
 
   /**
@@ -247,8 +291,18 @@ export class ChunkStreamer {
   /** `foci[0]` is the camera; extra points (e.g. the next cinematic shot) are streamed in too. */
   update(foci: readonly Vector3[]): void {
     const q = this.quality;
-    const R = q.farRadius;
+    const view = this.viewRadii();
+    const R = view.far;
+    const nearR = view.near;
+    const lod0R = view.lod0;
     const bounds = this.layout.bounds;
+    if (this.policy.suspended) {
+      this.suspendExterior();
+      return;
+    }
+    this.suspendApplied = false;
+    this.memory.suspended = false;
+    this.memory.sse = view.sse;
 
     // create supers in range
     for (const f of foci) {
@@ -277,7 +331,19 @@ export class ChunkStreamer {
         this.supers.delete(key);
         continue;
       }
-      const wantNear = d < (s.near ? q.nearRadius * 1.12 : q.nearRadius);
+      let wantNear = d < (s.near ? nearR * 1.12 : nearR);
+      if (view.sse && wantNear) {
+        const asSuper = pickLod({
+          distance: Math.max(8, d),
+          fovY: this.policy.fovY,
+          viewport: this.policy.viewportHeight,
+          threshold: this.policy.sseThreshold,
+          scale: this.policy.sseScale,
+          current: s.near ? 1 : 2,
+          finest: 0,
+        });
+        if (asSuper >= 2) wantNear = false;
+      }
       s.near = wantNear;
       if (wantNear) {
         if (!s.children) {
@@ -291,8 +357,24 @@ export class ChunkStreamer {
         let allShown = true;
         for (const c of s.children) {
           c.dist = focusDist(foci, c.x0, c.z0, CHUNK);
-          const lod0 = c.dist < (c.shownLod === 0 ? q.lod0Radius * 1.15 : q.lod0Radius);
-          c.want = lod0 ? 0 : 1;
+          const lod0 = c.dist < (c.shownLod === 0 ? lod0R * 1.15 : lod0R);
+          const finest = lod0 ? 0 : 1;
+          if (view.sse) {
+            const picked = pickLod({
+              distance: Math.max(8, c.dist),
+              fovY: this.policy.fovY,
+              viewport: this.policy.viewportHeight,
+              threshold: this.policy.sseThreshold,
+              scale: this.policy.sseScale,
+              current: c.shownLod,
+              finest,
+            });
+            // A child has no silhouette mesh of its own. Coarser than LOD1 stays LOD1
+            // so the super can still swap off its far mesh without a hole.
+            c.want = picked > 1 ? 1 : picked;
+          } else {
+            c.want = finest;
+          }
           if (c.shownLod !== c.want) requests.push(c);
           if (!c.shown) allShown = false;
           if (c.shown) { near++; if (c.shownLod === 0) l0++; }
@@ -385,6 +467,117 @@ export class ChunkStreamer {
     if (uploaded > this.stats.uploadPeak) this.stats.uploadPeak = uploaded;
     this.stats.uploadMs = uploadMs;
     this.stats.readyQueue = this.ready.length + this.detailHeld.length;
+    const cam = foci[0];
+    if (cam) this.settleBudget(cam, q.farRadius);
+  }
+
+  private viewRadii(): { far: number; near: number; lod0: number; sse: boolean } {
+    const q = this.quality;
+    const p = this.policy;
+    const estimate = estimateStreamingBytes(q.farRadius, q.nearRadius, q.lod0Radius);
+    const tight = estimate > p.maxGeometryBytes || p.farScale < 0.999 || p.sseScale > 1.001 || this.farCap < q.farRadius;
+    if (!tight) return { far: q.farRadius, near: q.nearRadius, lod0: q.lod0Radius, sse: false };
+    const farWant = Math.min(q.farRadius * p.farScale, this.farCap);
+    const fit = fitRadii(
+      { far: farWant, near: Math.min(q.nearRadius, farWant), lod0: Math.min(q.lod0Radius, q.nearRadius, farWant) },
+      p.maxGeometryBytes,
+      Math.min(q.lod0Radius, p.floorLod0),
+    );
+    return { ...fit, sse: true };
+  }
+
+  private suspendExterior(): void {
+    if (!this.suspendApplied) {
+      this.suspendApplied = true;
+      for (const s of this.supers.values()) {
+        this.disposeSlot(s.far);
+        s.children?.forEach((c) => this.disposeSlot(c));
+      }
+      this.supers.clear();
+      this.ready.length = 0;
+      this.detailHeld.length = 0;
+      this.hlod.clear();
+    }
+    this.memory.suspended = true;
+    this.memory.residentBytes = 0;
+    this.memory.hlod = 0;
+    this.memory.far = 0;
+    this.memory.near = 0;
+    this.memory.lod0 = 0;
+    this.stats.supersFar = 0;
+    this.stats.chunksNear = 0;
+    this.stats.lod0 = 0;
+    this.stats.inFlight = this.jobs.size;
+  }
+
+  private enqueueReady(job: Job, res: ChunkWorkerResponse): void {
+    this.ready.push({ job, res });
+    if (this.ready.length <= 16) return;
+    this.ready.sort((a, b) => a.job.slot.dist - b.job.slot.dist);
+    const dropped = this.ready.splice(12);
+    for (const item of dropped) {
+      if (item.job.slot.pendingLod === item.job.lod) item.job.slot.pendingLod = -1;
+    }
+  }
+
+  private settleBudget(cam: Vector3, lookFar: number): void {
+    let bytes = 0;
+    const resident = new Set<string>();
+    for (const s of this.supers.values()) {
+      let shown = false;
+      if (s.far.shown) {
+        bytes += s.far.bytes;
+        shown = true;
+      }
+      if (s.children) {
+        for (const c of s.children) {
+          if (!c.shown) continue;
+          bytes += c.bytes;
+          shown = true;
+        }
+      }
+      if (shown) resident.add(`${s.sx},${s.sz}`);
+    }
+    const cap = this.policy.maxGeometryBytes;
+    if (Number.isFinite(cap) && bytes > cap) {
+      this.underFrames = 0;
+      let victimKey: string | null = null;
+      let victimDist = -1;
+      const protect = Math.max(900, this.quality.lod0Radius * 1.4);
+      for (const [key, s] of this.supers) {
+        if (s.far.dist < protect) continue;
+        if (s.far.dist > victimDist) {
+          victimDist = s.far.dist;
+          victimKey = key;
+        }
+      }
+      if (victimKey) {
+        const victim = this.supers.get(victimKey);
+        if (victim) {
+          let freed = victim.far.bytes;
+          victim.children?.forEach((c) => { freed += c.bytes; });
+          this.farCap = Math.min(this.farCap, victimDist * 0.92);
+          this.disposeSlot(victim.far);
+          victim.children?.forEach((c) => this.disposeSlot(c));
+          this.supers.delete(victimKey);
+          resident.delete(victimKey);
+          bytes -= freed;
+        }
+      }
+    } else if (Number.isFinite(cap) && bytes < cap * 0.7 && this.farCap < this.quality.farRadius) {
+      this.underFrames++;
+      if (this.underFrames > 90) {
+        this.farCap = Math.min(this.quality.farRadius, this.farCap * 1.08 + 100);
+        this.underFrames = 0;
+      }
+    }
+    if (this.memory.sse || this.farCap < lookFar) this.hlod.update(cam.x, cam.z, lookFar, resident);
+    else this.hlod.clear();
+    this.memory.residentBytes = Math.max(0, bytes);
+    this.memory.far = this.stats.supersFar;
+    this.memory.near = this.stats.chunksNear;
+    this.memory.lod0 = this.stats.lod0;
+    this.memory.hlod = this.hlod.count;
   }
 
   private freeWorker(): number {
@@ -398,14 +591,17 @@ export class ChunkStreamer {
     g.name = `${slot.key}@L${lod}`;
     g.position.set(slot.x0, 0, slot.z0);
     if (r.index.length > 0) {
-      const geo = new BufferGeometry();
-      geo.setAttribute('position', new BufferAttribute(r.position, 3));
-      geo.setAttribute('normal', new BufferAttribute(r.normal, 3));
-      geo.setAttribute('facade', new BufferAttribute(r.facade, 2));
-      geo.setAttribute('bdata', new BufferAttribute(r.bdata, 4));
-      geo.setIndex(new BufferAttribute(r.index, 1));
-      geo.boundingBox = new Box3(new Vector3(-50, -20, -50), new Vector3(slot.size + 50, Math.max(r.maxY, 1), slot.size + 50));
-      geo.boundingSphere = geo.boundingBox.getBoundingSphere(new Sphere());
+      const geo = resources.geometry(() => {
+        const g = new BufferGeometry();
+        g.setAttribute('position', new BufferAttribute(r.position, 3));
+        g.setAttribute('normal', new BufferAttribute(r.normal, 3));
+        g.setAttribute('facade', new BufferAttribute(r.facade, 2));
+        g.setAttribute('bdata', new BufferAttribute(r.bdata, 4));
+        g.setIndex(new BufferAttribute(r.index, 1));
+        g.boundingBox = new Box3(new Vector3(-50, -20, -50), new Vector3(slot.size + 50, Math.max(r.maxY, 1), slot.size + 50));
+        g.boundingSphere = g.boundingBox.getBoundingSphere(new Sphere());
+        return g;
+      }, { label: `${slot.key}@L${lod}`, owner: 'fabric', evictable: true });
       const mesh = new Mesh(geo, getCityMaterial());
       mesh.name = 'fabric';
       mesh.matrixAutoUpdate = false;
@@ -429,11 +625,17 @@ export class ChunkStreamer {
       }
     }
     g.updateMatrixWorld(true);
+    slot.bytes = groupBytes(g);
     return g;
   }
 
   private buildSigns(a: Float32Array, n: number): InstancedMesh {
-    const geo = this.signGeo.clone();
+    const geo = resources.geometry(() => {
+      const g = this.signBase.clone();
+      // The template is shared. This clone owns its instance buffers and must be disposed with the chunk.
+      g.userData.sharedGeometry = false;
+      return g;
+    }, { label: 'signs', owner: 'signs', evictable: true });
     const iSign = new Float32Array(n * 4);
     const iKind = new Float32Array(n);
     const mesh = new InstancedMesh(geo, getSignMaterial(), n);
@@ -470,13 +672,25 @@ function packSignGlows(signs: Float32Array, n: number, x0: number, z0: number): 
   return tmp.length ? new Float32Array(tmp) : null;
 }
 
+function groupBytes(g: Object3D): number {
+  let n = 0;
+  const seen = new Set<BufferGeometry>();
+  g.traverse((o) => {
+    const geo = (o as Mesh).geometry as BufferGeometry | undefined;
+    if (!geo || seen.has(geo) || o.userData.sharedGeometry) return;
+    seen.add(geo);
+    n += geometryBytes(geo);
+  });
+  return n;
+}
+
 function disposeGroup(g: Object3D): void {
   g.removeFromParent();
   g.traverse((o) => {
     const m = o as Mesh;
     // Unique chunk geometry. Shared lamp/crowd geometry stays; the mesh dispose below
     // still drops the render object and its instance-matrix buffer.
-    if (m.geometry && !o.userData.sharedGeometry) m.geometry.dispose();
+    if (m.geometry && !o.userData.sharedGeometry && !resources.release(m.geometry)) m.geometry.dispose();
     // WebGPURenderer keeps the render object until the mesh fires dispose. geometry.dispose()
     // alone left those objects, and their typed arrays, alive after the chunk was gone.
     o.dispose();

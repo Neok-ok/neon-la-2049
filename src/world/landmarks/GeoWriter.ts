@@ -1,6 +1,7 @@
 // Geometry writer producing the same vertex layout as the chunk mesher (position/normal/facade/bdata),
 // so landmarks share the procedural city material (windows, wetness, snow, far-light averaging).
 import { BufferAttribute, BufferGeometry } from 'three/webgpu';
+import { resources } from '../../core/memory/resources';
 
 export interface FaceStyle {
   style: number;
@@ -68,14 +69,16 @@ export class GeoWriter {
   }
 
   build(): BufferGeometry {
-    const g = new BufferGeometry();
-    g.setAttribute('position', new BufferAttribute(new Float32Array(this.pos), 3));
-    g.setAttribute('normal', new BufferAttribute(new Float32Array(this.nor), 3));
-    g.setAttribute('facade', new BufferAttribute(new Float32Array(this.fac), 2));
-    g.setAttribute('bdata', new BufferAttribute(new Float32Array(this.bd), 4));
-    g.setIndex(new BufferAttribute(new Uint32Array(this.idx), 1));
-    g.computeBoundingBox();
-    g.computeBoundingSphere();
-    return g;
+    return resources.geometry(() => {
+      const g = new BufferGeometry();
+      g.setAttribute('position', new BufferAttribute(new Float32Array(this.pos), 3));
+      g.setAttribute('normal', new BufferAttribute(new Float32Array(this.nor), 3));
+      g.setAttribute('facade', new BufferAttribute(new Float32Array(this.fac), 2));
+      g.setAttribute('bdata', new BufferAttribute(new Float32Array(this.bd), 4));
+      g.setIndex(new BufferAttribute(new Uint32Array(this.idx), 1));
+      g.computeBoundingBox();
+      g.computeBoundingSphere();
+      return g;
+    }, { label: 'geo-writer', owner: 'landmarks', evictable: false });
   }
 }

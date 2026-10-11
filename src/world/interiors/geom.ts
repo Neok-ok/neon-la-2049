@@ -2,6 +2,7 @@
 // scene lights (those would recompile the city material). Emissive stays a separate attribute
 // and flickers in the shader from the clock, not from the weather.
 import { BufferGeometry, Float32BufferAttribute } from 'three/webgpu';
+import { resources } from '../../core/memory/resources';
 import type { InteriorBox, InteriorDetail, InteriorLight, RGB } from './types';
 
 const FACES: Array<{ n: [number, number, number]; c: Array<[number, number, number]> }> = [
@@ -39,7 +40,7 @@ export function trisOf(g: BufferGeometry): number {
   return (g.index?.count ?? 0) / 3;
 }
 
-export function buildInteriorGeometry(
+function assembleInteriorGeometry(
   boxes: InteriorBox[], lights: InteriorLight[], ambient: RGB, detail: InteriorDetail,
 ): BufferGeometry {
   const pos: number[] = [];
@@ -100,4 +101,13 @@ export function buildInteriorGeometry(
   g.setIndex(idx);
   g.computeBoundingSphere();
   return g;
+}
+
+export function buildInteriorGeometry(
+  boxes: InteriorBox[], lights: InteriorLight[], ambient: RGB, detail: InteriorDetail,
+): BufferGeometry {
+  return resources.geometry(
+    () => assembleInteriorGeometry(boxes, lights, ambient, detail),
+    { label: 'interior', owner: 'interiors', evictable: true },
+  );
 }

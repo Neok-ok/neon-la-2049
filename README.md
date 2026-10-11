@@ -48,6 +48,7 @@ Handy URLs: `?mode=fly&at=wallace-pyramid`, `?mode=walk&at=noodle-bar`, `?mode=c
 * [docs/BIBLE.md](docs/BIBLE.md): lore, scale, landmark positions, district visual language, weather looks, rules for invention, sources.
 * [docs/map.svg](docs/map.svg) and [docs/map-downtown.svg](docs/map-downtown.svg): the city plan, generated from the layout JSON.
 * [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): how the engine works, plus performance budgets.
+* [docs/perf/MEMORY-RULES.html](docs/perf/MEMORY-RULES.html): how every pass creates and unloads GPU resources. The graphics tier is the look; the memory budget is how much stays loaded.
 * [docs/ROADMAP.md](docs/ROADMAP.md): the staged build plan (one district per stage).
 * [docs/ADDING_A_DISTRICT.md](docs/ADDING_A_DISTRICT.md): the plug-in pattern for district stages.
 

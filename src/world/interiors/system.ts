@@ -1,6 +1,7 @@
 // Streams interiors, hides the city once a walker is past an exterior door, and muffles the bed.
 // Fly mode never enters: the volume is solid through FlyController.blocksExtra.
 import { Group, Mesh, type Object3D, type Scene } from 'three/webgpu';
+import { resources } from '../../core/memory/resources';
 import type { CityQuery } from '../CityQuery';
 import type { ModeId } from '../../camera/types';
 import type { Tier } from '../../core/quality';
@@ -33,6 +34,7 @@ interface Run {
   meshTris: number;
   portalTris: number;
   rainTris: number;
+  built: boolean;
 }
 
 const RAIN_COUNT: Record<InteriorDetail, number> = { 0: 0, 1: 16, 2: 28, 3: 42 };
@@ -72,6 +74,8 @@ export class InteriorSystem {
     phase: 'dwell' | 'fade';
   } | null = null;
   private pendingRide: RidePose | null = null;
+  private exteriorListener: ((suspended: boolean) => void) | null = null;
+  private toldSuspended = false;
 
   constructor(scene: Scene, query: CityQuery, tier: Tier) {
     this.group.name = 'interiors';
@@ -83,12 +87,16 @@ export class InteriorSystem {
       }
       const run = this.make(spec);
       this.runs.set(spec.id, run);
-      this.rebuild(run);
     }
   }
 
   bind(hosts: ExteriorHosts): void {
     this.hosts = hosts;
+  }
+
+  /** Fired when a walker is fully inside, so the city can drop exterior residency. */
+  setExteriorListener(fn: (suspended: boolean) => void): void {
+    this.exteriorListener = fn;
   }
 
   /** Mount interiors registered after the constructor (far districts). */
@@ -100,7 +108,6 @@ export class InteriorSystem {
       }
       const run = this.make(spec);
       this.runs.set(spec.id, run);
-      this.rebuild(run);
     }
   }
 
@@ -108,7 +115,7 @@ export class InteriorSystem {
     const next = interiorDetail(tier);
     if (next === this.detail) return;
     this.detail = next;
-    for (const run of this.runs.values()) this.rebuild(run);
+    for (const run of this.runs.values()) if (run.built) this.rebuild(run);
   }
 
   /** True when a spinner body would be inside any interior. Walk mode does not call this. */
@@ -192,6 +199,8 @@ export class InteriorSystem {
       const linked = !!active && (run.spec.id === active.id || links.has(run.spec.id) || (run.spec.links ?? []).includes(active.id));
       if (!run.mounted && dist <= radius) run.mounted = true;
       else if (run.mounted && dist > radius * 1.35 && !linked) run.mounted = false;
+      if (run.mounted && !run.built) this.rebuild(run);
+      else if (!run.mounted && run.built) this.unbuild(run);
       const fromStreet = run.spec.showFromOutside !== false;
       const show = run.mounted && (linked || (!this.occluded && fromStreet));
       if (show !== run.shown) {
@@ -203,6 +212,10 @@ export class InteriorSystem {
       if (run.rain) run.rain.visible = show && this.occluded && rain > 0.12;
     }
     this.applyExterior();
+    if (this.occluded !== this.toldSuspended) {
+      this.toldSuspended = this.occluded;
+      this.exteriorListener?.(this.occluded);
+    }
   }
 
   get stats(): InteriorStats {
@@ -325,17 +338,37 @@ export class InteriorSystem {
     this.group.add(group);
     return {
       spec, group, mesh, portal, rain: null, mounted: false, shown: false,
-      meshTris: 0, portalTris: 0, rainTris: 0,
+      meshTris: 0, portalTris: 0, rainTris: 0, built: false,
     };
+  }
+
+  private unbuild(run: Run): void {
+    run.built = false;
+    run.mesh.geometry.dispose();
+    run.mesh.geometry = buildInteriorGeometry([], [], [0, 0, 0], 0);
+    run.meshTris = 0;
+    run.portal.geometry.dispose();
+    run.portal.geometry = buildPortalGeometry([]);
+    run.portalTris = 0;
+    if (run.rain) {
+      run.rain.geometry.dispose();
+      run.group.remove(run.rain);
+      run.rain.dispose();
+      run.rain = null;
+      run.rainTris = 0;
+    }
   }
 
   private rebuild(run: Run): void {
     const built = run.spec.build(this.detail);
+    run.built = true;
     run.mesh.geometry.dispose();
     run.mesh.geometry = buildInteriorGeometry(built.boxes, built.lights, built.ambient, this.detail);
+    resources.tag(run.mesh.geometry, { label: run.spec.id, owner: 'interiors', evictable: true });
     run.meshTris = trisOf(run.mesh.geometry);
     run.portal.geometry.dispose();
     run.portal.geometry = buildPortalGeometry(built.portals);
+    resources.tag(run.portal.geometry, { label: `${run.spec.id}-portal`, owner: 'interiors', evictable: true });
     run.portalTris = trisOf(run.portal.geometry);
     if (run.rain) {
       run.rain.geometry.dispose();
@@ -353,6 +386,7 @@ export class InteriorSystem {
       rain.renderOrder = 4;
       run.group.add(rain);
       run.rain = rain;
+      resources.tag(rain.geometry, { label: `${run.spec.id}-rain`, owner: 'interiors', evictable: true });
       run.rainTris = trisOf(rain.geometry);
     }
   }

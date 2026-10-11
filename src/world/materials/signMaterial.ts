@@ -7,6 +7,7 @@ import { U } from '../../atmosphere/uniforms';
 import { lutColor } from './lut';
 import { getSignAtlas } from './signAtlas';
 import { SIGN_ATLAS_COLS, SIGN_ATLAS_ROWS } from './signPhrases';
+import { resources } from '../../core/memory/resources';
 
 const T = TSL as any;
 const { Fn, attribute, float, vec2, vec3, floor, fract, step, smoothstep, mix, hash, uv, sin, abs } = T;
@@ -28,7 +29,7 @@ let shared: MeshBasicNodeMaterial | null = null;
 /** Instanced attribute `iSign` = (w, h, colorIdx, seed), `iKind` = kind (0 wall, 1 blade, 2 billboard). */
 export function getSignMaterial(): MeshBasicNodeMaterial {
   if (shared) return shared;
-  const m = new MeshBasicNodeMaterial();
+  const m = resources.material('neon-sign', () => new MeshBasicNodeMaterial());
   m.name = 'NeonSign';
   m.side = DoubleSide;
   m.fog = true;

@@ -49,6 +49,13 @@ canvas#view { position: fixed; inset: 0; width: 100vw; height: 100dvh; display: 
 }
 .hud b { color: var(--amber); font-weight: 600; display: inline-block; min-width: 88px; }
 
+.mem-overlay {
+  position: fixed; top: max(8px, env(safe-area-inset-top)); right: 8px; z-index: 24; pointer-events: none;
+  font: 11px/1.45 ui-monospace, Menlo, Consolas, monospace; color: #d7ffe8;
+  background: rgba(0, 0, 0, 0.62); padding: 8px 10px; border-radius: 6px; max-width: min(420px, 92vw);
+}
+.mem-overlay b { color: var(--cyan); font-weight: 600; display: inline-block; min-width: 52px; }
+
 .letterbox .lb { position: fixed; left: 0; right: 0; height: 0; background: #000; z-index: 10; transition: height 0.8s ease; pointer-events: none; }
 .letterbox .lb.top { top: 0; }
 .letterbox .lb.bottom { bottom: 0; }

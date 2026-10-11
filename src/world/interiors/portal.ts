@@ -4,14 +4,13 @@
 import { BufferGeometry, DoubleSide, Float32BufferAttribute, MeshBasicNodeMaterial } from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import { U } from '../../atmosphere/uniforms';
+import { resources } from '../../core/memory/resources';
 import type { InteriorPortal } from './types';
 
 const T = TSL as any;
 
-let mat: MeshBasicNodeMaterial | null = null;
-
 export function portalMaterial(): MeshBasicNodeMaterial {
-  if (mat) return mat;
+  return resources.material('interior-portal', () => {
   const m = new MeshBasicNodeMaterial();
   m.fog = false;
   m.side = DoubleSide;
@@ -36,11 +35,11 @@ export function portalMaterial(): MeshBasicNodeMaterial {
     const vignette = T.smoothstep(0.0, 0.16, u).mul(T.smoothstep(1.0, 0.84, u));
     return col.mul(vignette.mul(0.78).add(0.1));
   })();
-  mat = m;
   return m;
+  });
 }
 
-export function buildPortalGeometry(portals: InteriorPortal[]): BufferGeometry {
+function assemblePortalGeometry(portals: InteriorPortal[]): BufferGeometry {
   const pos: number[] = [];
   const uv: number[] = [];
   const idx: number[] = [];
@@ -67,4 +66,11 @@ export function buildPortalGeometry(portals: InteriorPortal[]): BufferGeometry {
   g.setIndex(idx);
   g.computeBoundingSphere();
   return g;
+}
+
+export function buildPortalGeometry(portals: InteriorPortal[]): BufferGeometry {
+  return resources.geometry(
+    () => assemblePortalGeometry(portals),
+    { label: 'interior-portal', owner: 'interiors', evictable: true },
+  );
 }
