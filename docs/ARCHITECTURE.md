@@ -118,7 +118,7 @@ and a Schlick fresnel (F0 0.02) toward the existing sky and fog colours. There i
 The far ocean stays the flat mesh; `setOceanStorm` only tints it while the preset is on. Spray is the same breaker cards,
 placed just seaward of the face and timed to `waveClock`, which is also what `Ambience.setSurf` reads. Overtopping is one
 sheet on the crest and the face, plus the apron wet sheet. Photo mode freezes `elapsed`, so the waves and the spray hold.
-`pastSeaWall` drops a fabric box or a street-graph edge that sits on the wall mass or on the ocean side of the crest.
+`pastSeaWall` drops a fabric box, a street-graph edge, a street lamp, a sign, a freeway dress piece, or a harbor hull that sits on the wall mass or on the ocean side of the crest. Ground cells there stay bare (no neon, no far light carpet). A free flier that would spawn seaward of the crest is slid inland, and a sky-lane sample past the crest lip is hidden. The far ocean stays matte (`roughness` 0.78, `envMapIntensity` 0) so the shared neon environment does not read as colored lanes. The swell is rough in clear weather and only glosses while the storm preset is on.
 The two drowned-pier clusters stay in the water; they are the Stage 10 sculptures, not street props.
 Tier cutoffs live in `coastBudget`: low is today's coast (no swell, no spray, no sheet, no lightning) plus the storm tint;
 medium is 3 waves, a 36×14 patch, 16 spray cards, the nearest sheet, and lightning; high and ultra are 6 waves, a skirt,

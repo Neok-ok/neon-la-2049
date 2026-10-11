@@ -408,6 +408,13 @@ export function pastSeaWall(layout: CityLayout, x: number, z: number): boolean {
   return true;
 }
 
+/** Beyond the crest lip, on the terraces or the water. The walkway itself stays false. */
+export function seawardOfWall(layout: CityLayout, x: number, z: number): boolean {
+  const hit = nearestWall(layout, x, z);
+  if (hit.dist > 1400) return false;
+  return hit.across > hit.piece.profile.crest / 2 + 2;
+}
+
 export function nearSeaWall(layout: CityLayout, x: number, z: number, extra = 22): boolean {
   for (const w of layout.seaWalls) {
     let best = Infinity;

@@ -3,6 +3,7 @@
 // SpinnerTraffic must skip this district or it will park at 74 m and 112 m.
 import { registerStreetLattice } from '../../vehicles/trafficRegistry';
 import type { CityLayout } from '../../world/layout';
+import { pastSeaWall } from '../coastal-strip/profile';
 import { BEARING, BLOCK_A, BLOCK_B, FREIGHT_J, FREIGHT_Y, LANE, LATTICE } from './spec';
 
 registerStreetLattice({
@@ -43,21 +44,26 @@ export function harborFreightRuns(
   blocked: (x: number, y: number, z: number) => boolean,
 ): HarborFreightRun[] {
   const x = FREIGHT_J * BLOCK_B;
-  const pts: Array<[number, number, number]> = [];
+  const runs: Array<Array<[number, number, number]>> = [];
+  let pts: Array<[number, number, number]> = [];
+  const flush = () => {
+    if (pts.length >= 3) runs.push(pts);
+    pts = [];
+  };
   for (let z = 29000; z <= 36000; z += 240) {
-    if (layout.districtAt(x, z).id !== 'harbor') continue;
-    if (layout.isReserved(x, z, 8) || layout.isOcean(x, z)) continue;
+    if (layout.districtAt(x, z).id !== 'harbor') { flush(); continue; }
+    if (layout.isReserved(x, z, 8) || layout.isOcean(x, z) || pastSeaWall(layout, x, z)) { flush(); continue; }
     const y = layout.heightAt(x, z) + FREIGHT_Y;
-    if (blocked(x, y, z)) return [];
+    if (blocked(x, y, z)) { flush(); continue; }
     const prev = pts[pts.length - 1];
-    if (prev && Math.hypot(x - prev[0], z - prev[2]) > 500) continue;
+    if (prev && Math.hypot(x - prev[0], z - prev[2]) > 500) flush();
     pts.push([x, y, z]);
   }
-  if (pts.length < 3) return [];
-  return [{
-    id: 'harbor-freight',
+  flush();
+  return runs.map((run, i) => ({
+    id: i === 0 ? 'harbor-freight' : `harbor-freight-${i}`,
     loop: false,
-    pts,
+    pts: run,
     weight: 1.25,
     police: 0,
     transport: 1,
@@ -66,5 +72,5 @@ export function harborFreightRuns(
     altBias: 0,
     fade: 90,
     platoon: [2, 4],
-  }];
+  }));
 }

@@ -143,6 +143,7 @@ function swellMaterial(): MeshStandardNodeMaterial {
   const m = new MeshStandardNodeMaterial();
   m.roughness = 0.28;
   m.metalness = 0.02;
+  m.roughnessNode = mix(float(0.78), float(0.28), uStorm);
   m.transparent = true;
   m.depthWrite = false;
   m.fog = true;
@@ -166,9 +167,9 @@ function swellMaterial(): MeshStandardNodeMaterial {
     const ndv = max(dot(nW, vW), float(0));
     const fres = float(0.02).add(float(0.98).mul(pow(float(1).sub(ndv), float(5))));
     const mirror = mix(U.fogColor, U.skyHorizon, float(0.7));
-    const lit = mix(beer, mirror, fres.mul(0.45));
+    const lit = mix(beer, mirror, fres.mul(mix(float(0.08), float(0.45), uStorm)));
     const moon = normalize(vec3(float(0.22), float(0.62), float(-0.28)));
-    const spec = pow(max(dot(nW, normalize(vW.add(moon))), float(0)), float(26)).mul(float(0.42).add(uStorm.mul(0.4)));
+    const spec = pow(max(dot(nW, normalize(vW.add(moon))), float(0)), float(26)).mul(mix(float(0.05), float(0.55), uStorm));
     return mix(lit.add(vec3(spec)), vec3(0.84, 0.88, 0.9), foamOf(w));
   })();
   m.emissiveNode = Fn(() => {

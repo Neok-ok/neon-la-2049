@@ -45,8 +45,12 @@ export function getOceanMaterial(): MeshStandardNodeMaterial {
     const whitecap = smoothstep(float(0.62), float(0.9), h(0.008, 0.007, 0.12, 0.5).add(0.5)).mul(uStormSea).mul(0.45);
     return mix(mix(chop, storm, uStormSea), vec3(0.72, 0.76, 0.78), whitecap);
   })();
-  m.roughnessNode = mix(float(0.12), float(0.3), U.snow);
+  // The shared environment is a neon horizon. A shiny sea turns those blotches into
+  // colored lanes. Keep the Pacific matte; storm fresnel is in the colour node.
+  m.roughness = 0.78;
+  m.roughnessNode = mix(float(0.78), float(0.9), U.snow);
   m.metalnessNode = float(0.0);
+  m.envMapIntensity = 0;
   shared = m;
   return m;
 }

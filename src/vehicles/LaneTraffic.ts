@@ -13,6 +13,8 @@ import { fogDepth } from '../atmosphere/SkyFog';
 import type { CityQuery } from '../world/CityQuery';
 import { Rng } from '../core/rng';
 import { buildSkyLanes, sampleLane, type LaneClass, type SkyLane } from './skyLanes';
+import { seawardOfWall } from '../districts/coastal-strip/profile';
+import type { CityLayout } from '../world/layout';
 import type { CraftMark } from '../atmosphere/AirField';
 
 const T = TSL as any;
@@ -45,8 +47,10 @@ export class LaneTraffic {
   readonly nodes: InstancedMesh[];
   private gcol: InstancedBufferAttribute;
   private active = -1;
+  private readonly layout: CityLayout;
 
   constructor(scene: Scene, query: CityQuery, readonly max: number) {
+    this.layout = query.layout;
     this.lanes = buildSkyLanes(query);
     const sg = spinnerGeometries(), tg = transportGeometries(), m = spinnerMaterials();
     this.spinBody = new InstancedMesh(sg.body, m.body, max);
@@ -174,6 +178,9 @@ export class LaneTraffic {
       // open lanes: right-hand traffic, opposite directions separated sideways and in height
       _side.set(-_t.z, 0, _t.x).normalize();
       if (!c.lane.loop) _p.addScaledVector(_side, c.lane.sep).y += c.lane.altBias;
+      if (!c.lane.loop && seawardOfWall(this.layout, _p.x, _p.z)) {
+        _p.addScaledVector(_side, -2 * c.lane.sep);
+      }
       _p.y += Math.sin(U.time.value * 0.4 + c.phase * 30) * 0.6;
       _prev.copy(c.p);
       c.p.copy(_p);
@@ -189,7 +196,8 @@ export class LaneTraffic {
       _q.premultiply(_qr);
       // fade in/out at the ends of open lanes
       const fade = Math.max(8, c.lane.fade);
-      const edge = c.lane.loop ? 1 : Math.max(0, Math.min(1, Math.min(c.s, L - c.s) / fade));
+      let edge = c.lane.loop ? 1 : Math.max(0, Math.min(1, Math.min(c.s, L - c.s) / fade));
+      if (seawardOfWall(this.layout, _p.x, _p.z)) edge = 0;
       _m.compose(c.p, _q, _s.setScalar(edge));
       if (c.cls === 'transport') {
         this.trBody.setMatrixAt(nt, _m);

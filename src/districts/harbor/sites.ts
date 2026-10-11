@@ -1,6 +1,7 @@
 // Pure berth layout. Cranes and ships stay landward of the harbor sea wall.
 // The wall polyline is not moved. Nothing here is a real carrier or a logo.
 import { hash2i } from '../../core/rng';
+import { pastSeaWall } from '../coastal-strip/profile';
 import type { CityLayout } from '../../world/layout';
 import {
   BOX_H, BOX_L, BOX_W, CRANE_BEHIND, DISTRICT, HOUSE_Y, MAST_Y,
@@ -106,6 +107,23 @@ function hullFits(x: number, z: number, tx: number, tz: number, half: number): b
   return true;
 }
 
+/** Hull centre, bow, stern, and the seaward shoulder stay inland of the crest. */
+function hullInland(
+  layout: CityLayout, x: number, z: number,
+  tx: number, tz: number, nx: number, nz: number, half: number,
+): boolean {
+  const shoulder = 18;
+  const samples: Array<[number, number]> = [
+    [x, z],
+    [x + tx * half, z + tz * half],
+    [x - tx * half, z - tz * half],
+    [x + nx * shoulder, z + nz * shoulder],
+    [x + tx * half + nx * shoulder, z + tz * half + nz * shoulder],
+    [x - tx * half + nx * shoulder, z - tz * half + nz * shoulder],
+  ];
+  return samples.every(([px, pz]) => !pastSeaWall(layout, px, pz));
+}
+
 function land(f: { x: number; z: number; nx: number; nz: number }, metres: number): { x: number; z: number } {
   return { x: f.x - f.nx * metres, z: f.z - f.nz * metres };
 }
@@ -155,6 +173,7 @@ function build(layout: CityLayout): HarborSites {
         sx = block.cx;
         sz = block.cz;
       }
+      if (!hullInland(layout, sx, sz, o.tx, o.tz, o.nx, o.nz, half)) continue;
       const craneAt = land({ x: sx, z: sz, nx: o.nx, nz: o.nz }, CRANE_BEHIND);
       if (!owned(layout, craneAt.x, craneAt.z, 14) || streetGap(craneAt.x, craneAt.z) < 22) continue;
       const phase = (hash2i(cranes.length + 3, s, Math.round(u)) % 1000) / 1000;
@@ -186,6 +205,14 @@ function build(layout: CityLayout): HarborSites {
     pushYard(stacks, c, i, i === hero);
     pushDeck(stacks, ship, i);
     pushLights(lights, c, i);
+  }
+  for (let n = stacks.length - 1; n >= 0; n--) {
+    const b = stacks[n]!;
+    if (pastSeaWall(layout, b.x, b.z)) stacks.splice(n, 1);
+  }
+  for (let n = lights.length - 1; n >= 0; n--) {
+    const L = lights[n]!;
+    if (pastSeaWall(layout, L.x, L.z)) lights.splice(n, 1);
   }
   return { cranes, ships, stacks, lights, control: hero >= 0 ? controlFor(layout, cranes[hero]!) : null };
 }

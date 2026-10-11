@@ -10,6 +10,7 @@ import { U } from '../atmosphere/uniforms';
 import type { CityQuery } from '../world/CityQuery';
 import { Rng, trueRandomSeed } from '../core/rng';
 import { advanceGraph, downtownGraph, edgeAround, poseOn } from './streetGraph';
+import { nearestWall, pastSeaWall } from '../districts/coastal-strip/profile';
 import type { CraftMark } from '../atmosphere/AirField';
 
 const T = TSL as any;
@@ -131,6 +132,30 @@ export class SpinnerTraffic {
     this.nodes = [this.body, this.lights, this.glow];
   }
 
+  /**
+   * A camera on the water used to seed free fliers on the ocean side of the crest.
+   * Slide those craft inland of the parapet and turn them off the seaward heading.
+   */
+  private clearOcean(car: Car): void {
+    const layout = this.query.layout;
+    for (let n = 0; n < 3; n++) {
+      if (!pastSeaWall(layout, car.p.x, car.p.z)) return;
+      const hit = nearestWall(layout, car.p.x, car.p.z);
+      const inland = -hit.piece.profile.crest / 2 - 86;
+      const shift = hit.across - inland;
+      if (!(shift > 0)) return;
+      car.p.x -= hit.frame.nx * shift;
+      car.p.z -= hit.frame.nz * shift;
+      const seaward = car.dir.x * hit.frame.nx + car.dir.z * hit.frame.nz;
+      if (seaward > 0) {
+        car.dir.x -= hit.frame.nx * (seaward + 0.45);
+        car.dir.z -= hit.frame.nz * (seaward + 0.45);
+        const len = Math.hypot(car.dir.x, car.dir.z) || 1;
+        car.dir.set(car.dir.x / len, 0, car.dir.z / len);
+      }
+    }
+  }
+
   private blank(c: Car | null): Car {
     return c ?? {
       p: new Vector3(), dir: new Vector3(), speed: 0, police: false, phase: 0,
@@ -203,6 +228,7 @@ export class SpinnerTraffic {
     const perp = new Vector3(-car.dir.z, 0, car.dir.x);
     if (initial) car.p.set(cam.x + r.range(-1, 1) * dist, 0, cam.z + r.range(-1, 1) * dist);
     else car.p.set(cam.x - car.dir.x * dist + perp.x * side, 0, cam.z - car.dir.z * dist + perp.z * side);
+    this.clearOcean(car);
     const ground = this.query.groundHeight(car.p.x, car.p.z);
     if (downtown) car.p.y = ground + r.range(340, 520);
     else if (canyon) car.p.y = ground + r.range(148, 260);
@@ -248,6 +274,7 @@ export class SpinnerTraffic {
           const floor = this.query.groundHeight(c.p.x, c.p.z) + 220;
           if (c.p.y < floor) c.p.y = floor;
         }
+        this.clearOcean(c);
       }
       const dx = c.p.x - cam.x, dz = c.p.z - cam.z;
       if (dx * dx + dz * dz > this.radius * this.radius * 1.1) this.spawn(c, cam, false);

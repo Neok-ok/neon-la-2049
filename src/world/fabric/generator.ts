@@ -100,7 +100,7 @@ class Ctx implements FabricCtx {
     ps += ns * out;
     pt += nt * out;
     const [x, z] = this.toWorld(ps, pt);
-    if (this.layout.isReserved(x, z, 1)) return;
+    if (this.layout.isReserved(x, z, 1) || this.layout.isOcean(x, z) || pastSeaWall(this.layout, x, z)) return;
     const nx = bl.ax * ns + bl.bx * nt;
     const nz = bl.az * ns + bl.bz * nt;
     // blade signs are perpendicular to the facade (visible down the street)
