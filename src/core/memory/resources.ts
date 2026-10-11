@@ -74,42 +74,68 @@ let installed = false;
 let stacksLeft = 40;
 let disposedCount = 0;
 
+function textureImage(tex: Texture): TexLevel | undefined {
+  // Texture sets isTexture before this.source exists. The image getter throws until then.
+  const src = (tex as unknown as { source?: { data?: unknown } }).source;
+  if (!src) return undefined;
+  const image = src.data as TexLevel | undefined;
+  return image ?? undefined;
+}
+
 function fingerprint(obj: object, kind: Kind): string {
-  if (kind === 'geometry') {
-    const g = obj as BufferGeometry;
-    const pos = g.attributes?.position as BufferAttribute | undefined;
-    const arr = pos?.array as ArrayLike<number> | undefined;
-    const head = arr ? `${Math.round(Number(arr[0] ?? 0))},${Math.round(Number(arr[1] ?? 0))},${Math.round(Number(arr[2] ?? 0))}` : '';
-    return `g:${pos?.count ?? 0}:${g.index?.count ?? 0}:${head}`;
+  try {
+    if (kind === 'geometry') {
+      const g = obj as BufferGeometry;
+      const pos = g.attributes?.position as BufferAttribute | undefined;
+      const arr = pos?.array as ArrayLike<number> | undefined;
+      const head = arr ? `${Math.round(Number(arr[0] ?? 0))},${Math.round(Number(arr[1] ?? 0))},${Math.round(Number(arr[2] ?? 0))}` : '';
+      return `g:${pos?.count ?? 0}:${g.index?.count ?? 0}:${head}`;
+    }
+    if (kind === 'texture') {
+      const t = obj as Texture;
+      const image = textureImage(t);
+      return `t:${image?.width ?? 0}x${image?.height ?? 0}:${t.format}:${t.type}`;
+    }
+    if (kind === 'material') {
+      const m = obj as Material;
+      const key = typeof m.customProgramCacheKey === 'function' ? m.customProgramCacheKey() : '';
+      return `m:${m.type}:${m.name}:${key}`;
+    }
+    const rt = obj as RenderTarget;
+    return `rt:${rt.width ?? 0}x${rt.height ?? 0}:${rt.samples ?? 0}`;
+  } catch {
+    return kind;
   }
-  if (kind === 'texture') {
-    const t = obj as Texture;
-    const image = t.image as { width?: number; height?: number } | undefined;
-    return `t:${image?.width ?? 0}x${image?.height ?? 0}:${t.format}:${t.type}`;
-  }
-  if (kind === 'material') {
-    const m = obj as Material;
-    const key = typeof m.customProgramCacheKey === 'function' ? m.customProgramCacheKey() : '';
-    return `m:${m.type}:${m.name}:${key}`;
-  }
-  const rt = obj as RenderTarget;
-  return `rt:${rt.width}x${rt.height}:${rt.samples ?? 0}`;
 }
 
 function measure(obj: object, kind: Kind): number {
-  if (kind === 'geometry') return geometryBytes(obj as GeoLike);
-  if (kind === 'texture') {
-    const t = obj as Texture;
-    const image = t.image as TexLevel | undefined;
-    const mips = (t.mipmaps ?? []) as TexLevel[];
-    return textureBytes(image, mips, t.format, t.type);
-  }
-  if (kind === 'target') {
-    const rt = obj as RenderTarget;
-    const samples = Math.max(1, rt.samples ?? 1);
-    return Math.max(1, rt.width) * Math.max(1, rt.height) * 4 * samples * 2;
+  try {
+    if (kind === 'geometry') return geometryBytes(obj as GeoLike);
+    if (kind === 'texture') {
+      const t = obj as Texture;
+      const image = textureImage(t);
+      const mips = (t.mipmaps ?? []) as TexLevel[];
+      return textureBytes(image, mips, t.format, t.type);
+    }
+    if (kind === 'target') {
+      const rt = obj as RenderTarget;
+      const w = Number(rt.width);
+      const h = Number(rt.height);
+      if (!Number.isFinite(w) || !Number.isFinite(h)) return 0;
+      const samples = Math.max(1, rt.samples ?? 1);
+      return Math.max(1, w) * Math.max(1, h) * 4 * samples * 2;
+    }
+  } catch {
+    return 0;
   }
   return 0;
+}
+
+function remeasure(obj: object, kind: Kind): void {
+  const rec = records.get(obj);
+  if (!rec || rec.disposed) return;
+  rec.bytes = measure(obj, kind);
+  rec.fingerprint = fingerprint(obj, kind);
 }
 
 function now(): number {
@@ -175,6 +201,9 @@ function arm(proto: object, flag: string, kind: Kind): void {
       const explicit = inScope();
       noteCreation(kind);
       adopt(this, kind, explicit);
+      const obj = this;
+      // Constructors set the type flag before width, source, or attributes exist.
+      queueMicrotask(() => remeasure(obj, kind));
     },
   });
 }
