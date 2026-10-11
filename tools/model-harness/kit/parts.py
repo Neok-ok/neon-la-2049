@@ -220,7 +220,7 @@ class Kit:
         inner_h = height - rim * 2
         if slats > 0 and inner_h > 0.01:
             gap = inner_h / slats
-            slat_t = min(gap * (0.55 if contrast else 0.42), 0.028 if contrast else 0.012)
+            slat_t = min(gap * (0.62 if contrast else 0.42), 0.046 if contrast else 0.012)
             slat_mat = self.satin if contrast else self.body
             for i in range(slats):
                 y = -inner_h / 2 + gap * (i + 0.5)
@@ -582,8 +582,9 @@ class Kit:
                 pass
             return _finish(bm, f'{name}-{suffix}', mat, self.collection)
 
-        gap = strip('gap', self.recess, 0.0, depth, 0.0, thick * 0.62)
-        lip = strip('lip', self.satin, depth * 0.35, depth + 0.014, thick * 0.95, thick * 0.38)
+        # Wide black gap, thin bright lip. A wide satin band read as a stripe.
+        gap = strip('gap', self.recess, 0.0, depth, 0.0, thick * 0.72)
+        lip = strip('lip', self.satin, depth * 0.15, depth + 0.008, thick * 0.82, thick * 0.14)
         return self._root(name, [gap, lip])
 
     def fender_cheek(self, name, length=0.72, depth=0.30, height=0.40):

@@ -48,7 +48,7 @@ async function shoot(page, name) {
   const frame = await page.evaluate(() => window.__nla.app.frames);
   await page.waitForFunction((n) => window.__nla.app.frames > n + 2, frame, { timeout: 60_000 });
   const file = join(OUT, `${name}.png`);
-  await page.screenshot({ path: file, type: 'png', timeout: 180_000 });
+  await page.screenshot({ path: file, type: 'png', timeout: 300_000 });
   const info = await page.evaluate(() => {
     const s = window.__nla.stats();
     const sp = window.__nla.app.cams.fly.spinner;

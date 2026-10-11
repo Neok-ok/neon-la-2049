@@ -1,7 +1,8 @@
 // Contact sheet, orthographic silhouettes, and the scale rig.
 // Playwright screenshots #sheet. Film stills load from /harness-refs/ (dev only, gitignored).
 import {
-  ACESFilmicToneMapping, Box3, BoxGeometry, Color, DirectionalLight, DoubleSide, FogExp2, GridHelper,
+  ACESFilmicToneMapping, Box3, BoxGeometry, CanvasTexture, Color, DirectionalLight, DoubleSide,
+  EquirectangularReflectionMapping, FogExp2, GridHelper,
   Group, HemisphereLight, Mesh, MeshBasicMaterial, MeshBasicNodeMaterial, MeshStandardNodeMaterial,
   OrthographicCamera, PerspectiveCamera, PlaneGeometry, PointLight, Scene, SRGBColorSpace, Vector3,
   WebGPURenderer,
@@ -167,10 +168,11 @@ function buildLights(camera: PerspectiveCamera): { night: Group; rim: Group; stu
   night.add(new PointLight(0x3dfff0, 60, 0, 2).translateX(3.6).translateY(1.5).translateZ(0.2));
   night.add(new PointLight(0xff8a32, 28, 0, 2).translateY(0.4).translateZ(2.4));
   // Camera looks down its -Z. Lights past the subject (more negative Z) rim the far edges.
-  dir(rim, 0xd5e6ff, 14, new Vector3(1.7, 1.9, -6.2), new Vector3(0, 0.45, -2));
-  dir(rim, 0xa9c4f5, 9, new Vector3(-2.1, 0.35, -5.4), new Vector3(0, 0.4, -2));
-  dir(rim, 0xf0f6ff, 6, new Vector3(0.2, 2.4, -4.8), new Vector3(0, 0.7, -2));
-  dir(rim, 0xffe4c6, 2.2, new Vector3(-0.3, 0.45, 0.6), new Vector3(0, 0.4, -2));
+  // Hot enough to rim the wedge, dim enough that the paint stays paint.
+  dir(rim, 0xd5e6ff, 8, new Vector3(1.7, 1.9, -6.2), new Vector3(0, 0.45, -2));
+  dir(rim, 0xa9c4f5, 5.5, new Vector3(-2.1, 0.35, -5.4), new Vector3(0, 0.4, -2));
+  dir(rim, 0xf0f6ff, 3.5, new Vector3(0.2, 2.4, -4.8), new Vector3(0, 0.7, -2));
+  dir(rim, 0xffe4c6, 1.4, new Vector3(-0.3, 0.45, 0.6), new Vector3(0, 0.4, -2));
   dir(studio, 0xffffff, 8.0, new Vector3(-2.2, 2.6, 0.6), new Vector3(0, 0.3, -1));
   dir(studio, 0xd5d8de, 3.2, new Vector3(2.0, 0.6, 0.2), new Vector3(0, 0.2, -1));
   dir(studio, 0xffffff, 3.6, new Vector3(0.4, 1.8, -2.4), new Vector3(0, 0.4, -1));
@@ -356,6 +358,42 @@ async function main(): Promise<void> {
   await renderSheet(renderer, scene, model, size, tris);
 }
 
+function sheetEnv(): CanvasTexture {
+  const W = 256;
+  const H = 128;
+  const cv = document.createElement('canvas');
+  cv.width = W;
+  cv.height = H;
+  const g = cv.getContext('2d')!;
+  const grad = g.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, '#12161c');
+  grad.addColorStop(0.38, '#3a342c');
+  grad.addColorStop(0.5, '#8a7048');
+  grad.addColorStop(0.62, '#1a1816');
+  grad.addColorStop(1, '#07080a');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, W, H);
+  const blotches: Array<[string, number, number, number, number]> = [
+    ['#ff2d8c', 20, 58, 10, 5],
+    ['#20d8ff', 70, 60, 14, 4],
+    ['#ff8a1e', 120, 56, 8, 6],
+    ['#30ffb0', 180, 62, 12, 4],
+    ['#a040ff', 220, 58, 9, 5],
+    ['#ffd2a8', 40, 52, 18, 3],
+    ['#9ecbff', 150, 50, 16, 3],
+  ];
+  for (const [color, x, y, w, h] of blotches) {
+    g.fillStyle = color;
+    g.globalAlpha = 0.55;
+    g.fillRect(x, y, w, h);
+  }
+  g.globalAlpha = 1;
+  const tex = new CanvasTexture(cv);
+  tex.mapping = EquirectangularReflectionMapping;
+  tex.colorSpace = SRGBColorSpace;
+  return tex;
+}
+
 async function renderSheet(
   renderer: WebGPURenderer, scene: Scene, model: Group, size: Vector3, tris: number,
 ): Promise<void> {
@@ -368,6 +406,7 @@ async function renderSheet(
   scene.add(camera);
   const hemi = new HemisphereLight(0x6e7c90, 0x1a120e, 0.7);
   scene.add(hemi);
+  scene.environment = sheetEnv();
   const rigs = buildLights(camera);
   const nightGround = new Mesh(
     new PlaneGeometry(48, 48),
@@ -434,7 +473,8 @@ async function renderSheet(
     streak.visible = light === 'night';
     streak2.visible = light === 'night';
     grid.visible = light === 'studio';
-    hemi.intensity = light === 'night' ? 1.45 : light === 'rim' ? 0.18 : 0.55;
+    hemi.intensity = light === 'night' ? 1.55 : light === 'rim' ? 0.32 : 0.62;
+    scene.environmentIntensity = light === 'night' ? 0.4 : light === 'rim' ? 0.5 : 0.22;
     hemi.color.set(light === 'studio' ? 0xc8c8c8 : light === 'rim' ? 0x1a2740 : 0x243044);
     hemi.groundColor.set(light === 'studio' ? 0x9a9a9a : 0x0c0a10);
     scene.fog = light === 'night' ? nightFog : null;

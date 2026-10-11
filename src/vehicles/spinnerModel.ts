@@ -164,17 +164,21 @@ type PbrMat = Material & {
 function weathering() {
   const p = T.positionLocal;
   const n = T.normalLocal;
-  const flank = T.smoothstep(0.35, 0.82, T.abs(n.x));
-  const up = T.smoothstep(0.45, 0.88, n.y);
-  const column = T.fract(p.z.mul(2.2).add(p.x.mul(5.5)));
-  const streak = T.smoothstep(0.8, 0.97, column).mul(flank).mul(T.smoothstep(0.12, 0.8, p.y));
-  const low = T.smoothstep(0.5, 0.06, p.y);
-  const seam = T.smoothstep(0.93, 0.995, T.fract(p.z.mul(0.72).add(p.x.mul(1.4))));
-  const grime = T.max(low.mul(0.7), seam.mul(0.4));
-  const cell = T.floor(p.mul(2.4));
+  const flank = T.smoothstep(0.4, 0.82, T.abs(n.x));
+  const up = T.smoothstep(0.5, 0.88, n.y);
+  // Two or three long rain tracks. Tight bands contour the curved panels and read as wood grain.
+  const band = T.fract(p.z.mul(0.38));
+  const streak = T.smoothstep(0.42, 0.55, band).mul(T.smoothstep(0.72, 0.55, band)).mul(flank);
+  const dust = T.smoothstep(0.05, 0.16, band).mul(T.smoothstep(0.3, 0.16, band)).mul(flank);
+  const low = T.smoothstep(0.48, 0.04, p.y);
+  const frontDrum = T.smoothstep(0.72, 0.16, T.abs(p.z.add(1.45)));
+  const rearDrum = T.smoothstep(0.68, 0.14, T.abs(p.z.sub(1.85)));
+  const wheelGrime = T.max(frontDrum, rearDrum).mul(low);
+  const grime = T.max(low.mul(0.85), wheelGrime);
+  const cell = T.floor(p.mul(1.15));
   const h = T.fract(T.sin(cell.x.mul(127.1).add(cell.y.mul(311.7)).add(cell.z.mul(74.7))).mul(43758.5453));
-  const chip = T.smoothstep(0.988, 0.998, h).mul(up.add(flank).mul(0.4));
-  return { streak, grime, chip };
+  const chip = T.smoothstep(0.992, 0.999, h).mul(T.max(up, flank).mul(0.6));
+  return { streak, dust, grime, chip };
 }
 
 function dressMaterial(src: Material): Material {
@@ -196,8 +200,8 @@ function dressMaterial(src: Material): Material {
         metalness: tex.metalnessMap ? 1 : paint.metalness,
         roughness: tex.roughnessMap ? 1 : paint.roughness,
         name: src.name,
-        clearcoat: kind === 'body' ? 0.62 : 0.28,
-        clearcoatRoughness: kind === 'body' ? 0.2 : 0.38,
+        clearcoat: kind === 'body' ? 0.58 : 0.22,
+        clearcoatRoughness: kind === 'body' ? 0.34 : 0.42,
       })
       : new MeshStandardNodeMaterial({
         color: tex.map ? 0xffffff : paint.color,
@@ -208,18 +212,27 @@ function dressMaterial(src: Material): Material {
     if (tex.map) m.map = tex.map;
     if (tex.normalMap) {
       m.normalMap = tex.normalMap;
-      m.normalScale = new Vector2(kind === 'body' ? 1.35 : 0.8, kind === 'body' ? 1.35 : 0.8);
+      m.normalScale = new Vector2(0.0, 0.0);
     }
-    if (tex.roughnessMap) m.roughnessMap = tex.roughnessMap;
-    if (tex.metalnessMap) m.metalnessMap = tex.metalnessMap;
+    if (tex.roughnessMap && kind !== 'body') m.roughnessMap = tex.roughnessMap;
+    if (tex.metalnessMap && kind !== 'body') m.metalnessMap = tex.metalnessMap;
+    if (kind === 'body') {
+      // The baked roughness follows the AO and turns into wood grain under the rim.
+      // Paint is a flat gunmetal; the coat, the streaks, and the real panel gaps carry the detail.
+      m.roughness = 0.46;
+      m.metalness = 0.4;
+      m.normalMap = null;
+    }
     if (kind === 'body' || kind === 'satin') {
       const w = weathering();
-      const dirt = T.mix(T.float(1), T.float(0.58), T.max(w.streak, w.grime));
-      const chipLift = T.mix(T.float(1), T.float(1.7), w.chip);
-      m.colorNode = T.materialColor.mul(dirt).mul(chipLift);
-      const rough = T.materialRoughness.add(w.grime.mul(0.24)).add(w.streak.mul(0.12)).sub(w.chip.mul(0.16));
-      m.roughnessNode = T.mix(T.clamp(rough, 0.08, 0.95), T.float(paint.wet), U.wetness);
-      m.metalnessNode = T.clamp(T.materialMetalness.sub(w.grime.mul(0.35)).add(w.chip.mul(0.12)), 0.04, 1);
+      const dirt = T.mix(T.float(1), T.float(0.7), T.max(w.streak, w.grime.mul(0.75)));
+      const dustLift = T.mix(T.float(1), T.float(1.14), w.dust);
+      const chipLift = T.mix(T.float(1), T.float(1.35), w.chip);
+      // Albedo keeps the baked panel tone. Roughness stays flat so the rim does not draw it as grain.
+      m.colorNode = T.materialColor.mul(dirt).mul(dustLift).mul(chipLift);
+      const rough = T.materialRoughness.add(w.grime.mul(0.24)).add(w.streak.mul(0.14)).sub(w.chip.mul(0.08));
+      m.roughnessNode = T.mix(T.clamp(rough, 0.18, 0.95), T.float(paint.wet), U.wetness);
+      m.metalnessNode = T.clamp(T.materialMetalness.sub(w.grime.mul(0.22)).add(w.chip.mul(0.08)), 0.02, 0.72);
     } else if (kind === 'drum') {
       const w = weathering();
       m.colorNode = T.materialColor.mul(T.mix(T.float(1), T.float(0.7), w.grime));
@@ -231,20 +244,20 @@ function dressMaterial(src: Material): Material {
   }
   if (kind === 'glass') {
     const m = new MeshPhysicalNodeMaterial({
-      color: 0x163038,
-      metalness: 0.08,
-      roughness: 0.06,
+      color: 0x14343c,
+      metalness: 0.12,
+      roughness: 0.05,
       name: src.name,
       transparent: true,
-      opacity: 0.92,
+      opacity: 0.9,
     });
     m.clearcoat = 1;
-    m.clearcoatRoughness = 0.04;
-    m.ior = 1.45;
-    m.thickness = 0.06;
-    m.transmission = 0.18;
-    m.attenuationColor = new Color(0x061014);
-    m.attenuationDistance = 0.25;
+    m.clearcoatRoughness = 0.06;
+    m.ior = 1.5;
+    m.thickness = 0.05;
+    m.transmission = 0.12;
+    m.attenuationColor = new Color(0x082028);
+    m.attenuationDistance = 0.4;
     return m;
   }
   const basic = new MeshBasicNodeMaterial({ name: src.name });
