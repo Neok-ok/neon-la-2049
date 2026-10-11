@@ -27,20 +27,39 @@ const browser = await chromium.launch({
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
 });
 
+function destroyed(err) {
+  return /Execution context was destroyed|Target page, context or browser has been closed|navigation/i.test(String(err?.message || err));
+}
+
+// A mid-load navigation (service worker claim, dev reload) kills page.evaluate.
+// Wait for the new document instead of aborting the rest of the gallery.
 async function ready(page) {
-  await page.waitForFunction(() => window.__nla?.stats, null, { timeout: 300_000 });
-  await page.waitForFunction(() => {
-    const s = window.__nla.app.cams.fly.spinner.userData;
-    return s.ready === true;
-  }, null, { timeout: 180_000 });
-  const t0 = Date.now();
-  while (Date.now() - t0 < 90_000) {
-    const idle = await page.evaluate(() => {
-      const s = window.__nla?.stats?.();
-      return !!(s && s.inFlight === 0 && s.readyQueue === 0 && s.fps > 0);
-    });
-    if (idle) return;
-    await page.waitForTimeout(400);
+  const deadline = Date.now() + 300_000;
+  let attempts = 0;
+  while (Date.now() < deadline) {
+    try {
+      await page.waitForFunction(() => window.__nla?.stats, null, { timeout: 60_000 });
+      await page.waitForFunction(() => {
+        const s = window.__nla?.app?.cams?.fly?.spinner?.userData;
+        return s?.ready === true;
+      }, null, { timeout: 120_000 });
+      const t0 = Date.now();
+      while (Date.now() - t0 < 90_000) {
+        const idle = await page.evaluate(() => {
+          const s = window.__nla?.stats?.();
+          return !!(s && s.inFlight === 0 && s.readyQueue === 0 && s.fps > 0);
+        });
+        if (idle) return;
+        await page.waitForTimeout(400);
+      }
+      return;
+    } catch (err) {
+      attempts += 1;
+      if (!destroyed(err) || attempts > 4 || Date.now() >= deadline) throw err;
+      console.log('RETRY ready', attempts, String(err?.message || err).split('\n')[0]);
+      await page.waitForLoadState('domcontentloaded', { timeout: 60_000 }).catch(() => {});
+      await page.waitForTimeout(800);
+    }
   }
 }
 
@@ -88,7 +107,20 @@ for (const view of ['desktop', 'iphone']) {
 }
 
 for (const spec of shots) {
-  const { ctx, page } = await openPage(spec.view, spec.quality);
+  let ctx;
+  let page;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      ({ ctx, page } = await openPage(spec.view, spec.quality));
+      break;
+    } catch (err) {
+      console.log('RETRY open', spec.view, spec.quality, spec.id, attempt, String(err?.message || err).split('\n')[0]);
+      if (ctx) await ctx.close().catch(() => {});
+      ctx = undefined;
+      if (attempt === 2 || !destroyed(err)) throw err;
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+  }
   if (spec.id === 'pyramid') {
     await page.evaluate(() => window.__nla.setPose(
       ...(() => {
@@ -135,6 +167,7 @@ for (const spec of shots) {
   await page.waitForTimeout(600);
   await shoot(page, `${spec.view}-${spec.quality}-${spec.id}`);
   await ctx.close();
+  await new Promise((r) => setTimeout(r, 400));
 }
 
 // Same park as the street still: fly to the Bradbury pin, step out, drop the car
