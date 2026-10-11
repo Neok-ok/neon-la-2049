@@ -2,7 +2,7 @@
 //   BASE_URL=http://localhost:5173 OUT=/tmp/l1-before node scripts/l1-capture.mjs
 // ONLY=little-tokyo,dtla  GPU=1
 import { chromium } from 'playwright';
-import { mkdirSync, writeFileSync, writeSync } from 'node:fs';
+import { existsSync, mkdirSync, statSync, writeFileSync, writeSync } from 'node:fs';
 import { join } from 'node:path';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:5173/';
@@ -91,19 +91,21 @@ for (const s of selected) {
 }
 const groups = [...byKey.entries()].map(([key, list]) => ({ key, shots: list }));
 
-const browser = await chromium.launch({ headless: true, args });
-for (const group of groups) {
-  const first = group.shots[0];
-  const ctx = await browser.newContext(first.ctx);
-  const page = await ctx.newPage();
-  const errors = [];
-  page.on('pageerror', (e) => errors.push(String(e)));
-  const q = tonemap ? `${first.q}&tonemap=${tonemap}` : first.q;
-  await page.goto(`${BASE}?${q}`);
+const resume = process.env.RESUME === '1';
+
+function already(name) {
+  if (!resume) return false;
+  const p = join(OUT, `${name}.png`);
+  if (!existsSync(p)) return false;
+  try { return statSync(p).size > 8000; } catch { return false; }
+}
+
+async function boot(page, q, label) {
+  await page.goto(`${BASE}?${q}`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
   await page.waitForFunction(() => {
     const st = window.__nla?.stats?.();
     return st && st.drawCalls > 30 && st.fps > 0 && st.lod0 >= 4;
-  }, null, { timeout: 120_000, polling: 400 }).catch(() => log(`${first.name}: stream slow`));
+  }, null, { timeout: 120_000, polling: 400 }).catch(() => log(`${label}: stream slow`));
   await page.evaluate(() => {
     const native = window.requestAnimationFrame.bind(window);
     let paused = false;
@@ -125,32 +127,67 @@ for (const group of groups) {
       }
     };
   });
-  for (const s of group.shots) {
-    const t0 = Date.now();
-    if (s.after) {
-      await page.evaluate(s.after);
-      await page.waitForTimeout(400);
-      await page.evaluate(s.after);
-      await page.waitForFunction(() => {
-        const st = window.__nla?.stats?.();
-        return st && st.fps > 0 && st.drawCalls > 20 && st.lod0 >= 4;
-      }, null, { timeout: 75_000, polling: 400 }).catch(() => log(`${s.name}: still streaming`));
-      await page.waitForTimeout(1200);
-      await page.evaluate(() => new Promise((resolve) => {
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-      }));
-    }
-    const stats = await page.evaluate(() => window.__nla?.stats?.() ?? null);
-    await page.evaluate(() => window.__nlaPauseFrame?.());
-    const client = await page.context().newCDPSession(page);
-    const shot = await client.send('Page.captureScreenshot', { format: 'png' });
-    writeFileSync(join(OUT, `${s.name}.png`), Buffer.from(shot.data, 'base64'));
-    await client.detach();
-    await page.evaluate(() => window.__nlaResumeFrame?.());
-    const light = stats?.lighting ?? null;
-    log(`${s.name}: ${((Date.now() - t0) / 1000).toFixed(1)}s fps=${stats?.fps} draws=${stats?.drawCalls} lod0=${stats?.lod0} tier=${stats?.tier} lights=${light ? JSON.stringify(light) : '-'}${errors.length ? ' ERR ' + errors[0] : ''}`);
-    errors.length = 0;
+}
+
+async function grab(page, s, errors) {
+  const t0 = Date.now();
+  if (s.after) {
+    await page.evaluate(s.after);
+    await page.waitForTimeout(400);
+    await page.evaluate(s.after);
+    await page.waitForFunction(() => {
+      const st = window.__nla?.stats?.();
+      return st && st.fps > 0 && st.drawCalls > 20 && st.lod0 >= 4;
+    }, null, { timeout: 75_000, polling: 400 }).catch(() => log(`${s.name}: still streaming`));
+    await page.waitForTimeout(1200);
+    await page.evaluate(() => new Promise((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    }));
   }
-  await ctx.close();
+  const stats = await page.evaluate(() => window.__nla?.stats?.() ?? null);
+  if (!stats) throw new Error('debug api missing');
+  await page.evaluate(() => window.__nlaPauseFrame?.());
+  const client = await page.context().newCDPSession(page);
+  const shot = await client.send('Page.captureScreenshot', { format: 'png' });
+  writeFileSync(join(OUT, `${s.name}.png`), Buffer.from(shot.data, 'base64'));
+  await client.detach();
+  await page.evaluate(() => window.__nlaResumeFrame?.());
+  const light = stats?.lighting ?? null;
+  log(`${s.name}: ${((Date.now() - t0) / 1000).toFixed(1)}s fps=${stats?.fps} draws=${stats?.drawCalls} lod0=${stats?.lod0} tier=${stats?.tier} lights=${light ? JSON.stringify(light) : '-'}${errors.length ? ' ERR ' + errors[0] : ''}`);
+  errors.length = 0;
+}
+
+const browser = await chromium.launch({ headless: true, args });
+for (const group of groups) {
+  const pending = group.shots.filter((s) => !already(s.name));
+  if (!pending.length) {
+    log(`${group.key}: resume skip`);
+    continue;
+  }
+  const first = group.shots[0];
+  const q = tonemap ? `${first.q}&tonemap=${tonemap}` : first.q;
+  let ctx = await browser.newContext(first.ctx);
+  let page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await boot(page, q, first.name);
+  for (const s of pending) {
+    try {
+      await grab(page, s, errors);
+    } catch (err) {
+      log(`${s.name}: ${err instanceof Error ? err.message : err} — reloading`);
+      await ctx.close().catch(() => {});
+      ctx = await browser.newContext(first.ctx);
+      page = await ctx.newPage();
+      page.on('pageerror', (e) => errors.push(String(e)));
+      try {
+        await boot(page, q, s.name);
+        await grab(page, s, errors);
+      } catch (err2) {
+        log(`${s.name}: FAILED ${err2 instanceof Error ? err2.message : err2}`);
+      }
+    }
+  }
+  await ctx.close().catch(() => {});
 }
 await browser.close();
