@@ -3,6 +3,7 @@
 import { Group, MathUtils, Vector3, type PerspectiveCamera, type Scene } from 'three/webgpu';
 import type { Controller, Pose } from './types';
 import { forwardOf } from './types';
+import { applyViewFov, gameplayHeld, lookScale } from '../input/controls';
 import type { Input } from '../input/Input';
 import { CityQuery } from '../world/CityQuery';
 import { createSpinnerMesh, mountSpinnerLod } from '../vehicles/spinnerModel';
@@ -52,14 +53,13 @@ export class FlyController implements Controller {
     this.vel.set(0, 0, 0);
     this.spinner.visible = true;
     this.input.pointerLockWanted = true;
+    applyViewFov(this.camera, 'fly');
     forwardOf(this.heading, this.pitch, v1);
     const side = this.camera.aspect < 0.85 ? CHASE_SIDE_PORTRAIT : CHASE_SIDE;
     this.camPos.copy(this.pos).addScaledVector(v1, -11);
     this.camPos.x += Math.cos(this.heading) * side;
     this.camPos.z += Math.sin(this.heading) * side;
     this.camPos.y += 2.5;
-    this.camera.fov = 62;
-    this.camera.updateProjectionMatrix();
   }
 
   exit(): void {
@@ -92,10 +92,18 @@ export class FlyController implements Controller {
   update(dt: number): void {
     if (!this.active) return;
     const inp = this.input;
-    if (inp.wasPressed('KeyV')) this.cockpit = !this.cockpit;
+    if (gameplayHeld()) {
+      this.vel.set(0, 0, 0);
+      inp.consumeLook();
+      applyViewFov(this.camera, 'fly');
+      return;
+    }
+    if (inp.wasPressedAction('cockpit')) this.cockpit = !this.cockpit;
+    applyViewFov(this.camera, 'fly');
     const [mx, my] = inp.consumeLook();
-    this.heading += mx * 0.0022 + inp.turn * 1.5 * dt;
-    this.pitch = MathUtils.clamp(this.pitch - my * 0.0018 - inp.tilt * 1.1 * dt, -1.35, 1.1);
+    const { sens, pitch } = lookScale();
+    this.heading += mx * 0.0022 * sens + inp.turn * 1.5 * dt * sens;
+    this.pitch = MathUtils.clamp(this.pitch - my * 0.0018 * pitch - inp.tilt * 1.1 * dt * pitch, -1.35, 1.1);
 
     const max = inp.boost ? this.boostSpeed : this.cruise;
     const look = forwardOf(this.heading, this.pitch, v1);
@@ -134,7 +142,7 @@ export class FlyController implements Controller {
 
     // spinner attitude: yaw to heading, bank into strafe/turns, nose follows climb a little
     const lateral = this.vel.dot(right) / this.cruise;
-    this.bank = MathUtils.lerp(this.bank, MathUtils.clamp(-lateral * 0.5 - mx * 0.002, -0.6, 0.6), 1 - Math.exp(-dt * 4));
+    this.bank = MathUtils.lerp(this.bank, MathUtils.clamp(-lateral * 0.5 - mx * 0.002 * sens, -0.6, 0.6), 1 - Math.exp(-dt * 4));
     this.spinner.position.copy(this.pos);
     this.spinner.rotation.set(MathUtils.clamp(this.vel.y / 200, -0.3, 0.3), -this.heading, this.bank, 'YXZ');
 

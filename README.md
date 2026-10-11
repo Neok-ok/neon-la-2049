@@ -26,6 +26,9 @@ the Wallace pyramid on the horizon and the Sepulveda Sea Wall holding back the P
 | Cockpit view | `V` | — |
 | Next cinematic shot | `N` | toolbar |
 | HUD / mute / time / weather | `H` / `M` / `[` `]` / `B` | toolbar `⋯` |
+| Settings | toolbar Settings | toolbar `⋯` → Settings |
+
+Graphics tier, field of view, look sensitivity, invert look, and desktop key bindings are remembered on this device. `1` `2` `3` `F` `N` `P` `H` `M` `[` `]` `B` stay fixed.
 
 ## Develop
 

@@ -192,10 +192,10 @@ All controllers implement `Controller { enter(pose), exit(), update(dt), pose() 
 
 ## Input and UI
 
-* `Input`: keyboard (edge-triggered `wasPressed`), pointer lock (fly/walk) or drag-to-look, plus touch state.
-* `TouchControls`: shown on coarse-pointer devices (or `?touch=1`). Left stick moves, right stick looks, ▲ ▼ » buttons in fly mode.
-* `UI`: title card (fly / walk / watch), toolbar (modes, next shot, quality, weather, time, sound, HUD, help). On phones the secondary
-  controls collapse behind `⋯` and the bar moves to the top.
+* `Input`: keyboard (edge-triggered `wasPressed`), pointer lock (fly/walk) or drag-to-look, plus touch state. Movement, look, boost, sit and cockpit read the bindings in `localStorage['nla.controls']`.
+* `TouchControls`: shown on coarse-pointer devices (or `?touch=1`). Left stick moves, right stick looks, ▲ ▼ » buttons in fly mode. Look speed and invert follow the same control prefs as the mouse.
+* `UI`: title card (fly / walk / watch), toolbar (modes, next shot, weather, time, sound, HUD, help) and a Settings sheet (graphics tier with a short description and preview, field of view, look sensitivity, invert look, desktop key rebinding). On phones the secondary
+  controls collapse behind `⋯` and the bar moves to the top. Sound and volume stay on the bar.
 * `HUD` (`H`): fps and worst frame, backend, tier, draw calls, triangles, streaming stats, position (metres and lat/lon), district and stage,
   time, weather, current shot.
 
@@ -212,7 +212,7 @@ Ground traffic budgets (street / freeway near vehicles), before the district `tr
 
 * **Auto-detect** picks the tier from the UA, the WebGL renderer string, WebGPU, `devicePixelRatio` and the short screen side. Software → low. iOS never picks high. An iPhone or iPad with WebGPU, or DPR ≥ 2.5 (iPhone 12 and later, including the 13 mini), or a short side ≥ 390 pt, lands on **medium**. iPhone SE (375×667 at DPR 2) stays **low**. Safari does not expose `deviceMemory` and caps `hardwareConcurrency`, so the old 8-core / 8 GB test never saw an iPhone; without the screen check an iOS 17–18 phone (no WebGPU) fell through to low. Other phones stay low unless they report ≥ 8 cores and ≥ 8 GB. Integrated GPU → medium. Apple silicon or a discrete GPU on a desktop → high.
 * **Runtime safety net:** in Auto, after 8 s of frames, 3.5 s of wall-clock time under 24 fps drops one tier, with the same toast. The timer uses the real frame delta, not the 100 ms simulation clamp, so a phone that is actually at 10 fps is not treated as merely a bit slow. The tier does not climb back, so it cannot flap. A toolbar choice or `?quality=` is not touched. Holograms read the live tier, so the drop also cuts panel count, shader detail, spill and cull range.
-* **Manual override** in the toolbar is saved in `localStorage['nla.quality']`. `?quality=` beats both. Auto's drop does not write that key, so a reload re-detects.
+* **Manual override** in Settings is saved in `localStorage['nla.quality']`. Field of view, look sensitivity, invert look and key bindings are `localStorage['nla.controls']`. `?quality=` beats the stored tier. Auto's drop does not write `nla.quality`, so a reload re-detects. The sheet only calls `setQuality`; it does not change what a tier loads.
 
 ### Holograms (`world/holograms/`)
 
@@ -357,7 +357,7 @@ Interior light on balconies was not built. A low-tier depth trick was not built:
 `geoToLocal(lat,lon)`, `app`, `resetPeaks()`, `windows`, `air`. `stats()` includes draw calls, triangles, crowd count plus `crowdAnimated`, `crowdStatic`, `crowdIdle` and `crowdTris`, hologram panel count, query-worker counters (`querySyncs`, `queryUnpacks`, `queryUnpackMs`), lane cars and lanes, ground cars, freeway cars, streak count plus `streakDrawn` / `streakBins` / `streakBinsDrawn`, the nearest signal (`viewSignal`), queued cars, the traffic bed, landmark LOD levels, the beacon count, frame time (`frameMs`, `worstMs`, `sessionWorstMs` — unclamped; the simulation step is still clamped at 100 ms), canvas size (`pixelRatio`, `canvasWidth`, `canvasHeight`, `canvasPixels`), a geometry-buffer estimate (`gpuGeomBytes`, not the framebuffer), `jsHeap` when the browser exposes it, chunk upload counters (`uploads`, `uploadPeak`, `uploadMs`), boot timestamps (`initMs`, `firstFrameMs`, `interactiveMs`), and the interior fields (`interior`, `interiorOccluded`, `interiorMuffle`, `interiorTris`, `interiorMeshes`, `interiorMounted`), plus `voices`, `voiceCap` and `audioDistrict`, plus `windows` (the tier cutoff, not the lit census), plus `air` (layer toggles, halo/shaft/breath counts, densities, and the live beams). `window.__nla.windows` is `toggle`, `litFraction`, `byDistrict`, `setCutoff`, `cutoff`, `state`, `heroes`. `window.__nla.air` is `toggle(layer, on?)` for `ground`, `mid`, `deck`, `halos`, `shafts`, `rain`, `breath`; `searchlights(n?)` (0–4, or a negative to restore the tier cap); `heights({groundY, groundW, deckY, deckW, layerY})` (a negative field resets that one); `state()`. `window.__nlaAudio.capture()` renders four short procedural scenes (market, Broadway, harbor, interior) to WAV. `scripts/iphone-survey.mjs` re-runs the spot table, the district flyover and the first-load timing. `PART=photo` (not in the default) samples photo mode and writes stills. `PHOTO=perf|stills` and `TIERS=` narrow that run.
 
 Keys: `1/2/3` fly/walk/cinematic, `F` toggle fly↔walk, `V` cockpit, `E` sit / stand at a market stool (walk mode; in fly mode `E` is still up),
-`N` next shot, `P` photo mode, `H` HUD, `M` mute, the toolbar Vol slider (remembered with mute), `[ ]` time −/+ 1 h, `B` next weather. In photo mode `Esc` exits, `Z`/`X` roll, `R` levels the horizon, and `[ ]` move the shot's clock. The iPhone joystick has no sit button. On a phone the Sound button and the slider sit in the `⋯` group with the other secondary controls. The Photo button stays on the bar.
+`N` next shot, `P` photo mode, `H` HUD, `M` mute, the toolbar Vol slider (remembered with mute), `[ ]` time −/+ 1 h, `B` next weather. Settings can rebind movement, look, boost, sit and cockpit. The mode and menu keys stay fixed. In photo mode `Esc` exits, `Z`/`X` roll, `R` levels the horizon, and `[ ]` move the shot's clock. The iPhone joystick has no sit button. On a phone the Sound button and the slider sit in the `⋯` group with the other secondary controls. The Photo button stays on the bar.
 
 ## Testing
 

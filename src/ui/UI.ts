@@ -1,9 +1,10 @@
 // DOM UI: title card, mode switcher, quality menu, toggles, letterbox + fade for the cinematic camera.
 import type { ModeId } from '../camera/types';
-import { TIERS, type Tier } from '../core/quality';
+import type { Tier } from '../core/quality';
 import { WEATHER, type WeatherId } from '../atmosphere/Weather';
 import { audioPrefs, onAudioPrefs } from '../audio/prefs';
 import { activeAmbience } from '../audio/Ambience';
+import { SettingsPanel } from './SettingsPanel';
 
 export interface UICallbacks {
   setMode(m: ModeId): void;
@@ -23,7 +24,7 @@ export class UI {
   private letterbox: HTMLDivElement;
   private fadeEl: HTMLDivElement;
   private title: HTMLDivElement | null = null;
-  private qualitySel: HTMLSelectElement;
+  private settings: SettingsPanel;
   private soundBtn: HTMLButtonElement;
   private volume: HTMLInputElement;
   private nextBtn: HTMLButtonElement;
@@ -59,13 +60,12 @@ export class UI {
     this.bar.appendChild(more);
     if (matchMedia('(pointer: coarse)').matches) this.bar.classList.add('touch');
 
-    this.qualitySel = document.createElement('select');
-    this.qualitySel.title = 'Quality';
-    this.qualitySel.appendChild(new Option(`Auto (${opts.autoTier})`, 'auto'));
-    for (const t of TIERS) this.qualitySel.appendChild(new Option(t[0].toUpperCase() + t.slice(1), t));
-    this.qualitySel.value = opts.quality;
-    this.qualitySel.addEventListener('change', () => cb.setQuality(this.qualitySel.value as Tier | 'auto'));
-    more.appendChild(this.qualitySel);
+    this.settings = new SettingsPanel({ setQuality: (t) => cb.setQuality(t) }, { quality: opts.quality, autoTier: opts.autoTier });
+    const settingsBtn = button('Settings', () => this.settings.open(settingsBtn));
+    settingsBtn.title = 'Graphics, field of view, look, and keys';
+    settingsBtn.setAttribute('aria-haspopup', 'dialog');
+    settingsBtn.setAttribute('aria-controls', 'settings-dialog');
+    more.appendChild(settingsBtn);
 
     const weatherSel = document.createElement('select');
     weatherSel.title = 'Weather (changes on its own; pick to force)';
@@ -124,7 +124,8 @@ export class UI {
        <p class="sub">A fan-made tribute to the Los Angeles of <i>Blade Runner 2049</i>. Not affiliated with the film's makers.</p>
        <div class="choices"></div>
        <p class="hint">Desktop: WASD + mouse (click to capture), Space/C up/down, Shift boost, F fly/walk, V cockpit, H HUD.<br/>
-       iPhone: left stick moves, right stick looks, ▲▼ climb in the spinner.</p>`,
+       iPhone: left stick moves, right stick looks, ▲▼ climb in the spinner.<br/>
+       Settings (⋯ on a phone) holds graphics, field of view, look, and keys.</p>`,
     );
     const ch = t.querySelector('.choices')!;
     for (const [m, label] of [['fly', 'Fly a spinner'], ['walk', 'Walk the streets'], ['cine', 'Watch (cinematic)']] as Array<[ModeId, string]>) {
@@ -141,7 +142,7 @@ export class UI {
   showHelp(): void {
     this.flash(
       'Fly: WASD thrust · mouse/arrow keys steer · Space/E up · C/Q down · Shift boost · V cockpit<br/>' +
-        'Walk: WASD · mouse look · Shift run · E sit at a stall<br/>1 Fly · 2 Walk · 3 Cinematic · F toggle fly/walk · N next shot · P photo mode · H HUD · M mute · volume slider remembers · [ ] time −/+1 h · B next weather<br/>Photo: one finger looks, two fingers move and pinch the lens, tap focuses, Z/X roll, R level, Esc exits',
+        'Walk: WASD · mouse look · Shift run · E sit at a stall<br/>1 Fly · 2 Walk · 3 Cinematic · F toggle fly/walk · N next shot · P photo mode · H HUD · M mute · volume slider remembers · [ ] time −/+1 h · B next weather<br/>Settings: graphics, field of view, look sensitivity, invert look, and desktop keys. Saved on this device.<br/>Photo: one finger looks, two fingers move and pinch the lens, tap focuses, Z/X roll, R level, Esc exits',
       7000,
     );
   }
@@ -166,7 +167,11 @@ export class UI {
   }
 
   setQualityValue(v: Tier | 'auto'): void {
-    this.qualitySel.value = v;
+    this.settings.setQualityValue(v);
+  }
+
+  setAppliedTier(tier: Tier): void {
+    this.settings.setAppliedTier(tier);
   }
 
   fade(v: number): void {

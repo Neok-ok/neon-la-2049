@@ -1,4 +1,5 @@
 // On-screen joysticks for iPhone/iPad: left stick = move, right stick = look, plus up/down/boost buttons.
+import { gameplayHeld } from './controls';
 import type { TouchState } from './Input';
 
 class Stick {
@@ -94,6 +95,11 @@ export class TouchControls {
 
   update(): void {
     const s = this.state;
+    if (gameplayHeld()) {
+      s.moveX = s.moveY = s.lookX = s.lookY = 0;
+      s.up = s.down = s.boost = false;
+      return;
+    }
     const dz = (v: number) => (Math.abs(v) < 0.12 ? 0 : v);
     s.moveX = dz(this.move.x);
     s.moveY = -dz(this.move.y);
