@@ -40,6 +40,86 @@ function already(file) {
   try { return existsSync(file) && statSync(file).size > 40000; } catch { return false; }
 }
 
+/** Street camera: full 1.8 m figure beside the 2.2 m door, feet in frame, umbrellas not filling it. */
+function placeStreet(arg) {
+  const p = arg.tower;
+  const phase = arg.phase;
+  const nla = window.__nla;
+  const q = nla.app.query;
+  const nx = p.normal[0];
+  const nz = p.normal[1];
+  const bx = p.bx;
+  const bz = p.bz;
+  const latOf = (x, z) => (x - p.door[0]) * bx + (z - p.door[1]) * bz;
+  const depOf = (x, z) => (x - p.door[0]) * nx + (z - p.door[1]) * nz;
+  const lantern = p.kind === 'lantern';
+
+  let person = null;
+  if (phase === 'final') {
+    const mesh = nla.app.crowd?.mesh;
+    const e = mesh?.instanceMatrix?.array;
+    const found = [];
+    if (e) {
+      for (let i = 0; i < mesh.count; i++) {
+        const scale = Math.hypot(e[i * 16], e[i * 16 + 1], e[i * 16 + 2]);
+        if (scale < 0.2) continue;
+        const x = e[i * 16 + 12];
+        const z = e[i * 16 + 14];
+        const d = Math.hypot(x - p.door[0], z - p.door[1]);
+        if (d > 22 || depOf(x, z) < -0.6) continue;
+        found.push({ x, z, d, lat: latOf(x, z) });
+      }
+    }
+    found.sort((a, b) => a.d - b.d);
+    person = found.find((c) => (lantern ? c.lat < 3.5 : Math.abs(c.lat) < 14)) ?? found[0] ?? null;
+  }
+
+  // Stairs run toward +t. A small +t offset shows that profile without turning the door into a slot.
+  // The lantern cross covers +t, so that camera stays on the open side.
+  let camLat = lantern ? -5.2 : 2.3;
+  let out = lantern ? 13.5 : 8.2;
+  if (person && !lantern && person.lat > 4.5) camLat = -2.5;
+  if (person) {
+    const pd = depOf(person.x, person.z);
+    if (pd > 0.4) out = Math.max(out, Math.min(15.5, pd + 6.5));
+  }
+
+  let cx = p.door[0] + nx * out + bx * camLat;
+  let cz = p.door[1] + nz * out + bz * camLat;
+  for (let i = 0; i < 16 && q.insideSolid(cx, p.ground + 1.2, cz, 0.32); i++) {
+    cx += nx * 1.1;
+    cz += nz * 1.1;
+  }
+  if (person) {
+    for (let i = 0; i < 10 && Math.hypot(person.x - cx, person.z - cz) < 6.5; i++) {
+      cx += nx * 0.65;
+      cz += nz * 0.65;
+    }
+  }
+
+  const aimX = person ? p.door[0] * 0.62 + person.x * 0.38 : p.door[0] + bx * 0.35;
+  const aimZ = person ? p.door[1] * 0.62 + person.z * 0.38 : p.door[1] + bz * 0.35;
+  const lookX = aimX - cx;
+  const lookZ = aimZ - cz;
+  const dist = Math.hypot(lookX, lookZ) || 1;
+  const heading = Math.atan2(lookX, -lookZ);
+  const pitch = Math.atan2(0.92 - 1.7, dist);
+  if (nla.app.cams.mode !== 'walk') nla.setMode('walk');
+  nla.setPose(cx, p.ground + 2, cz, (heading * 180) / Math.PI, (pitch * 180) / Math.PI);
+  const w = nla.app.cams.walk;
+  w.pos.set(cx, p.ground, cz);
+  w.heading = heading;
+  w.pitch = pitch;
+  nla.app.cams.fly.spinner.visible = false;
+  return {
+    person: person ? { x: person.x, z: person.z, d: person.d } : null,
+    out,
+    camLat,
+    doorDist: Math.hypot(cx - p.door[0], cz - p.door[1]),
+    personDist: person ? Math.hypot(person.x - cx, person.z - cz) : null,
+  };
+}
+
 async function shot(page, file) {
   if (already(file)) {
     console.log('skip', file);
@@ -76,65 +156,9 @@ for (const tier of tiers) {
     if (views.includes('street') && already(join(OUT, `${tier}-${tower.kind}-street.png`))) {
       console.log('skip', `${tier}-${tower.kind}-street.png`);
     } else if (views.includes('street')) {
-      await page.evaluate((p) => {
-        const hero = String(p.kind).startsWith('hero');
-        const lantern = p.kind === 'lantern';
-        // Heroes stay just off the apron ring. The lantern door sits on the open arm, away from the cross.
-        const dist = hero ? 5.2 : lantern ? Math.max(16, (p.gap ?? 24) - 8) : 6.4;
-        const side = lantern ? -8 : 2.8;
-        const nla = window.__nla;
-        const q = nla.app.query;
-        let cx = p.door[0] + p.normal[0] * dist + p.bx * side;
-        let cz = p.door[1] + p.normal[1] * dist + p.bz * side;
-        if (!lantern && q.insideSolid(cx, p.ground + 1.2, cz, 0.4)) {
-          cx = p.door[0] + p.normal[0] * dist + p.bx * -side;
-          cz = p.door[1] + p.normal[1] * dist + p.bz * -side;
-        }
-        for (let i = 0; i < 18 && q.insideSolid(cx, p.ground + 1.2, cz, 0.4); i++) {
-          cx += p.normal[0] * 1.5;
-          cz += p.normal[1] * 1.5;
-        }
-        const aimX = p.door[0] + p.bx * 0.3;
-        const aimZ = p.door[1] + p.bz * 0.3;
-        const lookX = aimX - cx;
-        const lookZ = aimZ - cz;
-        const heading = Math.atan2(lookX, -lookZ);
-        const pitch = Math.atan2(1.3 - 1.7, Math.hypot(lookX, lookZ) || 1);
-        if (nla.app.cams.mode !== 'walk') nla.setMode('walk');
-        nla.setPose(cx, p.ground + 2, cz, (heading * 180) / Math.PI, (pitch * 180) / Math.PI);
-        const w = nla.app.cams.walk;
-        w.pos.set(cx, p.ground, cz);
-        w.heading = heading;
-        w.pitch = pitch;
-        nla.app.cams.fly.spinner.visible = false;
-      }, tower);
+      await page.evaluate(placeStreet, { tower, phase: 'near' });
       await settle(page, 1600);
-      await page.evaluate((p) => {
-        const nla = window.__nla;
-        const q = nla.app.query;
-        const w = nla.app.cams.walk;
-        const hero = String(p.kind).startsWith('hero');
-        const lantern = p.kind === 'lantern';
-        const dist = hero ? 5.2 : lantern ? Math.max(16, (p.gap ?? 24) - 8) : 6.4;
-        let side = lantern ? -8 : 2.8;
-        let cx = p.door[0] + p.normal[0] * dist + p.bx * side;
-        let cz = p.door[1] + p.normal[1] * dist + p.bz * side;
-        if (!lantern && q.insideSolid(cx, p.ground + 1.2, cz, 0.35)) {
-          side = -4.2;
-          cx = p.door[0] + p.normal[0] * dist + p.bx * side;
-          cz = p.door[1] + p.normal[1] * dist + p.bz * side;
-        }
-        for (let i = 0; i < 22 && q.insideSolid(cx, p.ground + 1.2, cz, 0.35); i++) {
-          cx += p.normal[0] * 1.6;
-          cz += p.normal[1] * 1.6;
-        }
-        w.pos.x = cx;
-        w.pos.z = cz;
-        const lookX = p.door[0] - cx;
-        const lookZ = p.door[1] - cz;
-        w.heading = Math.atan2(lookX, -lookZ);
-        w.pitch = Math.atan2(1.3 - 1.7, Math.hypot(lookX, lookZ) || 1);
-      }, tower);
+      await page.evaluate(placeStreet, { tower, phase: 'near' });
       await page.waitForFunction((door) => {
         const mesh = window.__nla?.app?.crowd?.mesh;
         if (!mesh || mesh.count < 1) return false;
@@ -147,85 +171,22 @@ for (const tier of tiers) {
           const d = Math.hypot(e[i * 16 + 12] - door[0], e[i * 16 + 14] - door[1]);
           if (d < best) best = d;
         }
-        return best < 12;
-      }, tower.door, { timeout: 10_000 }).catch(() => {});
-      await page.evaluate((p) => {
-        const nla = window.__nla;
-        const mesh = nla.app.crowd.mesh;
-        const e = mesh.instanceMatrix.array;
-        let px = 0;
-        let pz = 0;
-        let best = 1e9;
-        for (let i = 0; i < mesh.count; i++) {
-          const scale = Math.hypot(e[i * 16], e[i * 16 + 1], e[i * 16 + 2]);
-          if (scale < 0.2) continue;
-          const x = e[i * 16 + 12];
-          const z = e[i * 16 + 14];
-          const d = Math.hypot(x - p.door[0], z - p.door[1]);
-          if (d < best) { best = d; px = x; pz = z; }
-        }
-        if (best > 14 || String(p.kind).startsWith('hero') || p.kind === 'lantern') return;
-        // Stand a few metres beside that person, outward of the door, so both read at human scale.
-        const dx = p.door[0] - px;
-        const dz = p.door[1] - pz;
-        const len = Math.hypot(dx, dz) || 1;
-        let sx = -dz / len;
-        let sz = dx / len;
-        if (sx * p.normal[0] + sz * p.normal[1] < 0) { sx = -sx; sz = -sz; }
-        const q = nla.app.query;
-        let cx = px + sx * 4.4 + p.normal[0] * 1.4;
-        let cz = pz + sz * 4.4 + p.normal[1] * 1.4;
-        if (q.insideSolid(cx, p.ground + 1.2, cz, 0.35)) {
-          cx = px - sx * 4.4 + p.normal[0] * 1.4;
-          cz = pz - sz * 4.4 + p.normal[1] * 1.4;
-        }
-        for (let i = 0; i < 14 && q.insideSolid(cx, p.ground + 1.2, cz, 0.35); i++) {
-          cx += p.normal[0] * 1.3;
-          cz += p.normal[1] * 1.3;
-        }
-        const doorDist = Math.hypot(cx - p.door[0], cz - p.door[1]);
-        if (doorDist < 5.4) {
-          cx += p.normal[0] * (5.8 - doorDist);
-          cz += p.normal[1] * (5.8 - doorDist);
-        }
-        const aimX = p.door[0] * 0.62 + px * 0.38;
-        const aimZ = p.door[1] * 0.62 + pz * 0.38;
-        const lookX = aimX - cx;
-        const lookZ = aimZ - cz;
-        const w = nla.app.cams.walk;
-        w.pos.set(cx, p.ground, cz);
-        w.heading = Math.atan2(lookX, -lookZ);
-        w.pitch = Math.atan2(1.25 - 1.7, Math.hypot(lookX, lookZ) || 1);
-      }, tower);
-      const info = await page.evaluate((p) => {
-        const nla = window.__nla;
-        const mesh = nla.app.crowd.mesh;
-        const e = mesh.instanceMatrix.array;
-        let best = null;
-        let bestD = 1e9;
-        for (let i = 0; i < mesh.count; i++) {
-          const scale = Math.hypot(e[i * 16], e[i * 16 + 1], e[i * 16 + 2]);
-          if (scale < 0.2) continue;
-          const x = e[i * 16 + 12];
-          const z = e[i * 16 + 14];
-          const d = Math.hypot(x - p.door[0], z - p.door[1]);
-          if (d < bestD) bestD = d, best = { x, z, d };
-        }
-        const w = nla.app.cams.walk;
-        const cam = nla.app.camera.position;
-        return {
-          person: best,
-          count: mesh.count,
-          cam: [Number(cam.x.toFixed(1)), Number(cam.y.toFixed(1)), Number(cam.z.toFixed(1))],
-          feet: [Number(w.pos.x.toFixed(1)), Number(w.pos.z.toFixed(1))],
-        };
-      }, tower);
+        return best < 18;
+      }, tower.door, { timeout: 12_000 }).catch(() => {});
+      const info = await page.evaluate(placeStreet, { tower, phase: 'final' });
       await settle(page, 900);
       const file = `${tier}-${tower.kind}-street.png`;
       await shot(page, join(OUT, file));
       const st = await page.evaluate(() => window.__nla.stats());
       log.push({ file, ...info, fps: st.fps, draws: st.drawCalls, tris: st.triangles, idle: st.inFlight, crowd: st.crowd });
-      console.log(file, JSON.stringify({ person: info.person, crowd: st.crowd, draws: st.drawCalls, idle: st.inFlight }));
+      console.log(file, JSON.stringify({
+        person: info.person,
+        doorDist: info.doorDist && Number(info.doorDist.toFixed(1)),
+        personDist: info.personDist && Number(info.personDist.toFixed(1)),
+        crowd: st.crowd,
+        draws: st.drawCalls,
+        idle: st.inFlight,
+      }));
     }
     if (views.includes('fly') && already(join(OUT, `${tier}-${tower.kind}-fly.png`))) {
       console.log('skip', `${tier}-${tower.kind}-fly.png`);
