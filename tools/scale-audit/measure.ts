@@ -309,7 +309,7 @@ function anchors(): void {
   must(vehicles, 'export const CAR_L = 5.06', 'vehicleModels.ts');
   must(vehicles, 'export const CAR_W = 1.78', 'vehicleModels.ts');
   must(vehicles, 'export const CAR_H = 1.466', 'vehicleModels.ts');
-  must(vehicles, 'export const HAULER_L = 16.159', 'vehicleModels.ts');
+  must(vehicles, 'export const HAULER_L = 16.2', 'vehicleModels.ts');
   must(vehicles, 'export const HAULER_W = 2.316', 'vehicleModels.ts');
   must(vehicles, 'export const HAULER_H = 3.887', 'vehicleModels.ts');
   must(vehicles, 'car: CAR_L', 'vehicleModels.ts');

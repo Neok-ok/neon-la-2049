@@ -480,21 +480,22 @@ def dress_hauler(kit, lod):
     place(kit, kit.panel_inset('cab-door-l', 0.62, 0.85, bolts=lod == 'high'), (-1.02, 6.55, 1.65), (-1, 0, 0.04))
     place(kit, kit.panel_inset('cab-door-r', 0.62, 0.85, bolts=lod == 'high'), (1.02, 6.55, 1.65), (1, 0, 0.04))
     place(kit, kit.vent('cab-vent', 0.28, 0.10, 0.018, 4 if lod == 'high' else 2), (0.0, 7.35, 1.35), (0, 0.3, 1))
-    # Vertical ribs. 18 cm fore-aft so a side view at street distance sees a post, not a pixel.
-    # Both ends are ordered: a negative sign would otherwise collapse the box to a hairline.
+    # Light ribs, uneven, wide enough to break the box when the sheet is viewed whole.
     # Outer face stays at 1.158 m, inside the 1.165 m curb clearance.
-    rib_n = 8 if lod == 'high' else 4
-    for i in range(rib_n):
-        y = -6.2 + i * (10.2 / max(1, rib_n - 1))
+    steel = trim_mat()
+    stations = (-6.8, -5.0, -3.7, -1.8, 0.1, 2.2, 3.8) if lod == 'high' else (-5.6, -2.0, 2.6)
+    for i, y in enumerate(stations):
         for sign in (-1, 1):
-            inner, outer = sign * 1.05, sign * 1.158
+            inner, outer = sign * 1.02, sign * 1.158
             lo_x, hi_x = (inner, outer) if inner < outer else (outer, inner)
             box(
                 f'rib-{sign:+d}-{i}',
-                (lo_x, y - 0.09, 1.32),
-                (hi_x, y + 0.09, 3.78),
-                kit.recess,
+                (lo_x, y - 0.18, 1.35),
+                (hi_x, y + 0.18, 3.75),
+                steel,
             )
+    # Full-height split between the rear doors. Proud of the tail by a few centimetres.
+    box('rear-seam', (-0.12, tail - 0.06, 1.25), (0.12, tail + 0.02, 3.78), steel)
     place(kit, kit.panel_inset('rear-door-l', 0.85, 1.6, bolts=False), (-0.48, tail, 2.40), (0, -1, 0))
     place(kit, kit.panel_inset('rear-door-r', 0.85, 1.6, bolts=False), (0.48, tail, 2.40), (0, -1, 0))
     if lod != 'high':

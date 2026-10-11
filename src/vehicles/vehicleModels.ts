@@ -24,7 +24,7 @@ export type VehicleLod = 'low' | 'medium' | 'high';
 export const CAR_L = 5.06;
 export const CAR_W = 1.78;
 export const CAR_H = 1.466;
-export const HAULER_L = 16.159;
+export const HAULER_L = 16.2;
 export const HAULER_W = 2.316;
 export const HAULER_H = 3.887;
 

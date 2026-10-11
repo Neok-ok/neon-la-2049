@@ -21,18 +21,18 @@
     }
   },
   "hauler": {
-    "length": 16.159,
+    "length": 16.2,
     "width": 2.316,
     "roof": 3.887,
     "tris": {
-      "high": 2420,
-      "medium": 1336,
+      "high": 2408,
+      "medium": 1324,
       "low": 716
     },
     "iou": {
-      "side": 0.834,
+      "side": 0.841,
       "top": 0.955,
-      "front": 0.942
+      "front": 0.941
     },
     "lane": 3.55,
     "person": 1.8,
