@@ -1,34 +1,47 @@
 // Single node material for all procedural fabric (ground + buildings). Windows, staining, wetness,
 // puddles, snow cover and far-distance light averaging are all procedural so chunks need no textures.
+// Living rooms are an optional second graph on this same material (see src/world/windows/).
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import { U } from '../../atmosphere/uniforms';
 import { hologramSpill } from '../holograms/spill';
+import { CELL_H, CELL_W, ROOM_STYLE, WIN_H, WIN_W } from '../windows/facade';
+import { heroMask, livingNear, scheduledLitNode } from '../windows/shade';
+import { W, markWindowDetail } from '../windows/state';
 import { lut } from './lut';
 
 // TSL typings are very loose in @types/three; shader modules use untyped TSL deliberately.
 const T = TSL as any;
 const {
-  Fn, attribute, float, vec2, vec3, floor, fract, step, smoothstep, mix, hash, mx_noise_float, normalLocal,
-  positionWorld, cameraPosition, fwidth, max, clamp, length, normalize, pow, abs,
+  Fn, attribute, float, vec2, vec3, floor, fract, step, smoothstep, mix, hash, mx_noise_float, normalLocal, normalWorld,
+  positionWorld, cameraPosition, fwidth, max, clamp, length, normalize, pow, abs, dot,
 } = T;
 
-// Per-style tables, indexed by Style id (src/world/fabric/types.ts)
-//                     ground mega  office indus market coast resid civic sprawl neon  solid ribbon slit  glow  monolith ribbed coffer panel masonry deco
-const CELL_W = [1, 3.6, 2.2, 9.0, 3.2, 5.0, 3.2, 6.0, 3.4, 3.0, 4.0, 19.0, 4.6, 6.0, 11.7, 2.6, 7.2, 9.6, 3.2, 1.7];
-const CELL_H = [1, 3.6, 4.0, 7.0, 3.2, 3.4, 3.1, 5.5, 3.2, 3.4, 3.2, 4.4, 13.0, 4.5, 11.7, 3.5, 6.6, 3.9, 4.8, 5.6];
-const WIN_W = [0, 0.55, 0.7, 0.3, 0.6, 0.35, 0.5, 0.25, 0.45, 0.6, 0, 0.97, 0.14, 0.94, 0.07, 0.2, 0.36, 0.8, 0.34, 0.16];
-const WIN_H = [0, 0.45, 0.5, 0.25, 0.5, 0.35, 0.45, 0.2, 0.45, 0.5, 0, 0.4, 0.86, 0.82, 0.05, 0.74, 0.32, 0.22, 0.66, 0.78];
 const ALBEDO = [0.06, 0.2, 0.15, 0.2, 0.24, 0.3, 0.22, 0.3, 0.25, 0.17, 0.14, 0.13, 0.19, 0.1, 0.085, 0.18, 0.155, 0.17, 0.28, 0.24];
 const WARMTH = [0, 0.55, 0.25, 0.7, 0.9, 0.5, 0.75, 0.3, 0.8, 0.6, 0.45, 0.35, 0.6, 0.9, 0.95, 0.62, 0.48, 0.4, 0.58, 0.22];
 
 let shared: MeshStandardNodeMaterial | null = null;
+let detail = false;
+
+/** Compile or swap the facade graph. Meshes already hold this material, so the object stays. */
+export function setCityWindowDetail(living: boolean): void {
+  detail = living;
+  markWindowDetail(living);
+  if (!shared) return;
+  compose(shared, living);
+  shared.needsUpdate = true;
+}
 
 export function getCityMaterial(): MeshStandardNodeMaterial {
   if (shared) return shared;
   const m = new MeshStandardNodeMaterial();
   m.name = 'CityFabric';
+  compose(m, detail);
+  shared = m;
+  return m;
+}
 
+function compose(m: MeshStandardNodeMaterial, living: boolean): void {
   const facade = attribute('facade', 'vec2');
   const bdata = attribute('bdata', 'vec4');
   const seed = bdata.x;
@@ -49,6 +62,7 @@ export function getCityMaterial(): MeshStandardNodeMaterial {
 
   const wpos = positionWorld;
   const distCam = length(wpos.sub(cameraPosition));
+  const viewToCam = normalize(cameraPosition.sub(wpos));
 
   // ---- windows ----
   const g = facade.div(vec2(cellW, cellH));
@@ -58,12 +72,21 @@ export function getCityMaterial(): MeshStandardNodeMaterial {
     .mul(step(float(0.5).sub(winW.mul(0.5)), f.x))
     .mul(step(f.y, float(0.55).add(winH.mul(0.5))))
     .mul(step(float(0.55).sub(winH.mul(0.5)), f.y));
-  const k1 = hash(cell.x.add(floor(seed.mul(4096)).mul(512)));
+  const seedQ = floor(seed.mul(4096));
+  const k1 = hash(cell.x.add(seedQ.mul(512)));
   const h1 = hash(cell.y.add(k1.mul(65536)));
   const h2 = hash(h1.mul(9137.0).add(cell.x));
   // the film's towers read as dark masses with sparse lights: only ~half of the nominal lit fraction
   const litFrac = lit.mul(U.windowLit).mul(0.45);
-  const litMask = step(h1, litFrac);
+  const baseLit = step(h1, litFrac);
+  const isGlow = step(12.5, styleF).mul(step(styleF, 13.5));
+  // Glow keeps the old lottery. Every other pane may flip inside a thin band around the threshold.
+  const litMask = mix(scheduledLitNode(h1, litFrac, cell, seedQ), baseLit, isGlow);
+  const eligible = lut(ROOM_STYLE, styleF);
+  const hero = living ? heroMask(wpos) : float(0);
+  const litForWindows = living
+    ? mix(litMask, float(1), hero.mul(W.on).mul(eligible).mul(winMask))
+    : litMask;
   const warmC = vec3(1.0, 0.58, 0.26);
   const coolC = vec3(0.55, 0.78, 1.0);
   const winColor = mix(coolC, warmC, step(h2, warmth)).mul(h2.mul(0.9).add(0.35));
@@ -74,14 +97,33 @@ export function getCityMaterial(): MeshStandardNodeMaterial {
   const h3 = hash(h1.mul(4513.0).add(cell.y));
   const blinds = mix(float(1), float(0.3), step(0.62, h3).mul(step(ly, h3.sub(0.62).mul(2.6).add(0.35)).oneMinus()));
   const interior = ly.mul(0.55).add(0.6).mul(blinds).mul(mullion.mul(0.85).add(0.15));
-  const nearWindows = winColor.mul(litMask).mul(winMask).mul(interior);
+  const flickShare = step(hash(h1.mul(17).add(cell.x).add(seedQ)), float(0.07));
+  const flickN = hash(floor(U.time.mul(2.5).add(hash(cell.y.add(seedQ.mul(3))))).add(cell.x));
+  const flick = mix(float(1), flickN.mul(0.5).add(0.75), flickShare);
+  const footprint = fwidth(g.x).add(fwidth(g.y));
+  const farFade = max(smoothstep(0.7, 1.3, footprint), smoothstep(900.0, 2600.0, distCam));
+
+  let nearWindows = winColor.mul(litForWindows).mul(winMask).mul(interior).mul(flick);
+  let glassWet = float(0);
+  if (living) {
+    const vertical = step(abs(normalWorld.y), float(0.35));
+    const rangeSafe = max(W.range, float(1));
+    const inRange = float(1).sub(smoothstep(rangeSafe.mul(0.72), rangeSafe, distCam)).mul(step(float(1), W.range));
+    const sharp = float(1).sub(smoothstep(float(0.22), float(0.62), footprint));
+    const facing = smoothstep(float(0.05), float(0.18), dot(viewToCam, normalWorld));
+    const blend = vertical.mul(eligible).mul(W.on).mul(winMask).mul(inRange).mul(sharp).mul(facing);
+    const lived = livingNear({
+      winColor, litMask: litForWindows, winMask, flatInterior: interior, flick, blend,
+      lx, ly, lxW: fwidth(lx), h1, h2, h3, cell, seedQ, styleF, hero, blinds, mullion, distCam, viewToCam, normal: normalWorld,
+    });
+    nearWindows = lived.rgb;
+    glassWet = lived.wet;
+  }
+
   // average for distant / grazing views (prevents moire + keeps the city glowing far away)
   // perceptually a field of sub-pixel lights reads darker than its true mean: scale the average down
   const avgWindows = mix(coolC, warmC, warmth).mul(litFrac.mul(winW.mul(winH)).mul(0.45));
-  const footprint = fwidth(g.x).add(fwidth(g.y));
-  const farFade = max(smoothstep(0.7, 1.3, footprint), smoothstep(900.0, 2600.0, distCam));
   // Glow glazing ignores the lit lottery: the whole pane burns, brighter toward the ceiling line.
-  const isGlow = step(12.5, styleF).mul(step(styleF, 13.5));
   const glowC = mix(vec3(1.0, 0.62, 0.3), vec3(0.82, 0.9, 1.0), clamp(tint.sub(1.0), 0, 1));
   const glowLevel = lit.mul(2.6).mul(U.night.mul(0.45).add(0.55));
   const glowNear = glowC.mul(winMask.mul(mullion).mul(0.8).add(0.2)).mul(clamp(ly, 0, 1).mul(0.5).add(0.7)).mul(glowLevel);
@@ -100,8 +142,7 @@ export function getCityMaterial(): MeshStandardNodeMaterial {
   // ---- fake neon reflections on wet streets (near camera only) ----
   // ground bdata.w = 1 + district neon amount (see mesher emitGround)
   const neonAmt = clamp(tint.sub(1.0), 0, 1).mul(isGround);
-  const viewDir = normalize(cameraPosition.sub(wpos));
-  const fres = pow(float(1).sub(clamp(viewDir.y, 0, 1)), 2.5);
+  const fres = pow(float(1).sub(clamp(viewToCam.y, 0, 1)), 2.5);
   const nA = mx_noise_float(vec3(wpos.x.mul(0.045), wpos.z.mul(0.045), 4.0));
   const nB = mx_noise_float(vec3(wpos.x.mul(0.11), wpos.z.mul(0.11), 9.0));
   const neonCol = mix(mix(vec3(1.0, 0.18, 0.55), vec3(0.15, 0.85, 1.0), smoothstep(-0.25, 0.25, nA)), vec3(1.0, 0.55, 0.15), smoothstep(0.15, 0.5, nB));
@@ -120,7 +161,7 @@ export function getCityMaterial(): MeshStandardNodeMaterial {
   const gFine = mx_noise_float(vec3(wpos.x.mul(0.6), wpos.z.mul(0.6), 7.0)).mul(0.5).add(0.5);
   const groundC = vec3(0.05, 0.05, 0.055).mul(gNoise.mul(0.6).add(0.7)).mul(gFine.mul(0.3).add(0.85));
 
-  const unlitGlass = winMask.mul(isWall).mul(float(1).sub(litMask));
+  const unlitGlass = winMask.mul(isWall).mul(float(1).sub(litForWindows));
   let baseColor = mix(tinted, groundC, isGround);
   baseColor = baseColor.mul(float(1).sub(unlitGlass.mul(0.55)));
 
@@ -145,6 +186,7 @@ export function getCityMaterial(): MeshStandardNodeMaterial {
   rough = mix(rough, 0.04, puddle);
   rough = mix(rough, 0.12, unlitGlass);
   rough = mix(rough, 0.85, clamp(snowAmt, 0, 1));
+  if (living) rough = mix(rough, float(0.18), glassWet);
 
   m.colorNode = baseColor;
   m.roughnessNode = rough;
@@ -152,7 +194,4 @@ export function getCityMaterial(): MeshStandardNodeMaterial {
   const snowCover = float(1).sub(clamp(snowAmt, 0, 1));
   const spill = hologramSpill();
   m.emissiveNode = Fn(() => windows.mul(snowCover.mul(0.6).add(0.4)).add(groundLights).add(neonRefl.mul(snowCover)).add(spill))();
-
-  shared = m;
-  return m;
 }

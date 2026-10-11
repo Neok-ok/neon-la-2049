@@ -5,6 +5,10 @@ import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import { params } from '../core/params';
 import { autoTier, probeDevice, settingsFor, stepAutoGuard, storedTier, storeTier, TIERS, type QualitySettings, type Tier } from '../core/quality';
 import { Atmosphere } from '../atmosphere/Atmosphere';
+import { setCityWindowDetail } from '../world/materials/cityMaterial';
+import { applyWindowTier, windowState } from '../world/windows/state';
+import { placeWindowHeroes } from '../world/windows/heroes';
+import { windowsApi } from '../world/windows/api';
 import { Precipitation } from '../atmosphere/Precipitation';
 import { WEATHER, type WeatherId } from '../atmosphere/Weather';
 import { ChunkStreamer } from '../world/streaming/ChunkStreamer';
@@ -160,6 +164,9 @@ export class App {
   }
 
   async init(): Promise<void> {
+    const windows = applyWindowTier(this.quality.tier);
+    setCityWindowDetail(windows.detail);
+    placeWindowHeroes(this.query.layout);
     // Pick the backend up front: reversed-Z is only safe on WebGPU (on the WebGL2 fallback it breaks the
     // MSAA depth blit used by post-processing), and WebGL2 compensates with an adaptive near plane.
     let webgpu = !params.forceWebGL && 'gpu' in navigator;
@@ -337,6 +344,8 @@ export class App {
 
   private applyTier(tier: Tier): void {
     const had = this.quality.bloom;
+    const windows = applyWindowTier(tier);
+    setCityWindowDetail(windows.detail);
     this.quality = settingsFor(tier);
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, this.quality.pixelRatio));
     this.renderer.setSize(innerWidth, innerHeight, false);
@@ -1180,6 +1189,7 @@ export class App {
         if (p.mode === 'walk') this.cams.walk.pitch = p.pitch;
         return true;
       },
+      windows: windowsApi(this.query.layout),
       stats: () => ({
         ...this.streamer.stats,
         fps: this.hud.fps,
@@ -1227,6 +1237,7 @@ export class App {
         jsHeap: (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize ?? null,
         sessionWorstMs: this.sessionWorstMs,
         photo: this.photoMod?.active ?? false,
+        windows: windowState(),
         qualityChoice: this.qualityChoice,
         autoTier: this.autoTier,
         autoReason: this.autoReason,

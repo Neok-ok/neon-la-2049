@@ -104,6 +104,7 @@ export class Atmosphere {
     U.signPower.value = 0.55 + 0.45 * night;
     U.time.value = elapsed % 3600;
     U.wetness.value = this.weather.wetness;
+    U.rain.value = w.rain;
     U.snow.value = this.weather.snowCover;
     U.fogDensity.value = w.fog * (1 + Number(U.streetFog.value));
     U.fogFalloff.value = 1 / w.falloff;
