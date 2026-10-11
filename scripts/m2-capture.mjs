@@ -77,12 +77,14 @@ async function openPage(view, quality) {
 }
 
 const shots = [];
+if (process.env.SKIP_CINE !== '1') {
 for (const view of ['desktop', 'iphone']) {
   for (const quality of ['ultra', 'medium']) {
     shots.push({ view, quality, id: 'pyramid' });
     shots.push({ view, quality, id: 'street' });
     shots.push({ view, quality, id: 'flyby' });
   }
+}
 }
 
 for (const spec of shots) {
@@ -135,121 +137,232 @@ for (const spec of shots) {
   await ctx.close();
 }
 
-async function scaleShot(view, quality, id, pose) {
-  const { ctx, page } = await openPage(view, quality);
-  await page.evaluate(pose);
-  await page.waitForTimeout(800);
-  await page.waitForFunction(() => (window.__nla.app.crowd.count ?? 0) >= 0, null, { timeout: 30_000 });
-  await page.waitForTimeout(500);
-  const table = await page.evaluate(() => {
-    const n = window.__nla;
-    const app = n.app;
-    const spinner = app.cams.fly.spinner;
-    const b = (() => {
-      let minX = 1e9, minY = 1e9, minZ = 1e9, maxX = -1e9, maxY = -1e9, maxZ = -1e9;
-      spinner.updateWorldMatrix(true, true);
-      spinner.traverse((obj) => {
-        if (!obj.isMesh) return;
-        const pos = obj.geometry.getAttribute('position');
-        if (!pos) return;
-        const e = obj.matrixWorld.elements;
-        for (let i = 0; i < pos.count; i++) {
-          const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
-          const wx = e[0] * x + e[4] * y + e[8] * z + e[12];
-          const wy = e[1] * x + e[5] * y + e[9] * z + e[13];
-          const wz = e[2] * x + e[6] * y + e[10] * z + e[14];
-          if (wx < minX) minX = wx;
-          if (wy < minY) minY = wy;
-          if (wz < minZ) minZ = wz;
-          if (wx > maxX) maxX = wx;
-          if (wy > maxY) maxY = wy;
-          if (wz > maxZ) maxZ = wz;
-        }
-      });
-      return { length: maxZ - minZ, width: maxX - minX, height: maxY - minY };
-    })();
-    const sp = spinner.position;
-    const mesh = app.crowd.mesh;
-    const arr = mesh.instanceMatrix.array;
-    let nearest = null;
-    for (let i = 0; i < mesh.count; i++) {
-      const x = arr[i * 16 + 12];
-      const y = arr[i * 16 + 13];
-      const z = arr[i * 16 + 14];
-      const sx = Math.hypot(arr[i * 16], arr[i * 16 + 1], arr[i * 16 + 2]) || 1;
-      const d = Math.hypot(x - sp.x, z - sp.z);
-      if (d > 80) continue;
-      if (!nearest || d < nearest.distance) nearest = { distance: d, x, y, z, scale: sx, headM: 1.8 * sx };
-    }
-    const blocks = app.query.fabricAt(sp.x, sp.z).blocks;
-    let block = null;
-    let bd = Infinity;
-    for (const item of blocks) {
-      const d = Math.hypot(item.cx - sp.x, item.cz - sp.z);
-      if (d < bd) { bd = d; block = item; }
-    }
-    const district = app.query.layout.districtAt(sp.x, sp.z);
-    return {
-      spinner: b,
-      person: nearest,
-      crowd: app.crowd.count,
-      streetM: block ? block.street : null,
-      blockDistance: block ? bd : null,
-      district: district?.id ?? null,
-      ground: app.query.groundHeight(sp.x, sp.z),
-      spinnerY: sp.y,
-    };
-  });
-  writeFileSync(join(OUT, `${view}-${quality}-${id}-measure.json`), JSON.stringify(table, null, 2));
-  console.log('MEASURE', id, JSON.stringify(table));
-  await shoot(page, `${view}-${quality}-${id}`);
-  await ctx.close();
-}
-
-const park = () => {
+// Same park as the street still: fly to the Bradbury pin, step out, drop the car
+// onto the ground. streetView() aimed the scale camera into a wall.
+function parkOnStreet() {
   const n = window.__nla;
-  const ok = n.streetView('bradbury-building');
-  const fly = n.app.cams.fly;
+  const app = n.app;
+  const l = app.query.layout.landmarkById('bradbury-building');
+  n.setPose(l.x, 40, l.z + 40, 180, 0);
+  n.setMode('walk');
+  const fly = app.cams.fly;
   const sp = fly.spinner.position;
-  const ground = n.app.query.groundHeight(sp.x, sp.z);
+  const ground = app.query.groundHeight(sp.x, sp.z);
   sp.y = ground;
   fly.pos.y = ground;
-  const walk = n.app.cams.walk;
-  const h = fly.heading;
+  return true;
+}
+
+function aimScale(kind) {
+  const n = window.__nla;
+  const app = n.app;
+  const sp = app.cams.fly.spinner.position;
+  const h = app.cams.fly.heading;
+  const ground = app.query.groundHeight(sp.x, sp.z);
   const fx = Math.sin(h);
   const fz = -Math.cos(h);
   const rx = Math.cos(h);
   const rz = Math.sin(h);
-  walk.pos.x = sp.x - fx * 8 - rx * 3.5;
-  walk.pos.y = ground + 1.65;
-  walk.pos.z = sp.z - fz * 8 - rz * 3.5;
-  walk.heading = Math.atan2(sp.x - walk.pos.x, -(sp.z - walk.pos.z));
-  walk.pitch = -0.04;
-  return ok;
-};
+  const offsets = {
+    'scale-people': { f: -1.2, r: 7.2, pitch: 0.02, lookF: 0, lookR: 0, lookY: 0.85 },
+    'scale-lane': { f: -16, r: 2.4, pitch: -0.2, lookF: 6, lookR: 0, lookY: 0.5 },
+    'scale-facade': { f: 2.5, r: 8.5, pitch: 0.28, lookF: -4, lookR: -10, lookY: 7 },
+  };
+  const o = offsets[kind];
+  let camX = sp.x + fx * o.f + rx * o.r;
+  let camZ = sp.z + fz * o.f + rz * o.r;
+  for (let i = 0; i < 6 && app.query.insideSolid(camX, ground + 1.2, camZ, 0.45); i++) {
+    camX -= rx * 1.6;
+    camZ -= rz * 1.6;
+  }
+  const walk = app.cams.walk;
+  walk.pos.x = camX;
+  walk.pos.y = ground;
+  walk.pos.z = camZ;
+  const tx = sp.x + fx * o.lookF + rx * o.lookR;
+  const tz = sp.z + fz * o.lookF + rz * o.lookR;
+  walk.heading = Math.atan2(tx - camX, -(tz - camZ));
+  walk.pitch = o.pitch;
+  return { camX, camZ, inside: app.query.insideSolid(camX, ground + 1.2, camZ, 0.3) };
+}
 
-const lane = () => {
+function measureScale() {
   const n = window.__nla;
-  n.streetView('bradbury-building');
-  const fly = n.app.cams.fly;
-  const sp = fly.spinner.position;
-  const ground = n.app.query.groundHeight(sp.x, sp.z);
-  sp.y = ground;
-  const walk = n.app.cams.walk;
-  const h = fly.heading;
-  const fx = Math.sin(h);
-  const fz = -Math.cos(h);
-  walk.pos.x = sp.x + fx * 14;
-  walk.pos.y = ground + 2.2;
-  walk.pos.z = sp.z + fz * 14;
-  walk.heading = Math.atan2(sp.x - walk.pos.x, -(sp.z - walk.pos.z));
-  walk.pitch = -0.12;
-  return true;
-};
+  const app = n.app;
+  const spinner = app.cams.fly.spinner;
+  spinner.updateWorldMatrix(true, true);
+  const pe = spinner.matrixWorld.elements;
+  const ax = [pe[0], pe[1], pe[2]];
+  const ay = [pe[4], pe[5], pe[6]];
+  const az = [pe[8], pe[9], pe[10]];
+  const ox = pe[12], oy = pe[13], oz = pe[14];
+  const min = [1e9, 1e9, 1e9];
+  const max = [-1e9, -1e9, -1e9];
+  let worldMin = [1e9, 1e9, 1e9];
+  let worldMax = [-1e9, -1e9, -1e9];
+  spinner.traverse((obj) => {
+    if (!obj.isMesh) return;
+    const pos = obj.geometry.getAttribute('position');
+    if (!pos) return;
+    obj.updateWorldMatrix(true, false);
+    const e = obj.matrixWorld.elements;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+      const wx = e[0] * x + e[4] * y + e[8] * z + e[12];
+      const wy = e[1] * x + e[5] * y + e[9] * z + e[13];
+      const wz = e[2] * x + e[6] * y + e[10] * z + e[14];
+      if (wx < worldMin[0]) worldMin[0] = wx;
+      if (wy < worldMin[1]) worldMin[1] = wy;
+      if (wz < worldMin[2]) worldMin[2] = wz;
+      if (wx > worldMax[0]) worldMax[0] = wx;
+      if (wy > worldMax[1]) worldMax[1] = wy;
+      if (wz > worldMax[2]) worldMax[2] = wz;
+      const dx = wx - ox, dy = wy - oy, dz = wz - oz;
+      const lx = dx * ax[0] + dy * ax[1] + dz * ax[2];
+      const ly = dx * ay[0] + dy * ay[1] + dz * ay[2];
+      const lz = dx * az[0] + dy * az[1] + dz * az[2];
+      if (lx < min[0]) min[0] = lx;
+      if (ly < min[1]) min[1] = ly;
+      if (lz < min[2]) min[2] = lz;
+      if (lx > max[0]) max[0] = lx;
+      if (ly > max[1]) max[1] = ly;
+      if (lz > max[2]) max[2] = lz;
+    }
+  });
+  const sp = spinner.position;
+  const mesh = app.crowd.mesh;
+  const arr = mesh.instanceMatrix.array;
+  let nearest = null;
+  const people = [];
+  for (let i = 0; i < mesh.count; i++) {
+    const x = arr[i * 16 + 12];
+    const y = arr[i * 16 + 13];
+    const z = arr[i * 16 + 14];
+    const sx = Math.hypot(arr[i * 16], arr[i * 16 + 1], arr[i * 16 + 2]) || 1;
+    const d = Math.hypot(x - sp.x, z - sp.z);
+    if (d > 40) continue;
+    const row = { distance: d, x, y, z, scale: sx, headM: 1.8 * sx };
+    people.push(row);
+    if (!nearest || d < nearest.distance) nearest = row;
+  }
+  people.sort((a, b) => a.distance - b.distance);
+  const fab = app.query.fabricAt(sp.x, sp.z);
+  let block = null;
+  let bd = Infinity;
+  for (const item of fab.blocks) {
+    const d = Math.hypot(item.cx - sp.x, item.cz - sp.z);
+    if (d < bd) { bd = d; block = item; }
+  }
+  const boxes = [];
+  for (const b of fab.boxes) {
+    const d = Math.hypot(b.x - sp.x, b.z - sp.z);
+    if (d > 45) continue;
+    boxes.push({
+      d, h: b.h, y0: b.y0, w: b.w, depth: b.d, style: b.style, x: b.x, z: b.z,
+    });
+  }
+  boxes.sort((a, b) => a.d - b.d);
+  const district = app.query.layout.districtAt(sp.x, sp.z);
+  const landmark = app.query.layout.landmarkById('bradbury-building');
+  return {
+    spinner: {
+      length: max[2] - min[2],
+      width: max[0] - min[0],
+      height: max[1] - min[1],
+      aabbLength: worldMax[2] - worldMin[2],
+      aabbWidth: worldMax[0] - worldMin[0],
+      aabbHeight: worldMax[1] - worldMin[1],
+    },
+    person: nearest,
+    peopleNear: people.slice(0, 5),
+    crowd: app.crowd.count,
+    streetM: block ? block.street : null,
+    blockDistance: block ? bd : null,
+    district: district?.id ?? null,
+    ground: app.query.groundHeight(sp.x, sp.z),
+    spinnerY: sp.y,
+    spinnerXZ: { x: sp.x, z: sp.z },
+    heading: app.cams.fly.heading,
+    bradbury: landmark ? { height: landmark.height, x: landmark.x, z: landmark.z } : null,
+    boxes: boxes.slice(0, 12),
+  };
+}
 
-await scaleShot('desktop', 'ultra', 'scale-people', park);
-await scaleShot('desktop', 'ultra', 'scale-lane', lane);
-await scaleShot('desktop', 'medium', 'scale-people', park);
-await scaleShot('iphone', 'ultra', 'scale-people', park);
+async function scaleShot(view, quality, id) {
+  const { ctx, page } = await openPage(view, quality);
+  await page.evaluate(parkOnStreet);
+  await page.waitForTimeout(400);
+  const aim = await page.evaluate(aimScale, id);
+  console.log('AIM', id, JSON.stringify(aim));
+  await page.waitForTimeout(700);
+  const table = await page.evaluate(measureScale);
+  table.aim = aim;
+  writeFileSync(join(OUT, `${view}-${quality}-${id}-measure.json`), JSON.stringify(table, null, 2));
+  console.log('MEASURE', id, JSON.stringify({
+    spinner: table.spinner,
+    person: table.person,
+    crowd: table.crowd,
+    streetM: table.streetM,
+    district: table.district,
+    ground: table.ground,
+    spinnerY: table.spinnerY,
+    boxes: table.boxes.slice(0, 4),
+  }));
+  await shoot(page, `${view}-${quality}-${id}`);
+  await ctx.close();
+}
+
+async function doorShot() {
+  const { ctx, page } = await openPage('desktop', 'ultra');
+  const info = await page.evaluate(() => {
+    const n = window.__nla;
+    const app = n.app;
+    n.broadwayView('bradbury');
+    const walk = app.cams.walk;
+    const h = walk.heading;
+    const fx = Math.sin(h);
+    const fz = -Math.cos(h);
+    const sp = app.cams.fly.spinner.position;
+    const aheadX = walk.pos.x + fx * 8;
+    const aheadZ = walk.pos.z + fz * 8;
+    const ground = app.query.groundHeight(aheadX, aheadZ);
+    sp.x = aheadX;
+    sp.z = aheadZ;
+    sp.y = ground;
+    app.cams.fly.pos.y = ground;
+    app.cams.fly.heading = h;
+    app.cams.fly.spinner.rotation.set(0, -h, 0, 'YXZ');
+    walk.pos.x -= fx * 4;
+    walk.pos.z -= fz * 4;
+    walk.pos.y = app.query.groundHeight(walk.pos.x, walk.pos.z);
+    walk.pitch = 0.2;
+    return {
+      spinner: { x: sp.x, y: sp.y, z: sp.z },
+      cam: { x: walk.pos.x, y: walk.pos.y, z: walk.pos.z },
+      inside: app.query.insideSolid(walk.pos.x, walk.pos.y + 1.2, walk.pos.z, 0.4),
+      streetM: 18,
+    };
+  });
+  console.log('DOOR', JSON.stringify(info));
+  await page.waitForTimeout(800);
+  const table = await page.evaluate(measureScale);
+  table.door = { width: 4.8, height: 7.2, note: 'Bradbury street tunnel, not a person door' };
+  table.storey = { masonry: 22.4, floors: 5, module: 22.4 / 5, panelCell: 3.9, podium: 3.5 };
+  writeFileSync(join(OUT, 'desktop-ultra-scale-door-measure.json'), JSON.stringify(table, null, 2));
+  console.log('MEASURE door', JSON.stringify({
+    spinner: table.spinner, person: table.person, streetM: table.streetM, district: table.district, spinnerY: table.spinnerY,
+  }));
+  await shoot(page, 'desktop-ultra-scale-door');
+  await ctx.close();
+}
+
+if (process.env.DOOR_ONLY === '1') {
+  await doorShot();
+} else {
+  await scaleShot('desktop', 'ultra', 'scale-people');
+  await scaleShot('desktop', 'ultra', 'scale-lane');
+  await scaleShot('desktop', 'ultra', 'scale-facade');
+  await scaleShot('desktop', 'medium', 'scale-people');
+}
 
 await browser.close();

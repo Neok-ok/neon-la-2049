@@ -19,6 +19,6 @@ Notes:
 - Film: A wide dusty frame would pass. Next to the still, the even shader and slotted pod read as a model.
 - Reads as K: Side profile, POLICE flank, twin drums, and the light strips identify it immediately. The open pod and simplified armor keep it short of the prop.
 
-IoU, not shown to the critic: side 0.853, front 0.858, top 0.872. Top is the reconstruction. Side, front, and top all clear 0.85 / 0.80. The front trace is a perspective estimate and is narrower than the 2.32 m model.
+IoU, not shown to the critic: side 0.853, front 0.858, top 0.873. Top is the reconstruction. Side, front, and top all clear 0.85 / 0.80. The front trace is a perspective estimate and is narrower than the 2.32 m model.
 
 M1 floor is silhouette 7, surface 6, lighting 6, material 5, film 6, and reads as K at least 7. Every column clears it.
