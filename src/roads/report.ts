@@ -182,7 +182,7 @@ export function roadPoses(): RoadPose[] {
     const x = (a.x + b.x) * 0.5 + seaEdge.fz * seaEdge.lane;
     const z = (a.z + b.z) * 0.5 - seaEdge.fx * seaEdge.lane;
     const yaw = Math.atan2(seaPt[0] - x, -(seaPt[1] - z)) * deg;
-    out.push({ id: 'sea-approach', x, y: layout.heightAt(x, z) + 3.2, z, yaw, pitch: -6 });
+    out.push({ id: 'sea-approach', x, y: layout.heightAt(x, z) + 18, z, yaw, pitch: -22 });
   }
   return out;
 }
