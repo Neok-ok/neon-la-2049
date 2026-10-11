@@ -1,15 +1,26 @@
 // Modular parts for one tower, in block-local metres.
 // s is along the block A axis, t along B. The draft is centred on the lot.
 // Boxes stay inside the footprint. The city mesher turns each box into five quads.
+// Metres come from the shared architecture helpers. This file stays worker-safe:
+// no canvas, no door-leaf mesh.
+import {
+  DOOR_H as LEAF_H, RAIL_H as ARCH_RAIL_H, STOREY_M, planFlight, snapMetres,
+} from '../architecture/scale';
 import { Style, type FaceDir, type StyleId } from '../fabric/types';
 import { LIGHT_ROLES } from './lights';
 
-export const STOREY = 3.6;
-export const RES_STOREY = 3.4;
-export const DOOR_H = 2.2;
-export const DOOR_W = 2.05;
-export const RAIL_H = 1.05;
+export const STOREY = STOREY_M;
+/** Housing floors stay inside the 3–4 m storey band. */
+export const RES_STOREY = snapMetres(3.4);
+export const DOOR_H = LEAF_H;
+/**
+ * Walk-through opening. The civic leaf is a 2.2 m square (LAPD doorHalf × 2,
+ * City Hall leaf). A single 1.0 m leaf would not match that opening.
+ */
+export const DOOR_W = snapMetres(DOOR_H);
+export const RAIL_H = ARCH_RAIL_H;
 export const RAIL_T = 0.08;
+const STAIR_W = snapMetres(1.15);
 
 export const TOWER_KINDS = [
   'band-slab',
@@ -26,7 +37,7 @@ export const HERO_KINDS = ['hero-gate', 'hero-step', 'hero-obelisk'] as const;
 
 export type TowerKind = (typeof TOWER_KINDS)[number] | (typeof HERO_KINDS)[number];
 
-export type PartRole = 'mass' | 'door-header' | 'door-cheek' | 'door-jamb' | 'rail' | 'balcony' | 'deck' | 'band';
+export type PartRole = 'mass' | 'door-header' | 'door-cheek' | 'door-jamb' | 'rail' | 'balcony' | 'deck' | 'band' | 'stair';
 
 export interface BBox {
   s: number;
@@ -88,7 +99,7 @@ export function snap(h: number, module: number, min: number, max: number): numbe
     return Math.max(min, Math.min(max, n * module));
   }
   const n = Math.max(lo, Math.min(hi, Math.round(h / module)));
-  return n * module;
+  return snapMetres(n * module);
 }
 
 /** Outer face of the ground door, in tower-local metres. a- is negative s. */
@@ -150,7 +161,7 @@ export function skin(d: Draft, o: Skin): void {
     style: soffit.style, lit: soffit.lit, tint: soffit.tint,
     detail: 1, ornament: 1, role: 'door-header',
   });
-  // Lit jambs sit just outside the 2.05 m opening so the doorway reads at night.
+  // Lit jambs sit just outside the 2.2 m opening so the doorway reads at night.
   const outer = ss - thick / 2;
   const glow: Omit<BBox, 's' | 't' | 'lb' | 'la' | 'h' | 'base'> = {
     style: soffit.style, lit: soffit.lit, tint: soffit.tint, detail: 1, ornament: 1,
@@ -162,6 +173,69 @@ export function skin(d: Draft, o: Skin): void {
       lb: 0.16, la: 0.1, h: DOOR_H, base, role: 'door-jamb',
     });
   }
+}
+
+function stairHits(d: Draft, s: number, t: number, la: number, lb: number, y0: number, y1: number): boolean {
+  for (const b of d.boxes) {
+    if (b.role === 'door-cheek' || b.role === 'door-header' || b.role === 'door-jamb' || b.role === 'stair') continue;
+    const overlapS = Math.abs(b.s - s) * 2 < b.la + la - 0.04;
+    const overlapT = Math.abs(b.t - t) * 2 < b.lb + lb - 0.04;
+    const overlapY = b.base < y1 - 0.04 && b.base + b.h > y0 + 0.04;
+    if (overlapS && overlapT && overlapY) return true;
+  }
+  return false;
+}
+
+/**
+ * One flight beside the ground door, rising a storey.
+ * Risers come from planFlight. The run follows the facade so the stoop
+ * stays inside the 2.2 m footprint allowance. Skipped when the wall is
+ * too short or another mass already occupies the tread.
+ */
+export function entryFlight(d: Draft): void {
+  if (d.boxes.some((b) => b.role === 'stair')) return;
+  const cheeks = d.boxes.filter((b) => b.role === 'door-cheek' && b.base < 1);
+  if (cheeks.length < 2) return;
+  const faceS = cheeks[0]!.s - cheeks[0]!.la / 2;
+  const faceT = cheeks.reduce((sum, b) => sum + b.t, 0) / cheeks.length;
+  const base = cheeks[0]!.base;
+  const tint = cheeks[0]!.tint;
+  const tMin = Math.min(...cheeks.map((b) => b.t - b.lb / 2));
+  const tMax = Math.max(...cheeks.map((b) => b.t + b.lb / 2));
+  const flight = planFlight(STOREY);
+  const gap = snapMetres(0.4);
+  const lay = (dir: 1 | -1): boolean => {
+    const start = faceT + dir * (DOOR_W / 2 + gap);
+    const end = start + dir * flight.run;
+    const lo = Math.min(start, end);
+    const hi = Math.max(start, end);
+    if (lo < tMin + 0.15 || hi > tMax - 0.15) return false;
+    const s = faceS - STAIR_W / 2;
+    const midT = (start + end) / 2;
+    if (Math.abs(s) + STAIR_W / 2 > d.halfD + 2.2) return false;
+    if (Math.max(Math.abs(lo), Math.abs(hi)) > d.halfW + 2.2) return false;
+    if (stairHits(d, s, midT, STAIR_W, flight.run, base, base + STOREY)) return false;
+    for (let i = 0; i < flight.risers; i++) {
+      addBox(d, {
+        s, t: start + dir * flight.tread * (i + 0.5),
+        lb: snapMetres(flight.tread * 0.96, 0.01), la: STAIR_W, h: flight.rise,
+        base: base + flight.rise * i,
+        style: Style.Solid, lit: 0.03, tint: tint * 0.72,
+        detail: 1, ornament: 1, role: 'stair',
+      });
+    }
+    const railS = faceS - STAIR_W + 0.05;
+    for (let i = 0; i < flight.risers; i += 4) {
+      addBox(d, {
+        s: railS, t: start + dir * flight.tread * (i + 0.5),
+        lb: 0.08, la: 0.08, h: RAIL_H, base: base + flight.rise * (i + 1),
+        style: Style.Solid, lit: 0.04, tint: tint * 0.6,
+        detail: 2, ornament: 2, role: 'stair',
+      });
+    }
+    return true;
+  };
+  if (!lay(1)) lay(-1);
 }
 
 export function band(d: Draft, s: number, t: number, lb: number, la: number, y: number, h: number, lit: number, tint: number): void {

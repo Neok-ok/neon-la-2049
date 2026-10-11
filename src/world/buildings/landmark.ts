@@ -3,14 +3,16 @@
 // Each LOD is an instanced copy of the shared kit box, not a unique mesh.
 // Low keeps the mass (the impostor). Medium adds the mid band. High and ultra add the near band.
 // LAPD, City Hall and the Wallace pyramid are not built here.
-import type { InstancedMesh, Object3D } from 'three/webgpu';
+import { Mesh, type InstancedMesh, type Object3D } from 'three/webgpu';
 import { hashString } from '../../core/rng';
 import type { Tier } from '../../core/quality';
+import { archDetailFromLod } from '../architecture/scale';
+import { openDoorLeaf } from '../architecture/trim';
 import { bearingToDir } from '../geo';
 import type { Landmark } from '../layout';
 import type { LandmarkLods } from '../landmarks/LandmarkLods';
 import { registerLandmarkType, type LandmarkCollider, type LandmarkEnv } from '../landmarks/registry';
-import { HERO_KINDS } from './parts';
+import { DOOR_H, DOOR_W, HERO_KINDS, doorFace } from './parts';
 import { placeHero, type Placed, type PlacedBox } from './place';
 import { buildKitMesh, disposeKitMesh } from './kitMesh';
 import { buildingDetailCap, type BuildingCap } from './tiers';
@@ -73,18 +75,40 @@ function keepHero(b: PlacedBox, cap: BuildingCap): boolean {
   return true;
 }
 
+/** Full detail only. The opening metres stay on the wall at every tier. The leaf reuses the civic trim sheet. */
+function attachLeaf(slot: HeroSlot, mesh: InstancedMesh): void {
+  const detail = archDetailFromLod(2);
+  const door = doorFace(slot.placed.draft);
+  const leaf = door && openDoorLeaf(detail, DOOR_W, DOOR_H);
+  if (!leaf || !door) return;
+  const [hx, hz] = worldOf(slot.x, slot.z, slot.bearing, door.s - 0.12, door.t + DOOR_W / 2);
+  leaf.position.set(hx, slot.ground + 0.02, hz);
+  leaf.rotation.y = slot.yaw + 1.15;
+  mesh.add(leaf);
+}
+
+function releaseMesh(mesh: InstancedMesh): void {
+  const leaf = mesh.getObjectByName('arch-door-leaf');
+  if (leaf instanceof Mesh) {
+    leaf.geometry.dispose();
+    leaf.removeFromParent();
+  }
+  disposeKitMesh(mesh);
+}
+
 function meshesFor(slot: HeroSlot, cap: BuildingCap): InstancedMesh[] {
   const meshes: InstancedMesh[] = [];
   for (const c of capsFor(cap)) {
     const mesh = buildKitMesh(recordsFor(slot, c), `${slot.id}-l${c}`);
     if (!mesh) continue;
+    if (c >= 2) attachLeaf(slot, mesh);
     meshes.push(mesh);
   }
   return meshes;
 }
 
 function applySlot(slot: HeroSlot, cap: BuildingCap): void {
-  for (const mesh of slot.meshes) disposeKitMesh(mesh);
+  for (const mesh of slot.meshes) releaseMesh(mesh);
   const meshes = meshesFor(slot, cap);
   slot.meshes = meshes;
   slot.lods.replace(slot.id, meshes, distsFor(capsFor(cap)));

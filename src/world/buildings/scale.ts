@@ -1,5 +1,6 @@
 // Measures a drafted tower against the real-world rules: 3–4 m storeys, 2.0–2.4 m doors,
-// rails 0.9–1.1 m above the deck. The harness and the placement audit both call this.
+// rails 0.9–1.1 m above the deck, stair risers 0.15–0.18 m. The harness and the placement audit both call this.
+import { RISE_MAX, RISE_MIN } from '../architecture/scale';
 import { DOOR_H, DOOR_W, RAIL_H, type Draft } from './parts';
 
 export interface ScaleReport {
@@ -10,6 +11,8 @@ export interface ScaleReport {
   doorH: number;
   doorW: number;
   railH: number | null;
+  /** Equal riser of the ground flight, when the facade had room for one. */
+  rise: number | null;
   boxes: number;
   massBoxes: number;
   tris: number;
@@ -46,6 +49,8 @@ export function measureDraft(d: Draft): ScaleReport {
     }
     if (deck > 0) railH = top - deck;
   }
+  const treads = d.boxes.filter((b) => b.role === 'stair' && b.la > 0.4 && b.h < 0.4);
+  const rise = treads.length ? treads[0]!.h : null;
   const mass = d.boxes.filter((b) => b.detail === 0).length;
   const mid = d.boxes.filter((b) => b.detail <= 1 && (b.ornament === undefined || b.ornament <= 1)).length;
   const far = d.boxes.filter((b) => b.detail === 0 && b.ornament === undefined && b.base + b.h >= 22).length;
@@ -57,6 +62,7 @@ export function measureDraft(d: Draft): ScaleReport {
     doorH,
     doorW: doorW || DOOR_W,
     railH: railH ?? (d.boxes.some((b) => b.role === 'rail') ? RAIL_H : null),
+    rise,
     boxes: d.boxes.length,
     massBoxes: mass,
     tris: trisOf(d.boxes.length),
@@ -71,6 +77,7 @@ export function scaleOk(r: ScaleReport): string[] {
   if (r.doorH < 2 || r.doorH > 2.4) bad.push(`doorH ${r.doorH}`);
   if (r.doorW < 1.4 || r.doorW > 2.6) bad.push(`doorW ${r.doorW}`);
   if (r.railH !== null && (r.railH < 0.9 || r.railH > 1.15)) bad.push(`rail ${r.railH}`);
+  if (r.rise !== null && (r.rise < RISE_MIN - 1e-6 || r.rise > RISE_MAX + 1e-6)) bad.push(`rise ${r.rise}`);
   if (r.height < 40) bad.push(`height ${r.height}`);
   return bad;
 }

@@ -1,13 +1,14 @@
 // Eight tower families and three hero megastructures.
 // Original masses in the 2049 spirit: banded slabs, setbacks, buttresses, a dark taper,
 // a residential stack, an ad shaft, a top-heavy cantilever, a cruciform lantern.
-// Storeys are 3.4 m (housing) or 3.6 m (everything else). Doors are 2.2 × 2.05 m.
+// Storeys are 3.4 m (housing) or 3.6 m (everything else), from the shared scale module.
+// Doors are 2.2 m square. A ground flight uses planFlight when the facade has room.
 // Nothing here copies a film building, a logo, or a real brand.
 import { Rng } from '../../core/rng';
 import { Style } from '../fabric/types';
 import { AD_COLORS, LIGHT_ROLES } from './lights';
 import {
-  DOOR_H, RES_STOREY, STOREY, addBox, balcony, band, emptyDraft, glowCrown, mastTip, rail, skin, snap,
+  DOOR_H, RES_STOREY, STOREY, addBox, balcony, band, emptyDraft, entryFlight, glowCrown, mastTip, rail, skin, snap,
   type Draft, type TowerKind,
 } from './parts';
 
@@ -78,6 +79,7 @@ export function buildTower(spec: TowerSpec): Draft {
   }
   dressRoof(d, spec, r);
   dressSigns(d, spec);
+  entryFlight(d);
   d.height = height;
   return d;
 }

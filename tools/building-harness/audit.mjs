@@ -42,6 +42,8 @@ for (const s of specs) {
   const report = measureDraft(draft);
   const bad = scaleOk(report);
   if (bad.length) fails.push(`${s.kind} v${s.variant} h${s.height}: ${bad.join(', ')} door=${report.doorH} rail=${report.railH} storey=${report.storey}`);
+  const treads = draft.boxes.filter((b) => b.role === 'stair' && b.h < 0.4).length;
+  if (s.w >= 40 && s.kind !== 'lantern' && treads < 8) fails.push(`${s.kind} v${s.variant} flight ${treads} treads`);
   const top = Math.max(...draft.boxes.map((b) => b.base + b.h));
   if (s.maxH <= 320 && top > 305.5) fails.push(`${s.kind} fabric top ${top.toFixed(1)} > 305`);
   if (s.kind.startsWith('hero') && top < s.height - 12) fails.push(`${s.kind} top ${top.toFixed(1)} short of ${s.height}`);
@@ -202,7 +204,7 @@ check('dtla street', dtlaClips.length === 0, JSON.stringify(dtlaClips.slice(0, 4
 
 const lbBlock = lbSpec.longBeachBlock(layout, lbSpec.HERO_A.i, lbSpec.HERO_A.j);
 const planA = lb.planLongBeach(lbBlock, layout);
-const door = planA.boxes.filter((b) => Math.abs(b.s - (lbSpec.DOOR_S + 0.24)) < 1 && b.base === 0 && b.h === 15);
+const door = planA.boxes.filter((b) => Math.abs(b.s - (lbSpec.DOOR_S + 0.24)) < 1 && b.base === 0 && Math.abs(b.h - STOREY * 4) < 0.05 && b.la < 1);
 check('concourse cheeks', door.length >= 2, String(door.length));
 const massSouth = Math.min(...planA.boxes.filter((b) => b.h > 40).map((b) => b.s - b.la / 2));
 check('slab north of door', massSouth > lbSpec.DOOR_S + 10, massSouth.toFixed(1));

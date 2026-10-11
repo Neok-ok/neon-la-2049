@@ -30,7 +30,7 @@
   <h2>What changed</h2>
   <p>The old financial body was a two-box megablock plus a compact kit tower. Downtown and Long Beach used the shared megablock kit. Those masses are gone. Streets, kiosks, crowds, and the Long Beach concourse door stay.</p>
   <p>Field towers are 3.6 m a floor (3.4 m on the residential stack), about 150–300 m tall, so they stay under the 320 m fabric ceiling and under the 430 m sky lanes. The three heroes are landmarks, so lanes step over them: West Canyon Gate (560 m), Caldera Step (640 m), Kite Obelisk (480 m). They sit west of the opening camera, off the ray from Little Tokyo toward the Wallace pyramid. Nothing was added in the basin, and nothing was added on the south-east approach to the pyramid.</p>
-  <p>Doors on the new masses are 2.2 m by 2.05 m. Rails are 1.05 m. A 1.80 m person still fits the door. The Long Beach interior door is the old concourse at the south face, not a new cut in the slab.</p>
+  <p>Doors, stairs, and storeys use the shared architecture helpers. The walk-through is a 2.2 m square, the same leaf LAPD and City Hall use. Rails are 1.05 m. A ground flight beside the door rises one 3.6 m storey in equal risers between 0.15 m and 0.18 m, and runs along the facade. Housing floors are 3.4 m. A 1.80 m person still fits the door. Full detail hangs one open leaf on each hero, on the civic trim sheet. The Long Beach interior door is the old concourse at the south face, not a new cut in the slab.</p>
 
   <h2>The eight families</h2>
   <table>
@@ -53,29 +53,29 @@
   <table>
     <thead><tr><th>Tier</th><th>Boxes kept</th><th>Triangles in that patch</th></tr></thead>
     <tbody>
-      <tr><td>Low (masses)</td><td>284</td><td>5,966</td></tr>
-      <tr><td>Medium</td><td>555</td><td>8,676</td></tr>
-      <tr><td>High / ultra</td><td>612</td><td>9,246</td></tr>
+      <tr><td>Low (masses)</td><td>285</td><td>5,976</td></tr>
+      <tr><td>Medium</td><td>955</td><td>12,676</td></tr>
+      <tr><td>High / ultra</td><td>1,127</td><td>14,396</td></tr>
       <tr><td>Far impostor (LOD2)</td><td>231</td><td>2,610</td></tr>
     </tbody>
   </table>
-  <p class="note">Those triangle counts include the ground under the patch. Tower boxes are instances of one shared kit, so they add one draw per chunk that contains them, not a draw per tower. The three heroes are one instanced mesh per detail level. Window glow is the existing city shader.</p>
+  <p class="note">Those triangle counts include the ground under the patch. Medium and high add the ground flight (one box per riser) and, on high, the handrail posts. Tower boxes are instances of one shared kit, so they add one draw per chunk that contains them, not a draw per tower. The three heroes are one instanced mesh per detail level. Window glow is the existing city shader.</p>
 
   <h2>Memory</h2>
-  <p>P1’s memory manager was not on main, so these towers do not register with it. They are built to stay small until that pass lands. Every tower box is an instance of one 20-vertex kit box (96 bytes: matrix, facade data, and scale). The chunk streamer disposes that chunk’s instance buffer when the chunk unloads. The three heroes dispose the previous level when the quality tier changes. Distant fabric uses the existing far mesh: detail drops away, and boxes whose tops sit under 22 m disappear. On Low the heroes keep only that mass. No new image is uploaded. Signs and windows stay on the atlases the city already compresses to KTX2. The harness roughness map is a local canvas and is not in the game.</p>
+  <p>P1’s memory manager was not on main, so these towers do not register with it. They are built to stay small until that pass lands. Every tower box, including each tread, is an instance of one 20-vertex kit box (96 bytes: matrix, facade data, and scale). The chunk streamer disposes that chunk’s instance buffer when the chunk unloads. The three heroes dispose the previous level when the quality tier changes. Distant fabric uses the existing far mesh: detail drops away, and boxes whose tops sit under 22 m disappear. On Low the heroes keep only that mass, and the flight is dropped with the other ornament. Full detail adds one open leaf on each hero. That leaf reuses the civic trim sheet, a single 128² image, not a texture per tower. Signs and windows stay on the atlases the city already compresses to KTX2. The harness roughness map is a local canvas and is not in the game.</p>
   <p>Resident geometry with the camera at street level in the heavier of downtown and Long Beach, plus every hero level that tier keeps. Buffer bytes, not allocator padding.</p>
   <table>
     <thead><tr><th>Tier</th><th>Textures added</th><th>Geometry added</th></tr></thead>
     <tbody>
       <tr><td>Low</td><td>0 MB</td><td>0.86 MB</td></tr>
-      <tr><td>Medium</td><td>0 MB</td><td>1.41 MB</td></tr>
-      <tr><td>High</td><td>0 MB</td><td>1.54 MB</td></tr>
-      <tr><td>Ultra</td><td>0 MB</td><td>1.54 MB</td></tr>
+      <tr><td>Medium</td><td>0 MB</td><td>2.44 MB</td></tr>
+      <tr><td>High</td><td>0 MB</td><td>2.80 MB</td></tr>
+      <tr><td>Ultra</td><td>0 MB</td><td>2.81 MB</td></tr>
     </tbody>
   </table>
 
   <h2>Lights</h2>
-  <p>The lighting registry was still not on main at the last fetch. Every glow on these towers is declared in <code>src/world/buildings/lights.ts</code> (<code>LIGHT_ADAPTER = 'b1-local'</code>): door soffit, door jambs, crown, obstruction tip, ad face. The jambs sit just outside the 2.05 m opening so the doorway reads at night. A later lighting pass can map those roles without searching the recipes.</p>
+  <p>The lighting registry was still not on main at the last fetch. Every glow on these towers is declared in <code>src/world/buildings/lights.ts</code> (<code>LIGHT_ADAPTER = 'b1-local'</code>): door soffit, door jambs, crown, obstruction tip, ad face. The jambs sit just outside the 2.2 m opening so the doorway reads at night. A later lighting pass can map those roles without searching the recipes.</p>
 
   <h2>Silhouette scores</h2>
   <p>Scored against original envelope diagrams (a slab, a step pyramid, a taper, a twin gate, a top-heavy bar). Not against film frames. Best side for each family:</p>
