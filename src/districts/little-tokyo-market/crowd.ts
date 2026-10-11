@@ -1,7 +1,8 @@
 // One instanced crowd for the whole city. A district registers loops and a share; the mesh
-// and the walk shader stay here. Legs and arms are a vertex-shader cycle (one draw, no
-// skeleton, no pose texture): a planted stance half keeps the feet from skating at 1.5 m/s.
-// The umbrella is parented to the right hand. Distant and low-tier people hold a static pose.
+// and the walk stay here. Until the rigged glTF loads, legs and arms are a vertex-shader
+// cycle (one draw): a planted stance half keeps the feet from skating. Once it loads,
+// the same instances skin a plate-matched body from a bone palette. Distant and low-tier
+// people hold a static pose. The umbrella stays on the right hand.
 import {
   BufferAttribute, BufferGeometry, DynamicDrawUsage, InstancedBufferAttribute, InstancedMesh, Matrix4, MeshBasicNodeMaterial,
   Quaternion, Vector3,
@@ -18,6 +19,7 @@ import { streetGraph, visitBins } from '../../vehicles/streetGraph';
 import { axisLamp } from '../../vehicles/trafficSignals';
 import { dressBlock, pedestrianLoops, stallFrontLoop, type MarketBlock } from './dress';
 import { marketSpots } from './spots';
+import { crowdLodForTier, loadCrowdRig } from '../../world/humans/crowdRig';
 
 const T = TSL as any;
 const {
@@ -132,6 +134,14 @@ interface Agent {
   hat: number;
   bag: number;
   shortCoat: number;
+  /** Crown height in metres, 1.55–1.91. Uniform scale is height / 1.80 once rigged. */
+  height: number;
+  /** 0.92, 1, or 1.08. The walk clip matches it so the planted foot stays put. */
+  strideScale: number;
+  /** 0, 1, or 2. Three shadowed skin tones, not a portrait. */
+  skin: number;
+  /** Chin band. Hoods force this off. */
+  mask: number;
   role: Role;
   hold: boolean;
   ix: number;
@@ -140,6 +150,16 @@ interface Agent {
   x: number;
   z: number;
   yaw: number;
+}
+
+function clipOf(role: Role, amp: number, umbrella: number, strideScale: number): number {
+  if (role === 'vendor') return 8;
+  if (role === 'gaze') return 7;
+  if (role === 'queue') return 6;
+  if (umbrella > 0 && amp > 0) return 5;
+  if (umbrella > 0) return 4;
+  if (amp > 0) return strideScale < 0.96 ? 2 : strideScale > 1.04 ? 3 : 1;
+  return 0;
 }
 
 const _m = new Matrix4();
@@ -521,7 +541,11 @@ export class CrowdField {
   staticCount = 0;
   idle = 0;
   tris = 0;
-  private readonly trisPer: number;
+  /** True once the plate mesh has replaced the box fallback. Scale and gait follow it. */
+  rigged = false;
+  private trisPer: number;
+  private lodGen = 0;
+  private lodName = '';
   private agents: Agent[] = [];
   private loops: Loop[] = [];
   private life: CrowdLifeSpot[] = [];
@@ -535,6 +559,7 @@ export class CrowdField {
   private canopyAttr: InstancedBufferAttribute;
   private motionAttr: InstancedBufferAttribute;
   private styleAttr: InstancedBufferAttribute;
+  private extraAttr: InstancedBufferAttribute;
 
   constructor() {
     const geo = personGeometry();
@@ -549,14 +574,39 @@ export class CrowdField {
     this.canopyAttr = new InstancedBufferAttribute(new Float32Array(MAX * 3), 3);
     this.motionAttr = new InstancedBufferAttribute(new Float32Array(MAX * 4), 4);
     this.styleAttr = new InstancedBufferAttribute(new Float32Array(MAX * 4), 4);
+    this.extraAttr = new InstancedBufferAttribute(new Float32Array(MAX * 4), 4);
     this.coatAttr.setUsage(DynamicDrawUsage);
     this.canopyAttr.setUsage(DynamicDrawUsage);
     this.motionAttr.setUsage(DynamicDrawUsage);
     this.styleAttr.setUsage(DynamicDrawUsage);
+    this.extraAttr.setUsage(DynamicDrawUsage);
+    this.bindAttrs(geo);
+  }
+
+  /** Ultra shares the high mesh. The box people stay up until the file arrives. */
+  setLod(tier: Tier): void {
+    const lod = crowdLodForTier(tier);
+    if (this.lodName === lod) return;
+    this.lodName = lod;
+    const gen = ++this.lodGen;
+    void loadCrowdRig(lod).then((asset) => {
+      if (gen !== this.lodGen) return;
+      this.bindAttrs(asset.geometry);
+      this.mesh.geometry = asset.geometry;
+      this.mesh.material = asset.material;
+      this.trisPer = asset.triangles;
+      this.rigged = true;
+    }).catch((err) => {
+      console.warn('crowd rig', err);
+    });
+  }
+
+  private bindAttrs(geo: BufferGeometry): void {
     geo.setAttribute('iCoat', this.coatAttr);
     geo.setAttribute('iCanopy', this.canopyAttr);
     geo.setAttribute('iMotion', this.motionAttr);
     geo.setAttribute('iStyle', this.styleAttr);
+    geo.setAttribute('iExtra', this.extraAttr);
   }
 
   update(dt: number, x: number, z: number, query: CityQuery, quality: QualitySettings, rain: number, time = 0, heading = 0): void {
@@ -628,6 +678,7 @@ export class CrowdField {
       }
     }
     this.avoid(n);
+    const holdUmbrella = umbrellaFraction(rain);
     for (let i = 0; i < n; i++) {
       const a = this.agents[i]!;
       if (a.role === 'vendor') {
@@ -639,14 +690,14 @@ export class CrowdField {
       if (!loop || loop.len < 1) continue;
       if (pack && unit(i, 16) < LANE_PACK) this.keepInLane(i, a, loop, x, z);
       a.u = (a.u + (a.speed * dt) / loop.len) % 1;
-      a.cycle = (a.cycle + (a.speed * dt) / STRIDE) % 1;
+      if (!this.rigged) a.cycle = (a.cycle + (a.speed * dt) / STRIDE) % 1;
     }
     const reach = animReach(quality.tier);
-    const holdUmbrella = umbrellaFraction(rain);
     const coat = this.coatAttr.array as Float32Array;
     const canopy = this.canopyAttr.array as Float32Array;
     const motion = this.motionAttr.array as Float32Array;
     const style = this.styleAttr.array as Float32Array;
+    const extra = this.extraAttr.array as Float32Array;
     const spots = marketSpots(query.layout);
     const vendors = [spots.noodle?.cook, spots.bibi?.cook].filter((v): v is NonNullable<typeof v> => !!v);
     let vendorSlot = 0;
@@ -678,6 +729,17 @@ export class CrowdField {
       const dist = Math.hypot(a.x - x, a.z - z);
       const moving = a.role === 'walk' && !a.hold && a.speed > 0.35 && dist < reach;
       const amp = moving ? 1 : 0;
+      const sheltered = a.role === 'awning' || a.role === 'vendor';
+      const hasUmbrella = !sheltered && unit(i, 12) < holdUmbrella ? 1 : 0;
+      if (this.rigged && a.role !== 'vendor') {
+        if (amp > 0) {
+          // Umbrella clip is authored at stride 1. Dry clips match strideScale.
+          const gait = STRIDE * (a.height / 1.8) * (hasUmbrella ? 1 : a.strideScale);
+          a.cycle = (a.cycle + (a.speed * dt) / gait) % 1;
+        } else if (a.x < 1e5 && dist < reach) {
+          a.cycle = (a.cycle + dt * 0.12) % 1;
+        }
+      }
       if (amp > 0 || (a.role === 'vendor' && quality.tier !== 'low' && a.x < 1e5 && dist < reach)) animated++;
       if (a.role !== 'walk' && a.x < 1e5) idle++;
       let px = a.x;
@@ -697,13 +759,13 @@ export class CrowdField {
       _q.setFromAxisAngle(_up, a.yaw);
       coat.set(a.coat, i * 3);
       canopy.set(a.canopy, i * 3);
-      const sheltered = a.role === 'awning' || a.role === 'vendor';
-      const hasUmbrella = !sheltered && unit(i, 12) < holdUmbrella ? 1 : 0;
       const look = a.role === 'queue' ? 1 : a.role === 'gaze' ? 2 : a.role === 'awning' ? 3 : a.role === 'vendor' ? 4 : 0;
-      _s.set(far ? 0 : 1, far ? 0 : 1, far ? 0 : 1);
+      const s = far ? 0 : this.rigged ? a.height / 1.8 : 1;
+      _s.set(s, s, s);
       this.mesh.setMatrixAt(i, _m.compose(_p, _q, _s));
       motion.set([a.cycle, amp, hasUmbrella, look], i * 4);
       style.set([a.hood, a.hat, a.bag, a.shortCoat], i * 4);
+      extra.set([a.height / 1.8, a.strideScale, a.skin + a.mask * 4, clipOf(a.role, amp, hasUmbrella, a.strideScale)], i * 4);
     }
     this.mesh.count = n;
     this.count = n;
@@ -716,6 +778,7 @@ export class CrowdField {
     this.canopyAttr.needsUpdate = true;
     this.motionAttr.needsUpdate = true;
     this.styleAttr.needsUpdate = true;
+    this.extraAttr.needsUpdate = true;
     publishCrowd(district.id, share, n, want, this.life);
   }
 
@@ -725,6 +788,8 @@ export class CrowdField {
       const i = this.agents.length;
       const st = styleOf(i);
       const base = 1.5 * (0.88 + unit(i, 8) * 0.24);
+      const stridePick = unit(i, 13);
+      const skinPick = unit(i, 14);
       this.agents.push({
         loop: 0,
         u: unit(i, 9),
@@ -737,6 +802,10 @@ export class CrowdField {
         hat: st.hat,
         bag: st.bag,
         shortCoat: st.shortCoat,
+        height: 1.55 + unit(i, 11) * 0.36,
+        strideScale: stridePick < 0.34 ? 0.92 : stridePick < 0.67 ? 1 : 1.08,
+        skin: skinPick < 0.34 ? 0 : skinPick < 0.67 ? 1 : 2,
+        mask: st.hood === 0 && unit(i, 7) < 0.38 ? 1 : 0,
         role: 'walk',
         hold: false,
         ix: 0, iz: 0, iyaw: 0, x: 0, z: 0, yaw: 0,

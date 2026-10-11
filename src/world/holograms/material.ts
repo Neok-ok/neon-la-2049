@@ -1,6 +1,9 @@
 // Scanline hologram panels. One material for every design: figures are SDFs, ads are scrolling blocks.
 // Nothing here is a film character or a logo. Additive, so the dark parts of the quad disappear.
-import { AdditiveBlending, DoubleSide, MeshBasicNodeMaterial } from 'three/webgpu';
+import {
+  AdditiveBlending, ClampToEdgeWrapping, DataTexture, DoubleSide, LinearFilter, MeshBasicNodeMaterial,
+  NoColorSpace, type Texture,
+} from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import { U } from '../../atmosphere/uniforms';
 import { NITS } from '../../lighting/presets.ts';
@@ -8,8 +11,35 @@ import { NITS } from '../../lighting/presets.ts';
 const T = TSL as any;
 const {
   Fn, attribute, float, vec2, vec3, vec4, uv, sin, cos, abs, min, max, mix, step, smoothstep,
-  fract, floor, hash, length, exp, clamp, positionWorld, cameraPosition,
+  fract, floor, hash, length, exp, clamp, positionWorld, cameraPosition, texture, uniform,
 } = T;
+
+// Placeholder until the low-mesh silhouette arrives. Swapping `.value` keeps the
+// cached hologram material bound to the same node.
+const dancerMaskTex = new DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
+dancerMaskTex.needsUpdate = true;
+dancerMaskTex.colorSpace = NoColorSpace;
+dancerMaskTex.wrapS = ClampToEdgeWrapping;
+dancerMaskTex.wrapT = ClampToEdgeWrapping;
+dancerMaskTex.magFilter = LinearFilter;
+dancerMaskTex.minFilter = LinearFilter;
+dancerMaskTex.flipY = true;
+dancerMaskTex.generateMipmaps = false;
+const dancerMaskNode = texture(dancerMaskTex);
+const dancerMaskReady = uniform(0);
+
+/** Swap the 1×1 stand-in for the approved dancer silhouette. Linear, clamped. */
+export function installDancerMask(source: Texture): void {
+  source.colorSpace = NoColorSpace;
+  source.wrapS = ClampToEdgeWrapping;
+  source.wrapT = ClampToEdgeWrapping;
+  source.magFilter = LinearFilter;
+  source.minFilter = LinearFilter;
+  source.generateMipmaps = false;
+  source.flipY = true;
+  dancerMaskNode.value = source;
+  dancerMaskReady.value = 1;
+}
 
 function ellipse(p: any, cx: any, cy: any, rx: any, ry: any): any {
   const dx = p.x.sub(cx).div(rx);
@@ -125,7 +155,7 @@ function lanternLoop(p: any, t: any, seed: any, mot: any): any {
  * Veil House canyon figure. A geometric dancer: diamond head with no face, a swinging
  * chevron skirt, one arm up, a long veil. Not a portrait and not a character from either film.
  */
-function veilDancer(p: any, t: any, seed: any, mot: any, detail: any, distCam: any): any {
+function veilDancer(p: any, t: any, seed: any, mot: any, detail: any, distCam: any, slice: any): any {
   // Low stays a thin glyph. Medium (detail ~0.33) is already a body when the camera is close.
   const near = smoothstep(float(160), float(24), distCam);
   const tier = smoothstep(float(0.04), float(0.28), detail);
@@ -144,7 +174,16 @@ function veilDancer(p: any, t: any, seed: any, mot: any, detail: any, distCam: a
   const veil = ellipse(p, float(0.56).add(sway.mul(1.7)), float(0.391), mix(float(0.035), float(0.075), thick), float(0.371));
   const shape = max(head, max(neck, max(torso, max(skirt1, max(skirt2, max(skirt3, max(armUp, max(armOut, veil))))))));
   const glow = ellipse(p, float(0.5).add(sway.mul(0.4)), float(0.434), mix(float(0.26), float(0.34), thick), float(0.40)).mul(0.16);
-  return max(shape, glow);
+  const sdf = max(shape, glow);
+  // Letterbox a 15 m figure on a wider panel. Hollywood's 24 m quad must not stretch her.
+  const span = attribute('iSpan', 'vec2');
+  const uFig = p.x.sub(0.5).mul(span.x.div(float(15))).add(0.5);
+  const inside = step(float(0), uFig).mul(step(uFig, float(1)));
+  const sampled = dancerMaskNode.sample(vec2(uFig.sub(sway.mul(0.35)), p.y)).r.mul(inside);
+  const body = mix(sdf, sampled, dancerMaskReady);
+  // Hand the near slice to the hero mesh. Ghost slices stay on this quad.
+  const close = smoothstep(float(80), float(24), distCam).mul(smoothstep(float(0.08), float(0.22), detail)).mul(step(slice, float(0.5)));
+  return body.mul(float(1).sub(close));
 }
 
 let shared: MeshBasicNodeMaterial | null = null;
@@ -188,7 +227,7 @@ export function getHoloMaterial(): MeshBasicNodeMaterial {
     const lantern = lanternLoop(p, t, seed, mot);
     const ads = mix(glyph, mix(lease, lantern, step(4.5, design)), step(3.5, design));
     const distCam = length(positionWorld.sub(cameraPosition));
-    const dancer = veilDancer(p, t, seed, mot, detail, distCam);
+    const dancer = veilDancer(p, t, seed, mot, detail, distCam, slice);
     const base = mix(figures, ads, step(2.5, design));
     const mask = mix(base, dancer, step(5.5, design));
 

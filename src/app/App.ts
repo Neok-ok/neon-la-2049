@@ -93,6 +93,7 @@ import { MarketAudio } from '../audio/MarketAudio';
 import { HUD } from '../ui/HUD';
 import { UI } from '../ui/UI';
 import { CrowdField } from '../districts/little-tokyo-market/crowd';
+import { DancerHero } from '../world/humans/dancerHero';
 import { marketCamera, type MarketView } from '../districts/little-tokyo-market/view';
 import { marketSpots } from '../districts/little-tokyo-market/spots';
 import { setSeats } from '../world/seats';
@@ -139,6 +140,7 @@ export class App {
   readonly ambience = new Ambience();
   readonly marketAudio: MarketAudio;
   readonly crowd = new CrowdField();
+  readonly dancer = new DancerHero();
   holos!: HologramField;
   landmarks!: Landmarks;
   interiors!: InteriorSystem;
@@ -268,7 +270,9 @@ export class App {
     const ultra = settingsFor('ultra');
     this.rain = new Precipitation('rain', ultra.rainCount);
     this.snow = new Precipitation('snow', ultra.snowCount);
-    this.scene.add(this.rain.mesh, this.snow.mesh, this.crowd.mesh, this.haze.group);
+    this.scene.add(this.rain.mesh, this.snow.mesh, this.crowd.mesh, this.dancer.mesh, this.haze.group);
+    this.crowd.setLod(this.quality.tier);
+    this.dancer.setLod(this.quality.tier);
     installInteriors();
     this.interiors = new InteriorSystem(this.scene, this.query, this.quality.tier);
     this.interiors.setExteriorListener((suspended) => { this.exteriorSuspended = suspended; });
@@ -284,7 +288,7 @@ export class App {
     const fly = new FlyController(this.camera, this.input, this.query, this.scene, this.quality.tier);
     fly.blocksExtra = (x, y, z) => this.interiors.blocksFly(x, y, z);
     this.interiors.bind({
-      toggle: [this.streamer.root, this.holos.group, this.crowd.mesh, ...this.traffic.nodes, ...this.ground.nodes],
+      toggle: [this.streamer.root, this.holos.group, this.crowd.mesh, this.dancer.mesh, ...this.traffic.nodes, ...this.ground.nodes],
       suppress: [this.rain.mesh, this.snow.mesh, this.haze.group, this.wet.mesh, this.air.glowMesh, this.air.breathMesh, ...this.lanes.nodes, fly.spinner],
       landmarks: this.landmarks.root,
     });
@@ -438,6 +442,8 @@ export class App {
     this.playLens?.dispose();
     this.playLens = null;
     this.cams.fly.setSpinnerTier(tier);
+    this.crowd.setLod(tier);
+    this.dancer.setLod(tier);
     this.slowMs = 0;
     this.ui.setAppliedTier(tier);
   }
@@ -698,6 +704,7 @@ export class App {
     this.photoMod?.postAtmosphere();
     this.syncCityLights();
     this.crowd.update(simDt, cam.x, cam.z, this.query, this.quality, this.atmosphere.weather.params.rain, this.elapsed, this.cams.pose().heading);
+    this.dancer.update(cam);
     this.haze.update(cam.x, cam.z, ground, alt, this.quality.tier);
     const overRoad = cameraOverRoad(this.query.layout, cam.x, cam.z);
     const wantRefl = this.pressure.reflector && (params.refl === 1 || (
@@ -823,6 +830,7 @@ export class App {
     this.streamer.root.visible = false;
     this.holos.group.visible = false;
     this.crowd.mesh.visible = false;
+    this.dancer.mesh.visible = false;
     for (const n of this.traffic.nodes) n.visible = false;
     for (const n of this.ground.nodes) n.visible = false;
     for (const child of this.landmarks.root.children) {
@@ -1593,6 +1601,9 @@ export class App {
         crowdStatic: this.crowd.staticCount,
         crowdIdle: this.crowd.idle,
         crowdTris: this.crowd.tris,
+        crowdRigged: this.crowd.rigged ? 1 : 0,
+        dancerTris: this.dancer.tris,
+        dancerHero: this.dancer.shown,
         holo: this.holos.shown,
         holoCandidates: this.holos.candidates,
         holoCards: this.holos.cards,
