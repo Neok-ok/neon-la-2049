@@ -80,10 +80,13 @@ function buildLights(camera: PerspectiveCamera): { night: Group; studio: Group }
   const night = new Group();
   const studio = new Group();
   camera.add(night, studio);
-  dir(night, 0xfff1dc, 2.4, new Vector3(-1.6, 2.4, 0.4), new Vector3(0, 0.4, -1));
-  night.add(new PointLight(0xff2eb8, 90, 0, 2).translateX(-2.2).translateY(0.3).translateZ(-1.2));
-  night.add(new PointLight(0x3dfff0, 80, 0, 2).translateX(2.2).translateY(0.5).translateZ(-1.1));
-  night.add(new PointLight(0xff8a32, 36, 0, 2).translateY(-1.1).translateZ(-1.4));
+  // Dark metal at albedo ~0.01 needs a hard key or the night row is a black frame.
+  dir(night, 0xfff1dc, 18, new Vector3(-1.8, 2.8, 0.3), new Vector3(0, 0.3, -1));
+  dir(night, 0xd5dde8, 12, new Vector3(0.3, 1.4, 1.6), new Vector3(0, 0.35, -3));
+  dir(night, 0xb7c4d6, 5, new Vector3(2.0, 0.7, 0.5), new Vector3(0, 0.2, -1));
+  night.add(new PointLight(0xff2eb8, 140, 0, 2).translateX(-2.2).translateY(0.3).translateZ(-1.2));
+  night.add(new PointLight(0x3dfff0, 120, 0, 2).translateX(2.2).translateY(0.5).translateZ(-1.1));
+  night.add(new PointLight(0xff8a32, 55, 0, 2).translateY(-1.1).translateZ(-1.4));
   dir(studio, 0xffffff, 5.5, new Vector3(-2.2, 2.6, 0.6), new Vector3(0, 0.3, -1));
   dir(studio, 0xd5d8de, 2.0, new Vector3(2.0, 0.6, 0.2), new Vector3(0, 0.2, -1));
   dir(studio, 0xffffff, 2.6, new Vector3(0.4, 1.8, -2.4), new Vector3(0, 0.4, -1));
@@ -129,10 +132,11 @@ async function main(): Promise<void> {
   studioGround.position.y = -0.004;
   const streakMat = new MeshBasicNodeMaterial({ color: new Color(1.4, 0.12, 0.85) });
   const streak = new Mesh(new BoxGeometry(0.12, 0.01, 22), streakMat);
-  streak.position.set(-7.5, 0.001, 0);
+  streak.scale.z = 0.22;
+  streak.position.set(-4.2, 0.001, 6.5);
   const streak2 = streak.clone();
   streak2.material = new MeshBasicNodeMaterial({ color: new Color(0.15, 0.85, 1.3) });
-  streak2.position.x = 7.5;
+  streak2.position.set(4.2, 0.001, -6.5);
   scene.add(nightGround, studioGround, streak, streak2);
   const grid = new GridHelper(8, 8, 0x9aa0a6, 0x8e949a);
   grid.position.y = 0.001;
@@ -171,7 +175,8 @@ async function main(): Promise<void> {
     const col = i % COLS;
     const row = Math.floor(i / COLS);
     const x = col * TILE_W;
-    const y = (ROWS - 1 - row) * TILE_H;
+    // WebGLBackend flips viewport Y, so this origin is the top of the sheet.
+    const y = row * TILE_H;
     const night = shot.night;
     rigs.night.visible = night;
     rigs.studio.visible = !night;
@@ -180,7 +185,7 @@ async function main(): Promise<void> {
     streak2.visible = night;
     studioGround.visible = !night;
     grid.visible = !night;
-    hemi.intensity = night ? 0.55 : 0.35;
+    hemi.intensity = night ? 1.05 : 0.35;
     hemi.color.set(night ? 0x243044 : 0xc8c8c8);
     hemi.groundColor.set(night ? 0x140c10 : 0x9a9a9a);
     scene.fog = night ? nightFog : null;

@@ -149,7 +149,9 @@ function dressMaterial(src: Material): Material {
       roughness: kind === 'body' ? 0.4 : 0.72,
       name: src.name,
     });
-    if (map) m.map = map;
+    if (map && kind === 'body') {
+      m.colorNode = T.texture(map);
+    }
     const dry = kind === 'body' ? 0.4 : 0.72;
     m.roughnessNode = T.mix(T.float(dry), T.float(0.12), U.wetness);
     return m;

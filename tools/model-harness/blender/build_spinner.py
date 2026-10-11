@@ -29,23 +29,24 @@ if HARNESS not in sys.path:
 from kit.parts import Kit  # noqa: E402
 
 # y (nose +), half-width, belly z, top z. Roof width is a fraction of half-width.
+# Haunches sit under the rear pods. The tail is a face, not a needle.
 HULL = (
-    (2.50, 0.04, 0.46, 0.50),
-    (2.15, 0.32, 0.32, 0.60),
-    (1.55, 0.70, 0.16, 0.74),
-    (0.85, 0.96, 0.10, 0.88),
-    (0.10, 1.08, 0.08, 0.92),
-    (-0.70, 1.12, 0.08, 0.86),
-    (-1.40, 0.90, 0.12, 0.70),
-    (-2.00, 0.55, 0.22, 0.56),
-    (-2.50, 0.16, 0.34, 0.46),
+    (2.50, 0.05, 0.44, 0.52),
+    (2.05, 0.42, 0.28, 0.62),
+    (1.45, 0.78, 0.15, 0.76),
+    (0.70, 1.00, 0.09, 0.90),
+    (0.00, 1.06, 0.08, 0.96),
+    (-0.55, 1.08, 0.08, 0.88),
+    (-1.20, 1.00, 0.10, 0.74),
+    (-1.85, 0.62, 0.18, 0.58),
+    (-2.45, 0.28, 0.30, 0.48),
 )
 CANOPY = (
-    (1.00, 0.22, 0.84, 0.98),
-    (0.55, 0.46, 0.88, 1.16),
-    (0.05, 0.50, 0.90, 1.40),
-    (-0.40, 0.40, 0.84, 1.12),
-    (-0.72, 0.16, 0.74, 0.90),
+    (1.05, 0.20, 0.86, 1.00),
+    (0.55, 0.48, 0.90, 1.18),
+    (0.05, 0.52, 0.92, 1.36),
+    (-0.45, 0.42, 0.86, 1.14),
+    (-0.85, 0.14, 0.76, 0.92),
 )
 # Longitudinal corners that should stay crisp under bevel and subdivision.
 SHARP = {2, 3, 4, 8, 9, 10}
@@ -367,27 +368,52 @@ def _grade(src, size):
     px = array.array('f', src.pixels)
     w = h = size
     aos = array.array('f', (px[i] for i in range(0, len(px), 4)))
-    out = array.array('f', px)
-    base = (0.013, 0.014, 0.017)
+    out = array.array('f', [0.0]) * (w * h * 4)
+    # Close to the untextured 0x1a body when a face is fully exposed, so the studio
+    # highlight survives. Cavities only drop part way.
+    base = (0.012, 0.013, 0.016)
 
-    def cell(gx, gy):
-        n = (gx * 374761393 + gy * 668265263) & 0xFFFFFFFF
+    def hsh(gx, gy):
+        n = (int(gx) * 374761393 + int(gy) * 668265263) & 0xFFFFFFFF
         n = (n ^ (n >> 13)) * 1274126177 & 0xFFFFFFFF
-        return 0.78 + 0.22 * ((n & 0xFFFF) / 65535.0)
+        return (n & 0xFFFF) / 65535.0
+
+    grid = 8
+    cells = [hsh(gx, gy) for gy in range(grid + 1) for gx in range(grid + 1)]
+
+    def grit(x, y):
+        fx = x / w * grid
+        fy = y / h * grid
+        x0 = min(grid - 1, int(fx))
+        y0 = min(grid - 1, int(fy))
+        tx = fx - x0
+        ty = fy - y0
+        tx = tx * tx * (3 - 2 * tx)
+        ty = ty * ty * (3 - 2 * ty)
+
+        def at(ix, iy):
+            return cells[iy * (grid + 1) + ix]
+
+        v = (
+            at(x0, y0) * (1 - tx) * (1 - ty)
+            + at(x0 + 1, y0) * tx * (1 - ty)
+            + at(x0, y0 + 1) * (1 - tx) * ty
+            + at(x0 + 1, y0 + 1) * tx * ty
+        )
+        return 0.94 + 0.06 * v
 
     for y in range(h):
-        gy = min(47, int(y / h * 48))
+        row = y * w
         for x in range(w):
-            i = y * w + x
-            ao = aos[i]
-            shade = 0.48 + 0.52 * ao
-            gx = min(47, int(x / w * 48))
+            i = row + x
+            ao = min(1.0, aos[i] * 2.4)
+            shade = 0.55 + 0.45 * ao
             wear = 1.0
-            if ao > 0.72 and x > 0 and y > 0:
+            if ao > 0.55 and x > 0 and y > 0:
                 neighbor = min(aos[i - 1], aos[i - w])
-                if neighbor < ao - 0.18:
-                    wear = 1.22
-            k = shade * cell(gx, gy) * wear
+                if neighbor < ao - 0.12:
+                    wear = 1.45
+            k = shade * grit(x, y) * wear
             o = i * 4
             out[o] = min(1.0, base[0] * k)
             out[o + 1] = min(1.0, base[1] * k)
@@ -524,20 +550,20 @@ def export_glb(path):
     print('WROTE', path, os.path.getsize(path))
 
 
-def make_skids(mat):
+def make_skids(body, recess):
     for sx in (-0.42, 0.42):
-        box(f'skid-{sx:+.2f}', (sx - 0.03, -1.15, 0.0), (sx + 0.03, 0.65, 0.04), mat)
-        box(f'strut-a-{sx:+.2f}', (sx - 0.02, -0.75, 0.03), (sx + 0.02, -0.58, 0.12), mat)
-        box(f'strut-b-{sx:+.2f}', (sx - 0.02, 0.22, 0.03), (sx + 0.02, 0.40, 0.12), mat)
+        box(f'skid-{sx:+.2f}', (sx - 0.05, -1.25, 0.0), (sx + 0.05, 0.75, 0.06), recess)
+        box(f'strut-a-{sx:+.2f}', (sx - 0.025, -0.8, 0.04), (sx + 0.025, -0.58, 0.14), body)
+        box(f'strut-b-{sx:+.2f}', (sx - 0.025, 0.2, 0.04), (sx + 0.025, 0.42, 0.14), body)
 
 
 def place_lights(kit, hull, canopy):
-    stick(kit, kit.light_strip('head', 0.55, 0.032, 0.018, 'white'), hull, (0, 2.15, 0.55), (0, 1, 0.15))
-    stick(kit, kit.light_strip('tail', 0.70, 0.036, 0.018, 'red'), hull, (0, -2.15, 0.42), (0, -1, 0.1))
-    stick(kit, kit.light_strip('side-l', 0.22, 0.028, 0.014, 'amber'), hull, (-1.05, 0.15, 0.48), (-1, 0, 0.1))
-    stick(kit, kit.light_strip('side-r', 0.22, 0.028, 0.014, 'amber'), hull, (1.05, 0.15, 0.48), (1, 0, 0.1))
-    stick(kit, kit.light_strip('strobe-l', 0.28, 0.03, 0.045, 'strobe-red'), canopy, (-0.16, 0.05, 1.40), (0, 0, 1))
-    stick(kit, kit.light_strip('strobe-r', 0.28, 0.03, 0.045, 'strobe-blue'), canopy, (0.16, 0.05, 1.40), (0, 0, 1))
+    stick(kit, kit.light_strip('head', 0.62, 0.034, 0.02, 'white'), hull, (0, 2.05, 0.55), (0, 1, 0.25))
+    stick(kit, kit.light_strip('tail', 0.55, 0.04, 0.02, 'red'), hull, (0, -2.2, 0.40), (0, -1, 0.15))
+    stick(kit, kit.light_strip('side-l', 0.55, 0.036, 0.016, 'amber'), hull, (-1.02, -0.15, 0.42), (-1, 0, 0.15))
+    stick(kit, kit.light_strip('side-r', 0.55, 0.036, 0.016, 'amber'), hull, (1.02, -0.15, 0.42), (1, 0, 0.15))
+    stick(kit, kit.light_strip('strobe-l', 0.34, 0.04, 0.04, 'strobe-red'), canopy, (-0.16, 0.02, 1.36), (0, 0, 1))
+    stick(kit, kit.light_strip('strobe-r', 0.34, 0.04, 0.04, 'strobe-blue'), canopy, (0.16, 0.02, 1.36), (0, 0, 1))
 
 
 def place_dress(kit, hull, pods, lod, rich):
@@ -545,24 +571,25 @@ def place_dress(kit, hull, pods, lod, rich):
     vanes = 3 if lod == 'high' else 2
     bolts = rich
     panels = (
-        ('hood', (0.0, 1.35, 0.78), (0, 0.35, 1), 0.52, 0.40),
-        ('nose', (0.0, 1.95, 0.52), (0, 1, 0.2), 0.26, 0.14),
-        ('deck', (0.0, -0.9, 0.78), (0, -0.15, 1), 0.58, 0.36),
-        ('flank-l', (-1.02, -0.15, 0.40), (-1, 0, 0.12), 0.72, 0.26),
-        ('flank-r', (1.02, -0.15, 0.40), (1, 0, 0.12), 0.72, 0.26),
-        ('sill-l', (-0.9, 0.45, 0.20), (-0.3, 0.1, -1), 0.46, 0.12),
-        ('sill-r', (0.9, 0.45, 0.20), (0.3, 0.1, -1), 0.46, 0.12),
+        ('hood', (0.0, 1.25, 0.78), (0, 0.25, 1), 0.34, 0.20),
+        ('deck', (0.0, -0.7, 0.80), (0, -0.1, 1), 0.32, 0.18),
+        ('flank-l', (-1.00, 0.05, 0.46), (-1, 0, 0.08), 0.42, 0.16),
+        ('flank-r', (1.00, 0.05, 0.46), (1, 0, 0.08), 0.42, 0.16),
+        ('sill-l', (-0.88, 0.35, 0.18), (-0.25, 0.05, -1), 0.30, 0.08),
+        ('sill-r', (0.88, 0.35, 0.18), (0.25, 0.05, -1), 0.30, 0.08),
     )
     for name, guess, normal, w, h in panels:
-        stick(kit, kit.panel_inset(name, w, h, bolts=bolts), hull, guess, normal)
+        part = kit.panel_inset(name, w, h, bolts=bolts)
+        stick(kit, part, hull, guess, normal)
+        part.root.scale.z = 0.45
     for name, guess, normal in (
-        ('intake-l', (-0.88, 0.25, 0.74), (-0.55, 0.1, 0.85)),
-        ('intake-r', (0.88, 0.25, 0.74), (0.55, 0.1, 0.85)),
+        ('intake-l', (-0.92, 0.15, 0.70), (-0.45, 0.05, 0.9)),
+        ('intake-r', (0.92, 0.15, 0.70), (0.45, 0.05, 0.9)),
     ):
-        stick(kit, kit.intake(name, 0.34, 0.16, 0.05, vanes), hull, guess, normal)
-    stick(kit, kit.vent('deck-vent', 0.22, 0.10, 0.025, slats), hull, (0.0, -1.35, 0.68), (0, -0.2, 1))
-    for y in (1.65, -1.55, -1.9):
-        stick(kit, kit.seam(f'spine-{y:+.2f}', 0.38, 0.008, 0.006), hull, (0, y, 0.85), (0, 0, 1))
+        stick(kit, kit.intake(name, 0.46, 0.22, 0.055, vanes), hull, guess, normal)
+    stick(kit, kit.vent('deck-vent', 0.18, 0.08, 0.02, slats), hull, (0.0, -0.35, 0.90), (0, 0, 1))
+    for y in (1.55, -1.35):
+        stick(kit, kit.seam(f'spine-{y:+.2f}', 0.32, 0.008, 0.005), hull, (0, y, 0.9), (0, 0, 1))
     # Canopy sill: a dark seam where the glass meets the roof, both sides and the windshield header.
     for name, guess, normal, length in (
         ('frame-l', (-0.42, 0.15, 0.95), (-0.7, 0, 0.7), 0.7),
@@ -575,15 +602,15 @@ def place_dress(kit, hull, pods, lod, rich):
     rear_l, rear_r, front_l, front_r = pods
     for pod, sign in ((rear_l, -1), (rear_r, 1)):
         stick(
-            kit, kit.thruster_nozzle(f'nozzle-rear-{sign:+d}', 0.16, 0.07, nvanes, segments),
-            pod, (sign * 0.95, -2.05, 0.40), (sign * 0.32, -1, 0.12),
+            kit, kit.thruster_nozzle(f'nozzle-rear-{sign:+d}', 0.18, 0.08, nvanes, segments),
+            pod, (sign * 0.86, -1.75, 0.36), (sign * 0.22, -1, 0.08),
         )
     for pod, sign in ((front_l, -1), (front_r, 1)):
         stick(
             kit, kit.thruster_nozzle(f'nozzle-front-{sign:+d}', 0.11, 0.05, max(0, nvanes // 2), segments),
-            pod, (sign * 0.74, 1.32, 0.16), (0, 0.2, -1),
+            pod, (sign * 0.68, 1.22, 0.10), (0, 0.15, -1),
         )
-        stick(kit, kit.vent(f'pod-vent-{sign:+d}', 0.16, 0.08, 0.02, max(2, slats // 2)), pod, (sign * 0.74, 1.32, 0.55), (0, 0, 1))
+        stick(kit, kit.vent(f'pod-vent-{sign:+d}', 0.16, 0.08, 0.02, max(2, slats // 2)), pod, (sign * 0.68, 1.22, 0.55), (0, 0.1, 1))
 
 
 def place_greebles(kit, hull, count):
@@ -596,7 +623,7 @@ def place_greebles(kit, hull, count):
         ((0.0, -0.55, 0.84), (0, 0, 1), 0.12, 0.08, 16),
     )
     for i, (guess, normal, w, h, seed) in enumerate(spots[:count]):
-        stick(kit, kit.greeble_cluster(f'greeble-{i}', w, h, 0.025, 4, seed), hull, guess, normal)
+        stick(kit, kit.greeble_cluster(f'greeble-{i}', w, h, 0.018, 3, seed), hull, guess, normal)
 
 
 def place_rich(kit, hull):
@@ -611,7 +638,7 @@ def place_rich(kit, hull):
         kit.place(kit.cable(
             f'pod-cable-{sign:+d}',
             ((0, 0, 0), (sign * 0.08, 0.06, 0.04), (sign * 0.16, 0.14, 0.02)),
-            radius=0.007,
+            radius=0.012,
         ), (sign * 0.72, -1.25, 0.46))
 
 
@@ -634,7 +661,7 @@ def build(round_n, lod, out_path):
     if rich:
         add_subdiv(hull)
         add_weighted(hull)
-    apply_mods(hull, math.radians(50))
+    apply_mods(hull, math.radians(32 if detail else 50))
 
     canopy = loft(
         [canopy_section(*row) for row in CANOPY],
@@ -649,17 +676,17 @@ def build(round_n, lod, out_path):
 
     seg = SEG[lod]
     pods = (
-        cylinder_y('pod-rear-l', 0.20, 0.78, seg, kit.body, (-0.95, -1.62, 0.40)),
-        cylinder_y('pod-rear-r', 0.20, 0.78, seg, kit.body, (0.95, -1.62, 0.40)),
-        cylinder_y('pod-front-l', 0.15, 0.52, seg, kit.body, (-0.74, 1.32, 0.34)),
-        cylinder_y('pod-front-r', 0.15, 0.52, seg, kit.body, (0.74, 1.32, 0.34)),
+        cylinder_y('pod-rear-l', 0.26, 0.70, seg, kit.body, (-0.86, -1.22, 0.36)),
+        cylinder_y('pod-rear-r', 0.26, 0.70, seg, kit.body, (0.86, -1.22, 0.36)),
+        cylinder_y('pod-front-l', 0.15, 0.44, seg, kit.body, (-0.68, 1.22, 0.32)),
+        cylinder_y('pod-front-r', 0.15, 0.44, seg, kit.body, (0.68, 1.22, 0.32)),
     )
-    make_skids(kit.body)
+    make_skids(kit.body, kit.recess)
     place_lights(kit, hull, canopy)
     if detail:
         place_dress(kit, hull, pods, lod, rich)
     if greeble:
-        place_greebles(kit, hull, 6 if rich else 3)
+        place_greebles(kit, hull, 4 if rich else 2)
     if rich:
         place_rich(kit, hull)
 
