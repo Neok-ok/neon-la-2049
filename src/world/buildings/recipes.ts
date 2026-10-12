@@ -210,10 +210,20 @@ function buttress(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
       s, t, lb: pw, la: pd, h: ph, base: y0,
       style: Style.Slit, lit: spec.lit * 0.45, tint: spec.tint * 0.85, detail: 0, role: 'mass',
     });
-    // A lit edge on the street side of each pier, so the supports read at night.
+    // A lit edge on the street side of each pier, kept inside the 2.2 m footprint allowance.
+    const glowLa = 2.2;
     addBox(d, {
-      s: as * (spec.d / 2 + 0.28), t, lb: 0.55, la: Math.max(1.4, pw * 0.7), h: ph * 0.92, base: y0 + 2,
+      s: as * (spec.d / 2 + 0.2), t, lb: 0.5, la: glowLa, h: ph * 0.92, base: y0 + 2,
       style: Style.Glow, lit: 0.62, tint: 1.12, detail: 0, role: 'mass',
+    });
+  }
+  // Thick ties so the corner piers read as part of this tower, not as neighbors.
+  for (const f of [0.32, 0.5]) {
+    const y = y0 + H * f;
+    if (y > y0 + ph - 2) continue;
+    addBox(d, {
+      s: 0, t: 0, lb: spec.w * 0.98, la: spec.d * 0.98, h: 3.2, base: y,
+      style: Style.Solid, lit: 0.14, tint: spec.tint * 0.8, detail: 0, role: 'deck',
     });
   }
   const walks = variant === 2 ? [0.22, 0.4, 0.58] : [0.3, 0.52];
@@ -281,21 +291,22 @@ function resStack(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
     style: Style.Residential, lit: spec.lit, tint: spec.tint, door,
   });
   const every = (variant === 1 ? 3 : 4) * RES_STOREY;
-  const plateD = 5.4;
+  const face = bd / 2;
+  const limit = spec.d / 2 + 2.0;
+  const plateD = Math.min(4.8, Math.max(1.8, limit - face - 0.55));
   const plateH = 1.7;
   for (let y = y0 + every; y < y0 + H - 2; y += every) {
-    // A deep shelf, not a 0.16 m rail. The lip is only 1.45 m tall so it stays a light line.
     addBox(d, {
-      s: -(bd / 2 + plateD / 2), t: 0, lb: bw * 0.88, la: plateD, h: plateH, base: y,
+      s: -(face + plateD / 2), t: 0, lb: bw * 0.88, la: plateD, h: plateH, base: y,
       style: Style.Solid, lit: 0.07, tint: spec.tint * 0.75, detail: 0, role: 'balcony',
     });
     addBox(d, {
-      s: -(bd / 2 + plateD + 0.2), t: 0, lb: bw * 0.92, la: 0.4, h: 1.45, base: y + plateH - 0.15,
+      s: -(face + plateD + 0.16), t: 0, lb: bw * 0.9, la: 0.28, h: 1.35, base: y + plateH - 0.15,
       style: Style.Glow, lit: 0.72, tint: 1.12, detail: 0, role: 'balcony',
     });
     if (variant === 2) {
       addBox(d, {
-        s: 0, t: bw / 2 + 2.4, lb: 4.4, la: bd * 0.55, h: plateH, base: y,
+        s: 0, t: bw / 2 + 1.15, lb: 2.0, la: bd * 0.5, h: plateH, base: y,
         style: Style.Solid, lit: 0.07, tint: spec.tint * 0.75, detail: 0, role: 'balcony',
       });
     }
@@ -361,8 +372,8 @@ function cantilever(d: Draft, spec: TowerSpec, H: number, y0: number, door: bool
     s: 0, t: 0, lb: bw, la: bd, h: baseH, base: y0,
     style: Style.Megablock, lit: spec.lit * 0.7, tint: spec.tint, door,
   });
-  const topW = spec.w * 1.24;
-  const topD = spec.d * 0.96;
+  const topW = Math.min(spec.w * 1.2, spec.w + 3.6);
+  const topD = spec.d * 0.9;
   const t = 0;
   addBox(d, {
     s: 0, t, lb: topW, la: topD, h: H - baseH, base: y0 + baseH,
@@ -370,13 +381,13 @@ function cantilever(d: Draft, spec: TowerSpec, H: number, y0: number, door: bool
   });
   // A short lip, not a window wall. It marks the joint; the wider top is the mass above it.
   addBox(d, {
-    s: 0, t, lb: topW + 1.2, la: topD + 1.0, h: 2.1, base: y0 + baseH - 0.3,
+    s: 0, t, lb: Math.min(topW + 0.5, spec.w + 4.0), la: topD, h: 2.1, base: y0 + baseH - 0.3,
     style: Style.Glow, lit: 0.86, tint: 1.2, detail: 0, role: 'band',
   });
   const bands = variant === 0 ? 4 : 3;
   for (let i = 1; i <= bands; i++) {
     const y = y0 + baseH + ((H - baseH) * i) / (bands + 1);
-    band(d, 0, t, topW + 0.4, topD + 0.3, y, 1.8, spec.lit, spec.tint);
+    band(d, 0, t, topW, topD, y, 1.8, spec.lit, spec.tint);
   }
 }
 
@@ -439,7 +450,7 @@ function heroGate(d: Draft, spec: TowerSpec, H: number): void {
     const t = side * (gap / 2 + slabW / 2);
     skin(d, {
       s: 0, t, lb: slabW * 0.94, la: slabD, h: H, base: 0,
-      style: Style.Panel, lit: spec.lit, tint: spec.tint, door: side < 0,
+      style: Style.Panel, lit: spec.lit * 0.42, tint: spec.tint, door: side < 0,
     });
     // A light column on the inner face. Narrower than one glow cell, so it stays a shaft.
     addBox(d, {

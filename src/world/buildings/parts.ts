@@ -214,6 +214,11 @@ export function skin(d: Draft, o: Skin): void {
       lb: 0.16, la: 0.1, h: DOOR_H, base, role: 'door-jamb',
     });
   }
+  // The mass behind the opening is a window wall. A dark plate keeps the 2.2 m hole readable.
+  addBox(d, {
+    s: s - la / 2 + thick + 0.1, t: doorAt, lb: DOOR_W - 0.08, la: 0.12, h: DOOR_H - 0.04, base: base + 0.02,
+    style: Style.Solid, lit: 0.03, tint: tint * 0.35, detail: 0, role: 'mass',
+  });
 }
 
 function stairHits(d: Draft, s: number, t: number, la: number, lb: number, y0: number, y1: number): boolean {
