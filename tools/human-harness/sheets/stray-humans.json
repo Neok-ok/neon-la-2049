@@ -1,0 +1,116 @@
+{
+  "crowd": {
+    "medium": {
+      "lod": "medium",
+      "triangles": 1792,
+      "limitM": 0.03,
+      "views": {
+        "stand": {
+          "iou": 0.9698,
+          "outsidePx": 0,
+          "meshPx": 26074,
+          "protrusion": false
+        },
+        "short": {
+          "iou": 0.8389,
+          "outsidePx": 0,
+          "meshPx": 23167,
+          "protrusion": false
+        },
+        "side": {
+          "iou": 0.9303,
+          "outsidePx": 0,
+          "meshPx": 14281,
+          "protrusion": false
+        }
+      },
+      "components": 40,
+      "loose": [],
+      "thinTriangles": 0,
+      "thinEdgeM": 0.0,
+      "pass": true
+    },
+    "high": {
+      "lod": "high",
+      "triangles": 1896,
+      "limitM": 0.03,
+      "views": {
+        "stand": {
+          "iou": 0.9698,
+          "outsidePx": 0,
+          "meshPx": 26074,
+          "protrusion": false
+        },
+        "short": {
+          "iou": 0.8389,
+          "outsidePx": 0,
+          "meshPx": 23167,
+          "protrusion": false
+        },
+        "side": {
+          "iou": 0.9296,
+          "outsidePx": 0,
+          "meshPx": 14384,
+          "protrusion": false
+        }
+      },
+      "components": 42,
+      "loose": [],
+      "thinTriangles": 0,
+      "thinEdgeM": 0.0,
+      "pass": true
+    }
+  },
+  "dancer": {
+    "medium": {
+      "lod": "medium",
+      "triangles": 1296,
+      "limitM": 0.64,
+      "views": {
+        "front": {
+          "iou": 0.7329,
+          "outsidePx": 0,
+          "meshPx": 38495,
+          "protrusion": false
+        },
+        "side": {
+          "iou": 0.8216,
+          "outsidePx": 0,
+          "meshPx": 6356,
+          "protrusion": false
+        }
+      },
+      "components": 8,
+      "authoredSeparations": "diamond head, raised hand, three skirt steps, veil",
+      "loose": [],
+      "thinTriangles": 0,
+      "thinEdgeM": 0.0,
+      "pass": true
+    },
+    "high": {
+      "lod": "high",
+      "triangles": 2704,
+      "limitM": 0.64,
+      "views": {
+        "front": {
+          "iou": 0.7337,
+          "outsidePx": 0,
+          "meshPx": 38616,
+          "protrusion": false
+        },
+        "side": {
+          "iou": 0.8216,
+          "outsidePx": 0,
+          "meshPx": 6402,
+          "protrusion": false
+        }
+      },
+      "components": 8,
+      "authoredSeparations": "diamond head, raised hand, three skirt steps, veil",
+      "loose": [],
+      "thinTriangles": 0,
+      "thinEdgeM": 0.0,
+      "pass": true
+    }
+  }
+}

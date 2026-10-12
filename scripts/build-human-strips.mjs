@@ -13,6 +13,7 @@ const ONLY = new Set((process.env.ONLY || '').split(',').filter(Boolean));
 const FULL = new Set((process.env.FULL || '').split(',').filter(Boolean));
 const stems = new Set();
 for (const name of readdirSync(OUT)) {
+  if (name.startsWith('.')) continue;
   const m = name.match(/^(.+)-f0\.png$/);
   if (m && (!ONLY.size || ONLY.has(m[1]))) stems.add(m[1]);
 }
@@ -73,10 +74,28 @@ def pink_box(im):
     px = im.load()
     minx, miny, maxx, maxy = w, h, 0, 0
     n = 0
-    for y in range(0, h, 2):
+    # Night exposure leaves the veil mauve, not hot pink. Keep the column test
+    # so a dim figure still beats the neon signs.
+    col = [0] * w
+    for y in range(int(h * 0.12), int(h * 0.88), 2):
         for x in range(0, w, 2):
             r, g, b = px[x, y]
-            if r > 170 and r > g + 40 and b > 80:
+            pink = r > 48 and r > g + 12 and b > 36 and r > b * 0.7
+            # Diamond and the raised hand are the pale core, not the pink cloth.
+            hot = r > 168 and g > 168 and b > 150 and abs(r - g) < 36
+            if pink or hot:
+                col[x] += 1
+    best, bx = 0, w // 2
+    for x in range(0, w, 2):
+        s = sum(col[max(0, x - 24):min(w, x + 24)])
+        if s > best:
+            best, bx = s, x
+    for y in range(0, h, 2):
+        for x in range(max(0, bx - 90), min(w, bx + 90), 2):
+            r, g, b = px[x, y]
+            pink = r > 48 and r > g + 12 and b > 36 and r > b * 0.7
+            hot = r > 168 and g > 168 and b > 150 and abs(r - g) < 36
+            if pink or hot:
                 n += 1
                 if x < minx: minx = x
                 if y < miny: miny = y

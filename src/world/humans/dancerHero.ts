@@ -120,9 +120,19 @@ function heroMaterial(palette: Texture): MeshBasicNodeMaterial {
     return setup(builder);
   };
   m.colorNode = T.Fn(() => {
-    const dist = T.length(T.positionWorld.sub(T.cameraPosition));
+    // The figure is 60 m tall. Distance to a head vertex is much larger than
+    // distance to the hem, so a per-vertex fade hid the diamond and left the
+    // flat panel in its place. One distance, to the planted hem, matches the
+    // 82 m gate and keeps the whole body on this mesh.
+    const dist = T.length(T.modelPosition.sub(T.cameraPosition));
     const close = T.smoothstep(T.float(80), T.float(24), dist);
     const tint = T.vec3(1, 0.18, 0.55);
+    // Diamond head (part 5) and the raised hand (part 2) take the hot core.
+    // The skirts stay pink, so the pose separates under the scan.
+    const part = T.uv(1).x;
+    const isDiamond = T.step(4.5, part).mul(T.step(part, 5.5));
+    const isHand = T.step(1.5, part).mul(T.step(part, 2.5));
+    const hot = T.mix(tint, T.vec3(0.92, 0.97, 1.0), T.float(0.62).mul(isDiamond.add(isHand)));
     const sweep = T.fract(T.uv().y.mul(28).sub(U.time.mul(1.15)));
     const line = T.smoothstep(0.06, 0.32, sweep).mul(T.smoothstep(0.58, 0.94, sweep).oneMinus());
     const scan = T.mix(T.float(0.58), T.float(1), line);
@@ -132,7 +142,7 @@ function heroMaterial(palette: Texture): MeshBasicNodeMaterial {
     const haze = T.clamp(T.exp(dist.mul(U.fogDensity).mul(-0.22)), 0.35, 1);
     const night = U.night.mul(0.75).add(0.28);
     // Peak stays under the bloom threshold so the diamond head, skirts, and veil read.
-    return T.vec4(tint.mul(scan).mul(flick).mul(haze).mul(night).mul(U.signPower).mul(0.8).mul(close).mul(authoredLiftU), 1);
+    return T.vec4(hot.mul(scan).mul(flick).mul(haze).mul(night).mul(U.signPower).mul(0.8).mul(close).mul(authoredLiftU), 1);
   })();
   return m;
 }

@@ -1,7 +1,7 @@
 # One parametric pedestrian. Every outfit is this body with parts shown or hidden.
 # Front outline is the overlap plate. Depth is the side plate. Bones match lib.gait.
 from .gait import BONE_INDEX as BI
-from .geom import Mesh, ball, box, disc, loft, wafer, x_span
+from .geom import Mesh, ball, box, disc, ellipsoid, loft, wafer, x_span
 from .plates import CANOPY, RAIN_ARM, SHAFT, SHORT, SIDE, STAND
 
 SKIN = (0.02, 0.52, 0.48, 0.98)
@@ -26,10 +26,6 @@ def _z_of(poly, y, fallback):
 
 def _coat_z(y):
     return _z_of(SIDE['coat'], y, (-0.14, 0.14))
-
-
-def _head_z(y):
-    return _z_of(SIDE['head'], y, (-0.10, 0.08))
 
 
 def _neck_z(y):
@@ -127,8 +123,15 @@ def build_crowd(lod='high'):
 
 
 def _body(mesh, segs, lod):
-    loft(mesh, STAND['head'], _head_z, segs, 1, lambda _y: BI['head'], SKIN_C, SKIN)
-    loft(mesh, STAND['neck'], _neck_z, max(4, segs - 2), 0, lambda _y: BI['head'], SKIN_C, SKIN)
+    # One blank cranium inside the head plate. Crown 1.80, chin 1.57, breadth 0.16.
+    # A loft of those stations is a stack of rings, which reads as a can.
+    ellipsoid(
+        mesh, 0.0, 1.685, -0.02, 0.08, 0.115, 0.09,
+        6 if lod == 'low' else 10,
+        8 if lod == 'low' else 14,
+        1, BI['head'], SKIN_C, SKIN,
+    )
+    loft(mesh, STAND['neck'], _neck_z, 10, 0, lambda _y: BI['head'], SKIN_C, SKIN)
     # Respirator: a blank plastic band on the chin. It stays inside the head's
     # width and only a few millimetres proud of the side plate, so the outline holds.
     # No mouth, no lenses, no logo. Hoods hide it.
@@ -194,13 +197,22 @@ def _clothes(mesh, segs, lod):
     hood = ((-0.15, 1.52), (0.15, 1.52), (0.15, 1.84), (-0.15, 1.84))
     loft(mesh, hood, lambda _y: (-0.14, 0.12), max(4, segs - 2), 9, lambda _y: BI['hood'], CLOTH_DARK, WOOL)
 
-    # Hat. Brim 0.34 m, crown to 1.92 m. Sits on the head bone so a gaze lifts it.
+    # Hat. Brim 0.34 m, crown to 1.92 m. The crown is a cap, not a second can.
     if lod == 'low':
         box(mesh, 0.0, 1.79, 0.0, 0.34, 0.03, 0.34, 10, BI['hood'], CLOTH, WOOL)
     else:
         disc(mesh, 0.0, 1.78, 0.0, 0.17, segs * 2, 10, BI['hood'], CLOTH, WOOL, y_lift=0.02)
-    crown = ((-0.08, 1.80), (0.08, 1.80), (0.08, 1.92), (-0.08, 1.92))
-    loft(mesh, crown, lambda _y: (-0.08, 0.08), 4 if lod == 'low' else max(4, segs - 2), 10, lambda _y: BI['hood'], CLOTH_DARK, WOOL)
+    # Felt cap. The crown loft's rings were a second can sitting on the brim.
+    ellipsoid(
+        mesh, 0.0, 1.86, 0.0, 0.07, 0.06, 0.06,
+        4 if lod == 'low' else 6,
+        8 if lod == 'low' else 10,
+        10, BI['hood'], CLOTH_DARK, WOOL,
+    )
+    # Centre-back vent. Left and right hems follow opposite thighs; this strip
+    # stays on the coat bone and closes the slot those thighs pull open.
+    box(mesh, 0.0, 0.94, -0.02, 0.08, 0.36, 0.05, 6, BI['coat'], CLOTH_DARK, WOOL)
+    box(mesh, 0.0, 1.08, -0.02, 0.08, 0.24, 0.05, 12, BI['coat'], CLOTH, WOOL)
 
     # Bag on the left hip. 0.16 × 0.30 × 0.13 m.
     box(mesh, -0.32, 0.98, 0.06, 0.16, 0.30, 0.13, 11, BI['bag'], CLOTH_DARK, LEATHER)
@@ -214,10 +226,10 @@ def _clothes(mesh, segs, lod):
         loft(mesh, hem, lambda _y: (-0.10, 0.10), 4, 6, lambda _y: BI['coat'], CLOTH_DARK, WOOL)
 
 
-def _canopy_poly(lod):
-    if lod != 'low':
-        return CANOPY
-    # Three heights of the same arch, so the roof keeps its width and its apex.
+def _canopy_poly(_lod):
+    # The plate's scalloped rim, revolved, reads as a torn edge from the side.
+    # Three heights of the outer arch keep the width and the apex, and the
+    # rim stays one closed ring.
     rim = x_span(CANOPY, 1.98)
     mid = x_span(CANOPY, 2.06)
     apex = x_span(CANOPY, 2.145) or (0.28, 0.32)
@@ -228,14 +240,10 @@ def _canopy_poly(lod):
 
 
 def _rain(mesh, segs, lod):
-    canopy_segs = 4 if lod != 'high' else segs
+    # Four sides read as a broken shard. Eight is a closed roof on medium and high.
+    canopy_segs = 4 if lod == 'low' else 8
     loft(mesh, _canopy_poly(lod), _canopy_z, canopy_segs, 7, lambda _y: BI['umbrella'], CLOTH, VINYL)
     loft(mesh, SHAFT, _shaft_z, 4, 8, lambda _y: BI['umbrella'], SHAFT_C, VINYL)
     # Bent right arm, the rain plate. Shown only while the umbrella is up; the
     # straight arm (part 5) is the one the walk swings in dry weather.
     loft(mesh, RAIN_ARM, lambda _y: (0.02, 0.14), max(4, segs - 2), 15, lambda _y: BI['coat'], CLOTH, WOOL)
-    if lod == 'high':
-        # Ribs inside the arch. They do not push the outline past the plate.
-        for i, x in enumerate((-0.28, -0.08, 0.14, 0.36)):
-            rib = ((x - 0.012, 1.985), (x + 0.012, 1.985), (x * 0.55 + 0.01, 2.12), (x * 0.55 - 0.01, 2.12))
-            loft(mesh, rib, lambda _y: (0.02, 0.14), 3, 7, lambda _y: BI['umbrella'], CLOTH_DARK, VINYL)

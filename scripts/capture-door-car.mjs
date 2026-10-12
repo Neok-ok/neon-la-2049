@@ -17,7 +17,7 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, dev
 page.setDefaultTimeout(180000);
 
 await page.goto(
-  'http://127.0.0.1:5173/?mode=walk&at=noodle-bar&time=22.5&weather=rain&freeze=1&ui=0&quality=ultra&webgl=1',
+  `http://127.0.0.1:5173/?mode=walk&at=noodle-bar&time=22.5&weather=rain&freeze=1&ui=0&quality=${process.env.QUALITY || 'ultra'}&webgl=1`,
   { waitUntil: 'domcontentloaded', timeout: 90000 },
 );
 await page.waitForFunction(() => window.__nla && window.__nla.stats, { timeout: 90000 });
@@ -192,78 +192,92 @@ const found = await page.evaluate(async () => {
     return out;
   }
   const folks = people()
-    .map((p) => ({ ...p, d: Math.hypot(p.x - opening.x, p.z - opening.z) }))
-    .filter((p) => p.d < 12)
+    .map((p) => ({ ...p, d: Math.hypot(p.x - held.x, p.z - held.z) }))
+    .filter((p) => p.d < 16 && Math.hypot(p.x - opening.x, p.z - opening.z) < 18)
     .sort((a, b) => a.d - b.d);
   const picks = [];
   const who = folks[0];
   if (!who) return { ok: false, reason: 'no-person', nearest, trace };
-  // Close cameras around the walker. Traffic keeps moving until a car sits in the foreground.
+  // Stand across the car so its side faces the camera, with the person and the
+  // lit opening on the far sidewalk. Night body paint is nearly black; the
+  // length, the roof line, and the lamps are what read.
+  const sxp = -held.fz;
+  const szp = held.fx;
+  const doorSide = Math.sign((opening.x - held.x) * sxp + (opening.z - held.z) * szp) || 1;
   const poses = [];
-  let closestCar = 999;
-  for (const back of [4.8, 6.2, 7.6, 9.0]) {
-    for (const slide of [-2.4, -0.8, 0.8, 2.2]) {
-      for (const eye of [1.15, 1.4]) {
-        const px = who.x + outward.x * back + along.x * slide;
-        const pz = who.z + outward.z * back + along.z * slide;
+  for (const dist of [8.2, 10.4, 12.6, 7.0]) {
+    for (const slide of [-4.4, -1.8, 1.2, 3.8]) {
+      for (const eye of [1.35, 2.05]) {
+        const px = held.x - sxp * doorSide * dist + held.fx * slide;
+        const pz = held.z - szp * doorSide * dist + held.fz * slide;
         const gy = q.groundHeight(px, pz);
-        if (Math.abs(gy - gy0) > 2 || q.insideSolid(px, gy + 1.15, pz, 0.22, true)) continue;
-        poses.push({ px, pz, gy, eye, back, slide });
+        if (Math.abs(gy - gy0) > 2.4 || q.insideSolid(px, gy + 1.25, pz, 0.28, true)) continue;
+        poses.push({ px, pz, gy, eye, back: dist, slide });
       }
     }
   }
-  let steps = 0;
-  for (let step = 0; step < 180; step++) {
-    steps = step + 1;
-    groundStep(0.05, cam, a.quality.groundTraffic, a.quality.freewayTraffic, a.quality.tier, a.elapsed + step * 0.05);
-    const carsNow = carList().filter((c) => Math.hypot(c.x - opening.x, c.z - opening.z) < 16);
-    if (!carsNow.length) continue;
-    for (const pose of poses) {
-      const aim = { x: opening.x * 0.55 + who.x * 0.45, z: opening.z * 0.55 + who.z * 0.45 };
-      const yaw = Math.atan2(aim.x - pose.px, -(aim.z - pose.pz));
-      const dist = Math.hypot(aim.x - pose.px, aim.z - pose.pz) || 1;
-      const pitch = Math.atan2((gy0 + 1.15) - (pose.gy + pose.eye), dist);
-      cam.position.set(pose.px, pose.gy + pose.eye, pose.pz);
-      cam.rotation.set(pitch, -yaw, 0, 'YXZ');
-      cam.updateMatrixWorld();
-      const head = ndc(who.x, who.y + 1.72 * who.s, who.z);
-      const feet = ndc(who.x, who.y + 0.05, who.z);
-      if (!head || !feet) continue;
-      const span = Math.abs(head.y - feet.y);
-      const hx = (head.x + feet.x) * 0.5;
-      if (span < 0.26 || Math.abs(hx) > 0.5) continue;
-      const doorN = ndc(opening.x, gy0 + 1.15, opening.z);
-      const doorTop = ndc(opening.x, gy0 + 2.2, opening.z);
-      const doorBot = ndc(opening.x, gy0 + 0.1, opening.z);
-      if (!doorN || !doorTop || !doorBot) continue;
-      const doorSpan = Math.abs(doorTop.y - doorBot.y);
-      if (doorSpan < 0.24 || Math.abs(doorN.x) > 0.4) continue;
-      let bestC = null;
-      for (const car of carsNow) {
-        const front = ndc(car.front.x, car.front.y, car.front.z);
-        const rear = ndc(car.rear.x, car.rear.y, car.rear.z);
-        const mid = ndc(car.x, car.y + 0.7, car.z);
-        const roof = ndc(car.x, car.y + 1.35, car.z);
-        if (!front || !rear || !mid || !roof) continue;
-        const sep = Math.hypot(front.x - rear.x, front.y - rear.y);
-        const camDist = Math.hypot(pose.px - car.x, pose.pz - car.z);
-        if (camDist < closestCar) closestCar = camDist;
-        if (camDist < 3.4 || camDist > 7.2) continue;
-        if (sep < 0.28 || sep > 1.1) continue;
-        if (mid.y > 0.05 || Math.abs(mid.x) > 0.9) continue;
-        if (!bestC || camDist < bestC.camDist) bestC = { sep, midY: mid.y, name: car.name, camDist };
-      }
-      if (!bestC) continue;
-      const score = Math.abs(span - 0.42) * 2 + Math.abs(hx) + Math.abs(doorN.x) + Math.abs(bestC.sep - 0.45);
-      picks.push({
-        score, px: pose.px, pz: pose.pz, gy: pose.gy, yaw, pitch, eye: pose.eye, back: pose.back, slide: pose.slide,
-        person: { span: Math.round(span * 100) / 100, x: Math.round(hx * 100) / 100 },
-        car: { sep: Math.round(bestC.sep * 100) / 100, midY: Math.round(bestC.midY * 100) / 100, name: bestC.name },
-        door: { x: Math.round(doorN.x * 100) / 100, span: Math.round(doorSpan * 100) / 100 },
-      });
+  let closestCar = 999;
+  const carsNow = [held];
+  for (const pose of poses) {
+    const aim = {
+      x: opening.x * 0.34 + who.x * 0.33 + held.x * 0.33,
+      z: opening.z * 0.34 + who.z * 0.33 + held.z * 0.33,
+    };
+    const yaw = Math.atan2(aim.x - pose.px, -(aim.z - pose.pz));
+    const dist = Math.hypot(aim.x - pose.px, aim.z - pose.pz) || 1;
+    const pitch = Math.atan2((gy0 + 1.15) - (pose.gy + pose.eye), dist);
+    cam.position.set(pose.px, pose.gy + pose.eye, pose.pz);
+    cam.rotation.set(pitch, -yaw, 0, 'YXZ');
+    cam.updateMatrixWorld();
+    const head = ndc(who.x, who.y + 1.72 * who.s, who.z);
+    const feet = ndc(who.x, who.y + 0.05, who.z);
+    if (!head || !feet) continue;
+    const span = Math.abs(head.y - feet.y);
+    const hx = (head.x + feet.x) * 0.5;
+    // A readable person, not a speck beside a foreground car.
+    if (span < 0.22 || span > 0.58 || Math.abs(hx) > 0.55) continue;
+    const doorN = ndc(opening.x, gy0 + 1.15, opening.z);
+    const doorTop = ndc(opening.x, gy0 + 2.2, opening.z);
+    const doorBot = ndc(opening.x, gy0 + 0.1, opening.z);
+    if (!doorN || !doorTop || !doorBot) continue;
+    const doorSpan = Math.abs(doorTop.y - doorBot.y);
+    if (doorSpan < 0.12 || Math.abs(doorN.x) > 0.72 || Math.abs(doorN.x - hx) > 0.62) continue;
+    let bestC = null;
+    for (const car of carsNow) {
+      const front = ndc(car.front.x, car.front.y, car.front.z);
+      const rear = ndc(car.rear.x, car.rear.y, car.rear.z);
+      const mid = ndc(car.x, car.y + 0.7, car.z);
+      const roof = ndc(car.x, car.y + 1.35, car.z);
+      if (!front || !rear || !mid || !roof) continue;
+      const sep = Math.hypot(front.x - rear.x, front.y - rear.y);
+      const wide = Math.abs(front.x - rear.x);
+      const camDist = Math.hypot(pose.px - car.x, pose.pz - car.z);
+      const wheel = ndc(car.x, car.y + 0.2, car.z);
+      if (!wheel) continue;
+      const tall = roof.y - wheel.y;
+      if (camDist < closestCar) closestCar = camDist;
+      // Same depth as the person: long in frame, not a black wall in the foreground.
+      if (camDist < 9 || camDist > 14.5) continue;
+      if (sep < 0.28 || wide < 0.26 || wide > 0.68 || tall < 0.07 || tall > 0.22) continue;
+      if (wide < tall * 1.8) continue;
+      if (Math.abs(mid.y - feet.y) > 0.3) continue;
+      if (Math.abs(mid.x) > 0.62 || mid.y < -0.45 || mid.y > 0.28) continue;
+      if (Math.abs(mid.x - hx) < 0.12) continue;
+      const onScreen = [front, rear, mid, roof, wheel].every((n) => Math.abs(n.x) < 0.86 && n.y > -0.78 && n.y < 0.55);
+      if (!onScreen) continue;
+      const carScore = Math.abs(wide - 0.48) + Math.abs(tall - 0.13) + Math.abs(mid.y - feet.y);
+      if (!bestC || carScore < bestC.carScore) bestC = { sep, wide, midY: mid.y, name: car.name, camDist, tall, carScore };
     }
-    if (picks.length >= 4) break;
+    if (!bestC) continue;
+    const score = Math.abs(span - 0.36) * 2.2 + Math.abs(hx) * 0.5 + Math.abs(doorN.x - hx) * 0.45 + Math.abs(bestC.wide - 0.48) + Math.abs(bestC.midY - feet.y);
+    picks.push({
+      score, px: pose.px, pz: pose.pz, gy: pose.gy, yaw, pitch, eye: pose.eye, back: pose.back, slide: pose.slide,
+      person: { span: Math.round(span * 100) / 100, x: Math.round(hx * 100) / 100 },
+      car: { sep: Math.round(bestC.sep * 100) / 100, wide: Math.round(bestC.wide * 100) / 100, midY: Math.round(bestC.midY * 100) / 100, name: bestC.name },
+      door: { x: Math.round(doorN.x * 100) / 100, span: Math.round(doorSpan * 100) / 100 },
+    });
   }
+  const steps = 0;
   picks.sort((a, b) => a.score - b.score);
   const top = [];
   for (const p of picks) {
@@ -297,7 +311,8 @@ for (let i = 0; i < n; i++) {
     cam.rotation.set(p.pitch, -p.yaw, 0, 'YXZ');
     cam.updateMatrixWorld();
   }, i);
-  await page.screenshot({ path: `${OUT}/${i}.png`, timeout: 180000, animations: 'disabled' });
+  const quality = process.env.QUALITY || 'ultra';
+  await page.screenshot({ path: `${OUT}/${quality}-${i}.png`, timeout: 180000, animations: 'disabled' });
   console.log('shot', i);
 }
 await browser.close();

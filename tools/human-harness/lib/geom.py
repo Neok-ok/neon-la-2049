@@ -163,6 +163,37 @@ def box(mesh, cx, cy, cz, w, h, d, part, bone, color, region):
         mesh.quad(v[a], v[b], v[c], v[d_])
 
 
+def ellipsoid(mesh, cx, cy, cz, rx, ry, rz, stacks, slices, part, bone, color, region):
+    """One blank volume. A loft's stations read as rings; this is a single cranium."""
+    uv = _region_uv(region, 0.5, 0.5)
+    top = mesh.add((cx, cy + ry, cz), uv, part, bone, color)
+    bot = mesh.add((cx, cy - ry, cz), uv, part, bone, color)
+    rings = []
+    for i in range(1, stacks):
+        theta = i / stacks * math.pi
+        sr = math.sin(theta)
+        y = cy + ry * math.cos(theta)
+        ring = []
+        for j in range(slices):
+            phi = j / slices * math.tau
+            ring.append(mesh.add(
+                (cx + rx * sr * math.cos(phi), y, cz + rz * sr * math.sin(phi)),
+                uv, part, bone, color,
+            ))
+        rings.append(ring)
+    r0 = rings[0]
+    for j in range(slices):
+        mesh.tri(top, r0[j], r0[(j + 1) % slices])
+    for i in range(len(rings) - 1):
+        upper, lower = rings[i], rings[i + 1]
+        for j in range(slices):
+            j2 = (j + 1) % slices
+            mesh.quad(lower[j], lower[j2], upper[j2], upper[j])
+    last = rings[-1]
+    for j in range(slices):
+        mesh.tri(bot, last[(j + 1) % slices], last[j])
+
+
 def ball(mesh, cx, cy, cz, radius, part, bone, color, region):
     """Icosahedron. A flat disk vanishes edge-on; this keeps a knee in every view."""
     t = (1.0 + math.sqrt(5.0)) / 2.0

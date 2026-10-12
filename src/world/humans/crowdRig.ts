@@ -143,14 +143,25 @@ function crowdMaterial(palette: Texture, atlas: Texture): MeshStandardNodeMateri
   const skinId = T.mod(packed, T.float(4));
   const maskOn = T.step(3.5, packed);
 
-  // Two-bone blend. A hard bone cut at the knee, or a hem locked to the thigh
-  // under a chest-skinned coat, twists the quad between them open while the
-  // frames mix. Legs fade foot → shin → thigh. The long coat fades from the
-  // coat bone at the chest onto the thigh on that side, and the centre front
-  // stays on the coat so the placket does not split.
+  // Two-bone blend. A hard bone cut at the knee, or a hem locked to the chest
+  // while the thigh swings, opens a gap. Legs fade foot → shin → thigh.
+  // Long hems (0.74 m) and short jackets (0.96 m) fade from the coat bone
+  // onto the thigh on that side of the body, front and back included.
   const rest = T.positionGeometry;
   const stored = T.float(bone);
   const y = rest.y;
+  // The short jacket hem is the thigh pivot (0.96 m). Weighting that hem to
+  // the thigh does not move it, and the pants start at the long hem (0.74 m),
+  // so a stride swings the shin out of 22 cm of empty air. Stretch the short
+  // hem down onto the pants before skinning. Those vertices stay bound to the
+  // thigh (the weight still uses the original height), so the cloth and the
+  // leg share one radius. Long coats already cover this span. The bag tucks
+  // onto the hip so a side view does not read it as a second panel. No pose
+  // is held.
+  const coatDrop = T.smoothstep(1.12, 0.96, y).mul(0.22).mul(isShort);
+  const ySkin = y.sub(coatDrop);
+  const xSkin = T.mix(rest.x, rest.x.mul(0.78), isBag);
+  const skinnedRest = T.vec3(xSkin, ySkin, rest.z);
   const left = T.step(part, T.float(2.5));
   const thighId = T.mix(T.float(7), T.float(4), left);
   const shinId = T.mix(T.float(8), T.float(5), left);
@@ -165,16 +176,22 @@ function crowdMaterial(palette: Texture, atlas: Texture): MeshStandardNodeMateri
   // The whole hem, front and back included, follows the thigh on that side.
   // A profile shot looks at the front and back of the cloth. Leaving those on
   // the chest while the pants swing forward is the gap under the coat.
-  const hem = T.float(1).sub(T.smoothstep(0.74, 1.08, y));
-  const coatW = hem;
+  // Long hem is 0.74 m. Short jacket hem is 0.96 m.
+  const hemLong = T.float(1).sub(T.smoothstep(0.74, 1.08, y));
+  const hemShort = T.float(1).sub(T.smoothstep(0.96, 1.24, y));
+  const isCoat = isLong.add(isShort);
+  // Opposite thighs pull the left and right hem apart and open a slot down
+  // the back. The centre cloth stays on the coat bone so the vent stays shut.
+  const hemEdge = T.smoothstep(0.05, 0.2, T.abs(rest.x));
+  const coatW = T.mix(hemLong, hemShort, isShort).mul(hemEdge);
   const hemThigh = T.mix(T.float(4), T.float(7), T.step(T.float(0), rest.x));
-  const bone1 = T.mix(T.mix(stored, shinId, isLeg), T.float(16), isLong);
-  const bone2 = T.mix(T.mix(stored, legBone, isLeg), hemThigh, isLong);
-  const weight = T.mix(T.mix(T.float(0), legW, isLeg), coatW, isLong);
+  const bone1 = T.mix(T.mix(stored, shinId, isLeg), T.float(16), isCoat);
+  const bone2 = T.mix(T.mix(stored, legBone, isLeg), hemThigh, isCoat);
+  const weight = T.mix(T.mix(T.float(0), legW, isLeg), coatW, isCoat);
   const skin = paletteSkinWeighted(
     palette, PAL_LO, PAL_HI, FRAMES,
     T.int(T.round(bone1)), T.int(T.round(bone2)), weight,
-    extra.w, motion.x, rest, T.normalGeometry,
+    extra.w, motion.x, skinnedRest, T.normalGeometry,
   );
   const show = (flag: any, mask: any) => T.mix(T.float(1), flag, mask);
   let pos = skin.position;
@@ -200,29 +217,39 @@ function crowdMaterial(palette: Texture, atlas: Texture): MeshStandardNodeMateri
   const sampleUv = T.vec2(T.mix(uv0.x, uv0.x.add(0.5), isSleeve), uv0.y);
   const atlasRgb = T.texture(atlas, sampleUv).rgb;
   const luma = T.dot(atlasRgb, T.vec3(0.3, 0.59, 0.11));
-  const isShoe = isLeg.mul(T.step(uv0.y, 0.5));
+  // The foot is the leather at the sole. uv.y < 0.5 painted the whole shin
+  // as that leather, which is why the stride glowed light gray.
+  const isShoe = isLeg.mul(T.step(rest.y, T.float(0.11)));
   const ref = T.mix(T.float(0.42), T.float(0.45), isSkin);
   const ref2 = T.mix(ref, T.float(0.22), isCan.add(isRain).add(isMask));
   const ref3 = T.mix(ref2, T.float(0.1), isShoe.add(isBag));
-  const detail = T.clamp(luma.div(ref3), 0.78, 1.28);
+  const weave = T.clamp(luma.div(ref3), 0.78, 1.28);
+  // The skin rect is a horizontal weave. Stretched over the head and the neck
+  // it is the banded can. One tone, still blank.
+  const detail = T.mix(weave, T.float(1), isSkin.add(isHat));
 
   const baseSkin = T.vec3(0.55, 0.42, 0.34);
   const tone0 = baseSkin.mul(0.78);
   const tone2 = baseSkin.mul(1.12);
   const skinTone = T.mix(tone0, T.mix(baseSkin, tone2, T.step(1.5, skinId)), T.step(0.5, skinId));
-  const shaftCol = T.vec3(1.0, 0.74, 0.38);
+  // Amber rod. A channel near 1.0, after the night iris, crosses the 32-nit
+  // bloom threshold and the shaft becomes a white line. Stay near 0.25
+  // before the lift so the stick is metal, not a lamp.
+  const shaftCol = T.vec3(0.40, 0.24, 0.08);
   let albedo = coat.mul(vcol).mul(detail);
-  albedo = T.mix(albedo, skinTone.mul(vcol).mul(detail), isSkin);
-  // Pants stay a light gray in rain. A dark coat multiply dropped the thigh
-  // to the same black as the night ground, so the shin read as a severed leg.
-  const pants = T.vec3(0.74, 0.72, 0.76).mul(detail);
+  albedo = T.mix(albedo, skinTone.mul(vcol), isSkin);
+  // Charcoal trousers. Lighter than the night pavement, darker than the coat.
+  const pants = T.vec3(0.09, 0.085, 0.09).mul(detail);
   albedo = T.mix(albedo, pants, isLeg.mul(T.float(1).sub(isShoe)));
-  albedo = T.mix(albedo, vcol.mul(detail), isShoe);
+  albedo = T.mix(albedo, T.vec3(0.05, 0.048, 0.046).mul(detail), isShoe);
   albedo = T.mix(albedo, coat.mul(0.55).mul(vcol).mul(detail), isBag);
   albedo = T.mix(albedo, can.mul(detail), isCan);
   albedo = T.mix(albedo, shaftCol, isShaft);
   albedo = T.mix(albedo, T.vec3(0.16, 0.18, 0.19).mul(detail), isMask);
-  const wetCloth = T.mix(T.float(1), T.float(0.62), U.wetness);
+  // Nine coat hues are close to black once rain darkens them. Lift only the
+  // cloth so a row still separates at thirty metres.
+  albedo = T.mix(albedo, albedo.mul(1.65), isCoat.add(isHood));
+  const wetCloth = T.mix(T.float(1), T.float(0.78), U.wetness);
   const wetSkin = T.mix(T.float(1), T.float(0.88), U.wetness);
   const wet = T.mix(wetCloth, wetSkin, isSkin);
   albedo = T.mix(albedo, albedo.mul(wet), T.float(1).sub(isShaft));
@@ -234,13 +261,12 @@ function crowdMaterial(palette: Texture, atlas: Texture): MeshStandardNodeMateri
   const ndl = T.saturate(T.dot(N, L).add(wrap).div(T.float(1).add(wrap)));
   const trans = T.pow(T.saturate(T.dot(V, L.mul(-1))), T.float(2.6)).mul(0.55);
   const sss = skinTone.mul(T.vec3(1.0, 0.4, 0.3)).mul(ndl.add(trans.mul(0.45))).mul(0.26).mul(isSkin);
-  const rim = T.pow(T.saturate(T.float(1).sub(T.abs(T.dot(N, V)))), T.float(2.4)).mul(U.night).mul(0.2);
   const glow = T.float(0.34).add(U.night.mul(0.28));
-  let emissive = albedo.mul(glow).add(sss).add(T.vec3(0.95, 0.22, 0.55).mul(rim));
-  emissive = T.mix(emissive, shaftCol.mul(T.float(1.4).add(U.night.mul(0.55))), isShaft);
+  // Sign colour stays on the signs. A magenta rim on every coat is a sticker.
+  let emissive = albedo.mul(glow).add(sss);
+  emissive = T.mix(emissive, shaftCol.mul(0.55), isShaft);
   emissive = emissive.add(can.mul(isCan).mul(0.18));
-  // Shadowed cloth was falling to ~rgb 40, the same as the night pavement.
-  emissive = emissive.add(T.vec3(0.5, 0.48, 0.52).mul(isLeg).mul(T.float(1).sub(isShoe)));
+  emissive = emissive.add(T.vec3(0.02, 0.018, 0.018).mul(isLeg).mul(T.float(1).sub(isShoe)));
 
   m.colorNode = T.vec4(albedo, 1);
   // The pants and coat glow were painted at exposure 1. Lift them with the

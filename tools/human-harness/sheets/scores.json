@@ -1,12 +1,12 @@
 {
   "crowd": {
     "low": {
-      "triangles": 852,
+      "triangles": 1004,
       "iou": {
-        "stand": 0.9826,
-        "short": 0.8513,
-        "rain": 0.9811,
-        "side": 0.9556
+        "stand": 0.9672,
+        "short": 0.8359,
+        "rain": 0.9677,
+        "side": 0.926
       },
       "anthro": {
         "stature_m": 1.8,
@@ -42,12 +42,12 @@
       }
     },
     "medium": {
-      "triangles": 1424,
+      "triangles": 1792,
       "iou": {
-        "stand": 0.9832,
-        "short": 0.8522,
-        "rain": 0.9783,
-        "side": 0.9576
+        "stand": 0.9698,
+        "short": 0.8389,
+        "rain": 0.9624,
+        "side": 0.9303
       },
       "anthro": {
         "stature_m": 1.8,
@@ -83,12 +83,12 @@
       }
     },
     "high": {
-      "triangles": 1664,
+      "triangles": 1896,
       "iou": {
-        "stand": 0.9832,
-        "short": 0.8522,
-        "rain": 0.9696,
-        "side": 0.9568
+        "stand": 0.9698,
+        "short": 0.8389,
+        "rain": 0.9624,
+        "side": 0.9296
       },
       "anthro": {
         "stature_m": 1.8,
@@ -133,17 +133,17 @@
       }
     },
     "medium": {
-      "triangles": 1656,
+      "triangles": 1296,
       "iou": {
-        "front": 0.9779,
-        "side": 0.9115
+        "front": 0.7329,
+        "side": 0.8216
       }
     },
     "high": {
-      "triangles": 4384,
+      "triangles": 2704,
       "iou": {
-        "front": 0.9771,
-        "side": 0.917
+        "front": 0.7337,
+        "side": 0.8216
       }
     }
   }

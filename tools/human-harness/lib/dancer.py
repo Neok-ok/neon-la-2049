@@ -72,6 +72,46 @@ def _samples(poly, step):
     return extra
 
 
+def _band(poly, y0, y1, step):
+    """Closed slice of a plate polygon. A gap between slices is a hole, not paint."""
+    ys = []
+    y = y0
+    while y < y1 - 1e-4:
+        ys.append(round(y, 4))
+        y += step
+    ys.append(round(y1, 4))
+    left, right = [], []
+    for y in ys:
+        span = x_span(poly, y)
+        if span is None:
+            continue
+        left.append((span[0], y))
+        right.append((span[1], y))
+    if len(left) < 2:
+        return None
+    return tuple(left + right[::-1])
+
+
+def _loft_band(mesh, poly, y0, y1, segs, part, bone_at, color, z_at, step):
+    band = _band(poly, y0, y1, step)
+    if band is None:
+        return
+    loft(mesh, band, z_at, segs, part, bone_at, color, (0.0, 0.0, 1.0, 1.0), y_extra=_samples(band, step))
+
+
+def _veil_along_skirt():
+    """Ribbon on the skirt edge. The bind veil is a straight bar beside the waist."""
+    left, right = [], []
+    for y in (3.0, 8.0, 13.0, 18.0, 22.0, 26.0, 30.0):
+        span = x_span(DANCER_BIND['body'], y)
+        if span is None:
+            continue
+        edge = span[0]
+        left.append((round(edge - 0.45, 4), y))
+        right.append((round(edge + 1.05, 4), y))
+    return tuple(left + right[::-1])
+
+
 def build_dancer(lod='high'):
     mesh = Mesh()
     if lod == 'low':
@@ -80,12 +120,21 @@ def build_dancer(lod='high'):
             y_extra=_samples(DANCER_OUTER, 2.4),
         )
         return mesh.finish()
-    step = 1.15 if lod == 'medium' else 0.55
-    segs = 8 if lod == 'medium' else 12
-    loft(
-        mesh, DANCER_BIND['body'], _body_z, segs, 1, _bone_body, PINK, (0.0, 0.0, 1.0, 1.0),
-        y_extra=_samples(DANCER_BIND['body'], step),
+    step = 1.15 if lod == 'medium' else 0.7
+    segs = 8 if lod == 'medium' else 10
+    body = DANCER_BIND['body']
+    # Three skirt steps, a torso, and a diamond head. Gaps are the holes the
+    # street was missing when one loft read as a single crystal.
+    skirts = (
+        (0.6, 8.2, 1),
+        (10.6, 23.4, 1),
+        (26.0, 34.6, 1),
     )
+    for y0, y1, part in skirts:
+        _loft_band(mesh, body, y0, y1, segs, part, _bone_body, PINK, _body_z, step)
+    _loft_band(mesh, body, 37.2, 49.0, segs, 1, _bone_body, PINK, _body_z, step)
+    # Part 5 is the diamond, so the hero shader can lift it off the pink body.
+    _loft_band(mesh, body, 52.6, 59.4, max(6, segs - 2), 5, lambda _y: BI['head'], PINK, _body_z, step * 0.8)
     loft(
         mesh, DANCER_BIND['armUp'], lambda y: _inside(y, 0.7, 0.05), max(4, segs // 2), 2,
         lambda _y: BI['armUp'], CORE, (0.0, 0.0, 1.0, 1.0),
@@ -96,16 +145,12 @@ def build_dancer(lod='high'):
         lambda _y: BI['armOut'], PINK, (0.0, 0.0, 1.0, 1.0),
         y_extra=_samples(DANCER_BIND['armOut'], step * 1.4),
     )
-    # Veil sits toward the back of the blade and stays inside the side plate.
+    veil = _veil_along_skirt()
     loft(
-        mesh, DANCER_BIND['veil'], lambda y: _inside(y, 0.4, -0.15), 4, 4,
+        mesh, veil, lambda y: _inside(y, 0.35, -0.2), 4, 4,
         lambda _y: BI['veil'], CORE, (0.0, 0.0, 1.0, 1.0),
-        y_extra=_samples(DANCER_BIND['veil'], step),
+        y_extra=_samples(veil, step),
     )
-    if lod == 'high':
-        # Facet edge on the diamond: an inset ribbon, brighter, inside the head span.
-        facet = ((-1.2, 53.2), (1.2, 53.2), (0.35, 58.6), (-0.35, 58.6))
-        loft(mesh, facet, lambda y: _inside(y, 0.35, 0.05), 4, 1, lambda _y: BI['head'], CORE, (0.0, 0.0, 1.0, 1.0))
     return mesh.finish()
 
 

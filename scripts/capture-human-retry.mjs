@@ -223,6 +223,59 @@ async function boot(quality) {
       }
       return { n, nearest: nearest > 1e8 ? null : Math.round(nearest * 10) / 10, count: a.crowd.count };
     };
+    H.standStreet = (districtId) => {
+      const layout = app().query.layout;
+      const g = sg.streetGraph(layout);
+      const q = app().query;
+      const cands = [];
+      for (let i = 0; i < g.edges.length; i++) {
+        const e = g.edges[i];
+        if (!e || e.kind === 'freeway' || e.length < 28) continue;
+        const a = g.nodes[e.a];
+        const b = g.nodes[e.b];
+        const mx = (a.x + b.x) * 0.5;
+        const mz = (a.z + b.z) * 0.5;
+        const here = layout.districtAt(mx, mz);
+        if (!here || here.id !== districtId) continue;
+        const profile = pr.streetProfile(here.grid.street, e.lane, e.kind === 'canyon' ? 'canyon' : 'street');
+        if (profile.sidewalk < 1.5) continue;
+        cands.push({ e, a, b, mx, mz, profile });
+      }
+      if (!cands.length) return { ok: false, reason: 'no-edge' };
+      const step = Math.max(1, Math.floor(cands.length / 12));
+      let best = null;
+      for (let i = 0; i < cands.length; i += step) {
+        const c = cands[i];
+        q.fabricAt(c.mx, c.mz);
+        const rx = c.e.fz;
+        const rz = -c.e.fx;
+        const lat = c.profile.carriageHalf + pr.CURB_W + Math.min(1.5, c.profile.sidewalk * 0.5);
+        const gy = q.groundHeight(c.mx, c.mz);
+        let wall = null;
+        for (const s of [1, -1]) {
+          for (const d of [2.2, 3.6, 5.5, 8, 12, 16]) {
+            const x = c.mx + rx * s * (lat + d);
+            const z = c.mz + rz * s * (lat + d);
+            if (q.insideSolid(x, gy + 1.8, z, 0.4, true) || q.insideSolid(x, gy + 5, z, 0.4, true)) {
+              wall = { s, d };
+              break;
+            }
+          }
+          if (wall) break;
+        }
+        if (!wall) continue;
+        const score = wall.d + (c.e.kind === 'canyon' ? 0 : 1.2);
+        if (!best || score < best.score) best = { score, c, rx, rz, lat, wall, gy };
+      }
+      if (!best) return { ok: false, reason: 'no-wall', edges: cands.length };
+      const s = best.wall.s;
+      const x = best.c.mx + best.rx * s * best.lat;
+      const z = best.c.mz + best.rz * s * best.lat;
+      const gy = q.groundHeight(x, z);
+      const yaw = Math.atan2(best.c.e.fx, best.c.e.fz);
+      apply(x, z, gy, yaw, 0.02);
+      return { ok: true, x: Math.round(x), z: Math.round(z), wall: best.wall.d, edges: cands.length };
+    };
     function ndc(x, y, z) {
       const cam = app().camera;
       cam.updateMatrixWorld();
@@ -300,14 +353,30 @@ async function boot(quality) {
         const useFace = Math.abs(faceDot) > 0.65 && Math.hypot(faceX, faceZ) > 0.2;
         const fx = useFace ? faceX * Math.sign(faceDot) : dispX;
         const fz = useFace ? faceZ * Math.sign(faceDot) : dispZ;
-        moved.push({ ...q, vx: fx, vz: fz, faceDot, travel: d, dist, wall: nearestWall(q), stackGap: stackGap(q) });
+        const style = app().crowd.mesh.geometry.getAttribute('iStyle');
+        const shortCoat = style ? style.getW(q.i) : 0;
+        const yaw = Math.atan2(fx, fz);
+        const info = classify(q.x, q.z, yaw);
+        const band = info?.band || 'none';
+        moved.push({ ...q, vx: fx, vz: fz, faceDot, travel: d, dist, wall: nearestWall(q), stackGap: stackGap(q), shortCoat, band });
       }
+      const bandRank = (b) => (b === 'walk' ? 0 : b === 'outside' ? 1 : b === 'none' ? 2 : 3);
       const stackRank = (g) => (g < 1.5 ? 40 + g : g < 16 ? g : 20 + g);
       moved.sort((a, b) => {
+        const br = bandRank(a.band) - bandRank(b.band);
+        if (br) return br;
         if (a.stackGap < 40 || b.stackGap < 40) return stackRank(a.stackGap) - stackRank(b.stackGap);
         return a.wall - b.wall || a.dist - b.dist || b.travel - a.travel;
       });
-      return moved.slice(0, 16);
+      const onWalk = (p) => p.band === 'walk' || p.band === 'outside';
+      let pool = moved.filter(onWalk);
+      if (window.__wantShort) {
+        const shorts = moved.filter((p) => p.shortCoat > 0.5 && onWalk(p));
+        const anyShort = moved.filter((p) => p.shortCoat > 0.5);
+        pool = shorts.length ? shorts : (anyShort.length ? anyShort : pool);
+      }
+      if (!pool.length) pool = moved;
+      return pool.slice(0, 16);
     };
     function stackBoxes() {
       if (H._stacks) return H._stacks;
@@ -442,17 +511,18 @@ async function boot(quality) {
         if (!line(px, pz, p.x, p.z, gy)) return;
         const dist = Math.hypot(px - p.x, pz - p.z);
         const minD = Math.max(2.15, window.__minDist || 0);
-        if (dist < minD || dist > Math.max(4.4, minD + 0.8)) return;
+        const maxD = loose ? 12 : Math.max(4.4, minD + 0.8);
+        if (dist < minD || dist > maxD) return;
         const ox = px - p.x, oz = pz - p.z;
         const along = Math.abs(ox * fx + oz * fz);
         const lat = Math.hypot(ox - fx * (ox * fx + oz * fz), oz - fz * (ox * fx + oz * fz));
-        if (!loose && lat < Math.abs(along) * 3) return;
+        if (!loose && Math.abs(along) > lat * 1.15) return;
         const cam = classify(px, pz, yaw);
         const band = cam?.band || 'none';
         const deepRoad = band === 'road' && cam && cam.absSide < cam.carriage - 0.85;
         if (band === 'curb' || deepRoad) return;
         if (!allowRoad && band === 'road') return;
-        if (info && info.band === 'walk' && cam && cam.band !== 'walk' && cam.absSide > info.absSide + 0.45) return;
+        if (!loose && info && info.band === 'walk' && cam && cam.band !== 'walk' && cam.absSide > info.absSide + 0.45) return;
         const ux = (p.x - px) / dist, uz = (p.z - pz) / dist;
         const facade = facadeBeyond(p.x, p.z, ux, uz, p.y);
         const onWalk = band === 'walk';
@@ -471,7 +541,7 @@ async function boot(quality) {
         const sx = rx * (street ? street.s : 1);
         const sz = rz * (street ? street.s : 1);
         for (const lat of [1.15, 1.7, 2.2, 2.7]) {
-          for (const along of [0, -0.22, 0.22, -0.4, 0.4]) {
+          for (const along of [0, -0.35, 0.35, -1.6, 1.6, -2.8, 2.8]) {
             consider(p.x + sx * lat + fx * along, p.z + sz * lat + fz * along, false);
             consider(p.x - sx * lat + fx * along, p.z - sz * lat + fz * along, false);
           }
@@ -545,7 +615,24 @@ async function boot(quality) {
           }
         }
       }
-      if (!best && !info && !stackBoxes().length) {
+      // Harbor stacks stay in the scene from every district. Only skip this
+      // building-edge stand when the walker is actually beside a stack.
+      if (!best && window.__loose) {
+        const rx = -fz;
+        const rz = fx;
+        for (const dist of [5.5, 7.5, 9.5]) {
+          for (const side of [1, -1]) {
+            consider(p.x + rx * side * dist, p.z + rz * side * dist, true, true);
+          }
+        }
+        for (const dist of [3.6, 5.2, 7.0, 8.8]) {
+          for (let k = 0; k < 12; k++) {
+            const ang = (k / 12) * Math.PI * 2;
+            consider(p.x + Math.sin(ang) * dist, p.z + Math.cos(ang) * dist, true, true);
+          }
+        }
+      }
+      if (!best && !info && stackGap(p) > 30) {
         let edge = null;
         const q2 = app().query;
         for (let k = 0; k < 24; k++) {
@@ -605,7 +692,7 @@ async function boot(quality) {
     };
     H.ahead = (who) => {
       const p = people().find((q) => q.i === who.i);
-      if (!p || !who.vx) return { ok: false, reason: 'lost' };
+      if (!p || (who.vx == null && who.vz == null)) return { ok: false, reason: 'lost' };
       const step = (who.travel || 0.6) * 3;
       const spots = [
         [p.x, p.y + 1.72 * p.s, p.z],
@@ -614,7 +701,7 @@ async function boot(quality) {
       ];
       for (const [x, y, z] of spots) {
         const n = ndc(x, y, z);
-        if (!n || Math.abs(n.x) > 0.86 || n.y < -0.92 || n.y > 0.9) {
+        if (!n || Math.abs(n.x) > 1.05 || n.y < -0.92 || n.y > 0.92) {
           return { ok: false, reason: 'leaves', x: n ? Math.round(n.x * 100) / 100 : null, y: n ? Math.round(n.y * 100) / 100 : null };
         }
       }
@@ -640,9 +727,11 @@ async function boot(quality) {
       const vz = after.z - before.z;
       const across = Math.abs(vx * ce[0] + vz * ce[2]);
       const depth = Math.abs(vx * -ce[8] + vz * -ce[10]);
+      const headMax = window.__headMax || 0.92;
       const profile = across > depth * (window.__side || 1.45);
+      const hatRoom = head.y < headMax;
       return {
-        ok: travel >= 0.28 && travel <= 1.35 && span >= 0.5 && span <= 1.35 && centered && profile,
+        ok: travel >= 0.28 && travel <= 1.35 && span >= 0.5 && span <= 1.35 && centered && profile && hatRoom,
         reason: 'framed',
         travel: Math.round(travel * 100) / 100,
         span: Math.round(span * 100) / 100,
@@ -664,9 +753,13 @@ async function boot(quality) {
       const hem = spec.w > 20 ? spec.y - spec.h / 2 : spec.y - spec.h * (0.5 - 0.02);
       const nx = Math.sin(spec.yaw);
       const nz = Math.cos(spec.yaw);
-      const lookY = hem + spec.h * 0.42;
+      // The figure is 68 m. Aiming at 0.66 of that height from 40 m cuts the
+      // legs off and leaves a vertical smear. 0.40 from farther back keeps
+      // hem and crown inside a 60° view, and stays inside the 82 m hero gate.
+      const lookY = hem + spec.h * 0.40;
       let placed = null;
-      for (const side of [0, 0.18, -0.18, 0.32, -0.32]) {
+      let lastFit = null;
+      for (const side of [0, 0.22, -0.22, 0.42, -0.42, 0.58, -0.58]) {
         const px = spec.x + (nx * Math.cos(side) + nz * Math.sin(side)) * dist;
         const pz = spec.z + (nz * Math.cos(side) - nx * Math.sin(side)) * dist;
         const gy = a.query.groundHeight(px, pz);
@@ -679,24 +772,39 @@ async function boot(quality) {
           if (a.query.insideSolid(x, y, z, 0.3, true)) blocked = true;
         }
         if (blocked) continue;
-        placed = { px, pz, gy, side };
+        const eyeY = gy + 1.7;
+        const yaw = Math.atan2(spec.x - px, -(spec.z - pz));
+        const horiz = Math.hypot(spec.x - px, spec.z - pz) || 1;
+        const pitch = Math.atan2(lookY - eyeY, horiz);
+        const w = a.cams.walk;
+        w.pos.set(px, gy, pz);
+        w.heading = yaw;
+        w.pitch = pitch;
+        a.camera.position.set(px, eyeY, pz);
+        a.camera.rotation.set(pitch, -yaw, 0, 'YXZ');
+        a.camera.updateMatrixWorld();
+        const hemN = ndc(spec.x, hem + 0.6, spec.z);
+        const crownN = ndc(spec.x, hem + spec.h * 0.86, spec.z);
+        const span = hemN && crownN ? crownN.y - hemN.y : 0;
+        lastFit = {
+          side,
+          pitch: Math.round(pitch * 100) / 100,
+          span: Math.round(span * 100) / 100,
+          hem: hemN ? Math.round(hemN.y * 100) / 100 : null,
+          crown: crownN ? Math.round(crownN.y * 100) / 100 : null,
+        };
+        const fits = hemN && crownN
+          && hemN.y > -0.88 && crownN.y < 0.9
+          && Math.abs(hemN.x) < 0.55 && Math.abs(crownN.x) < 0.55
+          && span > 0.9 && span < 1.7;
+        if (!fits) continue;
+        placed = { px, pz, gy, side, pitch };
         break;
       }
-      if (!placed) return { ok: false, reason: 'blocked' };
-      const eyeY = placed.gy + 1.7;
-      const yaw = Math.atan2(spec.x - placed.px, -(spec.z - placed.pz));
-      const horiz = Math.hypot(spec.x - placed.px, spec.z - placed.pz) || 1;
-      const pitch = Math.atan2(lookY - eyeY, horiz);
-      const w = a.cams.walk;
-      w.pos.set(placed.px, placed.gy, placed.pz);
-      w.heading = yaw;
-      w.pitch = pitch;
-      a.camera.position.set(placed.px, eyeY, placed.pz);
-      a.camera.rotation.set(pitch, -yaw, 0, 'YXZ');
-      a.camera.updateMatrixWorld();
+      if (!placed) return { ok: false, reason: 'fit', lastFit };
       a.dancer.update(a.camera.position);
       H.hold();
-      return { ok: true, shown: a.dancer.shown, side: placed.side, pitch: Math.round(pitch * 100) / 100 };
+      return { ok: true, shown: a.dancer.shown, side: placed.side, pitch: Math.round(placed.pitch * 100) / 100 };
     };
     const DANCER_PERIOD = 6.28318530718 / 1.2;
     function lockDancerTime(phase) {
@@ -713,14 +821,44 @@ async function boot(quality) {
       return { shown: a.dancer.shown, phase, time: a.__dancerTime };
     }
     H.primeDancer = () => {
-      app().__dancerPhase = 0.75;
-      return lockDancerTime(0.75);
+      // Sine sway repeats at 0 and 0.5, so quarter steps show the same pose twice.
+      app().__dancerPhase = 0.02;
+      return lockDancerTime(0.02);
     };
     H.advanceDancer = () => {
       const a = app();
-      const phase = ((a.__dancerPhase ?? 0.75) + 0.5) % 1;
+      const phase = ((a.__dancerPhase ?? 0.02) + 0.22) % 1;
       a.__dancerPhase = phase;
       return lockDancerTime(phase);
+    };
+    H.swapSide = (p) => {
+      const cam = app().camera.position;
+      const px = p.x * 2 - cam.x;
+      const pz = p.z * 2 - cam.z;
+      const q = app().query;
+      const gy = q.groundHeight(px, pz);
+      if (Math.abs(gy - p.y) > 1.8) return { ok: false, reason: 'height' };
+      if (!clear(px, pz, gy) || !line(px, pz, p.x, p.z, gy)) return { ok: false, reason: 'blocked' };
+      const dist = Math.hypot(p.x - px, p.z - pz) || 1;
+      const yaw = Math.atan2(p.x + (p.vx || 0) * (window.__lead || 0.15) - px, -((p.z + (p.vz || 0) * (window.__lead || 0.15)) - pz));
+      const pitch = Math.atan2((p.y + 1.28 * p.s) - (gy + 1.42), dist);
+      apply(px, pz, gy, yaw, pitch);
+      return { ok: true, dist: Math.round(dist * 10) / 10 };
+    };
+    H.front = (index) => {
+      const cam = app().camera.position;
+      const me = people().find((p) => p.i === index);
+      if (!me) return { ok: false, closer: 9 };
+      const myD = Math.hypot(me.x - cam.x, me.z - cam.z);
+      let closer = 0;
+      for (const p of people()) {
+        if (p.i === index) continue;
+        const d = Math.hypot(p.x - cam.x, p.z - cam.z);
+        if (d > myD - 0.35) continue;
+        const n = ndc(p.x, p.y + p.s, p.z);
+        if (n && Math.abs(n.x) < 0.62 && n.y > -0.85 && n.y < 0.9) closer++;
+      }
+      return { ok: closer === 0, closer, myD: Math.round(myD * 10) / 10 };
     };
     H.composeDoor = () => {
       H.hold();
@@ -844,6 +982,17 @@ async function go(fn, kind) {
 async function shoot(id, tier, allowOpen) {
   const reach = 220;
   const attempts = Number(process.env.ATTEMPTS || '8');
+  await page.evaluate(({ want, loose, headMax, side }) => {
+    window.__wantShort = want;
+    window.__loose = loose;
+    window.__headMax = headMax;
+    if (side) window.__side = side;
+  }, {
+    want: process.env.WANT_SHORT === '1',
+    loose: process.env.LOOSE === '1',
+    headMax: Number(process.env.HEAD_MAX || '0.92'),
+    side: process.env.SIDE ? Number(process.env.SIDE) : 0,
+  });
   for (let attempt = 0; attempt < attempts; attempt++) {
     const movers = await page.evaluate((r) => window.__retry.movers(r), reach);
     if (!movers.length) {
@@ -865,6 +1014,19 @@ async function shoot(id, tier, allowOpen) {
       await page.evaluate(() => window.__retry.release());
       continue;
     }
+    if (process.env.FOREGROUND === '1') {
+      const front = await page.evaluate((index) => window.__retry.front(index), who.i);
+      if (!front?.ok) {
+        const swapped = await page.evaluate((who) => window.__retry.swapSide(who), who);
+        const again = swapped?.ok ? await page.evaluate((index) => window.__retry.front(index), who.i) : front;
+        if (!again?.ok) {
+          note('behind', { id, tier, attempt, front, swapped });
+          await page.evaluate(() => window.__retry.release());
+          continue;
+        }
+        note('swapped', { id, tier, attempt, swapped, again });
+      }
+    }
     const onWalk = placed.band === 'walk' || placed.band === 'outside';
     if (!locked?.ok || (!placed.facade && !allowOpen && !onWalk)) {
       await page.evaluate(() => window.__retry.release());
@@ -883,6 +1045,13 @@ async function shoot(id, tier, allowOpen) {
     };
     const legs = bodyStats(tmp0, legBox);
     note('body', { id, tier, attempt, std: Math.round((stats.std || 0) * 10) / 10, span: Math.round(stats.span || 0), mean: Math.round(stats.mean || 0), legs: Math.round(legs.span || 0) });
+    // A person projected through a facade still fills the lock box with one
+    // flat wall. Rain streaks keep the luma span high, so the flat test misses it.
+    if ((stats.std || 0) < 22 && (stats.mean || 0) > 55 && attempt < 6) {
+      note('wall', { id, tier, attempt });
+      await page.evaluate(() => window.__retry.release());
+      continue;
+    }
     if (((stats.span || 0) < 14 || (legs.span || 0) < 18) && attempt < 6) {
       note('flat', { id, tier, attempt });
       await page.evaluate(() => window.__retry.release());
@@ -986,7 +1155,7 @@ left, right = side(0, int(w * 0.28)), side(int(w * 0.72), w)
 print(json.dumps({"diff": round(abs(left - right), 2), "left": round(left, 1), "right": round(right, 1)}))
 `, tmp0], { encoding: 'utf8' });
       const diff = wall.status === 0 ? JSON.parse(wall.stdout).diff : 0;
-      if (diff < 14) {
+      if (diff < 8) {
         note('no-wall', { id, tier, attempt, diff, detail: wall.stdout.trim() });
         await page.evaluate(() => window.__retry.release());
         continue;
@@ -997,9 +1166,160 @@ print(json.dumps({"diff": round(abs(left - right), 2), "left": round(left, 1), "
       await page.evaluate(() => window.__retry.release());
       continue;
     }
+    if (process.env.WALK_ONLY === '1' && placed.feet !== 'walk') {
+      note('not-walk', { id, tier, attempt, feet: placed.feet, band: placed.band });
+      await page.evaluate(() => window.__retry.release());
+      continue;
+    }
+    if (process.env.MAX_SPAN && locked.span > Number(process.env.MAX_SPAN)) {
+      note('huge', { id, tier, attempt, span: locked.span });
+      await page.evaluate(() => window.__retry.release());
+      continue;
+    }
+    if (process.env.NO_SLAB === '1') {
+      const slab = spawnSync('python3', ['-c', `
+import json, sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert('RGB')
+w, h = im.size
+px = im.load()
+x0, y0, x1, y1 = [float(v) for v in sys.argv[2:6]]
+px0, px1 = int(x0 * w), int(x1 * w)
+def band(xa, xb):
+    vals = []
+    for y in range(int(h * 0.05), int(h * 0.75), 4):
+        for x in range(xa, xb, 4):
+            r, g, b = px[x, y]
+            vals.append((r + g + b) / 3.0)
+    if len(vals) < 8:
+        return 0.0, 99.0
+    mean = sum(vals) / len(vals)
+    var = sum((v - mean) ** 2 for v in vals) / len(vals)
+    return mean, var ** 0.5
+def overlap(xa, xb):
+    return max(0, min(px1, xb) - max(px0, xa)) / max(1, px1 - px0)
+left_x, right_x = int(w * 0.28), int(w * 0.72)
+lm, ls = band(0, left_x)
+rm, rs = band(right_x, w)
+print(json.dumps({
+  "left": round(ls, 1), "lmean": round(lm, 1),
+  "right": round(rs, 1), "rmean": round(rm, 1),
+  "ol": round(overlap(0, left_x), 2),
+  "orr": round(overlap(right_x, w), 2),
+}))
+`, tmp0, String(locked.box.x0), String(locked.box.y0), String(locked.box.x1), String(locked.box.y1)], { encoding: 'utf8' });
+      const sl = slab.status === 0 ? JSON.parse(slab.stdout) : { left: 99, right: 99, lmean: 0, rmean: 0, ol: 0, orr: 0 };
+      note('slab', { id, tier, attempt, ...sl });
+      const slabHit = (std, mean, over) => std < 22 && mean > 26 && over > 0.25;
+      if (slabHit(sl.left, sl.lmean, sl.ol) || slabHit(sl.right, sl.rmean, sl.orr)) {
+        await page.evaluate(() => window.__retry.release());
+        continue;
+      }
+    }
+    if (process.env.CANYON === '1') {
+      const canyon = spawnSync('python3', ['-c', `
+import json, sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert('RGB')
+w, h = im.size
+px = im.load()
+def st(x0, x1, y0, y1):
+    vals = []
+    for y in range(y0, y1, 4):
+        for x in range(x0, x1, 4):
+            r, g, b = px[x, y]
+            vals.append((r + g + b) / 3.0)
+    if not vals:
+        return 0, 0
+    mean = sum(vals) / len(vals)
+    var = sum((v - mean) ** 2 for v in vals) / len(vals)
+    return mean, var ** 0.5
+left = st(0, int(w * 0.32), int(h * 0.08), int(h * 0.52))
+right = st(int(w * 0.68), w, int(h * 0.08), int(h * 0.52))
+ground = st(int(w * 0.15), int(w * 0.85), int(h * 0.64), int(h * 0.96))
+detail = max(left[1], right[1])
+bright = max(left[0], right[0])
+print(json.dumps({"detail": round(detail, 1), "bright": round(bright, 1), "ground": round(ground[1], 1)}))
+`, tmp0], { encoding: 'utf8' });
+      const c = canyon.status === 0 ? JSON.parse(canyon.stdout) : { detail: 0, bright: 0, ground: 0 };
+      note('canyon', { id, tier, attempt, ...c });
+      // A tiled sidewalk or a detailed facade. An open plaza is flat and dim on both.
+      if (c.ground < 24 && c.detail < 34 && c.bright < 28) {
+        await page.evaluate(() => window.__retry.release());
+        continue;
+      }
+    }
+    if (process.env.ON_WARM === '1') {
+      const warm = spawnSync('python3', ['-c', `
+import json, sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert('RGB')
+w, h = im.size
+px = im.load()
+x0, y0, x1, y1 = [float(v) for v in sys.argv[2:6]]
+def warm_at(x, y):
+    if x < 0 or y < 0 or x >= w or y >= h:
+        return False
+    r, g, b = px[x, y]
+    return r > 90 and r > b + 22 and r > g + 8
+# A warm sidewalk is in the frame, but the feet are on the grey lane beside it.
+feet_x = int(((x0 + x1) * 0.5) * w)
+feet_y = min(h - 4, int(y1 * h) + 6)
+hit = n = 0
+for y in range(max(0, feet_y - 8), min(h, feet_y + 18), 2):
+    for x in range(max(0, feet_x - 18), min(w, feet_x + 18), 2):
+        n += 1
+        if warm_at(x, y):
+            hit += 1
+frame = fw = 0
+for y in range(int(h * 0.42), int(h * 0.92), 6):
+    for x in range(0, w, 8):
+        frame += 1
+        if warm_at(x, y):
+            fw += 1
+print(json.dumps({"feet": round(hit / max(1, n), 3), "frame": round(fw / max(1, frame), 3)}))
+`, tmp0, String(locked.box.x0), String(locked.box.y0), String(locked.box.x1), String(locked.box.y1)], { encoding: 'utf8' });
+      const wr = warm.status === 0 ? JSON.parse(warm.stdout) : { feet: 1, frame: 0 };
+      note('warm', { id, tier, attempt, ...wr });
+      if (wr.frame > 0.06 && wr.feet < 0.25) {
+        await page.evaluate(() => window.__retry.release());
+        continue;
+      }
+    }
+    if (process.env.SEE_GROUND === '1') {
+      const ground = bodyStats(tmp0, { x0: 0.08, x1: 0.92, y0: 0.62, y1: 0.98 });
+      note('see-ground', { id, tier, attempt, mean: Math.round(ground.mean || 0) });
+      if ((ground.mean || 0) < 9) {
+        await page.evaluate(() => window.__retry.release());
+        continue;
+      }
+    }
+    if (process.env.NO_EDGE === '1') {
+      const edge = spawnSync('python3', ['-c', `
+import json, sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert('RGB')
+w, h = im.size
+px = im.load()
+def tall(x0, x1):
+    cols = 0
+    for x in range(x0, x1, 4):
+        ys = [y for y in range(int(h*0.15), int(h*0.9), 3) if sum(px[x, y]) > 150]
+        if len(ys) > h * 0.12:
+            cols += 1
+    return cols
+print(json.dumps({"left": tall(0, int(w*0.07)), "right": tall(int(w*0.93), w)}))
+`, tmp0], { encoding: 'utf8' });
+      const e = edge.status === 0 ? JSON.parse(edge.stdout) : { left: 0, right: 0 };
+      if (e.left > 4 || e.right > 4) {
+        note('edge-crop', { id, tier, attempt, ...e });
+        await page.evaluate(() => window.__retry.release());
+        continue;
+      }
+    }
     renameSync(tmp0, `${OUT}/${id}-${tier}-f0.png`);
     for (let f = 1; f < 4; f++) {
-      await page.evaluate(() => window.__retry.step(0.42));
+      await page.evaluate(() => window.__retry.step(0.28));
       await frames();
       await page.screenshot({ path: `${OUT}/${id}-${tier}-f${f}.png`, timeout: 180000, animations: 'disabled' });
     }
@@ -1010,6 +1330,20 @@ print(json.dumps({"diff": round(abs(left - right), 2), "left": round(left, 1), "
 }
 
 async function district(id, fn, kinds, tier) {
+  if (process.env.STREET_ANCHOR === '1') {
+    try { await go(fn, kinds[0]); } catch { /* the street search loads its own block */ }
+    const stood = await page.evaluate((districtId) => window.__retry.standStreet(districtId), id);
+    note('street anchor', { id, tier, stood });
+    if (stood?.ok) {
+      const settled = await page.evaluate(() => window.__retry.pump());
+      note('settled', { id, kind: 'sidewalk', tier, allowOpen: true, settled });
+      if (settled?.n) {
+        await page.evaluate(() => window.__retry.hold());
+        const ok = await shoot(id, tier, true);
+        if (ok) return;
+      }
+    }
+  }
   for (const allowOpen of [false, true]) {
     for (const kind of kinds) {
       let where;
@@ -1032,7 +1366,7 @@ async function district(id, fn, kinds, tier) {
 
 async function dancerStrip(name, id) {
   let framed = null;
-  for (const dist of [32, 36, 42]) {
+  for (const dist of name.includes('broadway') ? [58, 68, 50, 76] : [62, 74, 54, 78]) {
     framed = await page.evaluate(({ id, dist }) => window.__retry.frameDancer(id, dist), { id, dist });
     note('dancer frame', { name, framed });
     if (framed?.ok && framed.shown) break;
