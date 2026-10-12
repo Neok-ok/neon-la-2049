@@ -103,7 +103,7 @@ function shade(lit: boolean): MeshBasicNodeMaterial {
     // exposure is stopped down. practicalLit stays in nits and is added, not scaled.
     const albedo = vec3(0.92, 0.93, 0.95).mul(steam)
       .add(vec3(0.36, 0.34, 0.32).mul(barrel))
-      .add(vec3(0.42, 0.4, 0.38).mul(stack))
+      .add(vec3(0.3, 0.29, 0.28).mul(stack))
       .add(vec3(0.5, 0.51, 0.52).mul(exhaustK))
       .add(vec3(0.88, 0.86, 0.82).mul(launch));
     const body = albedo.mul(authoredLiftU);
@@ -117,19 +117,22 @@ function shade(lit: boolean): MeshBasicNodeMaterial {
       const world = ctr.xyz;
       lamps = practicalLit(world, N, V, albedo).mul(litScale).add(practicalInscatter(world).mul(3.6));
     }
-    const heatGain = launch.mul(0.72).add(barrel.mul(1.65)).add(stack.mul(0.55)).add(exhaustK.mul(0.2)).add(steam.mul(0.1));
+    const heatGain = launch.mul(0.4).add(barrel.mul(1.65)).add(stack.mul(0.55)).add(exhaustK.mul(0.2)).add(steam.mul(0.1));
+    const coreDisc = smoothstep(float(0.5), float(0.02), length(corner));
+    // Orange stays in the spine. Tinting the whole card turned the plume brown.
+    const heatMask = mix(float(1), coreDisc, launch);
     const heat = vec3(FLAME[0], FLAME[1], FLAME[2])
       .mul(extra.x)
       .mul(authoredLiftU)
       .mul(heatGain)
+      .mul(heatMask)
       .mul(smoothstep(0.92, 0.04, life));
-    // Valleys of the lump field are the internal shadow. The baked normal only
-    // darkened the rim, so the body stayed a flat gradient.
-    const shade = mix(float(0.5), float(0.3), launchK);
-    const crease = mix(shade, float(1), lumps).mul(mix(float(0.82), float(1), stamp.b));
+    // Steam stays bright. Launch and stack valleys take the shadow.
+    const stackK = smoothstep(4.55, 5.05, kind).mul(float(1).sub(smoothstep(5.45, 5.95, kind)));
+    const shade = mix(float(0.78), float(0.26), launchK.add(stackK.mul(0.9)));
+    const crease = mix(shade, float(1), lumps).mul(mix(float(0.88), float(1), stamp.b));
     const hot = smoothstep(float(0.55), float(1.15), extra.x).mul(launch);
-    const coreDisc = smoothstep(float(0.58), float(0.04), length(corner));
-    const core = vec3(1.45, 0.86, 0.42).mul(authoredLiftU).mul(hot).mul(coreDisc).mul(0.8);
+    const core = vec3(1.55, 0.95, 0.5).mul(authoredLiftU).mul(hot).mul(coreDisc).mul(0.95);
     const rgb = body.mul(crease).add(lamps).add(veil).add(heat).add(core);
 
     const dist = length(ctr.xyz.sub(cameraPosition));
