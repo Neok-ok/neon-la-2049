@@ -67,17 +67,22 @@ function placeStreet(arg) {
     let lat = -2.5;
     let dep = 0.45;
     let best = 1e9;
-    for (const tryLat of [-2.5, 2.5, -3.4, 3.4]) {
-      const x = p.door[0] + bx * tryLat + nx * 0.45;
-      const z = p.door[1] + bz * tryLat + nz * 0.45;
-      const gy = q.groundHeight(x, z);
-      const top = typeof q.floorBelow === 'function' ? q.floorBelow(x, gy + 2.4, z, true) : gy;
-      const rise = top - gyDoor;
-      const score = Math.abs(rise) + (rise > 0.08 ? 4 : 0);
-      if (score < best) {
-        best = score;
-        lat = tryLat;
-        dep = 0.45;
+    const tryLats = p.kind === 'flare-bed' ? [-2.5, -3.4, -4.6, -5.6, 2.5, 3.4] : [-2.5, 2.5, -3.4, 3.4];
+    const tryDeps = p.kind === 'flare-bed' ? [0.9, 1.6, 0.45] : [0.45];
+    for (const tryLat of tryLats) {
+      for (const tryDep of tryDeps) {
+        const x = p.door[0] + bx * tryLat + nx * tryDep;
+        const z = p.door[1] + bz * tryLat + nz * tryDep;
+        const gy = q.groundHeight(x, z);
+        const top = typeof q.floorBelow === 'function' ? q.floorBelow(x, gy + 2.4, z, true) : gy;
+        const rise = top - gyDoor;
+        const stairSide = p.kind === 'flare-bed' && tryLat > 0 ? 3 : 0;
+        const score = Math.abs(rise) + (rise > 0.08 ? 4 : 0) + stairSide + Math.abs(tryLat) * 0.02;
+        if (score < best) {
+          best = score;
+          lat = tryLat;
+          dep = tryDep;
+        }
       }
     }
     const x = p.door[0] + bx * lat + nx * dep;
@@ -228,7 +233,11 @@ function placeStreet(arg) {
     let best = null;
     for (const strict of [true, false]) {
       if (best) break;
-      for (const dist of [8, 10.5, 13, 17, 22]) {
+      const dists = p.kind === 'screen-wall' ? [16, 18, 22, 26]
+        : p.kind === 'flue-bank' ? [7.5, 8.5, 10]
+          : p.kind === 'flare-bed' ? [11, 13, 16]
+            : [8, 10.5, 13, 17, 22];
+      for (const dist of dists) {
         for (let k = 0; k < 24; k++) {
           const ang = Math.atan2(Math.sin(k * (Math.PI / 12)), Math.cos(k * (Math.PI / 12)));
           const dirx = nx * Math.cos(ang) + bx * Math.sin(ang);
@@ -250,9 +259,10 @@ function placeStreet(arg) {
             if (!n || Math.abs(n.x) > 0.86 || n.y < -0.9 || n.y > 0.4) continue;
             pnx = n.x;
           }
-          // A screen wall's door sits on the dark plate. A small swing brings a windowed pier into the street frame.
-          const prefer = p.kind === 'screen-wall' ? Math.abs(Math.abs(ang) - 0.65) : Math.abs(ang);
-          const score = 2 - prefer * 0.35 - Math.abs(pnx) * 0.04 - dist * 0.01;
+          // Head-on, so a screen wall's slot stays between the two piers.
+          const prefer = Math.abs(ang);
+          const preferDist = p.kind === 'screen-wall' ? 18 : p.kind === 'flue-bank' ? 8.5 : p.kind === 'flare-bed' ? 13 : 9;
+          const score = 2 - prefer * 0.35 - Math.abs(pnx) * 0.04 - Math.abs(dist - preferDist) * 0.04;
           if (!best || score > best.score) best = { score, x, z, dist, ang };
         }
       }
@@ -274,7 +284,9 @@ function placeStreet(arg) {
   const heading = Math.atan2(lookX, -lookZ);
   // Positive pitch looks up in this camera. That drops the horizon and keeps feet in frame.
   const pitch = phase === 'final'
-    ? (pose ? pose.pitch : (p.kind === 'flue-bank' ? 0.02 : hero ? 0.08 : 0.2))
+    ? (p.kind === 'flue-bank' ? 0.03
+      : p.kind === 'flare-bed' ? 0.06
+        : (pose ? pose.pitch : (hero ? 0.08 : 0.2)))
     : 0.02;
   if (fieldKind && phase === 'final') {
     // Walk collision slides the eye into the next wall. A parked fly pose stays on the door.
@@ -282,7 +294,8 @@ function placeStreet(arg) {
     const fly = nla.app.cams.fly;
     fly.cockpit = true;
     fly.vel.set(0, 0, 0);
-    nla.setPose(cx, p.ground + 1.75, cz, (heading * 180) / Math.PI, (pitch * 180) / Math.PI);
+    const eyeH = p.kind === 'flue-bank' ? 2.6 : 1.75;
+    nla.setPose(cx, p.ground + eyeH, cz, (heading * 180) / Math.PI, (pitch * 180) / Math.PI);
     fly.vel.set(0, 0, 0);
     fly.spinner.visible = false;
   } else {
@@ -563,7 +576,7 @@ function placeSubject(p) {
           const prefer = p.kind === 'flue-bank'
             ? (p.shot === 'sky' ? Math.abs(Math.abs(swing) - 0.7) : Math.abs(swing))
             : p.kind === 'flare-bed'
-              ? Math.abs(Math.abs(swing) - 0.36)
+              ? Math.abs(Math.abs(swing) - 0.72) * 8
               : p.kind === 'shelf-row'
                 ? (p.shot === 'sky' ? Math.abs(Math.abs(swing) - 0.9) : Math.abs(Math.abs(swing) - 0.36))
                 : (p.shot === 'sky' ? Math.abs(Math.abs(swing) - 1.1) : 0);
@@ -877,7 +890,7 @@ for (const tier of tiers) {
         } else if (p.kind === 'screen-wall') {
           // High enough that the parapet and the gantry stay in the frame.
           reach = Math.max(100, p.height * 1.15);
-          lateral = Math.max(p.w, p.d) * 0.42;
+          lateral = Math.max(p.w, p.d) * 0.72;
           y = p.ground + p.height * 0.62;
           aimF = 0.7;
         } else if (p.kind === 'flue-bank') {
@@ -983,7 +996,7 @@ for (const tier of tiers) {
             { dist: Math.max(100, p.height * 0.2), y: p.ground + p.height * 0.3, sideM: Math.max(80, Math.max(p.w, p.d) * 1.2), aim: 0.4 },
           ],
           'screen-wall': [
-            { dist: Math.max(100, p.height * 1.15), y: p.ground + p.height * 0.72, sideM: Math.max(p.w, p.d) * 0.35, aim: 0.86 },
+            { dist: Math.max(100, p.height * 1.15), y: p.ground + p.height * 0.72, sideM: Math.max(p.w, p.d) * 0.62, aim: 0.86 },
           ],
           'flue-bank': [
             { dist: Math.max(84, p.height * 1.05), y: p.ground + p.height * 0.46, sideM: Math.max(p.w, p.d) * 0.95, aim: 0.52 },

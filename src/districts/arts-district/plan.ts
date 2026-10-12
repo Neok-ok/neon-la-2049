@@ -2,7 +2,6 @@
 // read the same function. No three.js.
 import { Rng } from '../../core/rng';
 import { Style, SignColor, type FaceDir, type StyleId } from '../../world/fabric/types';
-import { fieldTower } from '../../world/buildings/place';
 import { PHRASE_ARTS, phraseSeed } from '../../world/materials/signPhrases';
 import type { CityLayout } from '../../world/layout';
 import {
@@ -372,13 +371,8 @@ function stackYard(
   const H = force ? r.range(92, 128) : r.range(74, 136);
   const tint = r.range(0.48, 0.66);
   if (!force) {
-    const seed = ((Math.round(H * 10) % 997) + 1) / 1000;
-    const placed = fieldTower('flue-bank', 18, 14, H, seed, Math.round(H) % 3);
-    for (const b of placed.boxes) {
-      put(s + b.s, t + b.t, b.lb, b.la, b.h, b.base, b.style, b.lit, b.tint, b.detail, {
-        kit: true, ornament: b.ornament, family: 'flue-bank',
-      });
-    }
+    // Flue bank stayed under the street film gate. One solid of the yard size. The tint draw above stays.
+    put(s, t, 18, 14, H, 0, Style.Solid, 0.06, tint, 0);
   } else {
     put(s, t, 5.2, 5.2, H, 0, Style.Industrial, 0.02, tint, 0);
     for (let i = 0; i < 3; i++) {

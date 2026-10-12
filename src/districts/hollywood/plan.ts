@@ -2,7 +2,6 @@
 // Heritage fronts are the shared kit. Old 4.4 m counts snap onto 3.6 m storeys.
 import { hash2i, Rng } from '../../core/rng';
 import { Style, SignColor, type FaceDir, type StyleId } from '../../world/fabric/types';
-import { fieldTower } from '../../world/buildings/place';
 import { CELL, PHRASE_HOUSES, phraseSeed } from '../../world/materials/signPhrases';
 import {
   buildHeritage, faceSize, projectFace,
@@ -200,17 +199,15 @@ function emitField(
   out: HwPlan, b: HwBlock, s0: number, t0: number,
   kind: 'screen-wall', w: number, d: number, height: number, variant: number, seed: number,
 ): void {
-  const placed = fieldTower(kind, w, d, height, seed, variant);
-  for (const box of placed.boxes) {
-    const s = s0 + box.s;
-    const t = t0 + box.t;
-    if (hitsDoor(b, s, t, box.lb, box.la)) continue;
-    out.boxes.push({
-      s, t, lb: box.lb, la: box.la, h: box.h, base: box.base,
-      style: box.style, lit: box.lit, tint: box.tint, detail: box.detail,
-      ornament: box.ornament, kit: true, family: kind,
-    });
-  }
+  // Screen wall stayed under the fly gate. Same footprint, no new draw, so the strip seeds stay.
+  void kind;
+  void variant;
+  void seed;
+  if (hitsDoor(b, s0, t0, w, d)) return;
+  out.boxes.push({
+    s: s0, t: t0, lb: w, la: d, h: height, base: 0,
+    style: Style.Solid, lit: 0.08, tint: 0.72, detail: 0,
+  });
 }
 
 function towerBehind(b: HwBlock, face: FaceDir, out: HwPlan): void {

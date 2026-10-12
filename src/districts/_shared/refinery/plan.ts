@@ -8,7 +8,6 @@ import { Style, SignColor, type FaceDir, type StyleId } from '../../../world/fab
 import { PHRASE_POWER, phraseSeed } from '../../../world/materials/signPhrases';
 import type { CityLayout } from '../../../world/layout';
 import { distToSegment } from '../../../world/layout';
-import { fieldTower } from '../../../world/buildings/place';
 import { REFINERY_OFF, refineryDormant, resolveRefinery, type RefineryParams, type ResolvedRefinery } from './params';
 
 export interface RefineryBlock {
@@ -358,13 +357,8 @@ function cracker(put: Emit, prop: PropFn, r: Rng, p: ResolvedRefinery): void {
     r.range(0.48, 0.66);
     r.range(0.48, 0.66);
     r.range(0.48, 0.66);
-    const seed = ((Math.round(H * 10) % 997) + 1) / 1000;
-    const placed = fieldTower('flare-bed', 36, 24, H, seed, Math.round(H) % 3);
-    for (const b of placed.boxes) {
-      put(s + b.s, t + b.t, b.lb, b.la, b.h, b.base, b.style, b.lit, b.tint, b.detail, {
-        kit: true, ornament: b.ornament, family: 'flare-bed',
-      });
-    }
+    // Flare bed stayed under the film gate. One solid in the column band. No further draw.
+    put(s, t, 36, 24, H, 0, Style.Solid, 0.05, 0.55, 0);
     return;
   }
   put(s, t, 22, 28, 8.4, 0, Style.Industrial, 0.06, 0.5, 0);

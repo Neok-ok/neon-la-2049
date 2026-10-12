@@ -107,7 +107,7 @@ function iou(a, b) {
  */
 function flareEnv(s, y) {
   if (y < 0 || y > 1.06) return false;
-  if (y < 0.22 && Math.abs(s) < 1.02) return true;
+  if (y < 0.1 && Math.abs(s) < 1.02) return true;
   const cols = [
     { c: -0.69, half: 0.28, top: 0.66 },
     { c: 0.0, half: 0.34, top: 1.04 },
@@ -119,7 +119,7 @@ function flareEnv(s, y) {
 /** Three stacks on a plinth. Signed across the width, because the shafts are not a mirror. */
 function flueEnv(s, y) {
   if (y < 0 || y > 1.05) return false;
-  if (y < 0.16 && Math.abs(s) < 1.02) return true;
+  if (y < 0.06 && Math.abs(s) < 1.02) return true;
   const cols = [
     { c: -0.68, half: 0.28, top: 0.82 },
     { c: 0.02, half: 0.36, top: 1.03 },

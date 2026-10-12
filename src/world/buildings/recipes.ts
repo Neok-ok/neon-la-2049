@@ -773,109 +773,68 @@ function sidewalkPiers(d: Draft, faceS: number, halfW: number, storey: number, y
 
 function screenWall(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolean, variant: number): void {
   const front = -spec.d / 2;
-  const pierD = Math.min(3.4, spec.d * 0.22);
-  const pierS = front + pierD / 2 + 0.2;
-  const plateD = Math.max(4, spec.d - pierD - 0.8);
-  const plateS = pierS + pierD / 2 + plateD / 2 - 0.08;
-  const pierFrac = variant === 2 ? [0.3, 0.14] : [0.2, 0.2];
-  const leftW = Math.max(3.2, spec.w * pierFrac[0]);
-  const rightW = Math.max(3.2, spec.w * pierFrac[1]);
-  const leftT = -spec.w / 2 + leftW / 2 + 0.3;
-  const rightT = spec.w / 2 - rightW / 2 - 0.3;
-  skin(d, {
-    s: plateS, t: 0, lb: spec.w * 0.94, la: plateD, h: H, base: y0,
-    style: Style.Monolith, lit: 0.06, tint: spec.tint * 0.66, door,
-  });
-  const pier: Array<[number, number]> = [[leftT, leftW], [rightT, rightW]];
-  for (const [t, w] of pier) {
-    addBox(d, {
-      s: pierS, t, lb: w, la: pierD, h: H, base: y0,
-      style: Style.Panel, lit: 0.16, tint: spec.tint, detail: 0, role: 'mass',
-    });
-  }
-  const headH = Math.max(STOREY * 1.5, H * (variant === 1 ? 0.16 : 0.11));
+  // The piers stand in front of the plate. A shallow pier glues the three into one slab.
+  const pierD = Math.min(8, Math.max(5.2, spec.d * 0.34));
+  const pierS = front + pierD / 2 + 0.15;
+  const plateD = Math.max(3.6, spec.d - pierD - 1.1);
+  const plateS = pierS + pierD / 2 + plateD / 2;
+  const pierFrac = variant === 2 ? [0.22, 0.15] : [0.18, 0.18];
+  const leftW = Math.max(4.2, spec.w * pierFrac[0]);
+  const rightW = Math.max(4.2, spec.w * pierFrac[1]);
+  const leftT = -spec.w / 2 + leftW / 2 + 0.25;
+  const rightT = spec.w / 2 - rightW / 2 - 0.25;
   const wellL = leftT + leftW / 2;
   const wellR = rightT - rightW / 2;
-  const wellW = Math.max(4, wellR - wellL);
+  const wellW = Math.max(DOOR_W + 2.4, wellR - wellL);
   const wellT = (wellL + wellR) / 2;
-  addBox(d, {
-    s: pierS, t: wellT, lb: wellW + 1.2, la: pierD, h: headH, base: y0 + H - headH,
-    style: Style.Solid, lit: 0.08, tint: spec.tint * 0.78, detail: 0, role: 'band',
+  // The plate stops below the pier heads, so the fly shows two masses and sky between them.
+  const plateH = H * 0.56;
+  skin(d, {
+    s: plateS, t: wellT, lb: Math.min(wellW, spec.w - leftW - rightW), la: plateD, h: plateH, base: y0,
+    style: Style.Monolith, lit: 0.04, tint: spec.tint * 0.55, door,
   });
-  const sillY = y0 + Math.max(STOREY * 3, H * 0.2);
-  addBox(d, {
-    s: pierS, t: wellT, lb: wellW, la: pierD * 0.92, h: STOREY * 0.8, base: sillY,
-    style: Style.Solid, lit: 0.07, tint: spec.tint * 0.74, detail: 0, role: 'band',
-  });
-  if (variant === 1) {
+  const pier: Array<[number, number, number]> = [[leftT, leftW, 1], [rightT, rightW, -1]];
+  for (const [t, w, inward] of pier) {
     addBox(d, {
-      s: pierS, t: wellT, lb: wellW, la: pierD * 0.9, h: STOREY * 0.7, base: y0 + H * 0.52,
-      style: Style.Solid, lit: 0.07, tint: spec.tint * 0.72, detail: 0, role: 'band',
+      s: pierS, t, lb: w, la: pierD, h: H, base: y0,
+      style: Style.Solid, lit: 0.1, tint: spec.tint * 0.96, detail: 0, role: 'mass',
     });
-  }
-  const gutter = buriedGlow(y0 + H - headH - 1.5, 1.5);
-  addBox(d, {
-    s: pierS - pierD / 2 - 0.16, t: wellT, lb: wellW * 0.92, la: 0.42, h: gutter.h,
-    base: gutter.base,
-    style: Style.Glow, lit: 0.78, tint: 1.18, detail: 0, role: 'band',
-  });
-  const gutterTop = y0 + H - headH - 0.4;
-  for (let y = sillY + STOREY; y < gutterTop - 2; y += STOREY * 2) {
-    const tick = buriedGlow(y, 1.45);
-    for (const side of [-1, 1] as const) {
+    // A few short slots, the first one inside a sidewalk frame. A panel grid would be a window chart.
+    for (let y = y0 + 4.2; y < y0 + H - STOREY * 3; y += STOREY * 5) {
+      const slot = buriedGlow(y, 1.15);
       addBox(d, {
-        s: pierS - pierD / 2 - 0.12, t: wellT + side * (wellW / 2 - 0.7),
-        lb: 1.6, la: 0.36, h: tick.h, base: tick.base,
-        style: Style.Glow, lit: 0.62, tint: 1.1, detail: 0, role: 'band',
+        s: pierS - pierD / 2 - 0.08, t, lb: Math.min(2.2, w * 0.42), la: 0.26,
+        h: slot.h, base: slot.base,
+        style: Style.Glow, lit: 0.72, tint: 1.08, detail: 0, role: 'band',
       });
     }
-  }
-  for (let k = 0; k < 3; k++) {
+    const canyon = buriedGlow(y0 + 3.6, 1.35);
     addBox(d, {
-      s: pierS, t: wellT + (k - 1) * wellW * 0.28, lb: 0.7, la: pierD + 0.6, h: 0.35,
-      base: y0 + H - headH - 0.35,
-      style: Style.Solid, lit: 0.05, tint: spec.tint * 0.65,
-      detail: 1, ornament: 1, role: 'band',
-    });
-  }
-  // Parapet and a gantry inside it. The high frame keeps a lip; there is no second billboard.
-  const parapet = 4.2;
-  const lipS = pierS - pierD / 2 - 0.28;
-  addBox(d, {
-    s: lipS, t: 0, lb: spec.w * 0.96, la: 0.62, h: parapet, base: y0 + H,
-    style: Style.Solid, lit: 0.05, tint: spec.tint * 0.72, detail: 0, role: 'mass',
-  });
-  for (const side of [-1, 1] as const) {
-    addBox(d, {
-      s: plateS, t: side * (spec.w * 0.46), lb: 0.6, la: plateD * 0.8, h: parapet, base: y0 + H,
-      style: Style.Solid, lit: 0.05, tint: spec.tint * 0.68, detail: 0, role: 'mass',
+      s: pierS, t: t + inward * (w / 2 + 0.1), lb: 0.22, la: Math.min(2.4, pierD * 0.4),
+      h: canyon.h, base: canyon.base,
+      style: Style.Glow, lit: 0.55, tint: 1.06, detail: 0, role: 'band',
     });
     addBox(d, {
-      s: plateS, t: side * Math.min(spec.w * 0.22, wellW * 0.32), lb: 0.7, la: 0.7, h: 3.4,
-      base: y0 + H + parapet,
-      style: Style.Solid, lit: 0.05, tint: spec.tint * 0.6, detail: 0, role: 'mass',
+      s: pierS, t, lb: w * 0.92, la: pierD * 0.9, h: 4.6, base: y0 + H,
+      style: Style.Solid, lit: 0.16, tint: 1.02, detail: 0, role: 'mass',
     });
   }
+  // One gutter, narrower than the slot, so it is not a light course across the face.
+  const gutterW = Math.min(7.2, wellW * 0.36);
+  const gutter = buriedGlow(y0 + plateH - 2.6, 1.35);
   addBox(d, {
-    s: plateS, t: 0, lb: Math.min(spec.w * 0.46, wellW * 0.7), la: 0.45, h: 0.7,
-    base: y0 + H + parapet + 2.7,
-    style: Style.Solid, lit: 0.05, tint: spec.tint * 0.62, detail: 0, role: 'mass',
+    s: plateS - plateD / 2 - 0.12, t: wellT, lb: gutterW, la: 0.32, h: gutter.h, base: gutter.base,
+    style: Style.Glow, lit: 0.92, tint: 1.22, detail: 0, role: 'band',
   });
   addBox(d, {
-    s: plateS + plateD * 0.12, t: -spec.w * 0.2,
-    lb: Math.min(8, spec.w * 0.2), la: Math.min(6, plateD * 0.4), h: 2.2, base: y0 + H,
-    style: Style.Solid, lit: 0.05, tint: spec.tint * 0.6, detail: 0, role: 'mass',
+    s: plateS - plateD / 2 - 0.2, t: wellT, lb: wellW * 0.92, la: 0.55, h: 3.8, base: y0 + plateH,
+    style: Style.Solid, lit: 0.14, tint: 0.98, detail: 0, role: 'mass',
   });
-  addBox(d, {
-    s: plateS, t: rightT, lb: 0.8, la: 0.8, h: 3.2, base: y0 + H * 0.42,
-    style: Style.Industrial, lit: 0.03, tint: spec.tint * 0.5,
-    detail: 2, ornament: 2, role: 'mass',
-  });
-  sidewalkPiers(d, pierS - pierD / 2, spec.w / 2, STOREY, y0);
 }
 
 function flueBank(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolean, variant: number): void {
-  const plinthH = Math.max(STOREY * 2, Math.min(H * 0.16, STOREY * 4));
+  // Just over the door. A level sidewalk frame is only about eight metres tall.
+  const plinthH = STOREY + 1.4;
   skin(d, {
     s: 0, t: 0, lb: spec.w * 0.96, la: spec.d * 0.9, h: plinthH, base: y0,
     style: Style.Industrial, lit: 0.1, tint: spec.tint * 0.7, door,
@@ -894,11 +853,12 @@ function flueBank(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
     const h = plinthH + (H - plinthH) * order[i]!;
     const depth = spec.d * (0.42 + (i === 1 ? 0.12 : 0));
     // Stagger the stacks in depth so a three-quarter view does not collapse them into one slab.
-    const ss = (i - 1) * Math.min(1.6, spec.d * 0.1);
+    // The middle stack steps toward the street so the sidewalk frame catches a shaft.
+    const ss = (i === 1 ? -1.4 : (i - 1)) * Math.min(1.8, spec.d * 0.14);
     shafts.push({ t, w, h, s: ss });
     addBox(d, {
       s: ss, t, lb: w, la: Math.min(spec.d * 0.78, depth), h: h - plinthH, base: y0 + plinthH,
-      style: Style.Monolith, lit: 0.07, tint: spec.tint * (0.62 + i * 0.04),
+      style: Style.Solid, lit: 0.07, tint: 0.86,
       detail: 0, role: 'mass',
     });
     addBox(d, {
@@ -913,10 +873,10 @@ function flueBank(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
     });
     // Short courses, not a full-height glow face. A tall glow cell tiles into windows.
     const courseTop = y0 + h - 4.8;
-    for (let y = y0 + plinthH + STOREY * 2; y < courseTop; y += STOREY * 4) {
+    for (let y = y0 + plinthH + 1.2; y < courseTop; y += STOREY * 4) {
       const course = buriedGlow(y, 1.35);
       addBox(d, {
-        s: ss - (depth / 2 + 0.22), t, lb: Math.max(1.6, w * 0.78), la: 0.36, h: course.h,
+        s: ss - (depth / 2 + 0.22), t, lb: Math.max(1.4, w * 0.42), la: 0.32, h: course.h,
         base: course.base,
         style: Style.Glow, lit: 0.72, tint: 1.12, detail: 0, role: 'band',
       });
@@ -938,7 +898,6 @@ function flueBank(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
       detail: 2, ornament: 2, role: 'mass',
     });
   }
-  sidewalkPiers(d, -(spec.d * 0.9) / 2, spec.w / 2, STOREY, y0);
 }
 
 /** East LA housing. A wide bar and a roof room, on 3.4 m floors. Not a downtown slit. */
@@ -1034,26 +993,27 @@ function shelfRow(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
  * The flare is a short lip on the tallest drum, not a downtown shaft.
  */
 function flareBed(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolean, variant: number): void {
-  const plinthH = Math.min(STOREY * 3, Math.max(STOREY * 2, H * 0.2));
+  // Just over the door, so the drums rise inside a level sidewalk frame.
+  const plinthH = STOREY + 1.4;
   skin(d, {
     s: 0, t: 0, lb: spec.w * 0.98, la: spec.d * 0.92, h: plinthH, base: y0,
-    style: Style.Industrial, lit: spec.lit * 0.45, tint: spec.tint, door,
+    style: Style.Solid, lit: 0.05, tint: 0.62, door,
   });
   const drums = variant === 1
     ? [
-      { t: -0.32, w: 0.24, dep: 0.46, k: 0.78, s: -0.06 },
-      { t: 0.02, w: 0.28, dep: 0.52, k: 0.48, s: 0.05 },
-      { t: 0.32, w: 0.22, dep: 0.4, k: 1, s: 0 },
+      { t: -0.32, w: 0.24, dep: 0.46, k: 0.78, s: -0.02 },
+      { t: 0.02, w: 0.28, dep: 0.52, k: 0.48, s: -0.14 },
+      { t: 0.32, w: 0.22, dep: 0.4, k: 1, s: -0.1 },
     ]
     : variant === 2
       ? [
-        { t: -0.22, w: 0.32, dep: 0.56, k: 0.7, s: -0.04 },
-        { t: 0.2, w: 0.3, dep: 0.5, k: 1, s: 0.06 },
+        { t: -0.22, w: 0.32, dep: 0.56, k: 0.7, s: -0.12 },
+        { t: 0.2, w: 0.3, dep: 0.5, k: 1, s: -0.14 },
       ]
       : [
-        { t: -0.34, w: 0.24, dep: 0.48, k: 0.55, s: -0.06 },
-        { t: 0, w: 0.3, dep: 0.58, k: 1, s: 0.02 },
-        { t: 0.34, w: 0.22, dep: 0.4, k: 0.42, s: 0.05 },
+        { t: -0.34, w: 0.24, dep: 0.48, k: 0.55, s: -0.02 },
+        { t: 0, w: 0.3, dep: 0.58, k: 1, s: -0.16 },
+        { t: 0.34, w: 0.22, dep: 0.4, k: 0.42, s: 0.02 },
       ];
   let tallest: { t: number; w: number; depth: number; top: number; s: number } | null = null;
   for (const drum of drums) {
@@ -1063,45 +1023,33 @@ function flareBed(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
     const s = spec.d * drum.s;
     const h = (H - plinthH) * drum.k;
     const top = y0 + plinthH + h;
+    // One dark mass. A lit industrial face paints a window grid, and that grid reads as stacked cubes.
     addBox(d, {
       s, t, lb: w, la: depth, h, base: y0 + plinthH,
-      style: Style.Industrial, lit: spec.lit * 0.55, tint: spec.tint * 0.9,
+      style: Style.Solid, lit: 0.06, tint: 0.88,
       detail: 0, role: 'mass',
-    });
-    const capH = Math.min(2.8, Math.max(1.4, h * 0.34));
-    addBox(d, {
-      s, t, lb: w + 0.5, la: depth + 0.35, h: capH, base: top - capH,
-      style: Style.Solid, lit: 0.05, tint: spec.tint * 0.62, detail: 0, role: 'band',
     });
     if (!tallest || top > tallest.top) tallest = { t, w, depth, top, s };
   }
   if (tallest) {
-    const lip = buriedGlow(tallest.top - 1.6, 1.2);
+    const lip = buriedGlow(tallest.top - 1.35, 0.7);
     addBox(d, {
-      s: tallest.s - tallest.depth / 2 - 0.16, t: tallest.t,
-      lb: Math.min(tallest.w * 0.42, 3.6), la: 0.4, h: lip.h, base: lip.base,
-      style: Style.Glow, lit: 0.78, tint: 1.2, detail: 0, role: 'band',
+      s: tallest.s - tallest.depth / 2 - 0.12, t: tallest.t,
+      lb: Math.min(tallest.w * 0.28, 1.8), la: 0.28, h: lip.h, base: lip.base,
+      style: Style.Glow, lit: 0.7, tint: 1.18, detail: 0, role: 'band',
     });
     addBox(d, {
       s: tallest.s, t: tallest.t,
-      lb: Math.min(tallest.w * 1.08, 8), la: Math.min(tallest.depth * 0.72, 6),
-      h: 2.4, base: tallest.top,
-      style: Style.Solid, lit: 0.05, tint: spec.tint * 0.5, detail: 0, role: 'mass',
+      lb: Math.min(tallest.w * 0.36, 3.6), la: Math.min(tallest.depth * 0.32, 3.2),
+      h: 1.8, base: tallest.top,
+      style: Style.Solid, lit: 0.04, tint: 0.7, detail: 0, role: 'mass',
     });
   }
-  const spanL = Math.min(...drums.map((drum) => spec.w * drum.t - spec.w * drum.w / 2));
-  const spanR = Math.max(...drums.map((drum) => spec.w * drum.t + spec.w * drum.w / 2));
-  const beamY = y0 + plinthH + (H - plinthH) * 0.28;
-  addBox(d, {
-    s: 0, t: (spanL + spanR) / 2, lb: spanR - spanL, la: spec.d * 0.16, h: 1.5, base: beamY,
-    style: Style.Solid, lit: 0.06, tint: spec.tint * 0.6, detail: 0, role: 'deck',
-  });
   addBox(d, {
     s: spec.d * 0.2, t: -spec.w * 0.28, lb: 1.8, la: 1.4, h: 1.5, base: y0 + plinthH,
     style: Style.Industrial, lit: 0.03, tint: spec.tint * 0.48,
     detail: 2, ornament: 2, role: 'mass',
   });
-  sidewalkPiers(d, -(spec.d * 0.92) / 2, spec.w / 2, STOREY, y0);
 }
 
 interface RoofCrown {
