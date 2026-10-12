@@ -83,4 +83,4 @@ Diffs and `report.md` are uploaded as the `visual-diff-report` artifact. The job
 
 ## Seed hook
 
-`?seed=` calls `pinVisualSeed` before the weather, precipitation, traffic and environment map are built. Those RNGs then come from the seed instead of `crypto` / `Math.random`, and the sim clock stays at 48 seconds so rain, signs, beacons and the ocean do not advance. Omit the parameter and play is unchanged. `freeze=1` still freezes the day/night and weather machine on top of that.
+`?seed=` calls `pinVisualSeed` before the weather, precipitation, traffic and environment map are built. Those RNGs then come from the seed instead of `crypto` / `Math.random`, and the sim clock stays at 48 seconds so rain, signs, beacons and the ocean do not advance. A pinned seed also holds the storm camera shiver at its start pose, so the street and chase cameras can sit still for the capture. Omit the parameter and play is unchanged. `freeze=1` still freezes the day/night and weather machine on top of that.
