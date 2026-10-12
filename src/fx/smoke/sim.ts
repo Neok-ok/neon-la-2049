@@ -262,8 +262,13 @@ export function integrate(
         const y1 = 0.86 * len;
         const lift = Math.max(0, Math.min(1, (height - y0) / Math.max(1, y1 - y0)));
         const lean = leanMag * lift;
-        const ax = drive.x + Math.cos(wind.dir) * lean;
-        const az = drive.z + Math.sin(wind.dir) * lean;
+        const toX = camX - drive.x;
+        const toZ = camZ - drive.z;
+        const inv = 1 / (Math.hypot(toX, toZ) || 1);
+        // A few metres toward the camera so the sheath draws over the ribbon
+        // instead of sitting in the open sky beside it.
+        const ax = drive.x + Math.cos(wind.dir) * lean + toX * inv * 3.2;
+        const az = drive.z + Math.sin(wind.dir) * lean + toZ * inv * 3.2;
         const ox = x - ax;
         const oz = z - az;
         const dist = Math.hypot(ox, oz) || 0.001;

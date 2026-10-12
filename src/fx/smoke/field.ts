@@ -25,7 +25,7 @@ import {
 /** Share of the street budget. Indexed by KIND. Launch kinds stay on their own slots. */
 const KIND_SHARE = [0.16, 0.12, 0.12, 0.1, 0.14, 0.22, 0.14];
 /** Card opacity. Street steam stays translucent so wisps do not fuse into a bank. */
-const KIND_ALPHA = [0.78, 0.68, 0.74, 0.72, 0.86, 0.7, 0.72, 0.52, 0.62];
+const KIND_ALPHA = [0.78, 0.68, 0.74, 0.72, 0.86, 0.7, 0.72, 0.68, 0.62];
 /** How many aged cards one emitter may seed, so a grate is a wisp and a stack is a column. */
 const SEED_CAP = [4, 4, 5, 6, 8, 18];
 
