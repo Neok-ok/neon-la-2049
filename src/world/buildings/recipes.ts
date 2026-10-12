@@ -288,8 +288,8 @@ function resStack(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
   const bd = spec.d * 0.9;
   skin(d, {
     s: 0, t: 0, lb: bw, la: bd, h: H, base: y0,
-    // Sparse panes. A fully lit residential grid hid the shelf rhythm.
-    style: Style.Residential, lit: spec.lit * 0.28, tint: spec.tint, door,
+    // Dark stone. A residential window grid hid the shelf rhythm even when few panes were lit.
+    style: Style.Monolith, lit: 0.08, tint: spec.tint * 0.7, door,
   });
   const every = (variant === 1 ? 3 : 4) * RES_STOREY;
   const face = bd / 2;
@@ -343,24 +343,21 @@ function holoShaft(d: Draft, spec: TowerSpec, H: number, y0: number, door: boole
   const shaftH = y0 + H - shaftBase;
   addBox(d, {
     s: 0, t: 0, lb: bw, la: bd, h: shaftH, base: shaftBase,
-    style: Style.Office, lit: spec.lit, tint: spec.tint, detail: 0, role: 'mass',
+    style: Style.Monolith, lit: 0.16, tint: spec.tint * 0.7, detail: 0, role: 'mass',
   });
-  const ad = LIGHT_ROLES.adFace;
-  const adH = Math.min(shaftH * 0.55, variant === 2 ? 64 : 52);
-  // One glow cell wide, so the face is a shaft of light rather than a window wall.
-  const adW = 6.2;
-  // Street face (a-), so the ad reads from the door and from the flyby.
+  // One edge slit, the same width as the monolith slit. A stack of glow bars blooms into a screen.
+  const adW = 2.2;
   const adS = -(bd / 2 + 0.22);
+  const adT = bw * 0.5 - adW * 0.5 - 0.3;
   addBox(d, {
-    s: adS, t: 0, lb: adW, la: 0.6, h: adH, base: shaftBase + shaftH * 0.28,
-    style: ad.style, lit: ad.lit, tint: ad.tint, detail: 0, role: 'mass',
+    s: adS, t: adT, lb: adW, la: 0.55, h: shaftH * 0.58, base: shaftBase + shaftH * 0.2,
+    style: Style.Glow, lit: 0.7, tint: 1.15, detail: 0, role: 'mass',
   });
   addBox(d, {
-    s: adS, t: 0, lb: adW + 1.4, la: 0.35, h: 0.8, base: shaftBase + shaftH * 0.28 + adH,
-    style: Style.Solid, lit: 0.1, tint: spec.tint * 0.6, detail: 1, ornament: 1, role: 'band',
+    s: 0, t: 0, lb: bw * 0.32, la: bd * 0.32, h: 2.2, base: shaftBase + shaftH,
+    style: Style.Solid, lit: 0.04, tint: spec.tint * 0.5, detail: 0, role: 'mass',
   });
-  glowCrown(d, 0, 0, bw * 0.7, bd * 0.7, shaftBase + shaftH, 6);
-  mastTip(d, 0, 0, shaftBase + shaftH + 6, 18);
+  mastTip(d, 0, 0, shaftBase + shaftH + 2.2, 16);
 }
 
 function cantilever(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolean, variant: number): void {
@@ -422,26 +419,16 @@ function lantern(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolean
       style: Style.Glow, lit: 0.72, tint: 1.15, detail: 0, role: 'mass',
     });
   }
-  // Standing shafts, each narrower than one glow cell. A single wide plate tiles into a window-grid cross.
+  // Short standing bars, the same height as a belt lip. A glow crown this size tiles into a window grid.
   const roof = y0 + H;
-  const post = 1.8;
-  const armT = slabW * 0.9;
-  const armS = spec.d * 0.84;
-  const crown = (span: number, axis: 's' | 't', skipCenter: boolean) => {
-    const n = Math.max(1, Math.floor(span / post));
-    const start = -((n - 1) * post) / 2;
-    for (let i = 0; i < n; i++) {
-      const p = start + i * post;
-      if (skipCenter && Math.abs(p) < post * 0.45) continue;
-      addBox(d, {
-        s: axis === 's' ? p : 0, t: axis === 't' ? p : 0,
-        lb: post, la: post, h: 4.2, base: roof,
-        style: Style.Glow, lit: 0.8, tint: 1.16, detail: 0, role: 'band',
-      });
-    }
-  };
-  crown(armT, 't', false);
-  crown(armS, 's', true);
+  addBox(d, {
+    s: 0, t: 0, lb: slabW * 0.9, la: 1.6, h: 1.55, base: roof,
+    style: Style.Glow, lit: 0.85, tint: 1.2, detail: 0, role: 'band',
+  });
+  addBox(d, {
+    s: 0, t: 0, lb: 1.6, la: spec.d * 0.84, h: 1.55, base: roof,
+    style: Style.Glow, lit: 0.85, tint: 1.2, detail: 0, role: 'band',
+  });
   const fins = variant === 2 ? 5 : 3;
   for (let i = 1; i <= fins; i++) {
     const y = y0 + (H * i) / (fins + 1);
@@ -450,7 +437,6 @@ function lantern(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolean
       style: Style.Solid, lit: 0.08, tint: spec.tint * 0.7, detail: 1, ornament: 1, role: 'band',
     });
   }
-  glowCrown(d, 0, 0, spec.w * 0.28, spec.d * 0.28, y0 + H - 0.2, variant === 0 ? 14 : 9);
 }
 
 function heroGate(d: Draft, spec: TowerSpec, H: number): void {

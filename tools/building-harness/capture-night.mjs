@@ -55,7 +55,7 @@ function placeStreet(arg) {
   const lantern = p.kind === 'lantern';
   const hero = String(p.kind).startsWith('hero');
 
-  const keepStreet = p.kind === 'ziggurat' || p.kind === 'res-stack' || p.kind === 'holo-shaft' || p.kind === 'hero-gate';
+  const keepStreet = p.kind === 'ziggurat' || p.kind === 'holo-shaft' || p.kind === 'hero-gate';
   const scaleShot = phase === 'final' && !keepStreet;
   let person = null;
   let planted = null;
@@ -372,31 +372,36 @@ for (const tier of tiers) {
         const zig = p.kind === 'ziggurat';
         const gate = p.kind === 'hero-gate';
         const cross = p.kind === 'lantern';
-        const face = 1;
+        // Gate normal points south, through Caldera Step. Shoot from the north.
+        let face = gate ? -1 : 1;
         let y = p.ground + Math.min(160, Math.max(42, p.height * (zig ? 0.52 : 0.36)));
         let reach = Math.max(p.d, p.w) * 0.5 + Math.min(90, Math.max(56, p.height * 0.22));
         let lateral = 22;
         let aimF = 0.42;
         if (zig) {
-          reach = Math.max(p.d, p.w) * 1.15 + p.height * 0.28;
-          lateral = Math.max(p.w, p.d) * 0.72;
-          aimF = 0.38;
+          // The skyline distance already shows the setbacks. A street-slot camera sits on the neighbour wall.
+          reach = Math.max(460, p.height * 1.25);
+          lateral = reach * 0.08;
+          y = p.ground + Math.min(120, Math.max(70, p.height * 0.4));
+          aimF = 0.58;
         } else if (cross) {
           // Just above the roof, off a corner, so both standing arms show their lit sides.
-          reach = 48;
-          lateral = 42;
-          y = p.ground + p.height + 10;
-          aimF = 1.01;
+          reach = 56;
+          lateral = 48;
+          y = p.ground + p.height + 4;
+          aimF = 1.002;
         } else if (p.kind === 'monolith') {
-          reach = Math.max(p.d, p.w) * 0.72 + 28;
-          lateral = Math.max(p.w, p.d) * 0.95;
-          y = p.ground + p.height * 0.42;
-          aimF = 0.4;
+          // This pose keeps the street slit in frame. A wider corner lost the slit on a neighbour.
+          reach = Math.max(p.d, p.w) * 1.05 + 40;
+          lateral = Math.max(p.w, p.d) * 0.38;
+          y = p.ground + p.height * 0.55;
+          aimF = 0.58;
         } else if (holo) {
-          reach = Math.max(p.d, p.w) * 0.9 + Math.min(70, p.height * 0.16);
-          lateral = 22;
-          y = p.ground + p.height * 0.42;
-          aimF = 0.46;
+          // Same family of pose as the monolith slit: the shaft in frame, the light on the edge.
+          reach = Math.max(p.d, p.w) * 1.05 + 36;
+          lateral = Math.max(p.w, p.d) * 0.42;
+          y = p.ground + p.height * 0.5;
+          aimF = 0.52;
         } else if (p.kind === 'buttress') {
           reach = Math.max(p.d, p.w) * 0.62 + 18;
           lateral = Math.max(p.w, p.d) * 0.72;
@@ -422,11 +427,25 @@ for (const tier of tiers) {
           y = p.ground + p.height * 0.3;
           aimF = 0.4;
         } else if (gate) {
-          reach = Math.max(120, p.height * 0.32);
-          lateral = 52;
-          y = p.ground + p.height * 0.3;
+          // North of the gate. The step is south. Prefer a pose that is not kissing a neighbour wall.
+          y = p.ground + p.height * 0.42;
+          aimF = 0.48;
+          reach = 170;
+          lateral = 40;
+          const options = [[170, 40], [190, 10], [160, -50], [200, -20], [150, 70], [180, -80], [210, 30]];
+          for (const pair of options) {
+            const r = pair[0];
+            const lat = pair[1];
+            const tx = p.center[0] + p.normal[0] * r * face + p.bx * lat;
+            const tz = p.center[1] + p.normal[1] * r * face + p.bz * lat;
+            if (!q.insideSolid(tx, y, tz, 18) && !q.insideLandmark(tx, y, tz, 20)) {
+              reach = r;
+              lateral = lat;
+              break;
+            }
+          }
         }
-        const nudge = p.kind === 'cantilever' || p.kind === 'band-slab' || p.kind === 'res-stack' || p.kind === 'lantern' || p.kind === 'hero-step' || p.kind === 'monolith' || p.kind === 'buttress';
+        const nudge = p.kind === 'cantilever' || p.kind === 'band-slab' || p.kind === 'res-stack' || p.kind === 'lantern' || p.kind === 'hero-step' || p.kind === 'buttress' || zig || p.kind === 'monolith';
         if (nudge) {
           for (let i = 0; i < 6; i++) {
             const tx = p.center[0] + p.normal[0] * reach * face + p.bx * lateral;
@@ -460,15 +479,13 @@ for (const tier of tiers) {
       const sky = await page.evaluate((p) => {
         const nla = window.__nla;
         const q = nla.app.query;
-        const face = 1;
-        const framed = {
-          'hero-gate': { dist: 340, yF: 0.28, side: 0.5, aim: 0.46 },
-        };
+        let face = 1;
+        const framed = {};
         // Stay at the feature (billboard, shelf, balcony band). Step sideways
         // before climbing, so a blocked start does not become a roof shot.
         const feature = {
           'holo-shaft': [
-            { dist: Math.max(p.d, p.w) * 0.9 + Math.min(70, p.height * 0.16), y: p.ground + p.height * 0.42, sideM: 22, aim: 0.46 },
+            { dist: Math.max(p.d, p.w) * 1.05 + 36, y: p.ground + p.height * 0.5, sideM: Math.max(p.w, p.d) * 0.42, aim: 0.52 },
           ],
           cantilever: [
             { dist: 58, y: p.ground + p.height * 0.3, sideM: Math.max(p.w, p.d) * 0.95, aim: 0.28 },
@@ -480,7 +497,7 @@ for (const tier of tiers) {
             { dist: Math.max(p.d, p.w) * 0.62 + 16, y: p.ground + p.height * 0.4, sideM: Math.max(p.w, p.d) * 0.85, aim: 0.46 },
           ],
           lantern: [
-            { dist: 48, y: p.ground + p.height + 10, sideM: 42, aim: 1.01 },
+            { dist: 56, y: p.ground + p.height + 4, sideM: 48, aim: 1.002 },
           ],
           'hero-step': [
             { dist: Math.max(100, p.height * 0.2), y: p.ground + p.height * 0.3, sideM: Math.max(80, Math.max(p.w, p.d) * 1.2), aim: 0.4 },
@@ -489,10 +506,13 @@ for (const tier of tiers) {
             { dist: Math.max(p.d, p.w) * 0.5 + Math.min(90, Math.max(56, p.height * 0.22)), y: p.ground + Math.min(160, Math.max(42, p.height * 0.36)), sideM: 22, aim: 0.42 },
           ],
           monolith: [
-            { dist: Math.max(p.d, p.w) * 0.72 + 28, y: p.ground + p.height * 0.42, sideM: Math.max(p.w, p.d) * 0.95, aim: 0.4 },
+            { dist: Math.max(p.d, p.w) * 1.05 + 40, y: p.ground + p.height * 0.55, sideM: Math.max(p.w, p.d) * 0.38, aim: 0.58 },
           ],
           buttress: [
             { dist: Math.max(p.d, p.w) * 0.62 + 18, y: p.ground + p.height * 0.34, sideM: Math.max(p.w, p.d) * 0.72, aim: 0.42 },
+          ],
+          'hero-gate': [
+            { dist: 170, y: p.ground + p.height * 0.42, sideM: 40, aim: 0.48, face: -1 },
           ],
         };
         const tries = feature[p.kind];
@@ -507,10 +527,33 @@ for (const tier of tiers) {
           dist = shot.dist;
           y = shot.y;
           aimF = shot.aim;
+          if (shot.face) face = shot.face;
+          if (p.kind === 'hero-gate') {
+            const options = [[170, 40], [190, 10], [160, -50], [200, -20], [150, 70], [180, -80], [210, 30]];
+            for (const pair of options) {
+              const r = pair[0];
+              const lat = pair[1];
+              const tx = p.center[0] + p.normal[0] * r * face + p.bx * lat;
+              const tz = p.center[1] + p.normal[1] * r * face + p.bz * lat;
+              if (!q.insideSolid(tx, y, tz, 18) && !q.insideLandmark(tx, y, tz, 20)) {
+                dist = r;
+                sideM = lat;
+                break;
+              }
+            }
+          }
           for (let i = 0; i < 6; i++) {
             px = p.center[0] + p.normal[0] * dist * face + p.bx * sideM;
             pz = p.center[1] + p.normal[1] * dist * face + p.bz * sideM;
-            if (p.kind === 'holo-shaft' || p.kind === 'hero-obelisk') break;
+            if (p.kind === 'hero-obelisk' || p.kind === 'hero-gate' || p.kind === 'holo-shaft') break;
+            if (p.kind === 'monolith' || p.kind === 'ziggurat') {
+              const blocked = q.insideSolid(px, y, pz, 6) || q.insideLandmark(px, y, pz, 8);
+              if (!blocked) break;
+              sideM += p.kind === 'hero-gate' ? 24 : 16;
+              if (p.kind === 'hero-gate') dist = Math.max(140, dist - 8);
+              else y += 4;
+              continue;
+            }
             const blocked = q.insideSolid(px, y, pz, 8) || q.insideLandmark(px, y, pz, 10);
             if (!blocked) break;
             sideM *= 0.7;
