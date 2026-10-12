@@ -39,6 +39,8 @@ export interface SmokeFrame {
   wind: number;
   windDir: number;
   rain: number;
+  /** Compass radians. Street steam uses it so a pot plume sits in the look direction. */
+  heading: number;
   query: CityQuery;
   tails: readonly Tailpipe[];
 }
@@ -144,7 +146,9 @@ export class SmokeField {
     smokeRain.value = frame.rain;
     const wind: Wind = { dir: frame.windDir, speed: frame.wind, rain: frame.rain };
     if (Math.hypot(frame.camX - this.anchorX, frame.camZ - this.anchorZ) > 26 || frame.time - this.gatherAt > 2.4) {
-      this.emitters = gatherEmitters(frame.query.layout, frame.query, frame.camX, frame.camY, frame.camZ, frame.tier);
+      this.emitters = gatherEmitters(
+        frame.query.layout, frame.query, frame.camX, frame.camY, frame.camZ, frame.heading, frame.tier,
+      );
       this.anchorX = frame.camX;
       this.anchorZ = frame.camZ;
       this.gatherAt = frame.time;
@@ -191,9 +195,9 @@ export class SmokeField {
         const rise = e.rise * age;
         const shear = 1 + Math.min(2.1, rise / 60);
         spawnParticle(this.pool, {
-          x: e.x + Math.cos(ang) * (e.radius + age * e.spread) + wx * shear * age * 0.85,
+          x: e.x + Math.cos(ang) * (e.radius + age * e.spread) + wx * shear * age * 0.28,
           y: e.y + rise * (0.55 + smokeRand() * 0.5),
-          z: e.z + Math.sin(ang) * (e.radius + age * e.spread) + wz * shear * age * 0.85,
+          z: e.z + Math.sin(ang) * (e.radius + age * e.spread) + wz * shear * age * 0.28,
           vx: Math.cos(ang) * e.spread,
           vy: e.rise * 0.6,
           vz: Math.sin(ang) * e.spread,
@@ -267,11 +271,11 @@ export class SmokeField {
       const age = smokeRand() * Math.min(Math.max(drive.age, 1), 80);
       const ang = smokeRand() * Math.PI * 2;
       const climb = smokeRand();
-      const ring = climb < 0.42
-        ? (12 + grown * 78) * Math.pow(smokeRand(), 0.8)
-        : (8 + grown * 28) * Math.pow(smokeRand(), 1.15);
-      const yLift = climb < 0.42 ? 8 + smokeRand() * 26 + age * 0.28 : 22 + smokeRand() * 64;
-      const size1 = tier === 'low' ? 28 : tier === 'medium' ? 40 : 48;
+      const ring = climb < 0.45
+        ? (6 + grown * 26) * Math.pow(smokeRand(), 0.9)
+        : (4 + grown * 14) * Math.pow(smokeRand(), 1.1);
+      const yLift = climb < 0.45 ? 5 + smokeRand() * 16 + age * 0.2 : 12 + smokeRand() * 28;
+      const size1 = tier === 'low' ? 18 : tier === 'medium' ? 28 : 36;
       const heat = Math.exp(-ring / 46) * Math.exp(-Math.max(0, yLift - 10) / 55);
       spawnParticle(this.pool, {
         x: drive.x + Math.cos(ang) * ring + wx * age * 0.2,

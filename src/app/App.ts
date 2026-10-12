@@ -708,6 +708,7 @@ export class App {
       wind: wNow.params.wind,
       windDir: wNow.windDir,
       rain: wNow.params.rain,
+      heading: this.cams.pose().heading,
       query: this.query,
       tails: this.exhaustScratch,
     });

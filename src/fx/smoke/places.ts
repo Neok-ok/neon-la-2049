@@ -114,6 +114,7 @@ function addMarket(
   x: number,
   y: number,
   z: number,
+  heading: number,
 ): void {
   const spots = marketSpots(layout);
   const noodle = spots.noodle;
@@ -138,9 +139,9 @@ function addMarket(
       const rx = hz;
       const rz = -hx;
       vents.push(make({
-        x: camX + hx * 8.5 + rx * 2.2,
-        y: s.y + 1.15,
-        z: camZ + hz * 8.5 + rz * 2.2,
+        x: camX + hx * 6.5 + rx * 1.4,
+        y: s.y + 1.9,
+        z: camZ + hz * 6.5 + rz * 1.4,
         kind: KIND.vent,
         rate: 3.4,
         life: 2.6,
@@ -155,14 +156,14 @@ function addMarket(
         floorY: s.y,
       }));
       holes.push(make({
-        x: camX + hx * 11.5,
-        y: s.y + 0.42,
-        z: camZ + hz * 11.5,
+        x: camX + hx * 9.5 - rx * 0.6,
+        y: s.y + 1.05,
+        z: camZ + hz * 9.5 - rz * 0.6,
         kind: KIND.manhole,
         rate: 2.4,
         life: 4.4,
-        size0: 0.45,
-        size1: 2.3,
+        size0: 0.4,
+        size1: 1.5,
         heat: 0,
         radius: 0.18,
         spread: 0.75,
@@ -199,28 +200,33 @@ function addMarket(
   }
   for (const shop of [spots.noodle, spots.bibi]) {
     if (!shop) continue;
-    const c = shop.cook;
     const s = shop.street;
-    if ((s.x - x) ** 2 + (s.z - z) ** 2 > 14 * 14) continue;
+    if ((s.x - x) ** 2 + (s.z - z) ** 2 > 8 * 8) continue;
+    let dh = Math.atan2(Math.sin(heading - s.heading), Math.cos(heading - s.heading));
+    if (Math.abs(dh) > 0.45) continue;
+    const hx = Math.sin(s.heading);
+    const hz = -Math.cos(s.heading);
     food.push(make({
-      x: c.x, y: c.y + 1.05, z: c.z,
+      x: s.x + hx * 2.6, y: s.y + 1.2, z: s.z + hz * 2.6,
       kind: KIND.stall,
       rate: 8,
-      life: 1.4,
-      size0: 0.1,
-      size1: 0.38,
-      heat: 0.25,
-      radius: 0.04,
-      spread: 0.04,
-      rise: 1.25,
-      fade: 10,
-      aspect: 2.6,
-      floorY: c.y,
+      life: 1.7,
+      size0: 0.12,
+      size1: 0.42,
+      heat: 0.22,
+      radius: 0.05,
+      spread: 0.05,
+      rise: 0.8,
+      fade: 9,
+      aspect: 2.5,
+      floorY: s.y,
     }));
   }
 }
 
-export function gatherEmitters(layout: CityLayout, query: CityQuery, x: number, y: number, z: number, tier: Tier): Emitter[] {
+export function gatherEmitters(
+  layout: CityLayout, query: CityQuery, x: number, y: number, z: number, heading: number, tier: Tier,
+): Emitter[] {
   const radius = GATHER_RADIUS[tier];
   const blocks = enumerateBlocks(layout, x - radius, z - radius, radius * 2);
   const vents: Emitter[] = [];
@@ -358,7 +364,7 @@ export function gatherEmitters(layout: CityLayout, query: CityQuery, x: number, 
   for (const f of flames(layout, x, z, 'southeast-industrial', SE_A, SE_B, SE_L, (i, j) => southeastBlock(layout, i, j), (block) => planSoutheast(block, layout), 'se')) pushStack(f);
 
   const food: Emitter[] = [];
-  addMarket(vents, holes, roofs, food, layout, query, x, y, z);
+  addMarket(vents, holes, roofs, food, layout, query, x, y, z, heading);
 
   return [
     ...takeNearest(vents, x, z, CAP.vent[tier]),

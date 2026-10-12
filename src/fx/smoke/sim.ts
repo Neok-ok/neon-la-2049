@@ -158,7 +158,8 @@ function dragK(kind: number): number {
 }
 
 function turb(kind: number): number {
-  if (kind === KIND.column || kind === KIND.ground) return 7.5;
+  if (kind === KIND.column) return 2.1;
+  if (kind === KIND.ground) return 3.4;
   if (kind === KIND.stack) return 1.8;
   if (kind === KIND.barrel) return 0.9;
   return 0.45;
@@ -207,7 +208,11 @@ export function integrate(
     const c = curl(x * 0.07 + time * 0.05, y * 0.07, z * 0.07, 0.18);
     const roll = turb(kind);
     // The launch column leans, it does not leave the engine. Street smoke takes the full wind.
-    const windScale = kind === KIND.column ? 0.16 : kind === KIND.ground ? 0.42 : kind === KIND.stack ? 0.5 : 1;
+    const windScale = kind === KIND.column ? 0.16
+      : kind === KIND.ground ? 0.28
+      : kind === KIND.stack ? 0.55
+      : kind === KIND.exhaust ? 0.22
+      : 0.4;
     let vx = pool.vx[i]! + (wx * shear * push * windScale + c[0] * roll) * dt;
     let vy = pool.vy[i]! + (buoy(kind) * loft + c[1] * roll * 0.35) * dt;
     let vz = pool.vz[i]! + (wz * shear * push * windScale + c[2] * roll) * dt;
@@ -233,8 +238,9 @@ export function integrate(
     const dz = z - camZ;
     if (street && dx * dx + dz * dz < near2 && (i & 1) === flip) {
       if (query.insideSolid(x, y, z, 0.3, false)) {
-        const roof = query.floorBelow(x, y + 36, z, false);
-        if (roof > y - 0.4 && roof < y + 36 && roof > ground + 2) {
+        const low = kind === KIND.vent || kind === KIND.manhole || kind === KIND.stall || kind === KIND.exhaust;
+        const roof = low ? ground : query.floorBelow(x, y + 36, z, false);
+        if (!low && roof > y - 0.4 && roof < y + 36 && roof > ground + 2) {
           y = roof + 0.35;
           vy = Math.max(vy, 0.7);
         } else {
