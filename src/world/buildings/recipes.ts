@@ -119,10 +119,10 @@ function crownExtra(kind: TowerKind): number {
     case 'ziggurat': return 12;
     case 'monolith': return 8;
     case 'cantilever': return 12;
-    case 'screen-wall': return 4;
+    case 'screen-wall': return 8;
     case 'flue-bank': return 6;
-    case 'shelf-row': return 4;
-    case 'flare-bed': return 4;
+    case 'shelf-row': return 6;
+    case 'flare-bed': return 6;
     case 'hero-obelisk': return 0;
     default: return 8;
   }
@@ -748,6 +748,28 @@ function heroObelisk(d: Draft, spec: TowerSpec, H: number): void {
   });
 }
 
+/** A glow bar starts 0.63 m above its base. Drop that sill so the authored height is the lit height. */
+function buriedGlow(base: number, h: number): { base: number; h: number } {
+  return { base: base - 0.63, h: h + 0.63 };
+}
+
+/**
+ * Two-storey jambs beside the opening, clear of the flight.
+ * A 10 m sidewalk frame can see them. Solid, so the street is not a window chart.
+ */
+function sidewalkPiers(d: Draft, faceS: number, halfW: number, storey: number, y0: number): void {
+  const flight = planFlight(storey);
+  const la = 1.2;
+  const places = [-(DOOR_W / 2 + 1.7), DOOR_W / 2 + 0.4 + flight.run + 1.5];
+  for (const t of places) {
+    if (Math.abs(t) > halfW - 1.2) continue;
+    addBox(d, {
+      s: faceS - la / 2, t, lb: 1.4, la, h: storey * 2, base: y0,
+      style: Style.Solid, lit: 0.14, tint: 1.05, detail: 0, role: 'mass',
+    });
+  }
+}
+
 function screenWall(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolean, variant: number): void {
   const front = -spec.d / 2;
   const pierD = Math.min(3.4, spec.d * 0.22);
@@ -790,17 +812,19 @@ function screenWall(d: Draft, spec: TowerSpec, H: number, y0: number, door: bool
       style: Style.Solid, lit: 0.07, tint: spec.tint * 0.72, detail: 0, role: 'band',
     });
   }
+  const gutter = buriedGlow(y0 + H - headH - 1.5, 1.5);
   addBox(d, {
-    s: pierS - pierD / 2 - 0.16, t: wellT, lb: wellW * 0.92, la: 0.42, h: 1.5,
-    base: y0 + H - headH - 1.5,
+    s: pierS - pierD / 2 - 0.16, t: wellT, lb: wellW * 0.92, la: 0.42, h: gutter.h,
+    base: gutter.base,
     style: Style.Glow, lit: 0.78, tint: 1.18, detail: 0, role: 'band',
   });
   const gutterTop = y0 + H - headH - 0.4;
   for (let y = sillY + STOREY; y < gutterTop - 2; y += STOREY * 2) {
+    const tick = buriedGlow(y, 1.45);
     for (const side of [-1, 1] as const) {
       addBox(d, {
         s: pierS - pierD / 2 - 0.12, t: wellT + side * (wellW / 2 - 0.7),
-        lb: 1.6, la: 0.36, h: 1.45, base: y,
+        lb: 1.6, la: 0.36, h: tick.h, base: tick.base,
         style: Style.Glow, lit: 0.62, tint: 1.1, detail: 0, role: 'band',
       });
     }
@@ -813,6 +837,27 @@ function screenWall(d: Draft, spec: TowerSpec, H: number, y0: number, door: bool
       detail: 1, ornament: 1, role: 'band',
     });
   }
+  // Parapet and a gantry inside it. The high frame keeps a lip; there is no second billboard.
+  const parapet = 4.2;
+  const lipS = pierS - pierD / 2 - 0.28;
+  addBox(d, {
+    s: lipS, t: 0, lb: spec.w * 0.96, la: 0.62, h: parapet, base: y0 + H,
+    style: Style.Solid, lit: 0.05, tint: spec.tint * 0.72, detail: 0, role: 'mass',
+  });
+  for (const side of [-1, 1] as const) {
+    addBox(d, {
+      s: plateS, t: side * (spec.w * 0.46), lb: 0.6, la: plateD * 0.8, h: parapet, base: y0 + H,
+      style: Style.Solid, lit: 0.05, tint: spec.tint * 0.68, detail: 0, role: 'mass',
+    });
+    addBox(d, {
+      s: plateS, t: side * Math.min(spec.w * 0.22, wellW * 0.32), lb: 0.7, la: 0.7, h: 3.2, base: y0 + H,
+      style: Style.Solid, lit: 0.05, tint: spec.tint * 0.6, detail: 0, role: 'mass',
+    });
+  }
+  addBox(d, {
+    s: plateS, t: 0, lb: Math.min(spec.w * 0.46, wellW * 0.7), la: 0.45, h: 0.7, base: y0 + H + 2.5,
+    style: Style.Solid, lit: 0.05, tint: spec.tint * 0.62, detail: 0, role: 'mass',
+  });
   addBox(d, {
     s: plateS + plateD * 0.12, t: -spec.w * 0.2,
     lb: Math.min(8, spec.w * 0.2), la: Math.min(6, plateD * 0.4), h: 2.2, base: y0 + H,
@@ -823,6 +868,7 @@ function screenWall(d: Draft, spec: TowerSpec, H: number, y0: number, door: bool
     style: Style.Industrial, lit: 0.03, tint: spec.tint * 0.5,
     detail: 2, ornament: 2, role: 'mass',
   });
+  sidewalkPiers(d, pierS - pierD / 2, spec.w / 2, STOREY, y0);
 }
 
 function flueBank(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolean, variant: number): void {
@@ -853,50 +899,37 @@ function flueBank(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
       detail: 0, role: 'mass',
     });
     addBox(d, {
-      s: ss, t, lb: w + 0.9, la: Math.min(spec.d * 0.84, depth + 0.8), h: 1.05, base: y0 + h - 1.05,
+      s: ss, t, lb: w + 0.4, la: Math.min(spec.d * 0.82, depth + 0.4), h: 3.2, base: y0 + h - 3.2,
       style: Style.Solid, lit: 0.06, tint: spec.tint * 0.58, detail: 0, role: 'band',
     });
+    const cap = buriedGlow(y0 + h - 3.2 - 1.45, 1.45);
     addBox(d, {
-      s: ss - (depth / 2 + 0.15), t, lb: Math.min(2.2, w * 0.72), la: 0.4, h: 1.45,
-      base: y0 + h - 2.6,
+      s: ss - (depth / 2 + 0.15), t, lb: Math.min(2.2, w * 0.72), la: 0.4, h: cap.h,
+      base: cap.base,
       style: Style.Glow, lit: 0.8, tint: 1.16, detail: 0, role: 'band',
     });
     // Short courses, not a full-height glow face. A tall glow cell tiles into windows.
-    const courseTop = y0 + h - 3.2;
+    const courseTop = y0 + h - 4.8;
     for (let y = y0 + plinthH + STOREY * 2; y < courseTop; y += STOREY * 4) {
+      const course = buriedGlow(y, 1.35);
       addBox(d, {
-        s: ss - (depth / 2 + 0.22), t, lb: Math.max(1.6, w * 0.78), la: 0.36, h: 1.35,
-        base: y,
+        s: ss - (depth / 2 + 0.22), t, lb: Math.max(1.6, w * 0.78), la: 0.36, h: course.h,
+        base: course.base,
         style: Style.Glow, lit: 0.72, tint: 1.12, detail: 0, role: 'band',
       });
     }
   }
-  const beamY = y0 + plinthH + (H - plinthH) * (variant === 2 ? 0.34 : 0.42);
-  const spanL = Math.min(...shafts.map((s) => s.t - s.w / 2));
-  const spanR = Math.max(...shafts.map((s) => s.t + s.w / 2));
-  addBox(d, {
-    s: 0, t: (spanL + spanR) / 2, lb: spanR - spanL, la: spec.d * 0.28, h: 2.2, base: beamY,
-    style: Style.Solid, lit: 0.08, tint: spec.tint * 0.66, detail: 0, role: 'deck',
-  });
-  addBox(d, {
-    s: 0, t: (spanL + spanR) / 2, lb: Math.max(2.4, spanR - spanL), la: 0.36, h: 1.4,
-    base: beamY + 2.2,
-    style: Style.Glow, lit: 0.7, tint: 1.1, detail: 0, role: 'band',
-  });
-  const tallest = shafts.reduce((a, b) => (a.h >= b.h ? a : b));
-  addBox(d, {
-    s: 0, t: tallest.t, lb: Math.min(3.2, tallest.w * 0.55), la: Math.min(3.2, spec.d * 0.22),
-    h: 2.2, base: y0 + tallest.h,
-    style: Style.Solid, lit: 0.05, tint: spec.tint * 0.55, detail: 0, role: 'mass',
-  });
+  // No full-width tie and no shared cage. Different shaft heights are the silhouette.
+  const tall = Math.max(...shafts.map((s) => s.h));
   for (const shaft of shafts) {
-    if (shaft === tallest) continue;
+    if (shaft.h >= tall - 0.01) continue;
     addBox(d, {
-      s: spec.d * 0.12, t: shaft.t, lb: 0.7, la: 0.7, h: 1.6, base: y0 + shaft.h,
+      s: spec.d * 0.12, t: shaft.t, lb: 0.7, la: 0.7, h: 1.6, base: y0 + shaft.h - 4.8,
       style: Style.Industrial, lit: 0.04, tint: spec.tint * 0.5,
       detail: 2, ornament: 2, role: 'mass',
     });
   }
+  sidewalkPiers(d, -(spec.d * 0.9) / 2, spec.w / 2, STOREY, y0);
 }
 
 /** East LA housing. A wide bar and a roof room, on 3.4 m floors. Not a downtown slit. */
@@ -906,19 +939,21 @@ function shelfRow(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
   const bd = spec.d * 0.9;
   skin(d, {
     s: 0, t: 0, lb: bw, la: bd, h: barH, base: y0,
-    style: Style.Panel, lit: spec.lit, tint: spec.tint, door,
+    style: Style.Panel, lit: spec.lit * 0.55, tint: spec.tint, door,
   });
-  const every = (variant === 1 ? 3 : 2) * RES_STOREY;
+  // Wider than the downtown stack's shelf rhythm, and a deeper gallery, so East LA is not a second copy.
+  const every = (variant === 1 ? 4 : 5) * RES_STOREY;
   const face = -bd / 2;
-  const plateD = Math.min(2.0, Math.max(1.15, spec.d * 0.1));
+  const plateD = Math.min(2.4, Math.max(1.7, spec.d * 0.14));
   let firstShelf = true;
   for (let y = y0 + every; y < y0 + barH - RES_STOREY; y += every) {
     addBox(d, {
       s: face - plateD / 2, t: 0, lb: bw * 0.9, la: plateD, h: 0.85, base: y,
       style: Style.Solid, lit: 0.06, tint: spec.tint * 0.74, detail: 0, role: 'balcony',
     });
+    const lip = buriedGlow(y + 0.7, 1.15);
     addBox(d, {
-      s: face - plateD - 0.12, t: 0, lb: bw * 0.84, la: 0.26, h: 1.15, base: y + 0.7,
+      s: face - plateD - 0.12, t: 0, lb: bw * 0.84, la: 0.26, h: lip.h, base: lip.base,
       style: Style.Glow, lit: 0.62, tint: 1.08, detail: 0, role: 'band',
     });
     if (firstShelf) {
@@ -932,6 +967,10 @@ function shelfRow(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
       style: Style.Solid, lit: 0.05, tint: spec.tint * 0.7, detail: 0, role: 'band',
     });
   }
+  addBox(d, {
+    s: face - 0.2, t: 0, lb: bw * 0.98, la: 0.55, h: 3.2, base: y0 + barH - 3.2,
+    style: Style.Solid, lit: 0.05, tint: spec.tint * 0.7, detail: 0, role: 'band',
+  });
   const crownH = H - barH;
   const tankH = Math.min(2.6, crownH * 0.28);
   const houseH = Math.max(RES_STOREY, crownH - tankH);
@@ -941,25 +980,41 @@ function shelfRow(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
   const houseS = spec.d * 0.06;
   addBox(d, {
     s: houseS, t: houseT, lb: houseW, la: houseD, h: houseH, base: y0 + barH,
-    style: Style.Panel, lit: spec.lit * 0.9, tint: spec.tint * 0.92, detail: 0, role: 'mass',
+    style: Style.Panel, lit: spec.lit * 0.45, tint: spec.tint * 0.92, detail: 0, role: 'mass',
   });
+  const houseLip = buriedGlow(y0 + barH + houseH - 1.25, 1.25);
   addBox(d, {
-    s: houseS - houseD / 2 - 0.14, t: houseT, lb: houseW * 0.86, la: 0.32, h: 1.25,
-    base: y0 + barH + houseH - 1.25,
+    s: houseS - houseD / 2 - 0.14, t: houseT, lb: houseW * 0.86, la: 0.32, h: houseLip.h,
+    base: houseLip.base,
     style: Style.Glow, lit: 0.64, tint: 1.08, detail: 0, role: 'band',
+  });
+  const roof = y0 + barH + houseH;
+  const postH = Math.min(2.4, Math.max(1.6, tankH - 0.2));
+  const insetT = houseW / 2 - 0.5;
+  const insetS = houseD / 2 - 0.5;
+  for (const [as, bt] of [[1, 1], [1, -1], [-1, 1], [-1, -1]] as const) {
+    addBox(d, {
+      s: houseS + as * insetS, t: houseT + bt * insetT, lb: 0.65, la: 0.65, h: postH, base: roof,
+      style: Style.Solid, lit: 0.05, tint: spec.tint * 0.55, detail: 0, role: 'mass',
+    });
+  }
+  addBox(d, {
+    s: houseS, t: houseT, lb: houseW * 0.9, la: 0.4, h: 0.8, base: roof + postH - 0.8,
+    style: Style.Solid, lit: 0.05, tint: spec.tint * 0.58, detail: 0, role: 'mass',
   });
   addBox(d, {
     s: houseS, t: houseT + houseW * 0.18,
     lb: Math.min(3.6, houseW * 0.34), la: Math.min(3.4, houseD * 0.4), h: tankH,
-    base: y0 + barH + houseH,
+    base: roof,
     style: Style.Solid, lit: 0.05, tint: spec.tint * 0.58, detail: 0, role: 'mass',
   });
   addBox(d, {
     s: houseS + houseD * 0.1, t: houseT - houseW * 0.16, lb: 1.6, la: 1.3, h: 1.2,
-    base: y0 + barH + houseH,
+    base: roof,
     style: Style.Industrial, lit: 0.03, tint: spec.tint * 0.48,
     detail: 2, ornament: 2, role: 'mass',
   });
+  sidewalkPiers(d, face, spec.w / 2, RES_STOREY, y0);
 }
 
 /**
@@ -998,24 +1053,26 @@ function flareBed(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
     const top = y0 + plinthH + h;
     addBox(d, {
       s, t, lb: w, la: depth, h, base: y0 + plinthH,
-      style: Style.Industrial, lit: spec.lit * 0.7, tint: spec.tint * 0.9,
+      style: Style.Industrial, lit: spec.lit * 0.55, tint: spec.tint * 0.9,
       detail: 0, role: 'mass',
     });
+    const capH = Math.min(2.8, Math.max(1.4, h * 0.34));
     addBox(d, {
-      s, t, lb: w + 1.1, la: depth + 0.8, h: 1.05, base: top - 2.5,
+      s, t, lb: w + 0.5, la: depth + 0.35, h: capH, base: top - capH,
       style: Style.Solid, lit: 0.05, tint: spec.tint * 0.62, detail: 0, role: 'band',
     });
     if (!tallest || top > tallest.top) tallest = { t, w, depth, top, s };
   }
   if (tallest) {
+    const lip = buriedGlow(tallest.top - 2.6, 1.4);
     addBox(d, {
       s: tallest.s - tallest.depth / 2 - 0.16, t: tallest.t,
-      lb: tallest.w * 0.78, la: 0.4, h: 1.4, base: tallest.top - 1.5,
+      lb: tallest.w * 0.78, la: 0.4, h: lip.h, base: lip.base,
       style: Style.Glow, lit: 0.78, tint: 1.2, detail: 0, role: 'band',
     });
     addBox(d, {
-      s: tallest.s, t: tallest.t, lb: Math.min(tallest.w * 0.46, 3.4), la: Math.min(tallest.depth * 0.4, 3.2),
-      h: 1.8, base: tallest.top,
+      s: tallest.s, t: tallest.t, lb: Math.min(tallest.w * 0.55, 4.2), la: Math.min(tallest.depth * 0.46, 3.6),
+      h: 3.6, base: tallest.top,
       style: Style.Solid, lit: 0.05, tint: spec.tint * 0.5, detail: 0, role: 'mass',
     });
   }
@@ -1031,6 +1088,7 @@ function flareBed(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
     style: Style.Industrial, lit: 0.03, tint: spec.tint * 0.48,
     detail: 2, ornament: 2, role: 'mass',
   });
+  sidewalkPiers(d, -(spec.d * 0.92) / 2, spec.w / 2, STOREY, y0);
 }
 
 interface RoofCrown {

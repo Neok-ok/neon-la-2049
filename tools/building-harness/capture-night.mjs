@@ -171,7 +171,7 @@ function placeStreet(arg) {
     }
   }
 
-  const fieldKind = p.kind === 'screen-wall' || p.kind === 'flue-bank' || p.kind === 'shelf-row' || p.kind === 'flare-bed';
+  const fieldKind = p.kind === 'screen-wall' || p.kind === 'flue-bank' || p.kind === 'shelf-row' || p.kind === 'flare-bed' || p.kind === 'holo-shaft';
   let framed = !fieldKind;
   if (fieldKind && phase === 'final') {
     // Fly climbs 10 m at a time when the pose is inside a solid. Stand where the
@@ -250,7 +250,9 @@ function placeStreet(arg) {
             if (!n || Math.abs(n.x) > 0.86 || n.y < -0.9 || n.y > 0.4) continue;
             pnx = n.x;
           }
-          const score = 2 - Math.abs(ang) * 0.22 - Math.abs(pnx) * 0.04 - dist * 0.01;
+          // A screen wall's door sits on the dark plate. A small swing brings a windowed pier into the street frame.
+          const prefer = p.kind === 'screen-wall' ? Math.abs(Math.abs(ang) - 0.65) : Math.abs(ang);
+          const score = 2 - prefer * 0.35 - Math.abs(pnx) * 0.04 - dist * 0.01;
           if (!best || score > best.score) best = { score, x, z, dist, ang };
         }
       }
@@ -639,6 +641,7 @@ async function useFrame(page, kind, view) {
   const [width, height] = view === 'street' ? [1600, 900]
     : kind === 'shelf-row' ? [900, 1500]
     : kind === 'flare-bed' ? [1280, 960]
+    : kind === 'monolith' ? [520, 1400]
     : SUBJECT.has(kind) ? [400, 1680]
     : [1600, 900];
   const size = page.viewportSize();
@@ -726,8 +729,8 @@ for (const tier of tiers) {
     if (views.includes('fly') && already(join(OUT, `${tier}-${tower.kind}-fly.png`))) {
       console.log('skip', `${tier}-${tower.kind}-fly.png`);
     } else if (views.includes('fly')) {
+      await useFrame(page, tower.kind, 'fly');
       if (SUBJECT.has(tower.kind)) {
-        await useFrame(page, tower.kind, 'fly');
         const pose = await page.evaluate(placeSubject, { ...tower, shot: 'fly' });
         await settle(page, 2800);
         const file = `${tier}-${tower.kind}-fly.png`;
@@ -752,17 +755,33 @@ for (const tier of tiers) {
         let ox = p.center[0];
         let oz = p.center[1];
         if (zig) {
-          // Same pose as the skyline. A closer fly sat on the neighbour wall and hid the setbacks.
-          reach = Math.max(480, p.height * 1.35);
-          lateral = reach * 0.06;
-          y = p.ground + Math.max(80, Math.min(240, p.height * 0.42));
-          aimF = 0.62;
-          for (let i = 0; i < 5; i++) {
-            const tx = p.center[0] + p.normal[0] * reach * face + p.bx * lateral;
-            const tz = p.center[1] + p.normal[1] * reach * face + p.bz * lateral;
-            if (!q.insideSolid(tx, y, tz, 14) && !q.insideLandmark(tx, y, tz, 18)) break;
-            reach += 140;
-            y += 45;
+          // A 480 m pull-back handed the frame to the neighbour shaft. Stay on a corner
+          // close enough that the setbacks fill the picture.
+          y = p.ground + p.height * 0.4;
+          aimF = 0.5;
+          const baseR = Math.max(p.d, p.w) * 0.9 + 28;
+          const baseL = Math.max(p.w, p.d) * 0.85;
+          const options = [
+            [1, baseR, baseL],
+            [1, baseR, -baseL],
+            [-1, baseR * 1.05, baseL],
+            [1, baseR * 1.3, baseL * 0.55],
+            [-1, baseR * 1.15, -baseL * 0.65],
+          ];
+          reach = baseR;
+          lateral = baseL;
+          for (const pair of options) {
+            const f = pair[0];
+            const r = pair[1];
+            const lat = pair[2];
+            const tx = p.center[0] + p.normal[0] * r * f + p.bx * lat;
+            const tz = p.center[1] + p.normal[1] * r * f + p.bz * lat;
+            if (!q.insideSolid(tx, y, tz, 10) && !q.insideLandmark(tx, y, tz, 12)) {
+              face = f;
+              reach = r;
+              lateral = lat;
+              break;
+            }
           }
         } else if (cross) {
           // The slit sits beside the door. Aim there, not at the footprint centre.
@@ -814,11 +833,18 @@ for (const tier of tiers) {
             }
           }
         } else if (p.kind === 'monolith') {
-          // This pose keeps the street slit in frame. A wider corner lost the slit on a neighbour.
-          reach = Math.max(p.d, p.w) * 1.05 + 40;
-          lateral = Math.max(p.w, p.d) * 0.38;
-          y = p.ground + p.height * 0.55;
-          aimF = 0.58;
+          // Crop into the street face so the slit sits in the frame and the side towers fall outside it.
+          y = p.ground + p.height * 0.42;
+          aimF = 0.48;
+          reach = 108;
+          lateral = 6;
+          for (let i = 0; i < 5; i++) {
+            const tx = p.center[0] + p.normal[0] * reach * face + p.bx * lateral;
+            const tz = p.center[1] + p.normal[1] * reach * face + p.bz * lateral;
+            if (!q.insideSolid(tx, y, tz, 8) && !q.insideLandmark(tx, y, tz, 10)) break;
+            reach += 22;
+            lateral = i % 2 === 0 ? -10 : 14;
+          }
         } else if (holo) {
           // Corner of the shaft. A straight-on shot is a black wall; a long pull-back frames the neighbour.
           reach = Math.max(p.d, p.w) * 0.95 + 28;
@@ -868,11 +894,12 @@ for (const tier of tiers) {
           aimF = 0.4;
         } else if (gate) {
           // North of the gate. The step is south. Prefer a pose that is not kissing a neighbour wall.
-          y = p.ground + p.height * 0.42;
-          aimF = 0.48;
-          reach = 170;
-          lateral = 40;
-          const options = [[170, 40], [190, 10], [160, -50], [200, -20], [150, 70], [180, -80], [210, 30]];
+          // Look into the slot. A large lateral reads as two separate towers.
+          y = p.ground + p.height * 0.36;
+          aimF = 0.46;
+          reach = 230;
+          lateral = 6;
+          const options = [[240, 4], [220, -8], [260, 16], [200, 0], [190, -28], [170, 40]];
           for (const pair of options) {
             const r = pair[0];
             const lat = pair[1];
