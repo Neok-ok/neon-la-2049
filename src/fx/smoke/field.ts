@@ -25,7 +25,7 @@ import {
 /** Share of the street budget. Indexed by KIND. Launch kinds stay on their own slots. */
 const KIND_SHARE = [0.16, 0.12, 0.12, 0.1, 0.14, 0.22, 0.14];
 /** Card opacity. Stack cards overlap into one column, so each stamp stays lighter. */
-const KIND_ALPHA = [0.94, 0.9, 0.88, 0.82, 0.88, 0.58, 0.84, 0.38, 0.72];
+const KIND_ALPHA = [0.94, 0.9, 0.88, 0.82, 0.88, 0.58, 0.95, 0.38, 0.72];
 /** How many aged cards one emitter may seed, so a still shows the plume and not the first puff. */
 const SEED_CAP = [12, 10, 14, 12, 14, 36];
 
@@ -427,12 +427,12 @@ export class SmokeField {
         vz: wakeZ,
         life: spin ? 2.4 : truck ? 1.5 : 1.2,
         age: 0,
-        size0: spin ? 0.4 : truck ? 0.26 : 0.18,
-        size1: spin ? 1.15 : truck ? 0.8 : 0.62,
+        size0: spin ? 0.42 : truck ? 0.32 : 0.26,
+        size1: spin ? 1.2 : truck ? 0.95 : 0.85,
         kind: KIND.exhaust,
         heat: truck ? 0.08 : 0.02,
         fade: spin ? 90 : 55,
-        aspect: spin ? 0.7 : 0.72,
+        aspect: spin ? 0.75 : 0.85,
         floorY: spin ? t.y - 2 : ground,
         slot: 0,
         slotCap: cap,
@@ -447,12 +447,12 @@ export class SmokeField {
           vx: wakeX * 0.92, vy: 0.22, vz: wakeZ * 0.92,
           life: truck ? 1.4 : 1.1,
           age: back * 0.22,
-          size0: (truck ? 0.22 : 0.14) + back * 0.04,
-          size1: (truck ? 0.62 : 0.4) + back * 0.07,
+          size0: (truck ? 0.26 : 0.18) + back * 0.05,
+          size1: (truck ? 0.72 : 0.52) + back * 0.08,
           kind: KIND.exhaust,
           heat: 0.02,
           fade: 55,
-          aspect: 0.62,
+          aspect: 0.78,
           floorY: ground,
           slot: 0,
           slotCap: cap,
