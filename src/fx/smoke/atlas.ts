@@ -17,7 +17,7 @@ function density(u: number, v: number, frame: number): number {
   const body = Math.max(0, 1 - r * (0.98 + tear * 0.28));
   const edge = Math.pow(body, 0.8);
   const filaments = Math.pow(Math.max(0, 0.42 + 0.58 * wobble), 1.12);
-  return edge * (0.42 + 0.58 * filaments) * (1 - tear * 0.12);
+  return edge * (0.28 + 0.72 * filaments) * (1 - tear * 0.18);
 }
 
 function bake(): Uint8Array {
