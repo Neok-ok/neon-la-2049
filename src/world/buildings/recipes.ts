@@ -569,7 +569,7 @@ function lantern(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolean
   let piers = 0;
   for (let t = flightEnd + 1.15; t < wingW / 2 - 1.05 && piers < 4; t += 2.7) {
     addBox(d, {
-      s: placeS(face - 0.42, 0.7), t, lb: 0.85, la: 0.7, h: STOREY * 2, base: y0,
+      s: placeS(face - 0.55, 1.25), t, lb: 0.85, la: 1.25, h: STOREY * 2, base: y0,
       style: Style.Solid, lit: 0.08, tint: 0.9, detail: 0, role: 'mass',
     });
     piers++;

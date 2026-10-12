@@ -41,7 +41,8 @@ function clusterTowers(block, dress) {
       faceS = Math.min(...cheeks.map((b) => b.s - b.la / 2));
     }
     // Jambs mark the opening. Cheek centers sit on the wall when the door is offset.
-    const jambs = near.filter((b) => b.base < 0.2 && b.h > 1.5 && b.h < 2.6 && b.lb < 0.3 && b.la < 0.3);
+    // Jambs are 2.83 m (2.2 m leaf plus the buried glow sill). A 2.6 m cap missed them.
+    const jambs = near.filter((b) => b.base < 0.2 && b.h > 1.5 && b.h < 3.05 && b.lb < 0.3 && b.la < 0.3);
     const doorT = jambs.length
       ? jambs.reduce((s, b) => s + b.t, 0) / jambs.length
       : cheeks.length
