@@ -27,7 +27,7 @@ const only = new Set((process.env.ONLY ?? '').split(',').map((s) => s.trim()).fi
 /** Night stills: every district, plus a neon close-up and a wet street, on ultra and medium. */
 const places = [
   ['little-tokyo', () => { window.__nla.marketView('street'); window.__nla.lampShot(12, -8, 6); }],
-  ['historic-core', () => { window.__nla.broadwayView('street'); window.__nla.lampShot(4, -70, 0, 14); }],
+  ['historic-core', () => { window.__nla.broadwayView('street'); window.__nla.lampShot(13, -12, 0, 1); }],
   ['dtla', () => { window.__nla.dtlaView('street'); window.__nla.survey(); }],
   ['financial', () => { window.__nla.megaView('street'); window.__nla.lampShot(20, -6); }],
   ['civic', () => { window.__nla.civicView('plaza'); window.__nla.lampShot(14, -42, -4, 8); }],
@@ -42,7 +42,7 @@ const places = [
   ['basin', async () => { await window.__nla.basinView('street'); window.__nla.survey(14, 4, -38); }],
   ['southeast', async () => { await window.__nla.southeastView('street'); window.__nla.survey(4, -8, -12); }],
   ['lax', async () => { await window.__nla.laxView('terminal'); window.__nla.lampShot(16, -16, 14); }],
-  ['south-bay', async () => { await window.__nla.southBayView('street'); window.__nla.lampShot(4, -72, 0, 14); }],
+  ['south-bay', async () => { await window.__nla.southBayView('tanks'); window.__nla.lampShot(14, -16, 6, 1); }],
   ['harbor', async () => { await window.__nla.harborView('street'); window.__nla.survey(); }],
   ['long-beach', async () => { await window.__nla.longBeachView('canyon'); window.__nla.lampShot(20, -26, 8, 4); }],
   ['coastal', () => { window.__nla.coastView('blocks'); window.__nla.survey(); }],
