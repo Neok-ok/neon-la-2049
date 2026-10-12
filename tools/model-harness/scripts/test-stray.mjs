@@ -1,6 +1,6 @@
 // The round-10 spinner shipped with fins, a roof rod, and a rear slab.
 // This asserts that mesh fails the stray gate, and that the shipping tiers pass it.
-import { check } from './stray.mjs';
+import { check, housedWheels } from './stray.mjs';
 
 const FIXTURE = 'tools/model-harness/fixtures/spinner-round10-high.glb';
 const SHIPPING = ['high', 'medium', 'low'].map((lod) => `public/models/spinner/spinner-${lod}.glb`);
@@ -36,7 +36,12 @@ for (const file of SHIPPING) {
   if (sideView.iou < 0.85 || frontView.iou < 0.8 || topView.iou < 0.8) {
     fail(`${file} silhouette IoU side ${sideView.iou} front ${frontView.iou} top ${topView.iou}`);
   }
-  console.log(`${file} pass · side ${sideView.iou} front ${frontView.iou} top ${topView.iou}`);
+  const pods = await housedWheels(file);
+  if (!pods.pass) {
+    fail(`${file} wheels are not housed in the pods: ${pods.failures.join('; ')}`);
+  }
+  const drum = pods.wheels.map((wheel) => `${wheel.place} axial ${wheel.axial}`).join(', ');
+  console.log(`${file} pass · side ${sideView.iou} front ${frontView.iou} top ${topView.iou} · ${drum}`);
 }
 
 const TRAFFIC = ['car', 'hauler'].flatMap((kind) =>
