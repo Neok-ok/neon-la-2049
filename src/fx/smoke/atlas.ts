@@ -25,7 +25,7 @@ function density(u: number, v: number, frame: number): number {
   const body = Math.max(0, 1 - r2);
   // Grooves cross the body, so a card is a lump with a dark crease, not a disc.
   // The floor stays high enough that a street-sized card still reads at night.
-  const groove = Math.max(0, -n) * Math.min(1, body * 1.6) * 0.62;
+  const groove = Math.max(0, -n) * Math.min(1, body * 1.4) * 0.34;
   const grain = 0.7 + 0.3 * n2;
   const d = Math.max(0.0, body * Math.max(0.5, grain) - groove);
   return Math.min(1, d) * (1 - tear * 0.08);

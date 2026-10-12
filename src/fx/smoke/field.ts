@@ -25,7 +25,7 @@ import {
 /** Share of the street budget. Indexed by KIND. Launch kinds stay on their own slots. */
 const KIND_SHARE = [0.16, 0.12, 0.12, 0.1, 0.14, 0.22, 0.14];
 /** Card opacity. Stack cards overlap into one column, so each stamp stays lighter. */
-const KIND_ALPHA = [0.86, 0.88, 0.9, 0.84, 0.9, 0.72, 0.95, 0.5, 0.84];
+const KIND_ALPHA = [0.92, 0.88, 0.9, 0.84, 0.9, 0.72, 0.95, 0.48, 0.82];
 /** How many aged cards one emitter may seed, so a still shows the plume and not the first puff. */
 const SEED_CAP = [12, 10, 14, 12, 14, 36];
 
@@ -302,8 +302,8 @@ export class SmokeField {
       const rad = core ? want * (0.02 + smokeRand() * 0.12) : want * (0.78 + smokeRand() * 0.4);
       const lean = plumeLean(along, len, wind.speed);
       const size = core
-        ? (tier === 'low' ? 5 : tier === 'medium' ? 7 : 8) + (1 - t) * 3 + smokeRand() * 2
-        : (tier === 'low' ? 8 : tier === 'medium' ? 11 : 13) + (1 - t) * 5 + smokeRand() * 3;
+        ? (tier === 'low' ? 6 : tier === 'medium' ? 9 : 11) + (1 - t) * 4 + smokeRand() * 2
+        : (tier === 'low' ? 11 : tier === 'medium' ? 15 : 18) + (1 - t) * 8 + smokeRand() * 4;
       spawnParticle(this.pool, {
         x: drive.x + Math.cos(wind.dir) * lean + Math.cos(ang) * rad,
         y: drive.y + along,
@@ -375,8 +375,8 @@ export class SmokeField {
       const rad = core ? want * (0.03 + smokeRand() * 0.1) : want * (0.8 + smokeRand() * 0.38);
       const lean = plumeLean(along, len, wind.speed);
       const size = core
-        ? (tier === 'low' ? 5 : 8) + (1 - t) * 2
-        : (tier === 'low' ? 8 : 12) + Math.min(6, want * 0.28);
+        ? (tier === 'low' ? 6 : 10) + (1 - t) * 3
+        : (tier === 'low' ? 10 : 16) + Math.min(8, want * 0.35);
       const ok = spawnParticle(this.pool, {
         x: drive.x + Math.cos(wind.dir) * lean + Math.cos(ang) * rad,
         y: drive.y + along,
@@ -523,7 +523,7 @@ export class SmokeField {
         pz += (camZ - pz) * pull;
       }
       let heat = pool.heat[i]!;
-      if (kind === KIND.column) baseA *= heat > 0.8 ? 1.08 : 0.62;
+      if (kind === KIND.column && heat > 0.8) baseA *= 1.2;
       if (kind === KIND.barrel || kind === KIND.stack) heat *= Math.max(0, 1 - u * 1.2);
       const alpha = fadeIn * fadeOut * baseA;
       // A fat fade against the street deletes a knee-high wisp whose card meets the asphalt.

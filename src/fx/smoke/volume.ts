@@ -92,15 +92,16 @@ function volumeMaterial(): MeshBasicNodeMaterial {
         .mul(smoothstep(volHeight, volHeight.mul(0.72), height))
         .mul(clumps);
       // Thin bright spine. The billboards carry the billows; this is the engine core.
-      const core = smoothstep(float(6.5), float(0.6), radial)
-        .mul(smoothstep(1.5, 12.0, height))
-        .mul(smoothstep(volHeight.mul(0.48), volHeight.mul(0.06), height));
+      const core = smoothstep(float(3.4), float(0.35), radial)
+        .mul(smoothstep(2.0, 14.0, height))
+        .mul(smoothstep(volHeight.mul(0.42), float(10.0), height));
       const gRad = length(rel.xz);
-      const ground = smoothstep(volGroundR, volGroundR.mul(0.3), gRad)
-        .mul(smoothstep(22.0, 2.0, height))
+      const ground = smoothstep(volGroundR, volGroundR.mul(0.35), gRad)
+        .mul(smoothstep(16.0, 2.0, height))
         .mul(smoothstep(-2.0, 1.5, height))
-        .mul(smoothstep(0.22, 0.7, n1));
-      const density = column.mul(0.26).add(ground.mul(0.38)).mul(volDensity);
+        .mul(smoothstep(0.28, 0.7, n1));
+      // Billboards carry the body. A fatter march read as a blue searchlight.
+      const density = column.mul(0.06).add(ground.mul(0.16)).mul(volDensity);
 
       const toEng = volEngine.sub(pos);
       const dE = max(length(toEng), 1.0);
@@ -112,10 +113,10 @@ function volumeMaterial(): MeshBasicNodeMaterial {
       const phase = float(1 - g * g).div(pow(max(float(1 + g * g).sub(cos.mul(2 * g)), 0.05), 1.5));
       const flame = vec3(FLAME[0], FLAME[1], FLAME[2]).mul(att).mul(phase).mul(0.14).mul(authoredLiftU);
       const albedo = mix(vec3(0.62, 0.6, 0.56), vec3(0.95, 0.72, 0.4), att);
-      const coreGlow = vec3(1.35, 0.78, 0.36).mul(authoredLiftU).mul(core).mul(0.5);
-      const glow = flame.add(scatter).add(U.fogColor.mul(0.16)).mul(albedo).add(coreGlow);
-      const absorb = density.mul(stepLen).mul(0.02);
-      acc.addAssign(tr.mul(glow).mul(density.add(core.mul(0.4))).mul(stepLen).mul(0.065).mul(live));
+      const coreGlow = vec3(1.7, 1.15, 0.62).mul(authoredLiftU).mul(core).mul(0.9);
+      const glow = flame.add(scatter).add(U.fogColor.mul(0.12)).mul(albedo).add(coreGlow);
+      const absorb = density.mul(stepLen).mul(0.016);
+      acc.addAssign(tr.mul(glow).mul(density.add(core.mul(0.12))).mul(stepLen).mul(0.055).mul(live));
       tr.mulAssign(mix(float(1), exp(absorb.negate()), live));
     });
 

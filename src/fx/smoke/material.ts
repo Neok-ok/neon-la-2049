@@ -77,13 +77,10 @@ function shade(lit: boolean): MeshBasicNodeMaterial {
       ctr.y.mul(0.62).add(corner.y.mul(3.4)).add(life.mul(0.4)),
       ctr.z.mul(0.55).add(seed.mul(2.2)),
     ));
-    const lumps = smoothstep(float(-0.2), float(0.7), n);
+    const lumps = smoothstep(float(-0.15), float(0.75), n);
     const launchK = smoothstep(6.15, 6.85, kind);
-    // Barrel and stack only. Exhaust stays filled so a short wake still reads.
-    const deep = launchK.add(
-      smoothstep(3.55, 4.05, kind).mul(float(1).sub(smoothstep(5.45, 5.95, kind))),
-    );
-    const floor = mix(float(0.62), float(0.22), deep);
+    // A deep floor turned the stack and the street column into separate specks.
+    const floor = mix(float(0.84), float(0.58), launchK);
     const grain = mix(floor, float(1), lumps);
     const shape = stamp.a.mul(grain).mul(smoothstep(1.15, 0.7, length(corner)));
 
@@ -128,8 +125,8 @@ function shade(lit: boolean): MeshBasicNodeMaterial {
       .mul(smoothstep(0.92, 0.04, life));
     // Valleys of the lump field are the internal shadow. The baked normal only
     // darkened the rim, so the body stayed a flat gradient.
-    const shade = mix(float(0.42), float(0.12), deep);
-    const crease = mix(shade, float(1), lumps).mul(mix(float(0.75), float(1), stamp.b));
+    const shade = mix(float(0.5), float(0.3), launchK);
+    const crease = mix(shade, float(1), lumps).mul(mix(float(0.82), float(1), stamp.b));
     const hot = smoothstep(float(0.55), float(1.15), extra.x).mul(launch);
     const coreDisc = smoothstep(float(0.58), float(0.04), length(corner));
     const core = vec3(1.45, 0.86, 0.42).mul(authoredLiftU).mul(hot).mul(coreDisc).mul(0.8);

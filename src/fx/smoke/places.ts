@@ -153,25 +153,25 @@ function addMarket(
       const az = lane ? lane.fz : fz;
       const lx = -az;
       const lz = ax;
-      const vent = laneSpot(query, x, s.y, z, ax, az, lx, lz, 8.2, 0.85, 0.18);
+      const vent = laneSpot(query, x, s.y, z, ax, az, lx, lz, 8.4, 0.9, 0.22);
       vents.push(make({
         x: vent.x,
         y: vent.y,
         z: vent.z,
         kind: KIND.vent,
         rate: 14,
-        life: 2.05,
-        size0: 0.2,
-        size1: 0.52,
+        life: 2.2,
+        size0: 0.28,
+        size1: 0.7,
         heat: 0,
-        radius: 0.09,
-        spread: 0.07,
-        rise: 1.15,
-        fade: 22,
-        aspect: 2.45,
+        radius: 0.08,
+        spread: 0.06,
+        rise: 1.45,
+        fade: 24,
+        aspect: 2.15,
         floorY: s.y,
       }));
-      const hole = laneSpot(query, x, s.y, z, ax, az, lx, lz, 18.5, -2.5, 0.12);
+      const hole = laneSpot(query, x, s.y, z, ax, az, lx, lz, 16.5, -2.4, 0.14);
       holes.push(make({
         x: hole.x,
         y: hole.y,
@@ -358,16 +358,16 @@ export function gatherEmitters(
     stacks.push(make({
       x: f.x, y: f.y + 0.2, z: f.z,
       kind: KIND.stack,
-      rate: 14,
-      life: 13,
-      size0: 3.4,
-      size1: 12,
-      heat: 0.5,
-      radius: 0.7,
-      spread: 0.32,
-      rise: 1.85,
+      rate: 16,
+      life: 12,
+      size0: 4.6,
+      size1: 11.5,
+      heat: 0.45,
+      radius: 0.55,
+      spread: 0.18,
+      rise: 2.3,
       fade: 1100,
-      aspect: 1.2,
+      aspect: 1.08,
       floorY: f.y,
     }));
   };
