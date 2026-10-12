@@ -9,6 +9,7 @@ const ONLY = new Set((process.env.ONLY || '').split(',').filter(Boolean));
 const TIER = process.env.TIER || 'both';
 const SKIP_DANCER = process.env.SKIP_DANCER === '1';
 const SKIP_DOOR = process.env.SKIP_DOOR === '1';
+const DANCER_ONLY = process.env.DANCER_ONLY === '1';
 mkdirSync(OUT, { recursive: true });
 
 const DISTRICTS = [
@@ -28,7 +29,7 @@ const DISTRICTS = [
   ['arts-district', 'artsView', ['street', 'foundry']],
   ['southeast-industrial', 'southeastView', ['street', 'tanks', 'pipes']],
   ['south-bay-refineries', 'southBayView', ['street']],
-  ['harbor', 'harborView', ['stacks', 'street']],
+  ['harbor', 'harborView', ['stacks', 'street', 'wall']],
 ];
 
 function note(msg, extra) {
@@ -216,11 +217,24 @@ async function boot(quality) {
         const d = Math.hypot(q.x - p.x, q.z - p.z);
         if (d < 0.28 || d > 1.3) continue;
         const dist = Math.hypot(q.x - anchor.x, q.z - anchor.z);
-        moved.push({ ...q, vx: q.x - p.x, vz: q.z - p.z, travel: d, dist });
+        moved.push({ ...q, vx: q.x - p.x, vz: q.z - p.z, travel: d, dist, wall: nearestWall(q) });
       }
-      moved.sort((a, b) => a.dist - b.dist || b.travel - a.travel);
-      return moved.slice(0, 10);
+      moved.sort((a, b) => a.wall - b.wall || a.dist - b.dist || b.travel - a.travel);
+      return moved.slice(0, 16);
     };
+    function nearestWall(p) {
+      const q = app().query;
+      let best = 40;
+      for (let k = 0; k < 12; k++) {
+        const ang = (k / 12) * Math.PI * 2;
+        for (const dist of [1.8, 2.8, 4.2, 6.5]) {
+          const x = p.x + Math.sin(ang) * dist;
+          const z = p.z + Math.cos(ang) * dist;
+          if (q.insideSolid(x, p.y + 1.35, z, 0.22, true) && dist < best) best = dist;
+        }
+      }
+      return best;
+    }
     H.nearestTravel = (reach) => {
       const anchor = app().cams.walk.pos;
       const before = people().filter((p) => Math.hypot(p.x - anchor.x, p.z - anchor.z) < reach);
@@ -245,26 +259,28 @@ async function boot(quality) {
       for (const side of [1, -1]) {
         const rx = -fz * side;
         const rz = fx * side;
-        for (const dist of [5.0, 4.3, 6.2]) {
-          const px = p.x + rx * dist - fx * 0.35;
-          const pz = p.z + rz * dist - fz * 0.35;
+        for (const dist of [3.6, 4.0, 4.6]) {
+          const px = p.x + rx * dist - fx * 0.15;
+          const pz = p.z + rz * dist - fz * 0.15;
           const gy = q.groundHeight(px, pz);
           if (Math.abs(gy - p.y) > 1.8) continue;
           if (!clear(px, pz, gy)) continue;
           if (!line(px, pz, p.x, p.z, gy)) continue;
-          const bx = p.x - rx * 5.5;
-          const bz = p.z - rz * 5.5;
           let facade = 0;
-          for (const h of [1.3, 3.2, 5.5]) {
-            if (q.insideSolid(bx, p.y + h, bz, 0.35, true)) facade++;
+          for (let s = 1.6; s <= 8; s += 1.05) {
+            const bx = p.x - rx * s;
+            const bz = p.z - rz * s;
+            const chest = q.insideSolid(bx, p.y + 1.35, bz, 0.25, true);
+            const tall = q.insideSolid(bx, p.y + 3.0, bz, 0.25, true);
+            if (chest) { facade = tall ? 2 : 1; break; }
           }
-          const score = (facade > 0 ? 0 : 4) + Math.abs(dist - 5);
+          const score = (facade ? 0 : 8) + (facade === 2 ? 0 : 0.4) + Math.abs(dist - 3.8);
           if (!best || score < best.score) best = { px, pz, gy, score, facade, dist, fx, fz };
         }
       }
       if (!best) return { ok: false };
-      const aimX = p.x + best.fx * 0.7;
-      const aimZ = p.z + best.fz * 0.7;
+      const aimX = p.x + best.fx * 1.05;
+      const aimZ = p.z + best.fz * 1.05;
       const aimY = p.y + 1.02 * p.s;
       const eyeY = best.gy + 1.35;
       const yaw = Math.atan2(aimX - best.px, -(aimZ - best.pz));
@@ -286,9 +302,16 @@ async function boot(quality) {
       if (!head || !feet) return { ok: false, reason: 'offscreen', travel };
       const span = Math.abs(head.y - feet.y);
       const box = screenBox(head, feet);
-      const centered = Math.abs((head.x + feet.x) * 0.5) < 0.42 && feet.y > -0.92 && head.y < 0.92;
+      const centered = Math.abs((head.x + feet.x) * 0.5) < 0.34 && feet.y > -0.95 && head.y < 0.92;
+      const cam = a.camera;
+      const ce = cam.matrixWorld.elements;
+      const vx = after.x - before.x;
+      const vz = after.z - before.z;
+      const across = Math.abs(vx * ce[0] + vz * ce[2]);
+      const depth = Math.abs(vx * -ce[8] + vz * -ce[10]);
+      const profile = across > depth * 0.8;
       return {
-        ok: travel >= 0.28 && travel <= 1.35 && span >= 0.36 && span <= 1.25 && centered,
+        ok: travel >= 0.28 && travel <= 1.35 && span >= 0.5 && span <= 1.35 && centered && profile,
         reason: 'framed',
         travel: Math.round(travel * 100) / 100,
         span: Math.round(span * 100) / 100,
@@ -342,12 +365,29 @@ async function boot(quality) {
       H.hold();
       return { ok: true, shown: a.dancer.shown, side: placed.side, pitch: Math.round(pitch * 100) / 100 };
     };
+    const DANCER_PERIOD = 6.28318530718 / 1.2;
+    function lockDancerTime(phase) {
+      const a = app();
+      if (!a.atmosphere.__dancerLock) {
+        const orig = a.atmosphere.update.bind(a.atmosphere);
+        a.atmosphere.update = (dt, elapsed, renderer, opts) => orig(dt, a.__dancerTime ?? elapsed, renderer, opts);
+        a.atmosphere.__dancerLock = true;
+      }
+      a.__dancerTime = phase * DANCER_PERIOD;
+      a.elapsed = a.__dancerTime;
+      a.atmosphere.update(0.05, a.__dancerTime, a.renderer, { storm: false, coastal: false, gentle: true });
+      a.dancer.update(a.camera.position);
+      return { shown: a.dancer.shown, phase, time: a.__dancerTime };
+    }
+    H.primeDancer = () => {
+      app().__dancerPhase = 0.75;
+      return lockDancerTime(0.75);
+    };
     H.advanceDancer = () => {
       const a = app();
-      a.elapsed += 0.48;
-      a.atmosphere.update(0.05, a.elapsed, a.renderer, { storm: false, coastal: false, gentle: true });
-      a.dancer.update(a.camera.position);
-      return a.dancer.shown;
+      const phase = ((a.__dancerPhase ?? 0.75) + 0.25) % 1;
+      a.__dancerPhase = phase;
+      return lockDancerTime(phase);
     };
     H.composeDoor = () => {
       H.hold();
@@ -468,9 +508,9 @@ async function go(fn, kind) {
   }, { fn, kind });
 }
 
-async function shoot(id, tier) {
+async function shoot(id, tier, allowOpen) {
   const reach = 220;
-  for (let attempt = 0; attempt < 6; attempt++) {
+  for (let attempt = 0; attempt < 8; attempt++) {
     const movers = await page.evaluate((r) => window.__retry.movers(r), reach);
     if (!movers.length) {
       const info = await page.evaluate((r) => window.__retry.nearestTravel(r), reach);
@@ -482,7 +522,7 @@ async function shoot(id, tier) {
     if (!placed?.ok) continue;
     const locked = await page.evaluate((index) => window.__retry.lock(index), who.i);
     note('try', { id, tier, attempt, placed, locked });
-    if (!locked?.ok) {
+    if (!locked?.ok || (!placed.facade && !allowOpen)) {
       await page.evaluate(() => window.__retry.release());
       continue;
     }
@@ -510,26 +550,29 @@ async function shoot(id, tier) {
 }
 
 async function district(id, fn, kinds, tier) {
-  for (const kind of kinds) {
-    let where;
-    try { where = await go(fn, kind); } catch (err) {
-      note('go fail', { id, kind, err: String(err).slice(0, 140) });
-      continue;
+  for (const allowOpen of [false, true]) {
+    for (const kind of kinds) {
+      let where;
+      try { where = await go(fn, kind); } catch (err) {
+        note('go fail', { id, kind, err: String(err).slice(0, 140) });
+        continue;
+      }
+      if (where?.fly) continue;
+      const settled = await page.evaluate(() => window.__retry.pump());
+      note('settled', { id, kind, tier, allowOpen, settled });
+      if (!settled.n) continue;
+      await page.evaluate(() => window.__retry.hold());
+      const ok = await shoot(id, tier, allowOpen);
+      if (ok) return;
     }
-    if (where?.fly) continue;
-    const settled = await page.evaluate(() => window.__retry.pump());
-    note('settled', { id, kind, tier, settled });
-    if (!settled.n) continue;
-    await page.evaluate(() => window.__retry.hold());
-    const ok = await shoot(id, tier);
-    if (ok) return;
+    if (allowOpen) break;
   }
   note('NO FRAME', { id, tier });
 }
 
 async function dancerStrip(name, id) {
   let framed = null;
-  for (const dist of [40, 32, 50]) {
+  for (const dist of [26, 30, 34]) {
     framed = await page.evaluate(({ id, dist }) => window.__retry.frameDancer(id, dist), { id, dist });
     note('dancer frame', { name, framed });
     if (framed?.ok && framed.shown) break;
@@ -540,8 +583,13 @@ async function dancerStrip(name, id) {
     return;
   }
   await page.evaluate(() => window.__retry.hold());
+  const primed = await page.evaluate(() => window.__retry.primeDancer());
+  note('dancer phase', { name, f: 0, primed });
   for (let f = 0; f < 4; f++) {
-    if (f > 0) await page.evaluate(() => window.__retry.advanceDancer());
+    if (f > 0) {
+      const stepped = await page.evaluate(() => window.__retry.advanceDancer());
+      note('dancer phase', { name, f, stepped });
+    }
     await frames();
     await page.waitForTimeout(180);
     await page.screenshot({ path: `${OUT}/${name}-f${f}.png`, timeout: 180000, animations: 'disabled' });
@@ -563,6 +611,11 @@ async function doorShot(tier) {
 async function runTier(tier) {
   note('boot', tier);
   await boot(tier);
+  if (DANCER_ONLY) {
+    await dancerStrip(`dancer-broadway-${tier}`, 'joi-bridge-dancer');
+    await dancerStrip(`dancer-hollywood-${tier}`, 'hollywood-dancer');
+    return;
+  }
   for (const [id, fn, kinds] of DISTRICTS) {
     if (ONLY.size && !ONLY.has(id)) continue;
     await district(id, fn, kinds, tier);

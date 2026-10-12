@@ -22,8 +22,8 @@ const T = TSL as any;
 const FRAMES = 32;
 const PAL_W = 11 * 6;
 const PAL_H = FRAMES;
-const PAL_LO = -4;
-const PAL_HI = 4;
+const PAL_LO = -8;
+const PAL_HI = 8;
 const PERIOD = 6.28318530718 / 1.2;
 const HEM = 0.02;
 

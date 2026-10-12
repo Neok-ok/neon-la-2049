@@ -110,23 +110,26 @@ def build_dancer(lod='high'):
 
 
 def sway_offsets(time):
-    """Lateral metres. Head leads, skirts lag ~0.3 s, veil lags ~0.6 s. Arm stays up."""
+    """Lateral metres on the 60 m figure. Head leads, skirts lag, veil lags further.
+    The lean stays a sway: no steps. Four times the first pass, which moved the
+    head about a metre and disappeared into the rain at street distance.
+    """
     lead = math.sin(time * 1.2)
     hip = math.sin(time * 1.55)
     skirt = math.sin(time * 1.2 - 0.36)
     veil = math.sin(time * 1.2 - 0.72)
     return {
-        'root': lead * 0.15,
-        'hip': hip * 0.55,
-        'waist': lead * 0.35 + hip * 0.2,
-        'chest': lead * 0.85,
-        'head': lead * 1.1,
-        'armUp': lead * 0.95,
-        'armOut': hip * 0.25,
-        'skirtL': skirt * 0.22,
-        'skirtM': skirt * 0.38,
-        'skirtU': skirt * 0.48,
-        'veil': veil * 1.6,
+        'root': lead * 0.9,
+        'hip': hip * 3.2,
+        'waist': lead * 2.0 + hip * 1.1,
+        'chest': lead * 5.0,
+        'head': lead * 6.4,
+        'armUp': lead * 5.6,
+        'armOut': hip * 1.4,
+        'skirtL': skirt * 1.2,
+        'skirtM': skirt * 2.1,
+        'skirtU': skirt * 2.6,
+        'veil': veil * 7.6,
     }
 
 
@@ -136,7 +139,7 @@ def dancer_palette():
     translation x). The shader adds it to bind X. Other matrix terms stay identity.
     """
     # Full 3x4 identity plus tx = offset, so the same decoder as the crowd works.
-    lo, hi = -4.0, 4.0
+    lo, hi = -8.0, 8.0
     span = hi - lo
     width = len(BONES) * 6
     height = FRAMES

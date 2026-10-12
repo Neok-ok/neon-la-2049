@@ -66,8 +66,8 @@
     "palette": {
       "width": 66,
       "height": 32,
-      "min": -4.0,
-      "max": 4.0,
+      "min": -8.0,
+      "max": 8.0,
       "file": "dancer-palette.bin"
     }
   },
