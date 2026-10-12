@@ -25,7 +25,7 @@ import {
 /** Share of the street budget. Indexed by KIND. Launch kinds stay on their own slots. */
 const KIND_SHARE = [0.16, 0.12, 0.12, 0.1, 0.14, 0.22, 0.14];
 /** Card opacity. Stack cards overlap into one column, so each stamp stays lighter. */
-const KIND_ALPHA = [0.92, 0.88, 0.9, 0.84, 0.9, 0.72, 0.95, 0.48, 0.82];
+const KIND_ALPHA = [0.92, 0.88, 0.9, 0.84, 0.9, 0.72, 0.95, 0.58, 0.82];
 /** How many aged cards one emitter may seed, so a still shows the plume and not the first puff. */
 const SEED_CAP = [12, 10, 14, 12, 14, 36];
 
@@ -293,9 +293,12 @@ export class SmokeField {
     const span = Math.min(len * 0.94, 1500);
     for (let n = 0; n < cCap; n++) {
       const core = smokeRand() < 0.36;
+      const capHead = !core && smokeRand() < 0.18;
       const along = core
         ? 4 + Math.pow(smokeRand(), 1.1) * Math.min(span, 480)
-        : 8 + Math.pow(smokeRand(), 1.4) * (span - 8);
+        : capHead
+          ? span * (0.7 + smokeRand() * 0.28)
+          : 8 + Math.pow(smokeRand(), 1.4) * (span - 8);
       const ang = smokeRand() * Math.PI * 2;
       const t = Math.max(0, Math.min(1, along / len));
       const want = columnRadius(along, 0);
@@ -437,8 +440,8 @@ export class SmokeField {
         vz: wakeZ,
         life: spin ? 2.2 : truck ? 1.7 : 1.5,
         age: 0,
-        size0: spin ? 0.36 : truck ? 0.28 : 0.22,
-        size1: spin ? 0.95 : truck ? 0.72 : 0.62,
+        size0: spin ? 0.34 : truck ? 0.26 : 0.22,
+        size1: spin ? 0.9 : truck ? 0.7 : 0.58,
         kind: KIND.exhaust,
         heat: truck ? 0.08 : 0.02,
         fade: spin ? 90 : 55,
@@ -450,19 +453,19 @@ export class SmokeField {
       const sp = Math.hypot(wakeX, wakeZ) || 1;
       const bx = -wakeX / sp;
       const bz = -wakeZ / sp;
-      const backs = must ? [0.35, 0.85, 1.45, 2.15, 2.95, 3.9] : [0.45, 1.05, 1.8, 2.7];
+      const backs = must ? [0.22, 0.55, 0.95, 1.4, 1.95, 2.55, 3.3] : [0.3, 0.75, 1.3, 1.95, 2.7];
       for (const back of backs) {
         spawnParticle(this.pool, {
-          x: t.x + bx * back, y: t.y + 0.05 + back * 0.04, z: t.z + bz * back,
-          vx: wakeX * 0.92, vy: 0.16, vz: wakeZ * 0.92,
-          life: truck ? 2.1 : 1.8,
-          age: back * 0.32,
-          size0: (truck ? 0.22 : 0.16) + back * 0.04,
-          size1: (truck ? 0.62 : 0.48) + back * 0.07,
+          x: t.x + bx * back, y: t.y + 0.04 + back * 0.03, z: t.z + bz * back,
+          vx: wakeX * 0.94, vy: 0.08, vz: wakeZ * 0.94,
+          life: truck ? 2.4 : 2.1,
+          age: back * 0.05,
+          size0: (truck ? 0.24 : 0.2) + back * 0.03,
+          size1: (truck ? 0.78 : 0.62) + back * 0.05,
           kind: KIND.exhaust,
           heat: 0.02,
-          fade: 48,
-          aspect: 0.82,
+          fade: 40,
+          aspect: 0.95,
           floorY: ground,
           slot: 0,
           slotCap: cap,
