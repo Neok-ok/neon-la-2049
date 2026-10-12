@@ -107,13 +107,15 @@ def hull_section(y, hw, belly, top, flare=False, pod=False):
     # carries the roof out over the drum so the prong still reads after the
     # channel is cut back.
     if flare and pod:
-        # Same outer shoulder as the flare. The roof only reaches past the
-        # channel wall, so cutting the slot does not drop the side profile
-        # and does not widen the front view.
+        # Same outer shoulder as the flare. The roof runs out over the drum
+        # on the existing top line, so the side outline stays put.
         pts = [
             (0.0, y, top),
-            (hw * 0.64, y, top),
-            (hw * 0.78, y, top - rise * 0.10),
+            # The roof reaches over the drum. It stays on the existing top
+            # line, so the side outline does not rise, and the drum sits
+            # under the prong instead of beside it.
+            (hw * 0.94, y, top),
+            (hw * 0.99, y, top - rise * 0.10),
             (hw * 0.94, y, belly + rise * 0.46),
             (hw * 0.99, y, belly + rise * 0.28),
             (hw, y, belly + rise * 0.16),
@@ -1341,7 +1343,8 @@ def build(round_n, lod, out_path):
                     hull, f'well-{sign:+d}-{y:+.2f}', sign, y, radius + 0.02,
                     radius * HOUSED_TREAD + 0.010,
                     0.56 if front else 0.50,
-                    1.20 if front else 1.15,
+                    # Front opening stops just outside the tire, under the prong roof.
+                    0.92 if front else 1.15,
                 )
         if filled:
             darken_channel(hull, y0=1.04 if housed else 1.76)
@@ -1378,9 +1381,9 @@ def build(round_n, lod, out_path):
     housed_specs = []
     for sign, y, radius in wheel_rows:
         width = 0.40 if abs(y) > 1 else 0.36
-        # The tread centre sits just inboard of the skin. The face is proud of
-        # the opening; the bulk of the cylinder is inside the prong.
-        root_x = (0.84 if y > 0 else 0.78) if housed else drum_x
+        # Front drums sit under the prong roof, inboard of the outer lip.
+        # Rear drums stay in the tail fender.
+        root_x = (0.70 if y > 0 else 0.78) if housed else drum_x
         part = place_wheel(
             kit, f'drum-{sign:+d}-{y:+.2f}', sign, y, radius, width, seg,
             slots if y > 0 or detail else 0, x=root_x, pressed=loud and not split, covered=split,
@@ -1395,7 +1398,7 @@ def build(round_n, lod, out_path):
                 'radius': radius,
                 'center_x': root_x + (HOUSED_INNER + HOUSED_OUTER) * 0.5,
                 'well_r': radius * HOUSED_TREAD + 0.010,
-                'well_x1': 1.20 if y > 0 else 1.15,
+                'well_x1': 0.92 if y > 0 else 1.15,
                 'front': y > 0,
                 'part': part,
             })
