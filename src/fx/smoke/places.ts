@@ -184,18 +184,18 @@ function addMarket(
       }
       const spot = best ?? { x: x + fx * 16 + rx * 8, z: z + fz * 16 + rz * 8, roof: s.y + 18, score: 0 };
       roofs.push(make({
-        x: spot.x, y: spot.roof + 0.7, z: spot.z,
+        x: spot.x, y: spot.roof + 0.8, z: spot.z,
         kind: KIND.roof,
-        rate: 8,
-        life: 6.2,
-        size0: 1.5,
-        size1: 5.2,
+        rate: 7,
+        life: 5.2,
+        size0: 0.8,
+        size1: 2.4,
         heat: 0,
-        radius: 0.2,
-        spread: 0.16,
-        rise: 3.4,
-        fade: 48,
-        aspect: 2.5,
+        radius: 0.15,
+        spread: 0.1,
+        rise: 2.6,
+        fade: 40,
+        aspect: 2.15,
         floorY: spot.roof,
       }));
     }
@@ -346,20 +346,20 @@ export function gatherEmitters(
   if (gate) {
     const door = doorWorld(gate);
     // The street camera stands about 16 m before the door. The barrel sits in that gap.
-    const bx = door.x + gate.ax * -7 + gate.bx * -1.6;
-    const bz = door.z + gate.az * -7 + gate.bz * -1.6;
+    const bx = door.x + gate.ax * -7 + gate.bx * -3.2;
+    const bz = door.z + gate.az * -7 + gate.bz * -3.2;
     if ((bx - x) ** 2 + (bz - z) ** 2 < 90 * 90) {
       barrels.push(make({
-        x: bx, y: door.y + 1.3, z: bz,
+        x: bx, y: door.y + 0.9, z: bz,
         kind: KIND.barrel,
         rate: 11,
         life: 4.2,
-        size0: 0.45,
-        size1: 1.85,
+        size0: 0.4,
+        size1: 1.55,
         heat: 1,
-        radius: 0.38,
-        spread: 0.28,
-        rise: 1.35,
+        radius: 0.22,
+        spread: 0.1,
+        rise: 1.25,
         fade: 28,
         aspect: 1.15,
         floorY: door.y,

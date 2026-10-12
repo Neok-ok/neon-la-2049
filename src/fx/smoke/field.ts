@@ -25,7 +25,7 @@ import {
 /** Share of the street budget. Indexed by KIND. Launch kinds stay on their own slots. */
 const KIND_SHARE = [0.16, 0.12, 0.12, 0.1, 0.14, 0.22, 0.14];
 /** Card opacity. Stack cards overlap into one column, so each stamp stays lighter. */
-const KIND_ALPHA = [0.96, 0.96, 0.94, 0.9, 0.94, 0.58, 0.94, 0.42, 0.8];
+const KIND_ALPHA = [0.96, 0.96, 0.94, 0.9, 0.94, 0.58, 0.94, 0.26, 0.86];
 /** How many aged cards one emitter may seed, so a still shows the plume and not the first puff. */
 const SEED_CAP = [12, 10, 14, 12, 14, 36];
 
@@ -283,7 +283,7 @@ export class SmokeField {
         kind: KIND.ground,
         heat: Math.exp(-puff.ring / 48) * Math.exp(-Math.max(0, puff.y - drive.y - 8) / 40),
         fade: 4500,
-        aspect: 0.52,
+        aspect: 0.7,
         floorY: drive.y,
         slot: 1,
         slotCap: gCap,
@@ -295,7 +295,7 @@ export class SmokeField {
       const along = 28 + (n + smokeRand() * 0.85) / cCap * (span - 28);
       const ang = smokeRand() * Math.PI * 2;
       const t = Math.max(0, Math.min(1, along / len));
-      const rad = smokeRand() < 0.4 ? smokeRand() * 2.2 : 2.5 + smokeRand() * 4.5;
+      const rad = 5 + smokeRand() * 7;
       const lean = plumeLean(along, len, wind.speed);
       const size = (tier === 'low' ? 16 : tier === 'medium' ? 26 : 34) + t * (tier === 'low' ? 12 : 28);
       spawnParticle(this.pool, {
@@ -344,7 +344,7 @@ export class SmokeField {
           kind: KIND.ground,
           heat: Math.exp(-puff.ring / 48),
           fade: 4500,
-          aspect: 0.52,
+          aspect: 0.7,
           floorY: drive.y,
           slot: 1,
           slotCap: gCap,
@@ -404,10 +404,14 @@ export class SmokeField {
     for (const t of tails) {
       const ground = frame.query.groundHeight(t.x, t.z);
       if (t.heavy === 2 && t.y < ground + 14) continue;
+      const dx = t.x - frame.camX;
+      const dz = t.z - frame.camZ;
+      const ahead = dx * Math.sin(frame.heading) + dz * -Math.cos(frame.heading);
+      if (ahead < 8 || dx * dx + dz * dz < 64) continue;
       const rate = (1.1 + t.drive * (t.heavy === 2 ? 2.2 : 4.2)) * scale;
       const exhaustCap = Math.max(4, Math.floor(cap * (KIND_SHARE[KIND.exhaust] ?? 0.1)));
       if ((this.pool.kindN[KIND.exhaust] ?? 0) >= exhaustCap) break;
-      const must = forced < 2 && t.heavy !== 2 && smokeRand() < dt * 4;
+      const must = forced < 2 && t.heavy !== 2;
       if (must) forced += 1;
       if (!must && smokeRand() > rate * dt) continue;
       const spin = t.heavy === 2;
@@ -421,8 +425,8 @@ export class SmokeField {
         vz: wakeZ,
         life: spin ? 2.4 : truck ? 1.8 : 1.55,
         age: 0,
-        size0: spin ? 0.55 : truck ? 0.4 : 0.28,
-        size1: spin ? 1.7 : truck ? 1.35 : 0.95,
+        size0: spin ? 0.55 : truck ? 0.45 : 0.34,
+        size1: spin ? 1.7 : truck ? 1.5 : 1.25,
         kind: KIND.exhaust,
         heat: truck ? 0.08 : 0.02,
         fade: spin ? 90 : 55,
@@ -604,7 +608,7 @@ function groundPuff(
     x = drive.x + Math.cos(ang) * ring;
     z = drive.z + Math.sin(ang) * ring;
   }
-  const y = drive.y + (foot ? 1.2 + smokeRand() * 10 : near ? 1.6 + smokeRand() * 8 : 2.5 + smokeRand() * 12);
+  const y = drive.y + (foot ? 2 + smokeRand() * 14 : near ? 4 + smokeRand() * 18 : 6 + smokeRand() * 26);
   return { x, y, z, ring, ang };
 }
 

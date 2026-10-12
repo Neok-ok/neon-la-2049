@@ -91,7 +91,7 @@ function volumeMaterial(): MeshBasicNodeMaterial {
         .mul(smoothstep(volHeight, volHeight.mul(0.7), height));
       const gRad = length(rel.xz);
       const ground = smoothstep(volGroundR, volGroundR.mul(0.28), gRad)
-        .mul(smoothstep(22.0, 3.0, height))
+        .mul(smoothstep(48.0, 4.0, height))
         .mul(smoothstep(-2.0, 2.0, height));
       const density = column.mul(0.48).add(ground.mul(1.35)).mul(mix(float(0.7), float(1.2), n1)).mul(volDensity);
 

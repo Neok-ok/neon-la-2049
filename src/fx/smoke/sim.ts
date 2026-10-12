@@ -144,6 +144,7 @@ export function smokeWindScale(kind: number): number {
   if (kind === KIND.stall) return 0.22;
   if (kind === KIND.manhole) return 0.48;
   if (kind === KIND.vent) return 0.16;
+  if (kind === KIND.barrel) return 0.1;
   if (kind === KIND.roof) return 0.72;
   return 0.45;
 }
