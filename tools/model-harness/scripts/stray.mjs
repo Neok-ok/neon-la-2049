@@ -1405,6 +1405,109 @@ function normalize(v) {
   return [v[0] / n, v[1] / n, v[2] / n];
 }
 
+function vertexCloud(tris) {
+  const seen = new Map();
+  const points = [];
+  for (const tri of tris) {
+    let bucket = seen.get(tri.verts);
+    if (!bucket) {
+      bucket = new Set();
+      seen.set(tri.verts, bucket);
+    }
+    for (const index of [tri.i0, tri.i1, tri.i2]) {
+      if (bucket.has(index)) continue;
+      bucket.add(index);
+      const o = index * 3;
+      points.push([tri.verts[o], tri.verts[o + 1], tri.verts[o + 2]]);
+    }
+  }
+  return points;
+}
+
+// glTF: X is left-right, Y is up, nose is -Z.
+// A housed drum is a short cylinder on X. A ball has about the same extent on every axis.
+export async function housedWheels(glbPath) {
+  await MeshoptDecoder.ready;
+  const { triangles } = loadGlb(glbPath);
+  const wheels = splitComponents(triangles.filter((tri) => tri.material === 'rubber'))
+    .filter((part) => part.triangles > 8)
+    .sort((a, b) => b.area - a.area);
+  const body = vertexCloud(triangles.filter((tri) => tri.material === 'body'));
+  const failures = [];
+  if (wheels.length !== 4) failures.push(`expected 4 wheel drums, found ${wheels.length}`);
+  const described = wheels.map((wheel) => {
+    const b = wheel.bounds;
+    // The vertex average sits on the outer ring. The box centre is the axle.
+    const at = [(b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2, (b.minZ + b.maxZ) / 2];
+    const axial = b.maxX - b.minX;
+    const diameter = Math.max(b.maxY - b.minY, b.maxZ - b.minZ);
+    return { at, axial, diameter, place: at[2] < 0 ? 'front' : 'rear' };
+  });
+  const front = described.filter((wheel) => wheel.place === 'front');
+  const rear = described.filter((wheel) => wheel.place === 'rear');
+  if (front.length !== 2) failures.push(`expected 2 front drums, found ${front.length}`);
+  if (rear.length !== 2) failures.push(`expected 2 rear drums, found ${rear.length}`);
+  if (front.length === 2 && Math.sign(front[0].at[0]) === Math.sign(front[1].at[0])) {
+    failures.push('both front drums are on the same side');
+  }
+  for (const wheel of described) {
+    const [x, y, z] = wheel.at;
+    if (!(wheel.axial > 0.12 && wheel.axial < wheel.diameter * 0.72)) {
+      failures.push(
+        `${wheel.place} drum at ${round(x)},${round(y)},${round(z)} reads as a ball or a disc (axial ${round(wheel.axial)} m, diameter ${round(wheel.diameter)} m)`,
+      );
+    }
+    if (Math.abs(x) < 0.45 || Math.abs(x) > 1.2) {
+      failures.push(`${wheel.place} drum centre is outside the pod (x ${round(x)})`);
+    }
+    const above = body.some((p) => (
+      p[1] > y + wheel.diameter * 0.22
+      && Math.abs(p[0] - x) < wheel.diameter * 0.75
+      && Math.abs(p[2] - z) < wheel.diameter * 0.6
+      && Math.abs(p[0]) > 0.35
+    ));
+    if (!above) failures.push(`no fender over the ${wheel.place} drum at x ${round(x)} z ${round(z)}`);
+    // Pod metal sits inboard of the axle. A face proud of the opening is still housed.
+    const inboard = body.some((p) => (
+      Math.sign(p[0]) === Math.sign(x)
+      && Math.abs(p[0]) < Math.abs(x) - 0.05
+      && Math.abs(p[2] - z) < 0.3
+      && Math.abs(p[1] - y) < 0.35
+    ));
+    if (!inboard) {
+      failures.push(`${wheel.place} drum centre is outside the pod (x ${round(x)} z ${round(z)})`);
+    }
+  }
+  for (const wheel of front) {
+    const [x, y, z] = wheel.at;
+    const ahead = body.some((p) => (
+      p[2] < z - 0.22
+      && Math.abs(p[0] - x) < 0.45
+      && Math.abs(p[0]) > 0.35
+      && p[1] > 0.2
+      && p[1] < 1.2
+    ));
+    if (!ahead) failures.push(`front drum at x ${round(x)} is not inside a prong that continues forward`);
+    const blocked = body.some((p) => (
+      Math.abs(p[0]) < 0.22
+      && Math.abs(p[2] - z) < 0.18
+      && p[1] > 0.32
+      && p[1] < 0.72
+    ));
+    if (blocked) failures.push(`front channel is filled beside the drum at z ${round(z)}`);
+  }
+  return {
+    pass: failures.length === 0,
+    failures,
+    wheels: described.map((wheel) => ({
+      place: wheel.place,
+      at: wheel.at.map(round),
+      axial: round(wheel.axial),
+      diameter: round(wheel.diameter),
+    })),
+  };
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const file = args.find((arg) => !arg.startsWith('--'));

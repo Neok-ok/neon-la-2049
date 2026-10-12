@@ -18,6 +18,7 @@
 #   9  dark panel gaps, louver field, calm gunmetal, clearcoat, no rim speckle
 #  10  shallow smoked glass, inset louver fins, panel seams, worn paint, flat normal
 #  11  those parts sit on the body: no cabin fins, no roof rod, no hanging rear plate
+#  12  front drums housed in the nose prongs; flat tyre-and-face cylinders, not balls
 import math
 import os
 import shutil
@@ -33,7 +34,7 @@ HARNESS = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if HARNESS not in sys.path:
     sys.path.insert(0, HARNESS)
 
-from kit.parts import Kit  # noqa: E402
+from kit.parts import HOUSED_INNER, HOUSED_OUTER, HOUSED_TREAD, Kit  # noqa: E402
 
 TARGET = (5.45, 2.32, 1.36)  # length (Y), width (X), height (Z)
 
@@ -59,7 +60,10 @@ CANOPY = (
     (-1.95, 0.14, 0.72, 0.92),
 )
 SHARP = {2, 3, 5, 6, 10, 11, 13, 14}
-SEG = {'high': 28, 'medium': 16, 'low': 10}
+# Low uses the same ring count as medium. A 10-side drum has no vertex on
+# the vertical, so the car sits on a chord, the belly drops through the side
+# trace, and the front shoulder separates from the justified drum.
+SEG = {'high': 28, 'medium': 16, 'low': 16}
 TEX = {'high': 1024, 'medium': 512, 'low': 256}
 
 
@@ -94,12 +98,32 @@ def box(name, lo, hi, mat):
     return link(obj)
 
 
-def hull_section(y, hw, belly, top, flare=False):
+def hull_section(y, hw, belly, top, flare=False, pod=False):
     rise = max(top - belly, 1e-4)
     belt = belly + rise * 0.58
     # Flare keeps the roof narrow and pushes the shoulder out toward the drum.
     # The lower belt is still the widest point, so the plan view stays drum-led.
-    if flare:
+    # A pod keeps that same outer width and the same centreline height, and
+    # carries the roof out over the drum so the prong still reads after the
+    # channel is cut back.
+    if flare and pod:
+        # Same outer shoulder as the flare. The roof runs out over the drum
+        # on the existing top line, so the side outline stays put.
+        pts = [
+            (0.0, y, top),
+            # The roof reaches over the drum. It stays on the existing top
+            # line, so the side outline does not rise, and the drum sits
+            # under the prong instead of beside it.
+            (hw * 0.94, y, top),
+            (hw * 0.99, y, top - rise * 0.10),
+            (hw * 0.94, y, belly + rise * 0.46),
+            (hw * 0.99, y, belly + rise * 0.28),
+            (hw, y, belly + rise * 0.16),
+            (hw * 0.90, y, belly + rise * 0.05),
+            (hw * 0.40, y, belly),
+            (0.0, y, belly),
+        ]
+    elif flare:
         pts = [
             (0.0, y, top),
             (hw * 0.40, y, top),
@@ -409,13 +433,16 @@ def sit_and_scale(objs):
     return ok
 
 
-def cut_nose_channel(hull, filled=False):
+def cut_nose_channel(hull, filled=False, housed=False):
     """Open the hood. The cutter runs out past the nose and down through the slab,
     so the top and front silhouettes show two cheeks and a gap, not a solid panel.
 
     filled keeps the slot in the nose only. The deck behind it stays a roof.
+    housed starts the slot behind the front drums, so each drum sits in its prong.
     """
-    if filled:
+    if housed:
+        lo, hi = (-0.52, 1.06, 0.08), (0.52, 2.98, 1.02)
+    elif filled:
         lo, hi = (-0.52, 1.78, 0.10), (0.52, 2.98, 0.92)
     else:
         lo, hi = (-0.58, 1.48, 0.08), (0.58, 2.95, 1.05)
@@ -429,7 +456,7 @@ def cut_nose_channel(hull, filled=False):
     bpy.data.objects.remove(cutter, do_unlink=True)
 
 
-def darken_channel(hull):
+def darken_channel(hull, y0=1.76):
     """The slot interior is a recess, not the noisy body bake."""
     rec = bpy.data.materials.get('recess')
     if rec is None:
@@ -441,10 +468,109 @@ def darken_channel(hull):
     n = 0
     for poly in mesh.polygons:
         c = poly.center
-        if -0.50 <= c.x <= 0.50 and 1.76 <= c.y <= 3.05 and c.z <= 0.94:
+        if -0.54 <= c.x <= 0.54 and y0 <= c.y <= 3.05 and c.z <= 1.02:
             poly.material_index = idx
             n += 1
     print('channel faces recessed', n)
+
+
+def cut_axle_well(hull, name, sign, y, z, radius, x0, x1, segments=32):
+    """Open the outer face of a pod around a drum.
+
+    The cutter is a cylinder along X. It stops short of the center channel,
+    so the prong stays a fairing and the slot between the prongs stays open.
+    """
+    depth = abs(x1 - x0)
+    cx = sign * (x0 + x1) * 0.5
+    bm = bmesh.new()
+    bmesh.ops.create_cone(
+        bm, cap_ends=True, cap_tris=False, segments=segments,
+        radius1=radius, radius2=radius, depth=depth,
+    )
+    # Cone axis is Z. A quarter turn about Y lays that axis along X.
+    rot = Matrix.Rotation(math.radians(90), 4, 'Y')
+    bmesh.ops.transform(bm, verts=bm.verts, matrix=rot)
+    bmesh.ops.translate(bm, verts=bm.verts, vec=(cx, y, z))
+    mesh = bpy.data.meshes.new(name)
+    bm.to_mesh(mesh)
+    bm.free()
+    cutter = bpy.data.objects.new(name, mesh)
+    cutter.data.materials.append(hull.data.materials[0])
+    link(cutter)
+    mod = hull.modifiers.new(name, 'BOOLEAN')
+    mod.operation = 'DIFFERENCE'
+    mod.object = cutter
+    mod.solver = 'EXACT'
+    select_only(hull)
+    bpy.ops.object.modifier_apply(modifier=mod.name)
+    bpy.data.objects.remove(cutter, do_unlink=True)
+
+
+def _part_aabb(part):
+    bpy.context.view_layer.update()
+    mn = Vector((1e9, 1e9, 1e9))
+    mx = Vector((-1e9, -1e9, -1e9))
+    for obj in part.meshes:
+        for corner in obj.bound_box:
+            p = obj.matrix_world @ Vector(corner)
+            mn.x = min(mn.x, p.x)
+            mn.y = min(mn.y, p.y)
+            mn.z = min(mn.z, p.z)
+            mx.x = max(mx.x, p.x)
+            mx.y = max(mx.y, p.y)
+            mx.z = max(mx.z, p.z)
+    return mn, mx
+
+
+def _down_hit(hull, x, y):
+    ok, loc, _nor, _idx = hull.ray_cast(Vector((x, y, 3.0)), Vector((0, 0, -1)), distance=6.0)
+    return loc if ok else None
+
+
+def assert_wheels_housed(hull, specs):
+    """Front drum centres sit under a prong roof, with the nose still ahead and the channel open."""
+    problems = []
+    for spec in specs:
+        sign = spec['sign']
+        mn, mx = _part_aabb(spec['part'])
+        cx = sign * spec['center_x']
+        lo_x, hi_x = min(mn.x, mx.x), max(mn.x, mx.x)
+        if cx < lo_x - 0.02 or cx > hi_x + 0.02:
+            problems.append(f"drum {spec['name']} centre {cx:.3f} outside mesh {lo_x:.3f}..{hi_x:.3f}")
+        cy = (mn.y + mx.y) * 0.5
+        cz = (mn.z + mx.z) * 0.5
+        reach = max(abs(mn.y - cy), abs(mx.y - cy), abs(mn.z - cz), abs(mx.z - cz))
+        if reach > spec['well_r'] + 0.025:
+            problems.append(f"drum {spec['name']} radius {reach:.3f} leaves the well {spec['well_r']:.3f}")
+        if max(abs(mn.x), abs(mx.x)) > spec['well_x1'] + 0.02:
+            problems.append(f"drum {spec['name']} face sticks out of the pod opening")
+        if spec['front']:
+            # The fairing over the drum is the inboard prong roof. The outer
+            # shoulder is the wheel opening, so the ray goes through the cheek.
+            roof = _down_hit(hull, sign * 0.58, spec['y'])
+            need = spec['z'] + spec['radius'] * 0.55
+            if roof is None or roof.z < need:
+                got = None if roof is None else round(roof.z, 3)
+                problems.append(f"no prong roof over {spec['name']} (hit {got}, need {need:.2f})")
+            ahead_y = spec['y'] + spec['radius'] + 0.42
+            nose = _down_hit(hull, sign * 0.78, ahead_y)
+            if nose is None or nose.z < 0.32:
+                got = None if nose is None else round(nose.z, 3)
+                problems.append(f"prong does not continue ahead of {spec['name']} (hit {got})")
+            slot = _down_hit(hull, 0.0, spec['y'])
+            if slot is not None and slot.z > 0.28:
+                problems.append(f"channel is filled beside {spec['name']} (hit z {slot.z:.3f})")
+        else:
+            cover = _down_hit(hull, sign * min(spec['center_x'], 0.62), spec['y'])
+            need = spec['z'] + spec['radius'] * 0.35
+            if cover is None or cover.z < need:
+                got = None if cover is None else round(cover.z, 3)
+                problems.append(f"no rear fender over {spec['name']} (hit {got}, need {need:.2f})")
+    if problems:
+        for line in problems:
+            print('WHEEL', line)
+        raise SystemExit('wheels are not housed in their pods')
+    print('wheels housed', len(specs))
 
 
 def cut_ribbon(hull, name, location, euler, half):
@@ -463,10 +589,10 @@ def cut_ribbon(hull, name, location, euler, half):
     bpy.data.objects.remove(cutter, do_unlink=True)
 
 
-def place_wheel(kit, name, sign, y, radius, width, segments, slots, x=0.78, pressed=False, covered=False, panel=False):
+def place_wheel(kit, name, sign, y, radius, width, segments, slots, x=0.78, pressed=False, covered=False, panel=False, housed=False):
     part = kit.wheel_housing(
         name, radius=radius, width=width, segments=segments, slots=0 if covered else slots,
-        pressed=pressed, covered=covered, panel=panel,
+        pressed=pressed, covered=covered, panel=panel, housed=housed,
     )
     # local +Z out the cover, +Y up, +X toward the nose. Left side is a mirror; normals are fixed later.
     frame(part, (sign * x, y, radius + 0.02), (0, 1, 0), (0, 0, 1), (sign, 0, 0))
@@ -1174,7 +1300,16 @@ def build(round_n, lod, out_path):
     seamed = round_n >= 10
     # Round 11 keeps the round-10 surface, and deletes the parts that stood off it.
     flush = round_n >= 11
-    print(f'BUILD round {round_n} lod {lod} detail {detail} rich {rich} bake {bake} faired {faired} loud {loud} split {split} filled {filled} seamed {seamed} flush {flush}')
+    # Round 12 puts the front drums inside the nose prongs and turns every drum
+    # into a flat-faced cylinder. The side circle stays on the old station.
+    housed = round_n >= 12
+    wheel_rows = (
+        (1, 1.48, 0.36),
+        (-1, 1.48, 0.36),
+        (1, -1.92, 0.30),
+        (-1, -1.92, 0.30),
+    )
+    print(f'BUILD round {round_n} lod {lod} detail {detail} rich {rich} bake {bake} faired {faired} loud {loud} split {split} filled {filled} seamed {seamed} flush {flush} housed {housed}')
 
     stations = list(HULL)
     if split:
@@ -1184,8 +1319,13 @@ def build(round_n, lod, out_path):
         stations[0] = (2.55, 1.02, 0.34, 0.50)
         stations[1] = (2.05, 1.06, 0.24, 0.66)
         stations[2] = (1.45, 1.00, 0.18, 0.80)
+    if housed:
+        # Halfway from the 1.45 station to the 0.75 station, on the old centreline.
+        # The flat pod roof is the only new shape, so the side outline stays put
+        # when the channel moves back over the front drums.
+        stations.insert(3, (1.10, 0.99, 0.175, 0.87))
     hull = loft(
-        [hull_section(*row, flare=faired) for row in stations],
+        [hull_section(*row, flare=faired, pod=housed and 1.05 <= row[0] <= 1.50) for row in stations],
         'hull', kit.body, SHARP, 0.9 if rich else 0.0, math.radians(50),
     )
     if detail:
@@ -1195,9 +1335,20 @@ def build(round_n, lod, out_path):
         add_weighted(hull)
     apply_mods(hull, math.radians(32 if detail else 50))
     if split:
-        cut_nose_channel(hull, filled=filled)
+        cut_nose_channel(hull, filled=filled, housed=housed)
+        if housed:
+            for sign, y, radius in wheel_rows:
+                front = y > 0
+                cut_axle_well(
+                    hull, f'well-{sign:+d}-{y:+.2f}', sign, y, radius + 0.02,
+                    radius * HOUSED_TREAD + 0.010,
+                    0.56 if front else 0.50,
+                    # Front opening cuts the outer skin so the drum face is visible
+                    # in the prong, with the roof left arching over it.
+                    1.10 if front else 1.15,
+                )
         if filled:
-            darken_channel(hull)
+            darken_channel(hull, y0=1.04 if housed else 1.76)
     if filled and detail:
         # Thin diagonal slot. The dark gap mesh sits in it; a wide shallow bite just speckled.
         for sign in (1, -1):
@@ -1227,20 +1378,33 @@ def build(round_n, lod, out_path):
 
     seg = SEG[lod]
     slots = 3 if detail else (1 if lod != 'low' else 0)
-    wheels = (
-        (1, 1.48, 0.36),
-        (-1, 1.48, 0.36),
-        (1, -1.92, 0.30),
-        (-1, -1.92, 0.30),
-    )
     drum_x = 0.64 if faired else 0.78
-    for sign, y, radius in wheels:
+    housed_specs = []
+    for sign, y, radius in wheel_rows:
         width = 0.40 if abs(y) > 1 else 0.36
-        place_wheel(
+        # Front drums sit in the prong opening, under the roof, face toward
+        # the side. Rear drums stay in the tail fender.
+        root_x = (0.82 if y > 0 else 0.78) if housed else drum_x
+        part = place_wheel(
             kit, f'drum-{sign:+d}-{y:+.2f}', sign, y, radius, width, seg,
-            slots if y > 0 or detail else 0, x=drum_x, pressed=loud and not split, covered=split,
-            panel=seamed,
+            slots if y > 0 or detail else 0, x=root_x, pressed=loud and not split, covered=split,
+            panel=seamed, housed=housed,
         )
+        if housed:
+            housed_specs.append({
+                'name': f'{sign:+d}-{y:+.2f}',
+                'sign': sign,
+                'y': y,
+                'z': radius + 0.02,
+                'radius': radius,
+                'center_x': root_x + (HOUSED_INNER + HOUSED_OUTER) * 0.5,
+                'well_r': radius * HOUSED_TREAD + 0.010,
+                'well_x1': 1.10 if y > 0 else 1.15,
+                'front': y > 0,
+                'part': part,
+            })
+    if housed:
+        assert_wheels_housed(hull, housed_specs)
     if faired:
         place_skirt(kit, 1, x=0.60, width=0.20, height=0.12, z=0.07)
         place_skirt(kit, -1, x=0.60, width=0.20, height=0.12, z=0.07)
@@ -1268,7 +1432,8 @@ def build(round_n, lod, out_path):
     stick(kit, kit.light_strip('tail', tail_len, tail_h, 0.016, 'red', bezel=bezel), hull, (0, -2.45, 0.46), (0, -1, 0.2))
     amber_len = 0.36 if loud else (0.28 if faired else 0.14)
     amber_h = 0.07 if loud else (0.042 if faired else 0.022)
-    for sign, y in ((1, 1.85), (-1, 1.85), (1, -2.15), (-1, -2.15)):
+    amber_spots = ((1, 2.16), (-1, 2.16), (1, -2.40), (-1, -2.40)) if housed else ((1, 1.85), (-1, 1.85), (1, -2.15), (-1, -2.15))
+    for sign, y in amber_spots:
         stick(
             kit, kit.light_strip(f'amber-{sign:+d}-{y:+.2f}', amber_len, amber_h, 0.012, 'amber', bezel=bezel),
             hull, (sign * 0.95, y, 0.48), (sign, 0.15, 0.2),
@@ -1330,8 +1495,12 @@ def build(round_n, lod, out_path):
                     lay_belt(kit, hull, sign)
                     lay_jamb(kit, hull, sign)
                     if seamed:
+                        # Ahead of the front drum. At 1.55 the panel lands in the wheel well.
+                        cheek_y = 2.12 if housed else 1.55
+                        cheek_z = 0.46 if housed else 0.50
+                        cheek_x = 0.74 if housed else 0.82
                         cheek = kit.panel_inset(f'cheek-{sign:+d}', 0.48, 0.18, rim=0.018)
-                        stick(kit, cheek, hull, (sign * 0.82, 1.55, 0.50), (sign, 0.15, 0.45))
+                        stick(kit, cheek, hull, (sign * cheek_x, cheek_y, cheek_z), (sign, 0.15, 0.45))
                         quarter = kit.panel_inset(f'quarter-{sign:+d}', 0.36, 0.14, rim=0.014)
                         stick(kit, quarter, hull, (sign * 0.95, -1.05, 0.62), (sign, -0.1, 0.35))
                 elif filled:
@@ -1363,7 +1532,10 @@ def build(round_n, lod, out_path):
         elif not faired and not split:
             box('hood-satin', (-0.28, 1.20, 0.70), (0.28, 1.85, 0.732), kit.satin)
         if filled:
-            stick(kit, kit.seam('cowl-seam', 1.15, 0.022, 0.014), hull, (0, 1.28, 0.80), (0, 0, 1), lift=0.002)
+            # The housed slot comes back to the windshield, so the old cowl ray falls into it.
+            cowl_y = 0.96 if housed else 1.28
+            cowl_z = 0.90 if housed else 0.80
+            stick(kit, kit.seam('cowl-seam', 1.15, 0.022, 0.014), hull, (0, cowl_y, cowl_z), (0, 0, 1), lift=0.002)
             if seamed:
                 for i, guess in enumerate((
                     (0.98, 0.35, 0.82),

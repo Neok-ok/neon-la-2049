@@ -10,6 +10,12 @@ import bmesh
 import bpy
 from mathutils import Matrix, Vector
 
+# Housed drum, local metres. The circle is in XY and +Z points out of the face.
+# The tread is short on purpose: a long barrel shaded across the rim reads as a ball.
+HOUSED_INNER = -0.05
+HOUSED_OUTER = 0.17
+HOUSED_TREAD = 0.98
+
 
 def _link(obj, collection):
     collection.objects.link(obj)
@@ -93,6 +99,34 @@ def _drop_cap(obj, z_min):
     bm.to_mesh(obj.data)
     bm.free()
     obj.data.update()
+
+
+def _open_drum(name, radius, z_inner, z_outer, hole, segments, mat, collection):
+    """Tread along Z. The outer face is a ring, so a metal disc can sit in the hole."""
+    bm = bmesh.new()
+
+    def ring(z, r):
+        verts = []
+        for i in range(segments):
+            a = i * math.tau / segments
+            verts.append(bm.verts.new((math.cos(a) * r, math.sin(a) * r, z)))
+        return verts
+
+    outer_back = ring(z_inner, radius)
+    outer_front = ring(z_outer, radius)
+    hole_front = ring(z_outer, hole)
+    # A short step behind the ring gives the metal face a seat without covering it.
+    hole_seat = ring(z_outer - 0.016, hole)
+    for i in range(segments):
+        j = (i + 1) % segments
+        bm.faces.new((outer_back[i], outer_back[j], outer_front[j], outer_front[i]))
+        bm.faces.new((outer_front[i], outer_front[j], hole_front[j], hole_front[i]))
+        bm.faces.new((hole_front[i], hole_front[j], hole_seat[j], hole_seat[i]))
+    try:
+        bm.faces.new(list(reversed(outer_back)))
+    except ValueError:
+        pass
+    return _finish(bm, name, mat, collection)
 
 
 def _cylinder(name, radius, depth, segments, mat, collection, center=(0, 0, 0)):
@@ -546,15 +580,44 @@ class Kit:
             ))
         return self._root(name, meshes)
 
-    def wheel_housing(self, name, radius=0.36, width=0.34, segments=24, slots=3, pressed=False, covered=False, panel=False):
+    def wheel_housing(self, name, radius=0.36, width=0.34, segments=24, slots=3, pressed=False, covered=False, panel=False, housed=False):
         """Enclosed drum. Local +Z is out of the cover, circle in XY.
 
+        housed: a short rubber tread and a flat metal face. The corner between
+        them is a hard rim. The tread lip is the tyre. No slots, no chrome ring.
         covered: one flat body-coloured disc. No lip, no hub, no slots.
         panel: the same cover, with the centre set back so the close-up has a seam.
         Otherwise the face is a cap with an optional pressed ring and intake slots.
         """
         col = self.collection
         meshes = []
+        if housed:
+            tread_r = radius * HOUSED_TREAD
+            # The hole is most of the face. A solid rubber cap hid the metal disc
+            # and the close-up read as a plain ball.
+            hole = tread_r * 0.78
+            meshes.append(_open_drum(
+                name + '-tread', tread_r, HOUSED_INNER, HOUSED_OUTER, hole, segments, self.rubber, col,
+            ))
+            face_depth = 0.05
+            face_outer = HOUSED_OUTER - 0.02
+            meshes.append(_cylinder(
+                name + '-face', hole * 0.96, face_depth, segments, self.drum, col,
+                (0, 0, face_outer - face_depth * 0.5),
+            ))
+            hub_r = tread_r * 0.34
+            hub_depth = 0.046
+            hub_outer = HOUSED_OUTER - 0.012
+            meshes.append(_cylinder(
+                name + '-hub', hub_r, hub_depth, max(8, segments // 2), self.drum, col,
+                (0, 0, hub_outer - hub_depth * 0.5),
+            ))
+            part = self._root(name, meshes)
+            # 42° smooths the barrel (the coarsest ring is 22.5°) and leaves the
+            # 90° rim sharp. Smoothing that corner is what made the ball.
+            for obj in part.meshes:
+                _shade(obj, math.radians(42))
+            return part
         if covered:
             # Same outer radius as the old lip, so the side bulge does not move.
             # The barrel runs from inside the skirt out through the cover, so the

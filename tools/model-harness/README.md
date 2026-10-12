@@ -22,7 +22,7 @@ Blender 4.0 or newer, and [gltfpack 1.1](https://github.com/zeux/meshoptimizer/r
 
 ```bash
 blender --background --python tools/model-harness/blender/build_spinner.py -- \
-  --round 11 --lod all --out public/models/spinner
+  --round 12 --lod all --out public/models/spinner
 ```
 
 `--lod high` (or `medium` / `low`) with `--out` a file path writes one glTF. `--round` is the critic cut:
@@ -39,7 +39,8 @@ blender --background --python tools/model-harness/blender/build_spinner.py -- \
 | 8 | Front-only nose slot with a filled roof, door grooves, a louver deck, worn gunmetal |
 | 9 | Wider gullwing gap, louver field, recessed nose slot, flat gunmetal roughness, clearcoat |
 | 10 | Smoked glass, inset louver fins, panel seams on the nose and drums, worn paint, flat normal. Canopy outline stays the filled round-9 profile. Kept as `fixtures/spinner-round10-high.glb` because the cabin fins, roof rod, and rear slab fail the stray gate |
-| 11 | Same body as round 10, with those parts either seated on the skin or removed. Gullwing, belt, and louvers are short pieces on the surface. The open nose channel stays. This is the shipping cut |
+| 11 | Same body as round 10, with those parts either seated on the skin or removed. Gullwing, belt, and louvers are short pieces on the surface. The open nose channel stays |
+| 12 | Front drums housed inside the nose prongs. Every drum is a flat-faced cylinder with a tire lip, not a ball. The open channel stays between the prongs and does not cut the roof. This is the shipping cut |
 
 The script is the source of truth. Blender is Z-up with the nose on +Y; the glTF is Y-up with the nose on -Z, origin on the ground-contact centre. The M2 box is 5.45 × 2.32 × 1.36 m. The bar is `spinner-look-target.md`.
 
@@ -104,7 +105,7 @@ In the game, park the craft beside the crowd, in a street, and next to a doorway
 
 `critic/RUBRIC.md` is the only brief the scorer gets. The scorer is a fresh pass: the contact sheet, the stills (side, front, rear, the top plan, the flight overhead, and the roof overhead), and the rubric. No build notes, no earlier scores, no IoU. Official numbers live in `reviews/m2/roundN-critic.md`. Whatever the person who edited the mesh thought goes in `reviews/m2/roundN-notes.md` and does not replace the critic.
 
-M1 sheets stay in `reviews/` as the baseline (silhouette 7, surface 6, lighting 6, material 5, film 6). M2 sheets live in `reviews/m2/`. M3 scores live in `reviews/m3/`. Stop when "reads as K's spinner" is at least 7 and no rubric column has fallen below that M1 row. From M3 on, every column has to be at least 7, and a yes on stray parts fails the mesh.
+M1 sheets stay in `reviews/` as the baseline (silhouette 7, surface 6, lighting 6, material 5, film 6). M2 sheets live in `reviews/m2/`. M3 scores live in `reviews/m3/`. Stop when "reads as K's spinner" is at least 7 and no rubric column has fallen below that M1 row. From M3 on, every column has to be at least 7, and a yes on stray parts fails the mesh. From M4 on, the scorer also answers whether the front wheels are housed inside the front prongs. A no fails the mesh.
 
 The critic also gets the close-ups, not only the contact sheet, and has to answer whether any part looks like it doesn't belong, sticks out, or floats. A yes fails the mesh.
 
@@ -126,6 +127,8 @@ The limit is the smaller of 3 cm and 1% of the length. The gate reports the furt
 3. **Thin plates and spikes.** Thickness under 2 cm, or an aspect ratio over 20:1. A whitelist entry can excuse one when it is on the car and the reason says why (a louver fin in the deck, the POLICE card, a drum face). The gap to the main body has to be within that entry's allowance.
 
 `fixtures/spinner-round10-high.glb` is the mesh that shipped with the fins, the roof rod, and the rear slab. `npm run stray` asserts that this file fails, and that the three shipping tiers pass.
+
+The shipping spinner also has to house its drums. The check finds the four rubber treads and requires each one to be a short cylinder rather than a ball, with a fender over it and the centre inboard of the pod skin. The front pair has to sit in the nose prongs, the prong has to continue ahead of each front drum, and the channel between the prongs has to stay open.
 
 The same gate runs on the ground car and the hauler. Their outline is the envelope in `build_traffic.py`, not K's trace. Lamps are still left out of the silhouette, and the side and front views include the tyres. `stray-traffic.json` justifies the places that envelope is a simplified plan: the car's nose and rocker, the hauler's cab roof and the fifth-wheel step. A plate on the trailer roof is not in those boxes. Pass `--kind car` or `--kind hauler` to check one file.
 
