@@ -248,7 +248,7 @@ function monolith(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
   // It belongs on the street face, starting one storey above the door.
   const slitH = Math.min(H * 0.7, Math.max(12, H - 6));
   addBox(d, {
-    s: faceS - 0.35, t: faceW * 0.22, lb: 2.4, la: 0.7, h: slitH, base: y0 + STOREY,
+    s: faceS - 0.35, t: faceW * 0.08, lb: 2.4, la: 0.7, h: slitH, base: y0 + STOREY,
     style: Style.Glow, lit: 0.72, tint: 1.15, detail: 0, role: 'mass',
   });
   glowCrown(d, 0, 0, spec.w * 0.12, spec.d * 0.12, y0 + H, 5);

@@ -82,11 +82,11 @@ function placeStreet(arg) {
   // Stairs run toward +t, except the lantern, whose flight is on the open arm of the cross.
   // The lantern bar sticks ~17 m past the slab, so that camera has to stand past the bar.
   const posed = {
-    'hero-obelisk': { camLat: -6.2, out: 11.5, pitch: 0.14, mix: 0 },
-    'hero-step': { camLat: 3.4, out: 15.5, pitch: 0.3, mix: 0.12 },
-    'hero-gate': { camLat: 2.4, out: 12.5, pitch: 0.1, mix: 0.2 },
+    'hero-obelisk': { camLat: -3.2, out: 12.5, pitch: 0.16, mix: 0 },
+    'hero-step': { camLat: 2.2, out: 14, pitch: 0.24, mix: 0.1 },
+    'hero-gate': { camLat: -3.2, out: 16, pitch: 0.2, mix: 0.1 },
     'band-slab': { camLat: -5.6, out: 15.5, pitch: 0.14, mix: 0.1 },
-    monolith: { camLat: 6.2, out: 10.2, pitch: 0.2, mix: 0 },
+    monolith: { camLat: 4.2, out: 11.5, pitch: 0.22, mix: 0 },
     lantern: { camLat: -3.4, out: 9.4, pitch: 0.18, mix: 0.12 },
     cantilever: { camLat: -4.4, out: 13, pitch: 0.18, mix: 0.12 },
   };
@@ -174,14 +174,15 @@ function placeStreet(arg) {
   const mesh = crowd?.mesh;
   if (crowd && mesh) {
     if (!crowd.__b1Orig) crowd.__b1Orig = crowd.update.bind(crowd);
-    const hideKind = p.kind === 'hero-obelisk' || p.kind === 'monolith'
-      || p.kind === 'hero-step' || p.kind === 'cantilever' || p.kind === 'band-slab';
+    const hideKind = hero || p.kind === 'monolith' || p.kind === 'cantilever' || p.kind === 'band-slab';
     const hide = (x, z) => {
       if (!hideKind || phase !== 'final') return false;
       if (person && Math.hypot(x - person.x, z - person.z) < 0.45) return false;
       // A coat against the lens becomes a cropped umbrella and hides the door.
       if (Math.hypot(x - cx, z - cz) < 4.2) return true;
       const lat = latOf(x, z);
+      // The apron crowd runs off the frame and hides the opening.
+      if (hero && Math.abs(lat) > 6.2) return true;
       const dep = depOf(x, z);
       const half = p.kind === 'hero-obelisk' ? 2.4 : 1.45;
       if (Math.abs(lat) < half && dep > -0.6 && dep < 8) return true;
@@ -322,9 +323,17 @@ for (const tier of tiers) {
           reach = Math.max(p.d, p.w) * 1.35;
           lateral = p.w * 0.95;
         } else if (holo) {
-          reach = Math.max(p.d, p.w) * 0.85 + Math.min(80, p.height * 0.2);
-          lateral = 26;
-          y = p.ground + p.height * 0.38;
+          reach = Math.max(p.d, p.w) * 0.9 + Math.min(70, p.height * 0.16);
+          lateral = 22;
+          y = p.ground + p.height * 0.42;
+        } else if (p.kind === 'buttress') {
+          reach = Math.max(p.d, p.w) * 1.15 + p.height * 0.18;
+          lateral = Math.max(p.w, p.d) * 0.9;
+          y = p.ground + p.height * 0.26;
+        } else if (p.kind === 'cantilever') {
+          reach = Math.max(p.d, p.w) * 1.7 + p.height * 0.12;
+          lateral = Math.max(p.w, p.d) * 0.42;
+          y = p.ground + p.height * 0.18;
         } else if (gate) {
           reach = Math.max(120, p.height * 0.32);
           lateral = 52;
@@ -355,9 +364,20 @@ for (const tier of tiers) {
         const nla = window.__nla;
         const q = nla.app.query;
         const face = 1;
-        const side = p.kind === 'hero-gate' ? 0.28 : 0.06;
-        let dist = Math.max(480, p.height * 1.35);
-        let y = p.ground + Math.max(80, Math.min(240, p.height * 0.42));
+        const framed = {
+          buttress: { dist: 260, yF: 0.28, side: 0.46, aim: 0.42 },
+          cantilever: { dist: 420, yF: 0.14, side: 0.32, aim: 0.42 },
+          'res-stack': { dist: 240, yF: 0.3, side: 0.5, aim: 0.48 },
+          'hero-step': { dist: 380, yF: 0.16, side: 0.46, aim: 0.42 },
+          'hero-gate': { dist: 340, yF: 0.28, side: 0.5, aim: 0.46 },
+          'hero-obelisk': { dist: 320, yF: 0.26, side: 0.38, aim: 0.48 },
+          'holo-shaft': { dist: 170, yF: 0.55, side: 0.18, aim: 0.42 },
+          monolith: { dist: 220, yF: 0.28, side: 0.32, aim: 0.42 },
+        };
+        const shot = framed[p.kind];
+        const side = shot ? shot.side : 0.06;
+        let dist = shot ? shot.dist : Math.max(480, p.height * 1.35);
+        let y = p.ground + (shot ? p.height * shot.yF : Math.max(80, Math.min(240, p.height * 0.42)));
         let px = p.center[0];
         let pz = p.center[1];
         for (let i = 0; i < 7; i++) {
@@ -365,12 +385,12 @@ for (const tier of tiers) {
           pz = p.center[1] + p.normal[1] * dist * face + p.bz * dist * side;
           const blocked = q.insideSolid(px, y, pz, 14) || q.insideLandmark(px, y, pz, 18);
           if (!blocked) break;
-          dist += 140;
-          y += 45;
+          dist += shot ? 80 : 140;
+          y += shot ? 24 : 45;
         }
         const ax = p.center[0];
         const az = p.center[1];
-        const ay = p.ground + p.height * 0.62;
+        const ay = p.ground + p.height * (shot ? shot.aim : 0.62);
         const heading = Math.atan2(ax - px, -(az - pz));
         const pitch = Math.atan2(ay - y, Math.hypot(ax - px, az - pz));
         if (nla.app.cams.mode !== 'fly') nla.setMode('fly');
