@@ -209,7 +209,7 @@ export function updateLaunch(elapsed: number, tier: Tier, windRad: number, wind:
   writeQuad(0, p.x, base + 6, p.z, 8 + ignite * 10, 0.55, 0);
   writeQuad(1, p.x, base + len * 0.5, p.z, 7 + ignite * 5, len / Math.max(8, 28), 1);
   writeQuad(2, p.x, base + len * 0.48, p.z, halfW * 0.42, (len * 0.55) / Math.max(10, halfW), 1);
-  writeQuad(3, p.x, head, p.z, 32 + Math.min(1, u / 0.5) * 28, 1.15, 2);
+  writeQuad(3, p.x, head, p.z, 10 + Math.min(1, u / 0.5) * 8, 0.72, 2);
   if (ctr) ctr.needsUpdate = true;
   if (crn) crn.needsUpdate = true;
 }

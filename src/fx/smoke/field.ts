@@ -88,7 +88,7 @@ export class SmokeField {
     this.mesh = new Mesh(this.geo, smokeMaterial(false));
     this.mesh.name = 'smoke-field';
     this.mesh.frustumCulled = false;
-    this.mesh.renderOrder = 4;
+    this.mesh.renderOrder = 8;
     this.mesh.visible = false;
     this.volume = launchVolumeMesh();
     scene.add(this.mesh, this.volume);
@@ -299,7 +299,7 @@ export class SmokeField {
         life: 26 + smokeRand() * 14,
         age: smokeRand() * 3,
         size0: tier === 'low' ? 10 : 8,
-        size1: tier === 'low' ? 24 : 52,
+        size1: tier === 'low' ? 28 : 78,
         kind: KIND.column,
         heat: Math.max(0, 1 - rad / 14) * (1 - along / Math.max(h, 1) * 0.45),
         fade: 5200,
@@ -449,7 +449,7 @@ export class SmokeField {
       const fadeIn = Math.min(1, u / 0.06);
       const fadeOut = Math.min(1, (1 - u) / 0.28);
       const kind = pool.kind[i]!;
-      const baseA = kind >= KIND.column ? 0.64 : kind === KIND.stack ? 0.46 : 0.86;
+      const baseA = kind >= KIND.column ? 0.38 : kind === KIND.stack ? 0.5 : 0.88;
       const alpha = fadeIn * fadeOut * baseA;
       // A fat fade against the street deletes a 1 m puff whose card touches the ground.
       const soft = Math.max(0.15, Math.min(4.5, size * 0.08));
