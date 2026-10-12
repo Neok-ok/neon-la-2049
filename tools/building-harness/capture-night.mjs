@@ -379,16 +379,10 @@ for (const tier of tiers) {
         // before climbing, so a blocked start does not become a roof shot.
         const feature = {
           'holo-shaft': [
-            { dist: 120, yF: 0.42, side: 0.12, aim: 0.46 },
-            { dist: 145, yF: 0.4, side: -0.1, aim: 0.46 },
-            { dist: 100, yF: 0.38, side: 0.16, aim: 0.44 },
-            { dist: 170, yF: 0.45, side: 0.06, aim: 0.48 },
+            { dist: 112, y: p.ground + p.height * 0.42, sideM: 18, aim: 0.46 },
           ],
           cantilever: [
-            { dist: 115, yF: 0.22, side: 0.28, aim: 0.32 },
-            { dist: 140, yF: 0.26, side: -0.22, aim: 0.34 },
-            { dist: 95, yF: 0.18, side: 0.18, aim: 0.3 },
-            { dist: 165, yF: 0.3, side: 0.12, aim: 0.36 },
+            { dist: Math.max(p.d, p.w) * 1.35 + 42, y: p.ground + Math.max(38, p.height * 0.2), sideM: Math.max(p.w, p.d) * 0.5, aim: 0.3 },
           ],
         };
         const tries = feature[p.kind];
@@ -398,26 +392,15 @@ for (const tier of tiers) {
         let pz = p.center[1];
         let aimF;
         if (tries) {
-          const pick = tries[tries.length - 1];
-          dist = pick.dist;
-          y = p.ground + p.height * pick.yF;
-          aimF = pick.aim;
-          px = p.center[0] + p.normal[0] * dist * face + p.bx * dist * pick.side;
-          pz = p.center[1] + p.normal[1] * dist * face + p.bz * dist * pick.side;
-          for (const shot of tries) {
-            const sy = p.ground + p.height * shot.yF;
-            const sx = p.center[0] + p.normal[0] * shot.dist * face + p.bx * shot.dist * shot.side;
-            const sz = p.center[1] + p.normal[1] * shot.dist * face + p.bz * shot.dist * shot.side;
-            const blocked = q.insideSolid(sx, sy, sz, 12) || q.insideLandmark(sx, sy, sz, 16);
-            if (!blocked) {
-              dist = shot.dist;
-              y = sy;
-              px = sx;
-              pz = sz;
-              aimF = shot.aim;
-              break;
-            }
-          }
+          // These match the flyby that already frames the feature. The solid
+          // test was rejecting that air and keeping a shot against a wall.
+          const shot = tries[0];
+          const sideM = shot.sideM;
+          dist = shot.dist;
+          y = shot.y;
+          aimF = shot.aim;
+          px = p.center[0] + p.normal[0] * dist * face + p.bx * sideM;
+          pz = p.center[1] + p.normal[1] * dist * face + p.bz * sideM;
         } else {
           const shot = framed[p.kind];
           const side = shot ? shot.side : 0.06;
