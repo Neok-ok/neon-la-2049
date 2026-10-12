@@ -153,7 +153,7 @@ function addMarket(
       const az = lane ? lane.fz : fz;
       const lx = -az;
       const lz = ax;
-      const vent = laneSpot(query, x, s.y, z, ax, az, lx, lz, 8.4, 0.9, 0.22);
+      const vent = laneSpot(query, x, s.y, z, ax, az, lx, lz, 5.6, 0.15, 0.35);
       vents.push(make({
         x: vent.x,
         y: vent.y,
@@ -161,8 +161,8 @@ function addMarket(
         kind: KIND.vent,
         rate: 9,
         life: 2.0,
-        size0: 0.26,
-        size1: 0.68,
+        size0: 0.42,
+        size1: 0.95,
         heat: 0,
         radius: 0.08,
         spread: 0.05,
@@ -171,7 +171,7 @@ function addMarket(
         aspect: 2.2,
         floorY: s.y,
       }));
-      const hole = laneSpot(query, x, s.y, z, ax, az, lx, lz, 11.2, -1.7, 0.1);
+      const hole = laneSpot(query, x, s.y, z, ax, az, lx, lz, 9.4, -1.8, 0.12);
       holes.push(make({
         x: hole.x,
         y: hole.y,
@@ -196,19 +196,19 @@ function addMarket(
       const rx = fz;
       const rz = -fx;
       let best: { x: number; z: number; roof: number; score: number } | null = null;
-      for (const along of [8, 14, 20, 26]) {
-        for (const side of [-16, -10, -6, 6, 10, 16]) {
+      for (const along of [6, 10, 14, 18, 24, 30]) {
+        for (const side of [-22, -14, -8, 8, 14, 22]) {
           const px = x + fx * along + rx * side;
           const pz = z + fz * along + rz * side;
           const roofY = query.floorBelow(px, y + 4, pz, true);
-          if (!(roofY > s.y + 6) || roofY > y - 1.2) continue;
+          if (!(roofY > s.y + 4) || roofY > y - 1.2) continue;
           const dist = Math.hypot(px - x, pz - z) || 1;
-          if (dist < 7 || dist > 18) continue;
+          if (dist < 6 || dist > 28) continue;
           const sy = roofY + 2.8;
           const pitch = Math.atan2(sy - y, dist);
-          if (pitch > -0.22 || pitch < -1.35) continue;
+          if (pitch > -0.15 || pitch < -1.35) continue;
           if (query.insideSolid(px, sy, pz, 0.5, true)) continue;
-          const score = Math.abs(dist - 12) * 0.25 + Math.abs(pitch + 0.7) * 2;
+          const score = Math.abs(dist - 14) * 0.2 + Math.abs(pitch + 0.62) * 2;
           if (!best || score < best.score) best = { x: px, z: pz, roof: roofY, score };
         }
       }

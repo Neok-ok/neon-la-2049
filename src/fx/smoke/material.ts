@@ -107,7 +107,8 @@ function shade(lit: boolean): MeshBasicNodeMaterial {
     // A few nits, not authoredLift. A window is 18 nits (~0.78 after the night exposure).
     // Steam at ~4 nits is a dark wisp (~0.19) and the lamps still add on top.
     const sootK = barrel.add(stack).add(exhaustK);
-    const ash = vec3(0.78, 0.8, 0.82).mul(steam).mul(5.5)
+    // 16 × ~0.84 is about 13 nits. One sheer card still reads; a stack stays under an 18-nit window.
+    const ash = vec3(0.82, 0.84, 0.86).mul(steam).mul(16.0)
       .add(vec3(0.5, 0.48, 0.45).mul(sootK).mul(7.0))
       .add(vec3(0.72, 0.68, 0.62).mul(launch).mul(8.0));
 
