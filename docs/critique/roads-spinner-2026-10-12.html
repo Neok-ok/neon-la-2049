@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roads and K's spinner — 12 October 2026</title>
+<style>
+  :root { color-scheme: light; }
+  body { margin: 0; font: 17px/1.5 "Iowan Old Style", Palatino, Georgia, serif; color: #1c1915; background: #f4f0e8; }
+  header, main { max-width: 980px; margin: 0 auto; padding: 28px 20px 64px; }
+  h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 8px; }
+  h2 { font-size: 1.4rem; margin: 2.2rem 0 0.4rem; }
+  h3 { font-size: 1.05rem; margin: 1.4rem 0 0.3rem; }
+  p { margin: 0.5rem 0 0.8rem; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.84em; }
+  nav { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 14px 0; }
+  nav a { color: #134e4a; }
+  table { width: 100%; border-collapse: collapse; background: #fff; margin: 10px 0 22px; font-size: 0.92rem; }
+  th, td { border-bottom: 1px solid #e4dfd4; text-align: left; vertical-align: top; padding: 8px 10px; }
+  th { background: #efeae0; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  figure { margin: 14px 0 22px; }
+  img { width: 100%; height: auto; background: #111; }
+  figcaption { color: #5c564c; font-size: 0.9rem; margin-top: 6px; }
+  .lead { font-size: 1.08rem; }
+  .yes { background: #e7f2ea; }
+  .no { background: #f8ece4; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Roads and K's spinner</h1>
+  <p class="lead">12 October 2026. Night rain on <code>main</code> at <code>54170d8</code>. Docs only. No film frames in the repo.</p>
+  <nav>
+    <a href="#verdict">Verdict</a>
+    <a href="#stranger">Stranger</a>
+    <a href="#roads">Roads</a>
+    <a href="#tiers">Tiers</a>
+    <a href="#spinner">Spinner</a>
+    <a href="#passes">Passes</a>
+    <a href="#sources">Sources</a>
+  </nav>
+</header>
+<main>
+
+<h2 id="verdict">Verdict</h2>
+<p class="yes"><strong>Spinner: yes, approve it.</strong> Every spinner column is at least 7. Stray parts: no. Front wheels sit in the prongs. That is the gate for the LAPD, City Hall, and Wallace model-harness redo.</p>
+<p class="no"><strong>Roads: no.</strong> Lakewood, the downtown avenue, South LA, the Arts District, East LA, the harbor, and the freeway now read as streets. K's ground, the sea-wall blocks, the market aisle, the Wallace apron, and the Hollywood street camera do not. Crosswalks break up close. Wet asphalt is a black sheet, or, when the mirror is forced on, a sharp picture of the signs.</p>
+<p>The same text is in <a href="roads-spinner-2026-10-12.md">roads-spinner-2026-10-12.md</a>. Game code was not edited.</p>
+
+<h2>How this was looked at</h2>
+<p>Headless Chrome 148, WebGL2 on SwiftShader. This machine has no real GPU, so the planar wet mirror stays off unless <code>?refl=1</code>. Night rain, time 22.5, frozen weather, UI hidden. Desktop 1280×720. Phone 390×844 at device scale 1, with the touch sticks. Tiers are the query <code>quality</code>. There is no iPhone draw cap in these numbers.</p>
+<p>The spinner pictures are the shipping glTF on the harness turntable. Comparison stills were fetched into gitignored <code>tools/model-harness/.refs/</code> and placed beside the model for the top, front, side, and rear. Those pixels are not in this commit.</p>
+<p>Harness box, all three tiers: <strong>5.45 × 2.32 × 1.36 m</strong>. Triangles: high 6,894, medium 3,786, low 2,242. On the scale rig the roof is 0.78 of a 1.75 m figure, and the width is 0.63 of a 3.70 m lane.</p>
+
+<h2 id="stranger">What a stranger sees</h2>
+<p>Night rain. One residential road is black. A yellow pair runs down the middle. White lines mark the edges and break into dashes. Pairs of white and red lights sit between the lines. Lamp heads glow at the sides. The pavement under them stays dark. A low black shape with a red strip at the tail and a small red-and-blue lamp on the roof sits over the left side of that road. A person with an umbrella stands on the right edge, smaller than the gap between the white lines.</p>
+<p>On the neon canyon the near corner is a white hash of bars that cross each other. Stand on it and the white is speckled. Farther along, a double yellow and white dashes show on black pavement. Force the mirror and the same corner reflects the signs as a sharp picture, paint included.</p>
+<p>At the foot of the dark slab, between the sea-wall blocks, and in the night-market aisle, the ground is a flat sheet. No yellow line. No raised curb.</p>
+<p>The black vehicle, from the front on a turntable, is a long low wedge. The nose is two arms with an open slot between them, where a hood would be. Round drums sit in those arms and again at the tail. The roof is one smooth line with a low lamp. Nothing stands up as a fin, a spike, or a slab off the tail. The flank reads POLICE. A 1.75 m figure is taller than the roof. The body is narrower than a 3.70 m lane.</p>
+<p>A stranger would call the residential road a street. They would not call the slab's ground or the sea-wall gap a street. They would call the vehicle K's spinner from the front and from above. From behind, in the street, they would call it a low black police craft. The open nose is the part that takes the front view.</p>
+
+<h2 id="roads">Roads</h2>
+<table>
+  <thead>
+    <tr><th>Check</th><th>Score</th><th>What the frames show</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Lane width vs cars and people</td><td class="num">6</td><td>On Lakewood a dark car sits in one lane, and from above the headlight pairs sit between the white lines. People on the South LA sidewalk are a fraction of that lane. On DTLA and the downtown avenue, people stand on the paint. Many cars are only a white blob and a red blob.</td></tr>
+    <tr><td>Markings</td><td class="num">5</td><td>Double yellow and white dashes read at a distance on Lakewood, the avenue, Arts District, South LA, and the freeway. Broadway and South LA crosswalks are lattices of speckled bars. Low drops the paint.</td></tr>
+    <tr><td>Wet reflection</td><td class="num">4</td><td>High and ultra on this software GPU stay black, with vehicle lights as soft blobs. Forcing the mirror (<code>refl=1</code>) reflects the canyon signs as a sharp picture. Draws go from 211 to 412.</td></tr>
+    <tr><td>Curb, sidewalk, buildings</td><td class="num">5</td><td>Broadway and South LA have a walk beside the wall. DTLA's edge is a flat color change. K, the market aisle, and the coast blocks have no curb.</td></tr>
+    <tr><td>Sodium pool on the asphalt</td><td class="num">3</td><td>Lamp heads are visible on Broadway, Lakewood, the harbor, and the freeway. A Broadway sample under the lamps is about (22, 15, 10) a few metres from the head. The pool does not cross the lane.</td></tr>
+    <tr><td>Missing roads on major corridors</td><td class="num">4</td><td>K, the sea-wall blocks, the Wallace apron, the market aisle, and the Hollywood street camera have no lane paint. Downtown, Broadway, Lakewood, South LA, Arts, East LA, the harbor, and the freeway do.</td></tr>
+  </tbody>
+</table>
+<p>Overall roads: <strong>5</strong>. Recognisable where the street graph is paved and the camera is in the lane. Not finished.</p>
+
+<h3>Where a street reads</h3>
+<p>Lakewood, high, night rain. Camera about <code>[9403, 1.7, 22255]</code>. 163 draws, 454 k triangles, 6 ground cars. A box-shaped car sits between white lines, double yellow to its right, lamps down the road. From 43 m up the same street is a black ribbon: yellow centre, white edges, dashes, and rows of headlight and taillight pairs in the lanes.</p>
+<figure>
+  <img src="img/rs-lakewood-top.jpg" alt="Lakewood road from above at night, yellow centre line, white edges, rows of vehicle lights">
+  <figcaption>Lakewood from about 43 m. High, night rain. Vehicle lights sit between the white lines.</figcaption>
+</figure>
+<figure>
+  <img src="img/rs-lakewood.jpg" alt="Eye-level Lakewood street at night with a dark car in the lane and street lamps">
+  <figcaption>Same district at eye height. The car body is visible, and it sits in one lane.</figcaption>
+</figure>
+<p>The downtown avenue (ultra, <code>trafficView('intersection')</code>, camera <code>[-665, 1.7, 1189]</code>) is the same paint at eye height: double yellow, a white edge, a crosswalk, a red light and a white light sitting in the lane. 369 draws, 1.24 M triangles, 59 ground cars. People fill the crossing. The car body is the lights. Phone 390×844, medium, 201 draws: the same crossing, sticks over the near paint.</p>
+<figure>
+  <img src="img/rs-avenue.jpg" alt="Night avenue with double yellow, a white edge line, a crosswalk, and people">
+  <figcaption>Downtown avenue, ultra. Paint reads. People occupy the crossing. Cars read as lights.</figcaption>
+</figure>
+<figure>
+  <img src="img/rs-avenue-phone.jpg" alt="The same avenue on a narrow phone screen with touch controls">
+  <figcaption>390×844, medium. The crossing is still there. The sticks cover the near paint.</figcaption>
+</figure>
+<p>South LA spine, high: arrows, a crosswalk, double yellow, people on the left sidewalk, a dark vehicle in the intersection. 136 draws, 434 k triangles. Arts District, high: double yellow and dashes on black asphalt, 169 draws. East LA: a large dark vehicle beside people, a yellow line farther down, 135 draws. Harbor: white lane lines and lamp heads, 88 draws. Freeway: a yellow dash and a white marking from above, lamps along the deck, rain streaks over most of the frame, 121 draws, camera y about 28 m.</p>
+<figure>
+  <img src="img/rs-southla.jpg" alt="South LA intersection with arrows, a crosswalk, and a double yellow line">
+  <figcaption>South LA. Arrows read. The crosswalk is the same noisy white field as Broadway.</figcaption>
+</figure>
+<figure>
+  <img src="img/rs-arts.jpg" alt="Arts District road at night with a double yellow line and white dashes">
+  <figcaption>Arts District. Double yellow and dashes on black asphalt.</figcaption>
+</figure>
+<figure>
+  <img src="img/rs-eastla.jpg" alt="A large dark vehicle beside people on an East LA street at night">
+  <figcaption>East LA. A large dark vehicle beside people. A yellow line is farther down the street.</figcaption>
+</figure>
+<figure>
+  <img src="img/rs-harbor.jpg" alt="Harbor street at night with white lane lines and bright lamp heads">
+  <figcaption>Harbor. White lane lines and lamp heads. The heads do not wash the lane.</figcaption>
+</figure>
+<figure>
+  <img src="img/rs-freeway.jpg" alt="Freeway at night seen from above, yellow dashes and lamps, heavy rain streaks">
+  <figcaption>Freeway from above. Yellow dashes and lamps. Rain streaks cover most of the frame.</figcaption>
+</figure>
+
+<h3>Where the paint fails up close</h3>
+<p>Broadway, high, <code>broadwayView('street')</code>, camera <code>[-373, 1.7, 121]</code>, historic core. 211 draws, 639 k triangles, 37 cars, crowd 245. The near corner is two directions of white bars crossing into a hash. Zoomed, each bar is speckled, not a solid stripe. The double yellow farther down is two clean lines with a dark gap. A sidewalk and lamp heads sit on the left. People stand on the right. The asphalt band in the mid-road is mostly under (30, 25, 20).</p>
+<figure>
+  <img src="img/rs-broadway-night.jpg" alt="Broadway at night with a white hashed crosswalk in the foreground">
+  <figcaption>Broadway, high. The near corner is a hash. The double yellow farther on is readable.</figcaption>
+</figure>
+<figure>
+  <img src="img/rs-broadway-crosswalk.jpg" alt="Enlarged speckled white bars crossing each other on black asphalt">
+  <figcaption>The same corner, enlarged. Bars cross, and the white is speckled.</figcaption>
+</figure>
+<p>The same corner at medium (146 draws, 539 k triangles, 20 cars, crowd 115) is the same hash. Ultra is the same street with a heavier crowd (207 draws, 774 k triangles, 59 cars, crowd 490). Low (426 draws, 500 k triangles, 0 cars, crowd 40) drops the paint. The foreground samples as (0, 0, 0). The canyon signs remain. Phone medium, 390×844, 127 draws: the hash is a corner patch and the sticks cover the yellow.</p>
+<figure>
+  <img src="img/rs-broadway-low.jpg" alt="Broadway at low quality, a dark street with no lane paint">
+  <figcaption>Broadway, low. The paint is gone. The signs remain. Draws are 426 because the streaks replace the cars.</figcaption>
+</figure>
+<figure>
+  <img src="img/rs-broadway-phone.jpg" alt="Broadway on a phone, signs above a dark street and touch controls">
+  <figcaption>Broadway, 390×844, medium. The hash is a corner. The sticks cover the yellow.</figcaption>
+</figure>
+
+<h3>Wet night</h3>
+<p>Unforced high and ultra on SwiftShader leave <code>refl</code> false. The road is black. Vehicle lights sit on it as blobs. Sign colour stays on the signs.</p>
+<p><code>?refl=1</code> on the same Broadway camera turns the mirror on. Draws 412, triangles 1.27 M. The near asphalt becomes a sharp reflection of the signs, including the white hash. That is wetter than the black sheet, and it is a mirror of the wall rather than a broken, dark, streaky street.</p>
+<figure>
+  <img src="img/rs-broadway-mirror.jpg" alt="Broadway with a sharp mirror reflection of the neon signs on the wet street">
+  <figcaption>Broadway, high, mirror forced. The signs reflect as a sharp picture. This is the high and ultra path on a real GPU. This machine only reached it with <code>?refl=1</code>.</figcaption>
+</figure>
+<p>DTLA street, high, camera <code>[-913, 1.7, -843]</code>, 180 draws, 546 k triangles, 80 cars. Dashes and a yellow line read. A headlight and a taillight sit on the asphalt. A purple wash lies under the big sign and on the right-hand plane. The road band itself averages about (37, 23, 27), so the purple is a local spill, not a repaint of the whole street. People stand on the lane lines. The right edge meets the building as a flat purple plane. Phone medium, 127 draws, is the same street with the sticks over the near ground.</p>
+<figure>
+  <img src="img/rs-dtla-night.jpg" alt="DTLA street at night with lane dashes, a purple spill, and people in the road">
+  <figcaption>DTLA, high. Lane paint is there. People stand on it. The purple is under the sign.</figcaption>
+</figure>
+
+<h3>Corridors with no carriageway</h3>
+<p>These cameras show no lane paint.</p>
+<table>
+  <thead>
+    <tr><th>Place</th><th>What is on the ground</th><th>High, night rain</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>K's street and market</td><td>Dark sheet, a coloured smear at the edge, people, no lines, 0 cars</td><td>192 draws / 387 k at the street; 114 draws / 323 k at the market</td></tr>
+    <tr><td>Sea-wall blocks</td><td>Dark sheet, purple and cyan at the far edge, 0 cars</td><td>113 draws, 241 k</td></tr>
+    <tr><td>Wallace apron</td><td>Black plane, two pale guide lines, the lit gate</td><td>75 draws, 242 k, 8 cars not in this frame</td></tr>
+    <tr><td>Little Tokyo market aisle</td><td>Pale floor, stalls, no lines</td><td>236 draws, 765 k, 10 cars elsewhere in the district</td></tr>
+    <tr><td>Hollywood street camera</td><td>Brown plane, one vehicle, no lines. Eye at y 6.8</td><td>140 draws, 460 k, 17 cars</td></tr>
+  </tbody>
+</table>
+<p>K's megablock, the coastal strip, and Wallace Vernon are listed in <code>NO_STREET_GRAPH</code> in <code>src/vehicles/trafficRegistry.ts</code>, so the road builder skips them. The pictures match that list. The market aisle and the Hollywood street camera are on districts that do have a graph, and these particular views still show an unpainted sheet.</p>
+<figure>
+  <img src="img/rs-k-street.jpg" alt="Dark unpainted ground at the foot of K's megablock, people with umbrellas">
+  <figcaption>K's street, high. No lane paint. 0 ground cars.</figcaption>
+</figure>
+<figure>
+  <img src="img/rs-coast.jpg" alt="Dark gap between sea-wall blocks with a coloured smear and no lane lines">
+  <figcaption>Sea-wall blocks, high. No lane paint.</figcaption>
+</figure>
+<figure>
+  <img src="img/rs-market.jpg" alt="Pale market aisle at night with stalls and no road markings">
+  <figcaption>Little Tokyo market aisle, high. Pale floor, no lines.</figcaption>
+</figure>
+<figure>
+  <img src="img/rs-hollywood.jpg" alt="Hollywood street camera looking across a brown plane in the rain">
+  <figcaption>Hollywood street camera, high. Brown plane, one vehicle, no lines.</figcaption>
+</figure>
+<figure>
+  <img src="img/rs-wallace.jpg" alt="Dark apron in front of a lit Wallace gate with two pale guide lines">
+  <figcaption>Wallace apron, high. Two pale lines on a black plane.</figcaption>
+</figure>
+
+<h2 id="tiers">Tier numbers</h2>
+<p>No phone draw cap is applied here. These are the frames above.</p>
+<table>
+  <thead>
+    <tr><th>View</th><th>Tier</th><th>Viewport</th><th>Draws</th><th>Triangles</th><th>Ground cars</th><th>Mirror</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Broadway street</td><td>high</td><td>1280×720</td><td class="num">211</td><td class="num">639 k</td><td class="num">37</td><td>off</td></tr>
+    <tr><td>Broadway street</td><td>ultra</td><td>1280×720</td><td class="num">207</td><td class="num">774 k</td><td class="num">59</td><td>off</td></tr>
+    <tr><td>Broadway street</td><td>medium</td><td>1280×720</td><td class="num">146</td><td class="num">539 k</td><td class="num">20</td><td>off</td></tr>
+    <tr><td>Broadway street</td><td>low</td><td>1280×720</td><td class="num">426</td><td class="num">500 k</td><td class="num">0</td><td>off</td></tr>
+    <tr><td>Broadway street</td><td>medium</td><td>390×844</td><td class="num">127</td><td class="num">472 k</td><td class="num">20</td><td>off</td></tr>
+    <tr><td>Broadway, mirror forced</td><td>high</td><td>1280×720</td><td class="num">412</td><td class="num">1.27 M</td><td class="num">37</td><td>on</td></tr>
+    <tr><td>Downtown avenue</td><td>ultra</td><td>1280×720</td><td class="num">369</td><td class="num">1.24 M</td><td class="num">59</td><td>off</td></tr>
+    <tr><td>Lakewood street</td><td>high</td><td>1280×720</td><td class="num">163</td><td class="num">454 k</td><td class="num">6</td><td>off</td></tr>
+    <tr><td>K's street</td><td>high</td><td>1280×720</td><td class="num">192</td><td class="num">387 k</td><td class="num">0</td><td>off</td></tr>
+  </tbody>
+</table>
+<p>High and ultra turn on the fancy road shader (second trim sample, normal, rain ripples) and the puddles. Medium keeps markings and drops puddles. Low drops markings and replaces cars with streaks, which is why low can cost more draws than high. Ultra and high share the spinner mesh.</p>
+
+<h2 id="spinner">Spinner</h2>
+<p>Scored from the shipping turntable, the scale rig, and the craft in the city. The gitignored top orthographic sat beside the top view. The gitignored opening overhead sat beside the nose-channel view. That overhead is a small car over a field and does not resolve a plan. The museum front and the side and rear stills sat on the same sheet and are not committed.</p>
+<table>
+  <thead>
+    <tr><th>Check</th><th>Score</th><th>What the frames show</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Silhouette</td><td class="num">8</td><td>Long low wedge, flat roof, squared tail, drums at both ends. Rim light shows the same outline with nothing standing off the roof.</td></tr>
+    <tr><td>Open front gap</td><td class="num">8</td><td>Front, top, and the nose close-up are two arms and an open slot. The roof behind the slot is filled.</td></tr>
+    <tr><td>Front wheels in the prongs</td><td class="num">8</td><td>Each front drum sits in its arm. The arm continues ahead of the drum. The channel between the arms stays open.</td></tr>
+    <tr><td>Stray fin, spike, or rear slab</td><td class="num">no</td><td>Roof lamp is a low red-and-blue bar. Tail is a flat louvered face with a red strip.</td></tr>
+    <tr><td>Drums, not balls</td><td class="num">8</td><td>High and medium faces are flat discs with a dark tire lip. Low is a faceted short cylinder, still a drum.</td></tr>
+    <tr><td>Reads as K's spinner</td><td class="num">8</td><td>Split nose, housed drums, POLICE, louvers, and the low bar. In the street, from behind, it reads as that craft's tail. The nose slot wants the front.</td></tr>
+  </tbody>
+</table>
+<figure>
+  <img src="img/rs-spinner-views.jpg" alt="Spinner turntable: front, side, rear, top, open nose, and a flat drum">
+  <figcaption>Shipping high. Front, side, rear, top, nose channel, rear drum. No film still in this strip.</figcaption>
+</figure>
+<figure>
+  <img src="img/rs-spinner-scale.jpg" alt="Spinner beside a 1.75 metre figure and inside a 3.7 metre lane">
+  <figcaption>Scale rig. 5.45 × 2.32 × 1.36 m. The figure is taller than the roof. The body fits in the 3.70 m lane.</figcaption>
+</figure>
+<figure>
+  <img src="img/rs-spinner-lod.jpg" alt="Medium and low spinner fronts and sides, still a split nose and a wedge">
+  <figcaption>Medium front, low front, low side, high rim. The open nose and the wedge survive the lighter meshes. Low drums are faceted cylinders.</figcaption>
+</figure>
+<p>In Lakewood at night the chase camera puts the craft over the left side of the paved road. Red tail strip, low red-and-blue bar, no fin. White lane lines and a double yellow run ahead of it. A person with an umbrella is on the right edge. High, 184 draws, 461 k triangles.</p>
+<figure>
+  <img src="img/rs-spinner-chase.jpg" alt="K's spinner flying over a marked Lakewood road at night">
+  <figcaption>Chase view, Lakewood, high. The tail and the low bar read over a marked road.</figcaption>
+</figure>
+<p>In the Broadway canyon the same craft is close and dark: POLICE on the flank, the low bar, an amber line along the skirt. High, 236 draws. On a 390×844 medium chase the silhouette and the bar still read above the touch controls, 143 draws.</p>
+<figure>
+  <img src="img/rs-spinner-canyon.jpg" alt="Close dark spinner in the Broadway canyon with a light bar and flank lettering">
+  <figcaption>Broadway canyon, high. Close and dark. The bar and the flank lettering read. No fin.</figcaption>
+</figure>
+<figure>
+  <img src="img/rs-spinner-phone.jpg" alt="Spinner silhouette on a phone with touch controls">
+  <figcaption>390×844, medium. The silhouette and the bar sit above the controls.</figcaption>
+</figure>
+<p>Approve the spinner. Do not start a spinner redo before LAPD, City Hall, and Wallace.</p>
+
+<h2 id="passes">Refinement passes</h2>
+<p>Roads are under 7, so three passes. None of these are implemented. The spinner stays as it is.</p>
+
+<h3>R1 — Crosswalks and the white paint</h3>
+<p>The two crosswalk directions are stamped across each other, and the white cell is grime-speckled, so a corner reads as a hash.</p>
+<ul>
+  <li><code>src/roads/buildChunk.ts</code> — <code>maybeIntersection</code>, the bar loops. Keep one ladder on each mouth of the crossing, short of the box where the other direction's bars live.</li>
+  <li><code>src/roads/paint.ts</code> — <code>markBytes</code>, cells <code>dash</code>, <code>stop</code>, and <code>bar</code>. A solid stripe can stay worn at the edges and still be a stripe in the middle.</li>
+</ul>
+<p>Look again at <code>broadwayView('street')</code> and <code>southLaView('spine')</code>, high, night rain, from 2 m and from 20 m.</p>
+
+<h3>R2 — Wet asphalt and the lamp pool</h3>
+<p>The unforced road is black. The forced mirror is a sharp copy of the signs. Lamp heads do not light the lane.</p>
+<ul>
+  <li><code>src/atmosphere/WetReflector.ts</code> — break the mirror into dark streaks. Keep the asphalt black between them.</li>
+  <li><code>src/roads/material.ts</code> — the wet sheen on the asphalt is a small fresnel. A lamp needs a pool on the carriageway, warm, falling off in a few metres.</li>
+  <li><code>src/roads/profile.ts</code> and <code>src/roads/buildChunk.ts</code> — <code>ROAD_LAMPS</code> is commented as the districts that opted out, and <code>lampOk</code> treats it as the allow-list. Broadway is in the set and has the new heads. Lakewood is not in the set and still has older heads. Neither head pools on the asphalt. Make the comment and the test the same thing, then light the lanes that have poles.</li>
+</ul>
+<p>Judge on the Broadway mirror frame and on Lakewood from above. High on a real GPU is the mirror case. This machine only reached that with <code>?refl=1</code>.</p>
+
+<h3>R3 — Hero ground that is still a sheet</h3>
+<p>K, the coastal strip, and Wallace Vernon are in <code>NO_STREET_GRAPH</code> (<code>src/vehicles/trafficRegistry.ts</code>). Their hero cameras show an unpainted sheet. The Little Tokyo market aisle and <code>hollywoodView('street')</code> do the same even though those districts have a graph.</p>
+<p>Pave the ground those cameras stand on, or move the cameras onto a carriageway that already has paint. K's street and the sea-wall blocks are the two that a viewer would name. Files: <code>src/vehicles/trafficRegistry.ts</code>, the K ground in <code>src/districts/k-megablock/</code>, the coast blocks camera, <code>src/districts/little-tokyo-market/</code>, <code>src/districts/hollywood/view.ts</code>.</p>
+
+<h2 id="sources">Sources</h2>
+<p>Lane width and paint, used as the real-street half of the score. The game's street lane is 3.6 m (about 11.8 ft), inside the city's 11 ft standard and 12 ft maximum. A normal line in the California manual is 4 to 6 inches wide. A broken line is on the order of a 10 ft mark and a 30 ft gap. The game's dash is 0.15 m wide, 3 m long, with a 12 m step.</p>
+<ul>
+  <li><a href="https://completestreetdesignmanual.engineering.lacity.gov/e-600-cross-section-elements/e-610-streets/e-612-width-standards-and-component-arrangements">Los Angeles Bureau of Engineering, E 612 lane widths</a> — standard travel lane 11 ft, maximum 12 ft.</li>
+  <li><a href="https://ladot.lacity.gov/sites/default/files/2023-01/mpp_531_01_2023.pdf">LADOT striping manual (2023)</a> — lane width is centre of stripe to centre of stripe, or stripe to curb.</li>
+  <li><a href="https://dot.ca.gov/-/media/dot-media/programs/safety-programs/documents/ca-mutcd/2026/2026-camutcd-2026-3a-a11y.pdf">California MUTCD, Chapter 3A (2026)</a> — normal line 4–6 inches; broken line about 10 ft marks and 30 ft gaps.</li>
+</ul>
+<p>Wet night streets and the spinner's shape, used as the film half. No frames from these pages are in the repo.</p>
+<ul>
+  <li><a href="https://theasc.com/article/deakins-blade-runner-2049/">Roger Deakins, American Cinematographer</a> and <a href="https://britishcinematographer.co.uk/roger-deakins-cbe-bsc-asc-blade-runner-2049/">British Cinematographer</a> — rain, mist, and practical light shot in camera. The city night is grey, wet, and thick.</li>
+  <li><a href="https://theasc.com/article/blade-runner-2049-designing-the-future/">Dennis Gassner, ASC</a> and <a href="https://deadline.com/2018/02/blade-runner-2049-dennis-gassner-oscars-production-design-interview-1202280798/">Deadline</a> — the spinner's angular body was the pattern for the rest of the picture. He describes the film's light as LED rather than neon tubing.</li>
+  <li><a href="https://www.vanityfair.com/hollywood/2017/10/blade-runner-2049-production-design">Vanity Fair, Gassner on the spinner</a> — the new craft is more robust, angular, and brutal than the 2019 spinner.</li>
+  <li><a href="https://autodesigno.com/blade-runner/">Syd Mead, AutoDesignO</a> — the front projections of the new craft read as the same idea as the original's forward arms.</li>
+  <li><a href="https://fireballtim.com/2017/10/20/cars-blade-runner-2049/">Fireball Tim, the cars of 2049</a> — the police craft is an older, worn machine: scratches, dirt, no clean panel.</li>
+  <li><a href="https://makezine.com/article/maker-news/behind-the-scenes-on-blade-runner-2049-painting-police-spinners-in-budapest/">Make: painting the police spinners</a> — the body paint started as dull graphite and needed variation. Swing-up doors, thin lamps.</li>
+  <li><a href="https://en.wikipedia.org/wiki/Spinner_(Blade_Runner)">Spinner, Wikipedia</a> — the 2049 police craft is driven on the ground and flown. The manufacturer mark on the prop is not copied here.</li>
+</ul>
+</main>
+</body>
+</html>
