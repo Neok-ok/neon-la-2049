@@ -379,7 +379,7 @@ for (const tier of tiers) {
         // before climbing, so a blocked start does not become a roof shot.
         const feature = {
           'holo-shaft': [
-            { dist: 112, y: p.ground + p.height * 0.42, sideM: 18, aim: 0.46 },
+            { dist: Math.max(p.d, p.w) * 0.9 + Math.min(70, p.height * 0.16), y: p.ground + p.height * 0.42, sideM: 22, aim: 0.46 },
           ],
           cantilever: [
             { dist: Math.max(p.d, p.w) * 1.35 + 42, y: p.ground + Math.max(38, p.height * 0.2), sideM: Math.max(p.w, p.d) * 0.5, aim: 0.3 },
