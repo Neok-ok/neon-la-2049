@@ -168,10 +168,11 @@ function weathering() {
   const n = T.normalLocal;
   const flank = T.smoothstep(0.4, 0.82, T.abs(n.x));
   const up = T.smoothstep(0.5, 0.88, n.y);
-  // Two or three long rain tracks. Tight bands contour the curved panels and read as wood grain.
-  const band = T.fract(p.z.mul(0.38));
-  const streak = T.smoothstep(0.42, 0.55, band).mul(T.smoothstep(0.72, 0.55, band)).mul(flank);
-  const dust = T.smoothstep(0.05, 0.16, band).mul(T.smoothstep(0.3, 0.16, band)).mul(flank);
+  // Broad patches. A tight band of one axis followed the loft and read as a machined swirl.
+  const n1 = T.sin(p.x.mul(1.1).add(p.y.mul(0.7)).add(p.z.mul(0.45)));
+  const n2 = T.sin(p.x.mul(0.55).sub(p.z.mul(0.85)).add(p.y.mul(1.2)).add(1.7));
+  const streak = T.smoothstep(0.62, 0.92, n1).mul(flank).mul(0.5);
+  const dust = T.smoothstep(0.25, 0.8, n2).mul(flank).mul(0.35);
   const low = T.smoothstep(0.48, 0.04, p.y);
   const frontDrum = T.smoothstep(0.72, 0.16, T.abs(p.z.add(1.45)));
   const rearDrum = T.smoothstep(0.68, 0.14, T.abs(p.z.sub(1.85)));
@@ -204,8 +205,8 @@ function dressMaterial(src: Material): Material {
         metalness: tex.metalnessMap ? 1 : paint.metalness,
         roughness: tex.roughnessMap ? 1 : paint.roughness,
         name: src.name,
-        clearcoat: kind === 'body' ? 0.58 : 0.22,
-        clearcoatRoughness: kind === 'body' ? 0.34 : 0.42,
+        clearcoat: kind === 'body' ? 0.22 : 0.12,
+        clearcoatRoughness: kind === 'body' ? 0.72 : 0.5,
       })
       : new MeshStandardNodeMaterial({
         color: tex.map ? 0xffffff : paint.color,

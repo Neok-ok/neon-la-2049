@@ -781,7 +781,7 @@ def _surface_tone(co, normal):
     z = co.z
     x = abs(co.x)
     y = co.y
-    panel = 0.82 + 0.22 * _hash(int(math.floor(y * 0.5)), int(math.floor(z * 1.1 + x)))
+    panel = 0.74 + 0.28 * _hash(int(math.floor(y * 0.5)), int(math.floor(z * 1.1 + x)))
     mul = panel
     if z < 0.36:
         mul *= 0.70 + 0.30 * max(0.0, z) / 0.36
@@ -879,10 +879,9 @@ def _grade(ao_img, size, tuned, loud=False, worn=False, flat=False):
         blur_n = min(1.0, blur[i] / hi)
         wide_n = min(1.0, wide[i] / hi)
         if flat:
-            # An absolute AO cutoff painted the hull's curvature as concentric swirls.
-            # A gap is darker than the surface around it. A smooth gradient is not.
-            cavity = wide_n - ao_n
-            shade = 1.0 if cavity < 0.10 else max(0.42, 1.0 - (cavity - 0.10) * 2.4)
+            # AO on a smooth loft is a gradient of the curvature. Any cutoff of that
+            # gradient paints concentric swirls. Panel gaps are the mesh, not this map.
+            shade = 1.0
         else:
             shade = (0.62 + 0.38 * ao_n) if worn else ((0.48 + 0.52 * ao_n) if loud else (0.62 + 0.38 * ao_n))
         # Soft exposed-edge lift. A one-pixel neighbour test sparkled under the rim.
