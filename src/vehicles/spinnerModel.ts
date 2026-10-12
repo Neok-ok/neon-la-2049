@@ -265,8 +265,9 @@ function dressMaterial(src: Material): Material {
     return m;
   }
   const basic = new MeshBasicNodeMaterial({ name: src.name });
+  // These colours were graded at exposure 1. The lift keeps them visible under the night stop.
   if (kind === 'underglow') {
-    basic.colorNode = T.vec3(0.22, 0.4, 0.62);
+    basic.colorNode = T.vec3(0.22, 0.4, 0.62).mul(authoredLiftU);
     return basic;
   }
   if (kind === 'strobe-red' || kind === 'strobe-blue') {
@@ -274,9 +275,10 @@ function dressMaterial(src: Material): Material {
     const off = kind === 'strobe-red' ? T.vec3(0.45, 0.04, 0.03) : T.vec3(0.03, 0.08, 0.5);
     const pulse = T.step(0.5, T.fract(U.time.mul(2.5)));
     const k = kind === 'strobe-red' ? pulse : T.float(1).sub(pulse);
-    basic.colorNode = T.mix(off, on, k);
+    basic.colorNode = T.mix(off, on, k).mul(authoredLiftU);
   } else {
     basic.color.copy(LAMP[kind] ?? LAMP.white);
+    basic.colorNode = T.materialColor.mul(authoredLiftU);
   }
   return basic;
 }
