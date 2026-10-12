@@ -1,0 +1,209 @@
+{
+  "note": "The car and the hauler are checked against the envelopes in build_traffic.py, not against K's spinner. These boxes are the shell disagreeing with that simplified outline. They do not excuse a plate on the trailer roof or a part past the nose.",
+  "car": [
+    {
+      "view": "side",
+      "u0": -2.3,
+      "u1": 2.2,
+      "v0": 0.02,
+      "v1": 0.34,
+      "reason": "The side envelope cuts a wheel arch and rides above the rocker. The sill and the lower nose are the body."
+    },
+    {
+      "view": "side",
+      "u0": 1.9,
+      "u1": 2.8,
+      "v0": 0.28,
+      "v1": 0.75,
+      "reason": "The lofted nose is taller than the three-box wedge. The cabin roof is not in this box."
+    },
+    {
+      "view": "side",
+      "u0": -0.3,
+      "u1": 0.9,
+      "v0": 1.12,
+      "v1": 1.45,
+      "reason": "The roof peak sits a few centimetres over the side envelope. The box is only the centre of that peak."
+    },
+    {
+      "view": "front",
+      "u0": -1.05,
+      "u1": 1.05,
+      "v0": -0.08,
+      "v1": 0.4,
+      "reason": "The front envelope starts above the rocker. The sill fills that gap. The roof is not in this box."
+    },
+    {
+      "view": "rear",
+      "u0": -1.05,
+      "u1": 1.05,
+      "v0": -0.08,
+      "v1": 0.4,
+      "reason": "The rear visual hull starts above the rocker, same as the front trace. The sill fills that gap."
+    },
+    {
+      "view": "front",
+      "u0": -0.9,
+      "u1": -0.45,
+      "v0": 1.02,
+      "v1": 1.4,
+      "reason": "Roof shoulder above the front envelope. The box is only that shoulder."
+    },
+    {
+      "view": "front",
+      "u0": 0.45,
+      "u1": 0.9,
+      "v0": 1.02,
+      "v1": 1.4,
+      "reason": "Roof shoulder above the front envelope. The box is only that shoulder."
+    },
+    {
+      "view": "rear",
+      "u0": -0.9,
+      "u1": -0.45,
+      "v0": 1.02,
+      "v1": 1.4,
+      "reason": "Roof shoulder above the rear visual hull. The box is only that shoulder."
+    },
+    {
+      "view": "rear",
+      "u0": 0.45,
+      "u1": 0.9,
+      "v0": 1.02,
+      "v1": 1.4,
+      "reason": "Roof shoulder above the rear visual hull. The box is only that shoulder."
+    },
+    {
+      "view": "rear",
+      "u0": -1.05,
+      "u1": -0.65,
+      "v0": -0.08,
+      "v1": 0.18,
+      "reason": "Tyre contact sits below the rear visual hull. The hull takes its bottom from the front trace."
+    },
+    {
+      "view": "rear",
+      "u0": 0.65,
+      "u1": 1.05,
+      "v0": -0.08,
+      "v1": 0.18,
+      "reason": "Tyre contact sits below the rear visual hull. The hull takes its bottom from the front trace."
+    },
+    {
+      "view": "top",
+      "u0": 0.85,
+      "u1": 2.7,
+      "v0": -1.1,
+      "v1": 1.1,
+      "reason": "The lofted nose and the front wheels are wider than the three-box plan. The cabin is not in this box."
+    },
+    {
+      "view": "top",
+      "u0": -2.05,
+      "u1": -1.05,
+      "v0": 0.5,
+      "v1": 1.1,
+      "reason": "Rear quarter is wider than the plan taper. The roof centre is not in this box."
+    },
+    {
+      "view": "top",
+      "u0": -2.05,
+      "u1": -1.05,
+      "v0": -1.1,
+      "v1": -0.5,
+      "reason": "Rear quarter is wider than the plan taper. The roof centre is not in this box."
+    },
+    {
+      "view": "top",
+      "u0": -2.7,
+      "u1": -2.05,
+      "v0": 0.2,
+      "v1": 0.7,
+      "reason": "Tail corner of the loft, wider than the plan's pointed tail."
+    },
+    {
+      "view": "top",
+      "u0": -2.7,
+      "u1": -2.05,
+      "v0": -0.7,
+      "v1": -0.2,
+      "reason": "Tail corner of the loft, wider than the plan's pointed tail."
+    },
+    {
+      "view": "oblique",
+      "maxM": 0.3,
+      "reason": "The visual hull of the three-box plan sits inside the lofted nose and the rocker. Orthographic views keep 3 cm. A part that sticks out past the nose still fails."
+    }
+  ],
+  "hauler": [
+    {
+      "view": "side",
+      "u0": 5.2,
+      "u1": 8.4,
+      "v0": 1.6,
+      "v1": 3.45,
+      "reason": "The hauler cab roof is taller than the simplified side trace, which only peaks at the back of the cab. The trailer roof is not in this box."
+    },
+    {
+      "view": "side",
+      "u0": 5.6,
+      "u1": 8.4,
+      "v0": 0.3,
+      "v1": 1.2,
+      "reason": "The cab belly and the nose bumper sit below the side trace, which climbs toward the nose. The trailer is not in this box."
+    },
+    {
+      "view": "side",
+      "u0": 4.85,
+      "u1": 5.9,
+      "v0": 0.8,
+      "v1": 2.4,
+      "reason": "The fifth-wheel step. The trace drops between the cab and the box; the neck plate and the cab's rear face fill that step."
+    },
+    {
+      "view": "side",
+      "u0": -6.8,
+      "u1": -5,
+      "v0": 0.9,
+      "v1": 1.2,
+      "reason": "Suspension hanger between the rear tyre and the floor. The wheel circle and the trailer belly leave a few centimetres between them."
+    },
+    {
+      "view": "front",
+      "u0": -1.25,
+      "u1": -0.85,
+      "v0": 0.5,
+      "v1": 1.25,
+      "reason": "Cab shoulder. The front trace is the trailer, with a narrower bumper below the box. The trailer roof is not in this box."
+    },
+    {
+      "view": "front",
+      "u0": 0.85,
+      "u1": 1.25,
+      "v0": 0.5,
+      "v1": 1.25,
+      "reason": "Cab shoulder. The front trace is the trailer, with a narrower bumper below the box. The trailer roof is not in this box."
+    },
+    {
+      "view": "rear",
+      "u0": -1.25,
+      "u1": -0.85,
+      "v0": 0.5,
+      "v1": 1.25,
+      "reason": "Cab shoulder in the rear visual hull, which uses the trailer-wide front trace. The trailer roof is not in this box."
+    },
+    {
+      "view": "rear",
+      "u0": 0.85,
+      "u1": 1.25,
+      "v0": 0.5,
+      "v1": 1.25,
+      "reason": "Cab shoulder in the rear visual hull, which uses the trailer-wide front trace. The trailer roof is not in this box."
+    },
+    {
+      "view": "oblique",
+      "maxM": 0.32,
+      "reason": "The cab roof and the fifth-wheel step sit outside the visual hull of the simplified side trace. Orthographic views keep 3 cm outside the boxes above. A part past the trailer still fails."
+    }
+  ]
+}

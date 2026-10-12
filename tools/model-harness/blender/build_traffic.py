@@ -290,11 +290,15 @@ def wheel(name, x, y, radius, width, segments, rubber, hub, detailed):
     cylinder_x(name, radius, width, segments, rubber, (x, y, radius))
     if not detailed:
         return
-    cylinder_x(name + '-hub', radius * 0.42, width * 0.55, max(6, segments // 2), hub, (x, y, radius))
-    # A thin disc just outside the tyre so the rim reads at 30 m.
-    side = math.copysign(width * 0.5 + 0.004, x if abs(x) > 1e-4 else 1)
+    # The hub reaches the disc, so the recess pieces are one component.
+    # A disc clear of the hub is a loose plate when the tyre is not the main body.
+    hub_len = width * 0.92
+    cylinder_x(name + '-hub', radius * 0.42, hub_len, max(6, segments // 2), hub, (x, y, radius))
+    # Thick enough that the disc is not a 20:1 plate. On the hauler the tyre
+    # is metres from the trailer, so a thin rim cannot be excused by the whitelist.
+    side = math.copysign(width * 0.5 - 0.018, x if abs(x) > 1e-4 else 1)
     cylinder_x(
-        name + '-rim', radius * 0.72, 0.012, max(8, segments // 2), hub,
+        name + '-rim', radius * 0.72, 0.046, max(8, segments // 2), hub,
         (x + side, y, radius),
     )
 
@@ -311,6 +315,121 @@ def rubber_mat():
 
 def place(kit, part, location, normal):
     kit.place(part, location=location, normal=normal, lift=0.0)
+
+
+def ray_hit(target, guess, normal):
+    n = Vector(normal)
+    if n.length < 1e-8:
+        n = Vector((0, 0, 1))
+    n.normalize()
+    for start, dist in ((0.7, 2.4), (3.4, 9.0)):
+        origin = Vector(guess) + n * start
+        ok, loc, nor, _idx = target.ray_cast(origin, -n, distance=dist)
+        if ok:
+            if nor.dot(n) < 0:
+                nor.negate()
+            return loc, nor
+    return None, None
+
+
+def ray_place(kit, part, target, guess, normal, lift=-0.014):
+    """Bed a kit part in the shell. lift is negative so the root crosses the skin."""
+    loc, nor = ray_hit(target, guess, normal)
+    if loc is None:
+        print('MISS', part.root.name, [round(c, 3) for c in Vector(guess)])
+        kit.place(part, guess, normal=normal, lift=lift)
+        return Vector(guess)
+    kit.place(part, loc, normal=nor, lift=lift)
+    return loc
+
+
+def sink_slab(name, host, guess, normal, width, height, depth, mat, bury=None):
+    """One slab on a face. Depth stays fat enough that the piece is not a plate,
+    and the outer face stays about a centimetre proud of the skin.
+    """
+    n = Vector(normal)
+    if n.length < 1e-8:
+        n = Vector((0, 0, 1))
+    n.normalize()
+    requested = n.copy()
+    loc, nor = ray_hit(host, guess, n)
+    if loc is None:
+        print('MISS slab', name, [round(c, 3) for c in Vector(guess)])
+        loc = Vector(guess)
+    else:
+        # A slanted hit lays the long axis across the lane. Keep the caller's axis.
+        if nor.dot(requested) < 0.65:
+            print('SLANT', name, [round(c, 3) for c in loc], [round(c, 3) for c in nor])
+        n = requested
+    if bury is None:
+        bury = max(0.0, depth - 0.012)
+    up = Vector((0, 1, 0)) if abs(n.z) > 0.85 else Vector((0, 0, 1))
+    tangent = up.cross(n)
+    if tangent.length < 1e-6:
+        tangent = Vector((1, 0, 0))
+    tangent.normalize()
+    bitangent = n.cross(tangent).normalized()
+    center = Vector(loc) + n * (depth * 0.5 - bury)
+    bm = bmesh.new()
+    bmesh.ops.create_cube(bm, size=1.0)
+    bmesh.ops.scale(bm, verts=bm.verts, vec=(width, height, depth))
+    rot = Matrix((
+        (tangent.x, bitangent.x, n.x, 0),
+        (tangent.y, bitangent.y, n.y, 0),
+        (tangent.z, bitangent.z, n.z, 0),
+        (0, 0, 0, 1),
+    ))
+    bmesh.ops.transform(bm, verts=list(bm.verts), matrix=rot)
+    bmesh.ops.translate(bm, verts=bm.verts, vec=center)
+    return finish_mesh(bm, name, mat, math.radians(35))
+
+
+def bridge(name, a, b, mat, radius=0.035):
+    a = Vector(a)
+    b = Vector(b)
+    delta = b - a
+    length = delta.length
+    if length < 1e-3:
+        return None
+    bm = bmesh.new()
+    bmesh.ops.create_cube(bm, size=1.0)
+    bmesh.ops.scale(bm, verts=bm.verts, vec=(radius * 2, radius * 2, length))
+    quat = delta.normalized().to_track_quat('Z', 'Y')
+    bmesh.ops.rotate(bm, verts=bm.verts, cent=Vector((0, 0, 0)), matrix=quat.to_matrix().to_4x4())
+    bmesh.ops.translate(bm, verts=bm.verts, vec=(a + b) * 0.5)
+    return finish_mesh(bm, name, mat, math.radians(30))
+
+
+def weld_shell(inner, outer, mat, name, limit=6):
+    """An inset glass loft does not touch the body. A few short struts do."""
+    bpy.context.view_layer.update()
+    verts = [inner.matrix_world @ v.co for v in inner.data.vertices]
+    if len(verts) < 4:
+        return 0
+    center = Vector((0, 0, 0))
+    for vert in verts:
+        center += vert
+    center /= len(verts)
+    step = max(1, len(verts) // 28)
+    made = 0
+    for p in verts[::step]:
+        direction = p - center
+        if direction.length < 1e-4:
+            continue
+        direction.normalize()
+        origin = p + direction * 0.004
+        ok, loc, _nor, _idx = outer.ray_cast(origin, direction, distance=1.4)
+        if not ok:
+            continue
+        gap = (loc - p).length
+        if gap < 0.008 or gap > 0.75:
+            continue
+        bridge(f'{name}-{made}', p - direction * 0.012, loc + direction * 0.012, mat, radius=0.035)
+        made += 1
+        if made >= limit:
+            break
+    print(f'WELD {name} {made}')
+    return made
 
 
 def place_frame(part, location, x_axis, z_axis):
@@ -351,13 +470,10 @@ def trim_mat():
     return mat
 
 
-def emissive(name, rgb, strength):
-    mat = bpy.data.materials.new(name)
-    mat.use_nodes = True
+def brighten(mat, rgb, strength):
+    """Keep the kit's light-* name. A second material would export as light-white.001."""
     bsdf = mat.node_tree.nodes.get('Principled BSDF')
     bsdf.inputs['Base Color'].default_value = (0.01, 0.01, 0.012, 1)
-    bsdf.inputs['Metallic'].default_value = 0.0
-    bsdf.inputs['Roughness'].default_value = 0.28
     bsdf.inputs['Emission Color'].default_value = (rgb[0], rgb[1], rgb[2], 1)
     bsdf.inputs['Emission Strength'].default_value = strength
     return mat
@@ -377,6 +493,25 @@ def trim_bar(name, a, b, mat, thick=0.11, depth=0.016):
     bmesh.ops.rotate(bm, verts=bm.verts, cent=Vector((0, 0, 0)), matrix=quat.to_matrix().to_4x4())
     bmesh.ops.translate(bm, verts=bm.verts, vec=(a + b) * 0.5)
     return finish_mesh(bm, name, mat, math.radians(25))
+
+
+def trim_run(name, a, b, mat, max_len=0.36):
+    """Short pieces. One long rub strip is a plate, and trim is not a whitelist material."""
+    a = Vector(a)
+    b = Vector(b)
+    delta = b - a
+    length = delta.length
+    if length < 1e-3:
+        return
+    count = max(1, math.ceil(length / max_len))
+    # A gap so the pieces do not weld into one long plate.
+    inset = min(0.008 / length, 0.25 / count)
+    for i in range(count):
+        t0 = i / count + inset
+        t1 = (i + 1) / count - inset
+        if t1 - t0 < 0.02 / length:
+            continue
+        trim_bar(f'{name}-{i}', a + delta * t0, a + delta * t1, mat)
 
 
 def car_shoulder(sign):
@@ -400,86 +535,97 @@ def car_shoulder(sign):
     return pts
 
 
-def dress_car(kit, lod):
-    # Openings are large on purpose. A 4 cm blade disappears when the contact sheet is viewed whole.
-    # They sit proud of the nose and the tail, still inside the 5.6 m length and the 1.82 m width.
-    white = emissive('light-white', (1.0, 0.96, 0.88), 16)
-    red = emissive('light-red', (1.0, 0.03, 0.015), 14)
+def dress_car(kit, lod, body):
+    # Blades cross the nose and tail caps. A centimetre of the lens stays proud.
+    # Wider than that, the pocket is a part sticking past the outline.
+    half = CAR['length'] / 2
+    white = brighten(kit.lights['white'], (1.0, 0.96, 0.88), 16)
+    red = brighten(kit.lights['red'], (1.0, 0.03, 0.015), 14)
     for sign in (-1, 1):
-        hx = sign * 0.24
+        hx = sign * 0.22
         box(
             f'head-pocket-{sign:+d}',
-            (hx - 0.20, 2.38, 0.30),
-            (hx + 0.20, 2.47, 0.56),
+            (hx - 0.12, half - 0.12, 0.30),
+            (hx + 0.12, half + 0.010, 0.44),
             kit.recess,
         )
         box(
             f'head-lamp-{sign:+d}',
-            (hx - 0.13, 2.44, 0.35),
-            (hx + 0.13, 2.53, 0.51),
+            (hx - 0.08, half - 0.06, 0.33),
+            (hx + 0.08, half + 0.012, 0.42),
             white,
         )
-        tx = sign * 0.30
+        tx = sign * 0.26
         box(
             f'tail-pocket-{sign:+d}',
-            (tx - 0.11, -2.47, 0.34),
-            (tx + 0.11, -2.38, 0.56),
+            (tx - 0.09, -half - 0.010, 0.34),
+            (tx + 0.09, -half + 0.10, 0.50),
             kit.recess,
         )
         box(
             f'tail-lamp-{sign:+d}',
-            (tx - 0.07, -2.53, 0.39),
-            (tx + 0.07, -2.44, 0.51),
+            (tx - 0.06, -half - 0.012, 0.37),
+            (tx + 0.06, -half + 0.05, 0.47),
             red,
         )
     if lod == 'low':
         return
-    # Side skin is at x=±0.89. Parts grow along +Z, so their origin sits just inboard.
-    place(kit, kit.light_strip('side-l', 0.36, 0.026, 0.010, 'amber'), (-0.84, -0.15, 0.52), (-1, 0, 0.08))
-    place(kit, kit.light_strip('side-r', 0.36, 0.026, 0.010, 'amber'), (0.84, -0.15, 0.52), (1, 0, 0.08))
+    # Guess points sit outside the skin. The ray beds the part, and a negative lift crosses it.
+    ray_place(kit, kit.light_strip('side-l', 0.36, 0.026, 0.010, 'amber'), body, (-1.05, -0.15, 0.52), (-1, 0, 0))
+    ray_place(kit, kit.light_strip('side-r', 0.36, 0.026, 0.010, 'amber'), body, (1.05, -0.15, 0.52), (1, 0, 0))
     bolts = lod == 'high'
+    # Width stays under 0.62 m so a seated body rim is a fitting, not a loose plate.
     for name, loc, normal, w, h in (
-        ('hood', (0.0, 1.20, 0.78), (0, 0.12, 1), 0.62, 0.38),
-        ('door-l', (-0.84, 0.05, 0.58), (-1, 0, 0.04), 0.78, 0.36),
-        ('door-r', (0.84, 0.05, 0.58), (1, 0, 0.04), 0.78, 0.36),
-        ('deck', (0.0, -1.35, 0.68), (0, -0.2, 1), 0.48, 0.26),
+        ('hood', (0.0, 1.35, 1.05), (0, 0.15, 1), 0.54, 0.32),
+        ('door-l', (-1.15, 0.05, 0.62), (-1, 0, 0), 0.54, 0.30),
+        ('door-r', (1.15, 0.05, 0.62), (1, 0, 0), 0.54, 0.30),
+        ('deck', (0.0, -1.50, 0.95), (0, -0.25, 1), 0.42, 0.22),
     ):
-        place(kit, kit.panel_inset(name, w, h, rim=0.028, bolts=bolts), loc, normal)
-    place(kit, kit.vent('cowl', 0.28, 0.07, 0.016, 4 if lod == 'high' else 3), (0.0, 0.85, 0.90), (0, 0.15, 1))
+        ray_place(kit, kit.panel_inset(name, w, h, rim=0.028, bolts=bolts), body, loc, normal, lift=-0.016)
+    ray_place(kit, kit.vent('cowl', 0.28, 0.07, 0.016, 4 if lod == 'high' else 3), body, (0.0, 0.85, 1.15), (0, 0.1, 1))
     steel = trim_mat()
     for sign in (-1, 1):
         pts = car_shoulder(sign)
         for i in range(len(pts) - 1):
-            trim_bar(f'crease-{sign:+d}-{i}', pts[i], pts[i + 1], steel)
+            trim_run(f'crease-{sign:+d}-{i}', pts[i], pts[i + 1], steel)
     if lod != 'high':
         return
-    place(kit, kit.intake('flank-l', 0.22, 0.08, 0.03, 3), (-0.82, 1.15, 0.46), (-1, 0.08, 0))
-    place(kit, kit.intake('flank-r', 0.22, 0.08, 0.03, 3), (0.82, 1.15, 0.46), (1, 0.08, 0))
-    place(kit, kit.bolt_cluster('hood-bolts', 0.16, 0.05, 4, 3), (0.0, 1.55, 0.72), (0, 0.15, 1))
-    place(kit, kit.greeble_cluster('sail-l', 0.10, 0.06, 0.016, 4, 7), (-0.55, -0.7, 0.86), (-0.35, -0.1, 1))
-    place(kit, kit.greeble_cluster('sail-r', 0.10, 0.06, 0.016, 4, 8), (0.55, -0.7, 0.86), (0.35, -0.1, 1))
+    ray_place(kit, kit.intake('flank-l', 0.22, 0.08, 0.03, 3), body, (-1.15, 1.15, 0.46), (-1, 0.05, 0))
+    ray_place(kit, kit.intake('flank-r', 0.22, 0.08, 0.03, 3), body, (1.15, 1.15, 0.46), (1, 0.05, 0))
+    ray_place(kit, kit.bolt_cluster('hood-bolts', 0.16, 0.05, 4, 3), body, (0.0, 1.55, 1.05), (0, 0.1, 1))
+    ray_place(kit, kit.greeble_cluster('sail-l', 0.10, 0.06, 0.016, 4, 7), body, (-0.75, -0.7, 1.05), (-0.35, -0.1, 1))
+    ray_place(kit, kit.greeble_cluster('sail-r', 0.10, 0.06, 0.016, 4, 8), body, (0.75, -0.7, 1.05), (0.35, -0.1, 1))
 
 
-def dress_hauler(kit, lod):
-    nose = HAULER['length'] / 2 - 0.06
-    tail = -HAULER['length'] / 2 + 0.06
-    # Cab nose is 0.96 m wide. The blade stays inside it. The tail face is 2.28 m.
-    place(kit, kit.light_strip('head', 0.78, 0.06, 0.018, 'white'), (0, nose, 0.92), (0, 1, 0.10))
-    place(kit, kit.light_strip('tail', 1.70, 0.07, 0.018, 'red'), (0, tail, 1.55), (0, -1, 0.04))
+def dress_hauler(kit, lod, cab, trailer):
+    # The trailer is the largest piece. Anything thin has to touch that trailer,
+    # so cab fittings are slabs thick enough not to count as plates.
+    nose = HAULER['length'] / 2
+    tail_face = -HAULER['length'] / 2 + 0.15
+    white = brighten(kit.lights['white'], (1.0, 0.96, 0.88), 16)
+    red = brighten(kit.lights['red'], (1.0, 0.03, 0.015), 14)
+    amber = brighten(kit.lights['amber'], (1.0, 0.45, 0.05), 12)
+    sink_slab('head-bezel', cab, (0, nose + 0.5, 0.78), (0, 1, 0), 0.62, 0.12, 0.08, kit.body, bury=0.064)
+    sink_slab('head-lamp', cab, (0, nose + 0.5, 0.78), (0, 1, 0), 0.48, 0.07, 0.05, white, bury=0.012)
+    ray_place(
+        kit, kit.light_strip('tail', 1.50, 0.08, 0.02, 'red', bezel=kit.recess),
+        trailer, (0, tail_face - 0.4, 1.70), (0, -1, 0), lift=-0.016,
+    )
     if lod == 'low':
         return
     for sign in (-1, 1):
-        place(
-            kit, kit.light_strip(f'marker-{sign:+d}', 0.14, 0.05, 0.016, 'amber'),
-            (sign * 0.95, tail + 0.12, 3.55), (0, -1, 0.15),
+        ray_place(
+            kit, kit.light_strip(f'marker-{sign:+d}', 0.14, 0.05, 0.016, 'amber', bezel=kit.recess),
+            trailer, (sign * 0.95, tail_face - 0.25, 3.55), (0, -1, 0),
         )
-        place(
-            kit, kit.light_strip(f'cab-marker-{sign:+d}', 0.12, 0.045, 0.014, 'amber'),
-            (sign * 0.72, nose - 0.55, 2.95), (sign * 0.2, 0.15, 1),
+        sink_slab(
+            f'cab-marker-{sign:+d}', cab,
+            (sign * 1.35, 6.9, 1.35), (sign, 0, 0),
+            0.08, 0.06, 0.05, amber, bury=0.02,
         )
-    place(kit, kit.panel_inset('cab-door-l', 0.62, 0.85, bolts=lod == 'high'), (-1.02, 6.55, 1.65), (-1, 0, 0.04))
-    place(kit, kit.panel_inset('cab-door-r', 0.62, 0.85, bolts=lod == 'high'), (1.02, 6.55, 1.65), (1, 0, 0.04))
-    place(kit, kit.vent('cab-vent', 0.28, 0.10, 0.018, 4 if lod == 'high' else 2), (0.0, 7.35, 1.35), (0, 0.3, 1))
+    sink_slab('cab-door-l', cab, (-1.4, 6.55, 1.7), (-1, 0, 0), 0.58, 0.78, 0.09, kit.recess, bury=0.074)
+    sink_slab('cab-door-r', cab, (1.4, 6.55, 1.7), (1, 0, 0), 0.58, 0.78, 0.09, kit.recess, bury=0.074)
+    sink_slab('cab-vent', cab, (0.0, 7.4, 1.6), (0, 0.2, 1), 0.30, 0.12, 0.07, kit.recess, bury=0.055)
     # Light ribs, uneven, wide enough to break the box when the sheet is viewed whole.
     # Outer face stays at 1.158 m, inside the 1.165 m curb clearance.
     steel = trim_mat()
@@ -494,19 +640,26 @@ def dress_hauler(kit, lod):
                 (hi_x, y + 0.18, 3.75),
                 steel,
             )
-    # Full-height split between the rear doors. Proud of the tail by a few centimetres.
-    box('rear-seam', (-0.12, tail - 0.06, 1.25), (0.12, tail + 0.02, 3.78), steel)
-    place(kit, kit.panel_inset('rear-door-l', 0.85, 1.6, bolts=False), (-0.48, tail, 2.40), (0, -1, 0))
-    place(kit, kit.panel_inset('rear-door-r', 0.85, 1.6, bolts=False), (0.48, tail, 2.40), (0, -1, 0))
+    # Door split, in pieces that cross the rear face. One tall strip is a plate.
+    for i, (z0, z1) in enumerate(((1.30, 2.05), (2.00, 2.80), (2.75, 3.65))):
+        box(
+            f'rear-seam-{i}',
+            (-0.055, tail_face - 0.04, z0),
+            (0.055, tail_face + 0.012, z1),
+            steel,
+        )
+    sink_slab('rear-door-l', trailer, (-0.48, tail_face - 0.4, 2.35), (0, -1, 0), 0.78, 1.35, 0.09, kit.recess, bury=0.074)
+    sink_slab('rear-door-r', trailer, (0.48, tail_face - 0.4, 2.35), (0, -1, 0), 0.78, 1.35, 0.09, kit.recess, bury=0.074)
     if lod != 'high':
         return
-    place(kit, kit.bolt_cluster('fifth-bolts', 0.2, 0.08, 4, 5), (0.0, 5.15, 1.28), (0, 0, 1))
-    kit.place(kit.cable(
+    ray_place(kit, kit.bolt_cluster('fifth-bolts', 0.18, 0.08, 4, 5), trailer, (0.0, 4.6, 4.6), (0, 0, 1))
+    # Hose crosses the trailer floor. A 1 cm cable is a loose wire.
+    kit.place(kit.pipe(
         'gladhand',
-        ((0, 0, 0), (0.05, -0.18, 0.08), (0.02, -0.36, -0.05)),
-        radius=0.012,
-    ), (0.55, 5.35, 1.35))
-    place(kit, kit.antenna('cab-blade', 0.22, 'blade'), (0.35, 6.15, 3.16), (0, 0, 1))
+        ((0, 0, 0), (0.0, -0.14, 0.14), (0.04, -0.26, 0.20)),
+        radius=0.022,
+    ), (0.35, 5.18, 1.08))
+    sink_slab('cab-blade', cab, (0.35, 6.2, 3.5), (0, 0, 1), 0.045, 0.028, 0.16, kit.body, bury=0.02)
 
 
 def build_car(lod, kit, rubber):
@@ -524,12 +677,13 @@ def build_car(lod, kit, rubber):
             wheel(f'wheel-{x:+.2f}-{y:+.2f}', x, y, r, w, seg, rubber, kit.recess, lod != 'low')
     # Rocker, so the gap under the doors is a sill and not a missing face.
     box('sill', (-0.78, -0.7, 0.12), (0.78, 0.7, 0.20), kit.recess)
-    dress_car(kit, lod)
+    weld_shell(glass, body, kit.recess, 'glass-weld')
+    dress_car(kit, lod, body)
     return body
 
 
 def build_hauler(lod, kit, rubber):
-    loft(cab_sections(), 'cab', kit.body, math.radians(40))
+    cab = loft(cab_sections(), 'cab', kit.body, math.radians(40))
     glass = loft(cab_glass_sections(), 'cab-glass', kit.glass, math.radians(28))
     solid = glass.modifiers.new('Solidify', 'SOLIDIFY')
     solid.thickness = 0.016
@@ -538,26 +692,53 @@ def build_hauler(lod, kit, rubber):
     bpy.ops.object.modifier_apply(modifier=solid.name)
     half = HAULER['length'] / 2
     trailer_y = (-half + 0.15, half - 2.95)
-    loft(
+    trailer = loft(
         [trailer_section(y, 1.14, 1.22, HAULER['height'], 0.08) for y in trailer_y],
         'trailer', kit.body, math.radians(50),
     )
-    # Chassis rails and a fifth-wheel plate in the gap. The trailer floor is not the road.
+    # The gap test samples vertices, so a box has to land a corner on the other
+    # surface. Mid-height of the rail is the trailer floor. The neck's ends sit
+    # on the cab cap and the trailer cap.
     for x in (-0.48, 0.48):
-        box(f'rail-{x:+.2f}', (x - 0.08, -half + 0.8, 0.42), (x + 0.08, half - 1.3, 0.78), kit.recess)
-    box('fifth', (-0.55, 4.85, 1.05), (0.55, 5.45, 1.28), kit.recess)
-    box('bumper', (-1.05, half - 0.22, 0.45), (1.05, half - 0.02, 0.85), kit.body)
-    box('underride', (-1.0, -half + 0.08, 0.42), (1.0, -half + 0.22, 0.72), kit.recess)
+        box(f'rail-{x:+.2f}', (x - 0.08, -half + 0.35, 1.16), (x + 0.08, half - 0.50, 1.28), kit.recess)
+    box('neck', (-0.40, half - 2.95, 1.24), (0.40, half - 2.55, 1.44), kit.recess)
+    box('bumper', (-0.42, half - 0.16, 0.62), (0.42, half, 0.96), kit.body)
+    # The cab nose is at +half. This cap brings the tail to -half so the tyres
+    # stay on the reference circles after the mesh is centred.
+    box('tail-cap', (-1.05, -half, 1.30), (1.05, -half + 0.16, 3.70), kit.body)
+    # Bottom sits on the trailer floor. A lower bar hangs out of the side trace at the tail.
+    box('underride', (-0.90, -half + 0.14, 1.22), (0.90, -half + 0.32, 1.46), kit.recess)
     seg = SEG[lod]
     r, w = HAULER['wheel_r'], HAULER['wheel_w']
     axles = (7.15, 5.85, 5.15, -5.15, -6.15)
     for y in axles:
         for x in (-0.78, 0.78):
             wheel(f'wheel-{x:+.2f}-{y:+.2f}', x, y, r, w, max(8, seg - 2), rubber, kit.recess, lod == 'high')
+            rail_x = 0.48 if x > 0 else -0.48
+            cap = w * 0.5
+            # End the axle on the tyre cap, and the hanger on the axle and the rail.
+            if x > 0:
+                lo_x, hi_x = rail_x - 0.06, x + cap
+            else:
+                lo_x, hi_x = x - cap, rail_x + 0.06
+            axle_top = r + 0.045
+            box(
+                f'axle-{x:+.2f}-{y:+.2f}',
+                (lo_x, y - 0.045, r - 0.045),
+                (hi_x, y + 0.045, axle_top),
+                kit.recess,
+            )
+            box(
+                f'hanger-{x:+.2f}-{y:+.2f}',
+                (rail_x - 0.04, y - 0.04, axle_top),
+                (rail_x + 0.04, y + 0.04, 1.16),
+                kit.recess,
+            )
     if lod != 'low':
         for y in (-5.15, -6.15):
-            box(f'flap-{y:+.2f}', (-0.95, y - r - 0.12, 0.15), (0.95, y - r + 0.02, 0.62), kit.recess)
-    dress_hauler(kit, lod)
+            box(f'flap-{y:+.2f}', (-0.92, y - 0.22, 0.28), (0.92, y + 0.06, 1.32), kit.recess)
+    weld_shell(glass, cab, kit.recess, 'glass-weld')
+    dress_hauler(kit, lod, cab, trailer)
 
 
 def world_tris(objs):
@@ -788,6 +969,11 @@ def measure(kind):
     height = mx.z - mn.z
     spec = CAR if kind == 'car' else HAULER
     print(f'BOUNDS {kind} L {length:.3f} W {width:.3f} H {height:.3f} tris {tri_count(meshes())}')
+    if width > 2.4 or (kind == 'car' and width > 1.85):
+        for obj in meshes():
+            xs = [v.co.x for v in obj.data.vertices]
+            if xs and max(abs(min(xs)), abs(max(xs))) > (1.2 if kind == 'hauler' else 0.95):
+                print(f'  WIDE {obj.name} x {min(xs):.3f}..{max(xs):.3f}')
     ok = True
     if kind == 'car':
         ok = 4.5 <= length <= 5.6 and 1.40 <= height <= 1.55 and width <= 1.82
@@ -860,6 +1046,13 @@ def build(kind, lod, out_path):
     else:
         build_hauler(lod, kit, rubber)
     bpy.context.view_layer.update()
+    for obj in meshes():
+        xs = [((obj.matrix_world @ v.co).x) for v in obj.data.vertices]
+        if not xs:
+            continue
+        peak = max(abs(min(xs)), abs(max(xs)))
+        if peak > 1.20:
+            print(f'  WIDE {obj.name} x {min(xs):.3f}..{max(xs):.3f}')
     for obj in list(meshes()):
         bake_world(obj)
     for obj in list(bpy.data.objects):

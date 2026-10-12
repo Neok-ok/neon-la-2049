@@ -82,6 +82,19 @@ def _box(name, lo, hi, mat, collection):
     return _finish(bm, name, mat, collection)
 
 
+def _drop_cap(obj, z_min):
+    """Remove the outward end cap so a cover behind it can be seen."""
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bm.faces.ensure_lookup_table()
+    kill = [f for f in bm.faces if f.normal.z > 0.65 and f.calc_center_median().z >= z_min]
+    if kill:
+        bmesh.ops.delete(bm, geom=kill, context='FACES')
+    bm.to_mesh(obj.data)
+    bm.free()
+    obj.data.update()
+
+
 def _cylinder(name, radius, depth, segments, mat, collection, center=(0, 0, 0)):
     bm = bmesh.new()
     bmesh.ops.create_cone(
@@ -195,8 +208,8 @@ class Kit:
         self.glass = _principled('glass', (0.010, 0.011, 0.012), 0.78, 0.20)
         self.rubber = _principled('rubber', (0.008, 0.008, 0.009), 0.0, 0.94)
         self.satin = _principled('satin', (0.018, 0.019, 0.022), 0.82, 0.22)
-        # Dark fin. Satin slats caught the rim and turned into white slabs.
-        self.fin = _principled('fin', (0.028, 0.029, 0.031), 0.28, 0.66)
+        # Dark metal bar. Near-black fins vanished into the cavity; satin ones flashed white.
+        self.fin = _principled('fin', (0.15, 0.152, 0.160), 0.58, 0.40)
         self.chip = _principled('chip', (0.46, 0.47, 0.49), 0.62, 0.36)
         self.livery = _principled('livery', (0.62, 0.60, 0.56), 0.08, 0.55)
         # Matte cover. A shiny drum face mirrors the night practicals into a turbine ring.
@@ -243,7 +256,8 @@ class Kit:
         cavity_z = depth * (0.85 if inset else 0.45)
         meshes.append(_box(f'{name}-cavity', (-width / 2, -height / 2, 0.0), (width / 2, height / 2, cavity_z), self.recess, col))
         rim = max(0.005 if inset else 0.008, min(width, height) * (0.045 if inset else 0.12))
-        z0, z1 = (depth * 0.55, depth * 0.78) if inset else (depth * 0.35, depth)
+        # Inset mouth sits at the skin. Callers use lift=-depth*0.98 so the rim is flush.
+        z0, z1 = (depth * 0.72, depth * 0.98) if inset else (depth * 0.35, depth)
         frames = [
             ((-width / 2, -height / 2, z0), (width / 2, -height / 2 + rim, z1)),
             ((-width / 2, height / 2 - rim, z0), (width / 2, height / 2, z1)),
@@ -258,9 +272,11 @@ class Kit:
         if slats > 0 and inner_h > 0.01:
             gap = inner_h / slats
             if inset:
-                slat_t = min(gap * 0.22, 0.010)
+                # A thin buried fin read as a flat black rectangle. The bar fills
+                # about half the pitch and its top sits in the mouth.
+                slat_t = min(max(gap * 0.46, 0.012), 0.022)
                 slat_mat = self.fin
-                z_a, z_b = depth * 0.22, depth * 0.58
+                z_a, z_b = depth * 0.62, depth * 0.94
             else:
                 slat_t = min(gap * (0.62 if contrast else 0.42), 0.046 if contrast else 0.012)
                 slat_mat = self.satin if contrast else self.body
@@ -308,9 +324,11 @@ class Kit:
         mesh = _box(name, (-length / 2, -width / 2, 0.001), (length / 2, width / 2, depth), self.recess, self.collection)
         return self._root(name, [mesh])
 
-    def light_strip(self, name, length, height=0.03, depth=0.012, kind='white'):
+    def light_strip(self, name, length, height=0.03, depth=0.012, kind='white', bezel=None):
         col = self.collection
-        bezel = _box(name + '-bezel', (-length / 2, -height / 2, 0.0), (length / 2, height / 2, depth * 0.7), self.body, col)
+        # A dark surround reads as the lamp slot. A body-coloured sliver reads as a loose plate.
+        bezel_mat = self.body if bezel is None else bezel
+        bezel = _box(name + '-bezel', (-length / 2, -height / 2, 0.0), (length / 2, height / 2, depth * 0.7), bezel_mat, col)
         lamp = _box(
             name + '-lamp',
             (-length / 2 + height * 0.25, -height / 2 * 0.55, depth * 0.45),
@@ -539,28 +557,33 @@ class Kit:
         meshes = []
         if covered:
             # Same outer radius as the old lip, so the side bulge does not move.
-            # The face lands on the body material and bakes with the hull.
-            meshes.append(_cylinder(
-                name + '-drum', radius * 0.98, width * 0.70, segments, self.body, col, (0, 0, width * 0.30),
-            ))
+            # The barrel runs from inside the skirt out through the cover, so the
+            # face is part of the drum instead of a disc sitting in front of it.
+            inner = -0.18
+            outer = width * 0.995
+            drum = _cylinder(
+                name + '-drum', radius * 0.98, outer - inner, segments, self.body, col,
+                (0, 0, (inner + outer) * 0.5),
+            )
+            # The cone's outer cap sits in front of the cover and hides the ring.
+            _drop_cap(drum, outer - 0.004)
+            meshes.append(drum)
             if panel:
-                # Flush cover, a thin dark ring, centre almost level. A deep cap read as an open bore.
-                meshes.append(_annulus(
-                    name + '-face', radius * 0.98, radius * 0.64,
-                    width * 0.90, width * 0.98, segments, self.body, col,
-                ))
-                meshes.append(_annulus(
-                    name + '-step', radius * 0.66, radius * 0.58,
-                    width * 0.86, width * 0.92, max(12, segments // 2), self.recess, col,
-                ))
+                # One flat disc filling the face. A dark ring in the middle read as a tyre.
+                face_out = outer - 0.004
                 meshes.append(_cylinder(
-                    name + '-cap', radius * 0.60, width * 0.035, segments, self.body, col, (0, 0, width * 0.885),
+                    name + '-cap', radius * 0.97, 0.048, segments, self.body, col,
+                    (0, 0, face_out - 0.024),
                 ))
             else:
                 meshes.append(_cylinder(
                     name + '-face', radius * 1.02, width * 0.10, segments, self.body, col, (0, 0, width * 0.90),
                 ))
-            return self._root(name, meshes)
+            part = self._root(name, meshes)
+            # The barrel-to-face corner is a right angle. Smoothing it makes a sphere.
+            for obj in part.meshes:
+                _shade(obj, math.radians(18))
+            return part
         lip_mat = self.satin if pressed else self.drum
         slot_half = 0.016 if pressed else 0.007
         meshes.append(_cylinder(name + '-drum', radius, width * 0.82, segments, self.drum, col, (0, 0, width * 0.38)))
@@ -591,7 +614,8 @@ class Kit:
         """Low red/blue bar. Local +X long, +Y across, +Z up. Not a fin."""
         col = self.collection
         meshes = [
-            _box(name + '-housing', (-length / 2, -width / 2, 0.0), (length / 2, width / 2, height * 0.55), self.body, col),
+            # The shell fills the bar. A 3 cm housing under a metre-long lamp was a thin plate.
+            _box(name + '-housing', (-length / 2, -width / 2, 0.0), (length / 2, width / 2, height * 0.82), self.body, col),
         ]
         gap = length * 0.06
         meshes.append(_box(
@@ -608,7 +632,7 @@ class Kit:
         ))
         return self._root(name, meshes)
 
-    def panel_slash(self, name, length=1.7, rise=0.38, thick=0.016, depth=0.012):
+    def panel_slash(self, name, length=1.7, rise=0.38, thick=0.016, depth=0.012, lip=True):
         """Diagonal door cut. Local +X toward the nose, +Y up, +Z proud of the slab."""
         span = math.hypot(length, rise) or 1.0
         px, py = -rise / span, length / span
@@ -640,10 +664,12 @@ class Kit:
                 pass
             return _finish(bm, f'{name}-{suffix}', mat, self.collection)
 
-        # Wide black gap, thin bright lip. A wide satin band read as a stripe.
+        # Wide black gap. The bright lip is optional: a lip on every short piece reads as a stack of blocks.
         gap = strip('gap', self.recess, 0.0, depth, 0.0, thick * 0.72)
-        lip = strip('lip', self.satin, depth * 0.15, depth + 0.008, thick * 0.82, thick * 0.14)
-        return self._root(name, [gap, lip])
+        meshes = [gap]
+        if lip:
+            meshes.append(strip('lip', self.satin, depth * 0.15, depth + 0.008, thick * 0.82, thick * 0.14))
+        return self._root(name, meshes)
 
     def fender_cheek(self, name, length=0.72, depth=0.30, height=0.40):
         """Upper arm from the slab (local z=0) onto the drum. Local +X nose, +Y up, +Z out."""

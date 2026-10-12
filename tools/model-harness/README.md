@@ -22,7 +22,7 @@ Blender 4.0 or newer, and [gltfpack 1.1](https://github.com/zeux/meshoptimizer/r
 
 ```bash
 blender --background --python tools/model-harness/blender/build_spinner.py -- \
-  --round 10 --lod all --out public/models/spinner
+  --round 11 --lod all --out public/models/spinner
 ```
 
 `--lod high` (or `medium` / `low`) with `--out` a file path writes one glTF. `--round` is the critic cut:
@@ -38,7 +38,8 @@ blender --background --python tools/model-harness/blender/build_spinner.py -- \
 | 7 | Flat covered drum faces (no ring, no slots) and a split nose with an open center channel |
 | 8 | Front-only nose slot with a filled roof, door grooves, a louver deck, worn gunmetal |
 | 9 | Wider gullwing gap, louver field, recessed nose slot, flat gunmetal roughness, clearcoat |
-| 10 | Smoked glass, inset louver fins, panel seams on the nose and drums, worn paint, flat normal. Canopy outline stays the filled round-9 profile. This is the shipping cut |
+| 10 | Smoked glass, inset louver fins, panel seams on the nose and drums, worn paint, flat normal. Canopy outline stays the filled round-9 profile. Kept as `fixtures/spinner-round10-high.glb` because the cabin fins, roof rod, and rear slab fail the stray gate |
+| 11 | Same body as round 10, with those parts either seated on the skin or removed. Gullwing, belt, and louvers are short pieces on the surface. The open nose channel stays. This is the shipping cut |
 
 The script is the source of truth. Blender is Z-up with the nose on +Y; the glTF is Y-up with the nose on -Z, origin on the ground-contact centre. The M2 box is 5.45 × 2.32 × 1.36 m. The bar is `spinner-look-target.md`.
 
@@ -59,7 +60,9 @@ BASE_URL=http://127.0.0.1:5173/ \
   npm run turntable
 ```
 
-`SRC` is `legacy`, a `/models/...` path under `public/`, or a `/harness-models/...` path. `MODE` defaults to `sheet`.
+`SRC` is `legacy`, a `/models/...` path under `public/`, or a `/harness-models/...` path. `MODE` is `sheet` (the default), `silhouette`, `scale`, or `closeups`.
+
+`MODE=closeups` renders every sheet view on its own, at 1280×1024, and the capture script writes one PNG per view. The canvas is at least 1024 px on a side so a fin is large enough to judge. `__harnessShow(i)` steps the view.
 
 The sheet is eight orbit angles, a nose close-up, a rear-drum close-up, and a top-down row (plan, three-quarter, channel, flight overhead, roof overhead). Three lighting passes: night rain, a low-key cool rim (shape has to read in the dark), and a grey studio. The matching still sits to the right of each angle. The capture script writes a `.json` sidecar of the tile list next to the PNG. The page is `tools/model-harness/turntable/` and the capture script is `scripts/model-turntable.mjs` (leave `scripts/screenshots.mjs` alone).
 
@@ -101,13 +104,36 @@ In the game, park the craft beside the crowd, in a street, and next to a doorway
 
 `critic/RUBRIC.md` is the only brief the scorer gets. The scorer is a fresh pass: the contact sheet, the stills (side, front, rear, the top plan, the flight overhead, and the roof overhead), and the rubric. No build notes, no earlier scores, no IoU. Official numbers live in `reviews/m2/roundN-critic.md`. Whatever the person who edited the mesh thought goes in `reviews/m2/roundN-notes.md` and does not replace the critic.
 
-M1 sheets stay in `reviews/` as the baseline (silhouette 7, surface 6, lighting 6, material 5, film 6). M2 sheets live in `reviews/m2/`. Stop when "reads as K's spinner" is at least 7 and no rubric column has fallen below that M1 row.
+M1 sheets stay in `reviews/` as the baseline (silhouette 7, surface 6, lighting 6, material 5, film 6). M2 sheets live in `reviews/m2/`. M3 scores live in `reviews/m3/`. Stop when "reads as K's spinner" is at least 7 and no rubric column has fallen below that M1 row. From M3 on, every column has to be at least 7, and a yes on stray parts fails the mesh.
+
+The critic also gets the close-ups, not only the contact sheet, and has to answer whether any part looks like it doesn't belong, sticks out, or floats. A yes fails the mesh.
+
+## 7. Stray parts
+
+IoU is an area. A fin, a rod, or a loose panel can miss it and still be obvious in a still. The stray gate is the check for that.
+
+```bash
+node tools/model-harness/scripts/stray.mjs public/models/spinner/spinner-high.glb
+npm run stray
+```
+
+`stray.mjs` exits 0 when the mesh passes and 1 when it does not. `npm run stray` is what CI runs. It loads the meshopt glTF in Node, so the check does not need Blender or Python.
+
+The limit is the smaller of 3 cm and 1% of the length. The gate reports the furthest protrusion and a count of stray regions. IoU is printed beside those and is not the pass test.
+
+1. **Protrusion.** Silhouettes from the side, the front, the rear, the top, and four three-quarter views. Lamps are left out of the outline. A connected region of the model that sticks out past the reference by more than the limit fails, unless `stray-whitelist.json` justifies that region and gives a reason. The orthographic boxes are there for the skirt filling the perspective wheel arch, the covered drums, and the nose and tail being wider than the plan. They stop short of the cabin roof and the rear deck, so a fin or a hanging slab still fails. The three-quarter views use a higher limit because the visual hull of those perspective traces sits inside the drums; the orthographic views keep 3 cm.
+2. **Loose parts.** Welded vertices split the mesh into islands. An island that does not come within 2 cm of the assembly, measured to the surface rather than to the nearest vertex, is loose. A whitelist entry does not excuse a floating island.
+3. **Thin plates and spikes.** Thickness under 2 cm, or an aspect ratio over 20:1. A whitelist entry can excuse one when it is on the car and the reason says why (a louver fin in the deck, the POLICE card, a drum face). The gap to the main body has to be within that entry's allowance.
+
+`fixtures/spinner-round10-high.glb` is the mesh that shipped with the fins, the roof rod, and the rear slab. `npm run stray` asserts that this file fails, and that the three shipping tiers pass.
+
+The same gate runs on the ground car and the hauler. Their outline is the envelope in `build_traffic.py`, not K's trace. Lamps are still left out of the silhouette, and the side and front views include the tyres. `stray-traffic.json` justifies the places that envelope is a simplified plan: the car's nose and rocker, the hauler's cab roof and the fifth-wheel step. A plate on the trailer roof is not in those boxes. Pass `--kind car` or `--kind hauler` to check one file.
 
 ## LODs and the quality menu
 
 | Tier | File | What you get |
 |---|---|---|
-| Ultra, High | `spinner-high.glb` | Full mesh, subdivision, bolts, cables, 1024 maps |
+| Ultra, High | `spinner-high.glb` | Full mesh, subdivision, bolts, 1024 maps |
 | Medium | `spinner-medium.glb` | Bevel and kit, fewer greebles, 512 maps, no subdivision |
 | Low | `spinner-low.glb` | Hull, canopy, drums, skirt, lights, decal, 256 maps |
 

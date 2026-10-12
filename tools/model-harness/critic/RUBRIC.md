@@ -28,8 +28,11 @@ Integers 1–10. Be harsh. 5 is a maquette. 7 is recognisable at the stated dist
 | Material | Gunmetal with panel tone, clear coat, edge wear, grime. Tinted reflective glass. Not a clean one-tone shell. |
 | Film feel | Would this pass in a rainy street frame next to the stills. |
 | reads as K's spinner | Immediate recognition against the references. Under 7 if you have to be told. |
+| stray parts | Does any part look like it doesn't belong, sticks out, or floats? Answer yes or no. A fin, a rod, a loose panel, or anything bolted on past the body is yes. The open nose channel is part of the car. The covered drums are part of the car. |
 
 ## Return
+
+A yes on stray parts fails the mesh, even when the other scores are high.
 
 A JSON object and nothing before it:
 
@@ -41,6 +44,7 @@ A JSON object and nothing before it:
   "material": 0,
   "film": 0,
   "readsAsK": 0,
+  "strayParts": "no",
   "fails": ["short reasons"],
   "notes": {
     "silhouette": "",

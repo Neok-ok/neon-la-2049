@@ -168,10 +168,9 @@ function weathering() {
   const n = T.normalLocal;
   const flank = T.smoothstep(0.4, 0.82, T.abs(n.x));
   const up = T.smoothstep(0.5, 0.88, n.y);
-  // Two or three long rain tracks. Tight bands contour the curved panels and read as wood grain.
-  const band = T.fract(p.z.mul(0.38));
-  const streak = T.smoothstep(0.42, 0.55, band).mul(T.smoothstep(0.72, 0.55, band)).mul(flank);
-  const dust = T.smoothstep(0.05, 0.16, band).mul(T.smoothstep(0.3, 0.16, band)).mul(flank);
+  // The paint map carries the wear. A sine of position followed the loft and read as a shader.
+  const streak = T.float(0);
+  const dust = T.float(0);
   const low = T.smoothstep(0.48, 0.04, p.y);
   const frontDrum = T.smoothstep(0.72, 0.16, T.abs(p.z.add(1.45)));
   const rearDrum = T.smoothstep(0.68, 0.14, T.abs(p.z.sub(1.85)));
@@ -204,8 +203,8 @@ function dressMaterial(src: Material): Material {
         metalness: tex.metalnessMap ? 1 : paint.metalness,
         roughness: tex.roughnessMap ? 1 : paint.roughness,
         name: src.name,
-        clearcoat: kind === 'body' ? 0.58 : 0.22,
-        clearcoatRoughness: kind === 'body' ? 0.34 : 0.42,
+        clearcoat: kind === 'body' ? 0.22 : 0.12,
+        clearcoatRoughness: kind === 'body' ? 0.72 : 0.5,
       })
       : new MeshStandardNodeMaterial({
         color: tex.map ? 0xffffff : paint.color,
@@ -223,7 +222,7 @@ function dressMaterial(src: Material): Material {
     if (kind === 'body') {
       // The baked roughness follows the AO and turns into wood grain under the rim.
       // Paint is a flat gunmetal; the coat, the streaks, and the real panel gaps carry the detail.
-      m.roughness = 0.46;
+      m.roughness = 0.54;
       m.metalness = 0.4;
       m.normalMap = null;
     }
@@ -250,13 +249,13 @@ function dressMaterial(src: Material): Material {
     const m = new MeshPhysicalNodeMaterial({
       color: 0x141618,
       metalness: 0.78,
-      roughness: 0.2,
+      roughness: 0.34,
       name: src.name,
       transparent: true,
       opacity: 0.96,
     });
     m.clearcoat = 0.35;
-    m.clearcoatRoughness = 0.22;
+    m.clearcoatRoughness = 0.48;
     m.ior = 1.5;
     m.thickness = 0.04;
     m.transmission = 0.02;

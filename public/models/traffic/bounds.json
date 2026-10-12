@@ -1,17 +1,17 @@
 {
   "car": {
-    "length": 5.06,
+    "length": 4.874,
     "width": 1.78,
     "roof": 1.466,
     "tris": {
-      "high": 2252,
-      "medium": 1424,
-      "low": 640
+      "high": 2492,
+      "medium": 1664,
+      "low": 664
     },
     "iou": {
-      "side": 0.844,
-      "top": 0.894,
-      "front": 0.761
+      "side": 0.86,
+      "top": 0.896,
+      "front": 0.763
     },
     "lane": 3.55,
     "person": 1.8,
@@ -21,18 +21,18 @@
     }
   },
   "hauler": {
-    "length": 16.2,
+    "length": 16.238,
     "width": 2.316,
     "roof": 3.887,
     "tris": {
-      "high": 2408,
-      "medium": 1324,
-      "low": 716
+      "high": 2292,
+      "medium": 1384,
+      "low": 1040
     },
     "iou": {
-      "side": 0.841,
-      "top": 0.955,
-      "front": 0.941
+      "side": 0.931,
+      "top": 0.957,
+      "front": 0.95
     },
     "lane": 3.55,
     "person": 1.8,

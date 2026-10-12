@@ -52,6 +52,21 @@ if (MODE === 'silhouette') {
   const sheet = OUT.replace(/\.png$/, '-sheet.png');
   await page.locator('#sheet').screenshot({ path: sheet, type: 'png' });
   console.log('MASK', OUT, 'SHEET', sheet, JSON.stringify({ size: harness.size, tris: harness.tris, panels: harness.panels }));
+} else if (MODE === 'closeups') {
+  const dir = OUT.replace(/\.png$/, '');
+  mkdirSync(dir, { recursive: true });
+  const tiles = harness.tiles || [];
+  const only = process.env.ONLY ? new Set(process.env.ONLY.split(',').map((n) => Number(n))) : null;
+  for (let i = 0; i < tiles.length; i++) {
+    if (only && !only.has(i)) continue;
+    await page.evaluate((index) => window.__harnessShow(index), i);
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve(null))));
+    const label = tiles[i].label.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase();
+    const file = `${dir}/${String(i).padStart(2, '0')}-${label}.png`;
+    await page.locator('#view').screenshot({ path: file, type: 'png' });
+    console.log('CLOSEUP', file, tiles[i].label);
+  }
+  console.log('CLOSEUPS', dir, JSON.stringify({ count: tiles.length, size: harness.size, tris: harness.tris }));
 } else {
   await page.locator('#sheet').screenshot({ path: OUT, type: 'png' });
   console.log('SHEET', OUT, JSON.stringify({ mode: harness.mode, size: harness.size, tris: harness.tris, scale: harness.scale }));
