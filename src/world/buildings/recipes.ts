@@ -368,6 +368,13 @@ function lantern(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolean
     s: 0, t: 0, lb: barT, la: spec.d * 0.96, h: H - 0.6, base: y0,
     style: Style.Ribbed, lit: spec.lit * 0.9, tint: spec.tint, detail: 0, role: 'mass',
   });
+  // Lit edges on the crossing bar, so the cross reads from the street and from above.
+  for (const side of [-1, 1]) {
+    addBox(d, {
+      s: 0, t: side * (barT / 2 + 0.22), lb: 0.4, la: spec.d * 0.9, h: H * 0.82, base: y0 + STOREY * 2,
+      style: Style.Glow, lit: 0.58, tint: 1.15, detail: 0, role: 'mass',
+    });
+  }
   const fins = variant === 2 ? 5 : 3;
   for (let i = 1; i <= fins; i++) {
     const y = y0 + (H * i) / (fins + 1);
