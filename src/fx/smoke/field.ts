@@ -264,9 +264,9 @@ export class SmokeField {
       const ring = (3 + grown * 55) * Math.pow(smokeRand(), 1.7);
       const size1 = tier === 'low' ? 36 : tier === 'medium' ? 62 : 84;
       spawnParticle(this.pool, {
-        x: drive.x + Math.cos(ang) * ring + wx * age * 0.4,
-        y: drive.y + 2 + age * 0.85,
-        z: drive.z + Math.sin(ang) * ring + wz * age * 0.4,
+        x: drive.x + Math.cos(ang) * ring + wx * age * 0.25,
+        y: drive.y + 8 + age * 1.1 + smokeRand() * 18,
+        z: drive.z + Math.sin(ang) * ring + wz * age * 0.25,
         vx: Math.cos(ang) * 2.5,
         vy: 1.1,
         vz: Math.sin(ang) * 2.5,
@@ -323,7 +323,7 @@ export class SmokeField {
         const ring = (2 + grown * 40) * Math.pow(smokeRand(), 1.7);
         const ok = spawnParticle(this.pool, {
           x: drive.x + Math.cos(ang) * ring,
-          y: drive.y + 1 + smokeRand() * 2,
+          y: drive.y + 6 + smokeRand() * 16,
           z: drive.z + Math.sin(ang) * ring,
           vx: Math.cos(ang) * (3 + grown * 4),
           vy: 1.4 + smokeRand(),
