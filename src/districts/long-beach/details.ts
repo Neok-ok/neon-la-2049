@@ -1,12 +1,11 @@
-// LOD0 street kit: bollards, a sodium spill, and a neon pool.
-// Shared sodium poles stay on. This batch is the wet-street read.
+// LOD0 street kit: bollards. The street lamp is the pool.
+// A coloured quad on the lane had no lamp and read as a teal sheet.
 // The worker ships `seed` as float32. Rebuild it with hash2i.
 import { Group } from 'three/webgpu';
 import { registerDetail } from '../../world/detail/registry';
 import type { QualitySettings } from '../../core/quality';
-import { Rng } from '../../core/rng';
 import { buildKitMeshes, type KitInstance } from '../_shared/kit/batch';
-import { DOOR_S, HERO_A, blockIndexAt, blockSeed } from './spec';
+import { DOOR_S, HERO_A, blockIndexAt } from './spec';
 
 const CAP: Record<QualitySettings['tier'], number> = {
   low: 160,
@@ -44,15 +43,13 @@ registerDetail('long-beach-street', ['long-beach'], (ctx) => {
     if (b.ground > 45) continue;
     const { i, j } = blockIndexAt(b.cx, b.cz);
     if (ctx.layout.isReserved(b.cx, b.cz, 8) || ctx.layout.isOcean(b.cx, b.cz)) continue;
-    const r = new Rng(blockSeed(i, j, district.index));
     const yawN = Math.atan2(b.ax, b.az);
-    const edges: Array<{ s: number; t: number; neon: boolean }> = [
-      { s: b.la / 2 + 2.5, t: 0, neon: false },
-      { s: 0, t: b.lb / 2 + 2.5, neon: true },
+    const edges: Array<{ s: number; t: number }> = [
+      { s: b.la / 2 + 2.5, t: 0 },
+      { s: 0, t: b.lb / 2 + 2.5 },
     ];
-    if (i === HERO_A.i && j === HERO_A.j) edges.push({ s: DOOR_S - 4.2, t: 0, neon: true });
+    if (i === HERO_A.i && j === HERO_A.j) edges.push({ s: DOOR_S - 4.2, t: 0 });
     for (const edge of edges) {
-      const [x, z] = at(b.ax, b.az, b.cx, b.cz, edge.s, edge.t);
       for (const side of [-1, 1] as const) {
         const [bx, bz] = at(b.ax, b.az, b.cx, b.cz, edge.s, edge.t + side * 6.5);
         props.push({
@@ -65,18 +62,6 @@ registerDetail('long-beach-street', ['long-beach'], (ctx) => {
           rank: 0,
         });
       }
-      const warm = r.chance(0.55);
-      props.push({
-        template: 'quadY',
-        x, y: b.ground + 0.05, z,
-        yaw: yawN, sx: edge.neon ? 8 : 11, sy: 1, sz: 4.5,
-        color: [0, 0, 0],
-        emissive: warm ? [1.0, 0.52, 0.16] : [0.2, 0.72, 0.82],
-        metal: 0,
-        alpha: 0.38,
-        pass: 'add',
-        rank: edge.neon ? 1 : 0,
-      });
     }
   }
   if (!any) return null;

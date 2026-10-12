@@ -100,17 +100,15 @@ registerDetail('little-tokyo-market', ['little-tokyo-market'], (ctx) => {
 /**
  * The dress file only paints the lantern box. A 4 m head at 1 800 cd is about the
  * same ground lux as a 7 500 cd street lamp at 8 m, so the pool stays under the shell.
- * Cyan shells keep that chroma; amber shells stay on the sodium preset.
+ * Cyan boxes stay shells. A cyan cone with the head out of frame read as a sourceless wash.
  */
 function marketLamps(props: MarketProp[]): PunctualInput[] {
   const lights: PunctualInput[] = [];
   for (const p of props) {
     if (p.template !== 'box' || p.sx !== 0.55 || p.sy !== 0.12 || p.sz !== 0.28) continue;
+    if (p.emissive[2] > p.emissive[0]) continue;
     if (p.emissive[0] + p.emissive[1] + p.emissive[2] < 1) continue;
-    const cyan = p.emissive[2] > p.emissive[0];
-    lights.push(cyan
-      ? { preset: 'street-led', x: p.x, y: p.y, z: p.z, candela: 1800, range: 14, rgb: [0.15, 0.85, 1], dx: 0, dy: -1, dz: 0 }
-      : { preset: 'street-sodium', x: p.x, y: p.y, z: p.z, candela: 1800, range: 14, dx: 0, dy: -1, dz: 0 });
+    lights.push({ preset: 'street-sodium', x: p.x, y: p.y, z: p.z, candela: 1800, range: 14, dx: 0, dy: -1, dz: 0 });
   }
   return lights;
 }
