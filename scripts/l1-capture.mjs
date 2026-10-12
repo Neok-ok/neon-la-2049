@@ -26,7 +26,7 @@ const only = new Set((process.env.ONLY ?? '').split(',').map((s) => s.trim()).fi
 
 /** Night stills: every district, plus a neon close-up and a wet street, on ultra and medium. */
 const places = [
-  ['little-tokyo', () => { window.__nla.marketView('street'); window.__nla.lampShot(8, -10, 0); }],
+  ['little-tokyo', () => { window.__nla.marketView('street'); window.__nla.lampShot(12, -8, 6); }],
   ['historic-core', () => { window.__nla.broadwayView('street'); window.__nla.lampShot(14, -12, 4); }],
   ['dtla', () => { window.__nla.dtlaView('street'); window.__nla.survey(); }],
   ['financial', () => { window.__nla.megaView('street'); window.__nla.lampShot(20, -6); }],
@@ -35,10 +35,10 @@ const places = [
   ['k-megablock', () => { window.__nla.kView('street'); window.__nla.lampShot(12); }],
   ['arts-district', () => { window.__nla.artsView('street'); window.__nla.lampShot(16, -14, 8); }],
   ['east-la', async () => { await window.__nla.eastLaView('street'); window.__nla.survey(6, -6, -18); }],
-  ['wallace', () => { window.__nla.wallaceView('plaza'); window.__nla.lampShot(-10, -12, 0); }],
+  ['wallace', () => { window.__nla.wallaceView('plaza'); window.__nla.lampShot(-16, -14, 0); }],
   ['lakewood', async () => { await window.__nla.lakewoodView('street'); window.__nla.survey(); }],
-  ['south-la', async () => { await window.__nla.southLaView('street'); window.__nla.survey(); }],
-  ['westside', async () => { await window.__nla.westsideView('street'); }],
+  ['south-la', async () => { await window.__nla.southLaView('street'); window.__nla.lampShot(16, -14, 12); }],
+  ['westside', async () => { await window.__nla.westsideView('street'); window.__nla.lampShot(14, -12, 6); }],
   ['basin', async () => { await window.__nla.basinView('street'); window.__nla.survey(14, 4, -38); }],
   ['southeast', async () => { await window.__nla.southeastView('street'); window.__nla.survey(4, -8, -12); }],
   ['lax', async () => { await window.__nla.laxView('terminal'); window.__nla.lampShot(16, -16, 14); }],

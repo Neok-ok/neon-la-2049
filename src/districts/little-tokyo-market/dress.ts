@@ -685,7 +685,7 @@ export function dressBlock(b: MarketBlock, layout: CityLayout): Dressing {
       const yaw = yawOf(nx, nz);
       prop('cyl', x, b.ground + 2.05, z, 0, 0.09, 4.1, 0.09, [0.07, 0.07, 0.08], [0, 0, 0], 0.7, 1);
       const head = rgb(rng.chance(0.5) ? SignColor.Amber : SignColor.Cyan);
-      prop('box', x + nx * 0.45, b.ground + 4.05, z + nz * 0.45, yaw, 0.55, 0.12, 0.28, [0.1, 0.1, 0.1], head.map((v) => v * 1.6) as [number, number, number], 0.3, 1);
+      prop('box', x + nx * 0.45, b.ground + 4.05, z + nz * 0.45, yaw, 0.9, 0.2, 0.42, [0.1, 0.1, 0.1], head.map((v) => v * 1.6) as [number, number, number], 0.3, 1);
     }
   }
 

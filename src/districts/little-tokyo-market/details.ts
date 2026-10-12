@@ -105,7 +105,7 @@ registerDetail('little-tokyo-market', ['little-tokyo-market'], (ctx) => {
 function marketLamps(props: MarketProp[]): PunctualInput[] {
   const lights: PunctualInput[] = [];
   for (const p of props) {
-    if (p.template !== 'box' || p.sx !== 0.55 || p.sy !== 0.12 || p.sz !== 0.28) continue;
+    if (p.template !== 'box' || p.sx !== 0.9 || p.sy !== 0.2 || p.sz !== 0.42) continue;
     if (p.emissive[2] > p.emissive[0]) continue;
     if (p.emissive[0] + p.emissive[1] + p.emissive[2] < 1) continue;
     lights.push({ preset: 'street-sodium', x: p.x, y: p.y, z: p.z, candela: 1800, range: 14, dx: 0, dy: -1, dz: 0 });
