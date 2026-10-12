@@ -94,6 +94,7 @@ export const EAST_LA_PARAMS: SprawlParams = {
     lines: { a: STRIP_A, b: STRIP_B },
     clusters: [{ x: hub.x, z: hub.z, radius: 280 }],
     lineChance: 0.2,
+    kind: 'spine-bar',
   },
   hub: { x: hub.x, z: hub.z },
   rise: WEST_EDGE,

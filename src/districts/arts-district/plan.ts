@@ -2,6 +2,7 @@
 // read the same function. No three.js.
 import { Rng } from '../../core/rng';
 import { Style, SignColor, type FaceDir, type StyleId } from '../../world/fabric/types';
+import { fieldTower } from '../../world/buildings/place';
 import { PHRASE_ARTS, phraseSeed } from '../../world/materials/signPhrases';
 import type { CityLayout } from '../../world/layout';
 import {
@@ -19,6 +20,9 @@ export interface ArtsBox {
   lit: number;
   tint: number;
   detail: 0 | 1 | 2;
+  ornament?: 0 | 1 | 2;
+  kit?: boolean;
+  family?: string;
 }
 
 export interface ArtsSign {
@@ -166,11 +170,17 @@ export function planArts(block: ArtsBlock, layout: CityLayout): ArtsPlan {
   const put = (
     s: number, t: number, lb: number, la: number, h: number, base: number,
     style: StyleId, lit: number, tint: number, detail: 0 | 1 | 2,
+    extra?: { kit?: boolean; ornament?: 0 | 1 | 2; family?: string },
   ) => {
-    if (lb < 0.2 || la < 0.2 || h < 0.15) return;
+    if (extra?.kit) {
+      if (lb < 0.07 || la < 0.07 || h < 0.06) return;
+    } else if (lb < 0.2 || la < 0.2 || h < 0.15) return;
     const p = world(block, s, t, 0);
     if (layout.isReserved(p.x, p.z, Math.max(lb, la) * 0.35)) return;
-    boxes.push({ s, t, lb, la, h, base, style, lit, tint, detail });
+    boxes.push({
+      s, t, lb, la, h, base, style, lit, tint, detail,
+      kit: extra?.kit, ornament: extra?.ornament, family: extra?.family,
+    });
   };
 
   const prop = (
@@ -360,11 +370,22 @@ function stackYard(
   put: Emit, prop: PropFn, puff: PuffFn, r: Rng, force: boolean, s = 10, t = 14,
 ): void {
   const H = force ? r.range(92, 128) : r.range(74, 136);
-  put(s, t, 5.2, 5.2, H, 0, Style.Industrial, 0.02, r.range(0.48, 0.66), 0);
-  for (let i = 0; i < 3; i++) {
-    put(s, t, 5.8, 5.8, 0.7, H * (0.28 + i * 0.22), Style.Industrial, 0.02, 0.4, 1);
+  const tint = r.range(0.48, 0.66);
+  if (!force) {
+    const seed = ((Math.round(H * 10) % 997) + 1) / 1000;
+    const placed = fieldTower('flue-bank', 18, 14, H, seed, Math.round(H) % 3);
+    for (const b of placed.boxes) {
+      put(s + b.s, t + b.t, b.lb, b.la, b.h, b.base, b.style, b.lit, b.tint, b.detail, {
+        kit: true, ornament: b.ornament, family: 'flue-bank',
+      });
+    }
+  } else {
+    put(s, t, 5.2, 5.2, H, 0, Style.Industrial, 0.02, tint, 0);
+    for (let i = 0; i < 3; i++) {
+      put(s, t, 5.8, 5.8, 0.7, H * (0.28 + i * 0.22), Style.Industrial, 0.02, 0.4, 1);
+    }
+    put(s, t, 3.2, 3.2, 1.4, H, Style.Industrial, 0.02, 0.55, 1);
   }
-  put(s, t, 3.2, 3.2, 1.4, H, Style.Industrial, 0.02, 0.55, 1);
   // Cooling stack beside it, inside the fabric band.
   const cH = r.range(22, 38);
   put(s + 8, t - 6, 8.5, 8.5, cH, 0, Style.Industrial, 0.02, 0.58, 0);
@@ -517,6 +538,7 @@ function propsPush(
 type Emit = (
   s: number, t: number, lb: number, la: number, h: number, base: number,
   style: StyleId, lit: number, tint: number, detail: 0 | 1 | 2,
+  extra?: { kit?: boolean; ornament?: 0 | 1 | 2; family?: string },
 ) => void;
 
 type PropFn = (

@@ -1,4 +1,4 @@
-// Eight tower families and three hero megastructures.
+// Eight downtown families, three field families, and three hero megastructures.
 // Original masses in the 2049 spirit: banded slabs, setbacks, buttresses, a dark taper,
 // a residential stack, an ad shaft, a top-heavy cantilever, a cruciform lantern.
 // Storeys are 3.4 m (housing) or 3.6 m (everything else), from the shared scale module.
@@ -41,7 +41,7 @@ function rngOf(spec: TowerSpec): Rng {
 
 
 export function buildTower(spec: TowerSpec): Draft {
-  const module = spec.kind === 'res-stack' ? RES_STOREY : STOREY;
+  const module = spec.kind === 'res-stack' || spec.kind === 'spine-bar' ? RES_STOREY : STOREY;
   let maxH = spec.maxH;
   // Roof plant sits above the crown. Keep the whole fabric stack under 305 m.
   if (maxH <= 320) maxH = Math.min(maxH, 299 - crownExtra(spec.kind));
@@ -73,6 +73,9 @@ export function buildTower(spec: TowerSpec): Draft {
     case 'holo-shaft': holoShaft(d, spec, H, y0, door, variant); break;
     case 'cantilever': cantilever(d, spec, H, y0, door, variant); break;
     case 'lantern': lantern(d, spec, H, y0, door, variant); break;
+    case 'screen-wall': screenWall(d, spec, H, y0, door, variant); break;
+    case 'flue-bank': flueBank(d, spec, H, y0, door, variant); break;
+    case 'spine-bar': spineBar(d, spec, H, y0, door, variant); break;
     case 'hero-gate': heroGate(d, spec, height); break;
     case 'hero-step': heroStep(d, spec, height); break;
     case 'hero-obelisk': heroObelisk(d, spec, height); break;
@@ -111,6 +114,10 @@ function crownExtra(kind: TowerKind): number {
     case 'band-slab': return 10;
     case 'ziggurat': return 12;
     case 'monolith': return 6;
+    case 'screen-wall': return 4;
+    case 'flue-bank': return 6;
+    case 'spine-bar': return 4;
+    case 'hero-obelisk': return 0;
     default: return 6;
   }
 }
@@ -660,34 +667,286 @@ function heroStep(d: Draft, spec: TowerSpec, H: number): void {
   glowCrown(d, 0, 0, spec.w * 0.1, spec.d * 0.1, H, 7);
 }
 
+/**
+ * Kite elevation: narrow stem, full shoulders, a needle.
+ * `y` is 0 at the ground and 1 at the published roof. The widest point is the shoulder.
+ */
+export function kiteProfile(y: number): number {
+  const shoulder = 0.26;
+  const base = 0.34;
+  const tip = 0.045;
+  const t = Math.max(0, Math.min(1, y));
+  if (t <= shoulder) return base + (1 - base) * (t / shoulder);
+  return 1 + (tip - 1) * ((t - shoulder) / (1 - shoulder));
+}
+
 function heroObelisk(d: Draft, spec: TowerSpec, H: number): void {
-  const steps = 6;
+  const steps = 24;
+  const slice = H / steps;
+  let shoulderY = H * 0.26;
   for (let i = 0; i < steps; i++) {
-    const f = 1 - i * (0.74 / steps);
-    const h = H / steps;
+    const y0 = i / steps;
+    const y1 = (i + 1) / steps;
+    const rising = y1 <= 0.26 + 1 / steps;
+    const f = i === steps - 1 ? kiteProfile(1) : i === 0 ? kiteProfile(0) : rising ? kiteProfile(y1) : kiteProfile(y0);
+    const bw = Math.max(2.8, spec.w * f);
+    const bd = Math.max(2.8, spec.d * f);
+    const base = slice * i;
+    if (f > 0.96) shoulderY = base;
     if (i === 0) {
       skin(d, {
-        s: 0, t: 0, lb: spec.w * f, la: spec.d * f, h, base: h * i,
-        style: Style.Monolith, lit: 0.08, tint: spec.tint * 0.7, door: true,
+        s: 0, t: 0, lb: bw, la: bd, h: slice, base,
+        style: Style.Monolith, lit: 0.08, tint: spec.tint * 0.72, door: true,
       });
     } else {
       addBox(d, {
-        s: 0, t: 0, lb: spec.w * f, la: spec.d * f * 0.72, h, base: h * i,
-        style: Style.Monolith, lit: 0.06, tint: spec.tint * (0.75 - i * 0.04),
+        s: 0, t: 0, lb: bw, la: bd, h: slice, base,
+        style: Style.Monolith, lit: 0.07, tint: spec.tint * (0.8 - i * 0.012),
         detail: 0, role: 'mass',
       });
     }
+    // Short ticks on the kite edge. A full-height glow face tiles into windows.
+    if (i > 1 && i < steps - 1 && i % 3 === 0) {
+      const tick = 1.45;
+      for (const side of [-1, 1] as const) {
+        addBox(d, {
+          s: -(bd / 2 - 0.2), t: side * (bw / 2 - 1.15),
+          lb: 2.05, la: 0.4, h: tick, base: base + slice - tick,
+          style: Style.Glow, lit: 0.7, tint: 1.14, detail: 0, role: 'band',
+        });
+      }
+    }
   }
-  // A narrow seam, the same width as the monolith slit. A wide glow face tiles into windows.
+  const sw = spec.w * kiteProfile(0.26);
+  const sd = spec.d * kiteProfile(0.26);
   addBox(d, {
-    s: -(spec.d * 0.5 + 0.3), t: spec.w * 0.12, lb: 2.4, la: 0.55, h: H * 0.55, base: H * 0.22,
-    style: Style.Glow, lit: 0.72, tint: 1.15, detail: 0, role: 'mass',
+    s: -(sd / 2 - 0.15), t: 0, lb: sw * 0.94, la: 0.46, h: 1.55, base: shoulderY,
+    style: Style.Glow, lit: 0.76, tint: 1.16, detail: 0, role: 'band',
   });
-  mastTip(d, 0, 0, H, 28);
+  addBox(d, {
+    s: 0, t: sw / 2 - 0.35, lb: 0.46, la: sd * 0.88, h: 1.55, base: shoulderY,
+    style: Style.Glow, lit: 0.7, tint: 1.12, detail: 0, role: 'band',
+  });
+  const tipW = Math.max(1.8, spec.w * kiteProfile(1));
+  addBox(d, {
+    s: 0, t: 0, lb: tipW * 0.72, la: tipW * 0.72, h: 2.4, base: H - 2.4,
+    style: Style.Glow, lit: 0.92, tint: 1.22, detail: 0, role: 'mass',
+  });
+  for (let k = -1; k <= 1; k++) {
+    addBox(d, {
+      s: -(sd / 2 - 0.4), t: k * sw * 0.22,
+      lb: 1.3, la: 1.4, h: 0.4, base: shoulderY - 0.4,
+      style: Style.Solid, lit: 0.05, tint: spec.tint * 0.7,
+      detail: 1, ornament: 1, role: 'band',
+    });
+  }
+  addBox(d, {
+    s: spec.d * 0.06, t: spec.w * 0.05, lb: 1.6, la: 1.1, h: 2.2, base: slice * 0.35,
+    style: Style.Industrial, lit: 0.04, tint: spec.tint * 0.55,
+    detail: 2, ornament: 2, role: 'mass',
+  });
+}
+
+function screenWall(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolean, variant: number): void {
+  const front = -spec.d / 2;
+  const pierD = Math.min(3.4, spec.d * 0.22);
+  const pierS = front + pierD / 2 + 0.2;
+  const plateD = Math.max(4, spec.d - pierD - 0.8);
+  const plateS = pierS + pierD / 2 + plateD / 2 - 0.08;
+  const pierFrac = variant === 2 ? [0.3, 0.14] : [0.2, 0.2];
+  const leftW = Math.max(3.2, spec.w * pierFrac[0]);
+  const rightW = Math.max(3.2, spec.w * pierFrac[1]);
+  const leftT = -spec.w / 2 + leftW / 2 + 0.3;
+  const rightT = spec.w / 2 - rightW / 2 - 0.3;
+  skin(d, {
+    s: plateS, t: 0, lb: spec.w * 0.94, la: plateD, h: H, base: y0,
+    style: Style.Monolith, lit: 0.06, tint: spec.tint * 0.66, door,
+  });
+  const pier: Array<[number, number]> = [[leftT, leftW], [rightT, rightW]];
+  for (const [t, w] of pier) {
+    addBox(d, {
+      s: pierS, t, lb: w, la: pierD, h: H, base: y0,
+      style: Style.Panel, lit: 0.16, tint: spec.tint, detail: 0, role: 'mass',
+    });
+  }
+  const headH = Math.max(STOREY * 1.5, H * (variant === 1 ? 0.16 : 0.11));
+  const wellL = leftT + leftW / 2;
+  const wellR = rightT - rightW / 2;
+  const wellW = Math.max(4, wellR - wellL);
+  const wellT = (wellL + wellR) / 2;
+  addBox(d, {
+    s: pierS, t: wellT, lb: wellW + 1.2, la: pierD, h: headH, base: y0 + H - headH,
+    style: Style.Solid, lit: 0.08, tint: spec.tint * 0.78, detail: 0, role: 'band',
+  });
+  const sillY = y0 + Math.max(STOREY * 3, H * 0.2);
+  addBox(d, {
+    s: pierS, t: wellT, lb: wellW, la: pierD * 0.92, h: STOREY * 0.8, base: sillY,
+    style: Style.Solid, lit: 0.07, tint: spec.tint * 0.74, detail: 0, role: 'band',
+  });
+  if (variant === 1) {
+    addBox(d, {
+      s: pierS, t: wellT, lb: wellW, la: pierD * 0.9, h: STOREY * 0.7, base: y0 + H * 0.52,
+      style: Style.Solid, lit: 0.07, tint: spec.tint * 0.72, detail: 0, role: 'band',
+    });
+  }
+  addBox(d, {
+    s: pierS - pierD / 2 - 0.16, t: wellT, lb: wellW * 0.92, la: 0.42, h: 1.5,
+    base: y0 + H - headH - 1.5,
+    style: Style.Glow, lit: 0.78, tint: 1.18, detail: 0, role: 'band',
+  });
+  const gutterTop = y0 + H - headH - 0.4;
+  for (let y = sillY + STOREY; y < gutterTop - 2; y += STOREY * 2) {
+    for (const side of [-1, 1] as const) {
+      addBox(d, {
+        s: pierS - pierD / 2 - 0.12, t: wellT + side * (wellW / 2 - 0.7),
+        lb: 1.6, la: 0.36, h: 1.45, base: y,
+        style: Style.Glow, lit: 0.62, tint: 1.1, detail: 0, role: 'band',
+      });
+    }
+  }
+  for (let k = 0; k < 3; k++) {
+    addBox(d, {
+      s: pierS, t: wellT + (k - 1) * wellW * 0.28, lb: 0.7, la: pierD + 0.6, h: 0.35,
+      base: y0 + H - headH - 0.35,
+      style: Style.Solid, lit: 0.05, tint: spec.tint * 0.65,
+      detail: 1, ornament: 1, role: 'band',
+    });
+  }
+  addBox(d, {
+    s: plateS, t: rightT, lb: 0.8, la: 0.8, h: 3.2, base: y0 + H * 0.42,
+    style: Style.Industrial, lit: 0.03, tint: spec.tint * 0.5,
+    detail: 2, ornament: 2, role: 'mass',
+  });
+}
+
+function flueBank(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolean, variant: number): void {
+  const plinthH = Math.max(STOREY * 2, Math.min(H * 0.16, STOREY * 4));
+  skin(d, {
+    s: 0, t: 0, lb: spec.w * 0.96, la: spec.d * 0.9, h: plinthH, base: y0,
+    style: Style.Industrial, lit: 0.1, tint: spec.tint * 0.7, door,
+  });
+  const order = variant === 1 ? [0.78, 1, 0.58] : variant === 2 ? [0.62, 0.8, 1] : [0.74, 1, 0.56];
+  const widths = [0.22, 0.28, 0.2];
+  const gaps = spec.w * 0.06;
+  const usable = spec.w * 0.9 - gaps * 2;
+  const ws = widths.map((f) => usable * (f / (0.22 + 0.28 + 0.2)));
+  let cursor = -spec.w * 0.45;
+  const shafts: Array<{ t: number; w: number; h: number }> = [];
+  for (let i = 0; i < 3; i++) {
+    const w = Math.max(2.4, ws[i]!);
+    const t = cursor + w / 2;
+    cursor += w + gaps;
+    const h = plinthH + (H - plinthH) * order[i]!;
+    shafts.push({ t, w, h });
+    const depth = spec.d * (0.42 + (i === 1 ? 0.12 : 0));
+    addBox(d, {
+      s: 0, t, lb: w, la: Math.min(spec.d * 0.78, depth), h: h - plinthH, base: y0 + plinthH,
+      style: Style.Monolith, lit: 0.07, tint: spec.tint * (0.62 + i * 0.04),
+      detail: 0, role: 'mass',
+    });
+    addBox(d, {
+      s: 0, t, lb: w + 0.9, la: Math.min(spec.d * 0.84, depth + 0.8), h: 1.05, base: y0 + h - 1.05,
+      style: Style.Solid, lit: 0.06, tint: spec.tint * 0.58, detail: 0, role: 'band',
+    });
+    addBox(d, {
+      s: -(depth / 2 + 0.15), t, lb: Math.min(2.2, w * 0.7), la: 0.4, h: 1.4,
+      base: y0 + h - 2.5,
+      style: Style.Glow, lit: 0.7, tint: 1.12, detail: 0, role: 'band',
+    });
+  }
+  const beamY = y0 + plinthH + (H - plinthH) * (variant === 2 ? 0.34 : 0.42);
+  const spanL = Math.min(...shafts.map((s) => s.t - s.w / 2));
+  const spanR = Math.max(...shafts.map((s) => s.t + s.w / 2));
+  addBox(d, {
+    s: 0, t: (spanL + spanR) / 2, lb: spanR - spanL, la: spec.d * 0.28, h: 2.2, base: beamY,
+    style: Style.Solid, lit: 0.08, tint: spec.tint * 0.66, detail: 0, role: 'deck',
+  });
+  const tall = shafts.reduce((a, b) => (a.h > b.h ? a : b));
+  addBox(d, {
+    s: -(spec.d * 0.28), t: tall.t, lb: 1.8, la: 0.42, h: Math.min(H * 0.28, tall.h * 0.34),
+    base: y0 + plinthH + STOREY,
+    style: Style.Glow, lit: 0.66, tint: 1.1, detail: 0, role: 'mass',
+  });
+  for (const shaft of shafts) {
+    addBox(d, {
+      s: spec.d * 0.12, t: shaft.t, lb: 0.7, la: 0.7, h: 1.6, base: y0 + shaft.h,
+      style: Style.Industrial, lit: 0.04, tint: spec.tint * 0.5,
+      detail: 2, ornament: 2, role: 'mass',
+    });
+  }
+}
+
+function spineBar(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolean, variant: number): void {
+  if (variant === 2) {
+    const cuts = [0.56, 0.78, 1];
+    const shares = [0.28, 0.44, 0.28];
+    let cursor = -spec.w / 2;
+    for (let i = 0; i < 3; i++) {
+      const w = spec.w * shares[i]!;
+      const t = cursor + w / 2;
+      cursor += w;
+      const h = H * cuts[i]!;
+      if (i === 1 && door) {
+        skin(d, {
+          s: 0, t, lb: w * 0.96, la: spec.d * 0.9, h, base: y0,
+          style: Style.Monolith, lit: 0.1, tint: spec.tint * 0.7, door: true,
+        });
+      } else {
+        addBox(d, {
+          s: 0, t, lb: w * 0.96, la: spec.d * (0.72 + i * 0.06), h, base: y0,
+          style: Style.Monolith, lit: 0.08, tint: spec.tint * (0.66 + i * 0.03),
+          detail: 0, role: 'mass',
+        });
+      }
+      addBox(d, {
+        s: -(spec.d * 0.42), t, lb: w * 0.88, la: 0.4, h: 1.35, base: y0 + h - 1.35,
+        style: Style.Glow, lit: 0.64, tint: 1.1, detail: 0, role: 'band',
+      });
+    }
+    return;
+  }
+  const barH = H * 0.68;
+  skin(d, {
+    s: 0, t: 0, lb: spec.w * 0.98, la: spec.d * 0.92, h: barH, base: y0,
+    style: Style.Monolith, lit: 0.1, tint: spec.tint * 0.7, door,
+  });
+  const spineW = Math.max(4, spec.w * 0.34);
+  const spineT = variant === 1 ? spec.w * 0.2 : 0;
+  const spineBase = y0 + barH * 0.62;
+  const spineH = y0 + H - spineBase;
+  addBox(d, {
+    s: 0, t: spineT, lb: spineW, la: spec.d * 0.66, h: spineH, base: spineBase,
+    style: Style.Monolith, lit: 0.07, tint: spec.tint * 0.58, detail: 0, role: 'mass',
+  });
+  addBox(d, {
+    s: -(spec.d * 0.46), t: 0, lb: spec.w * 0.9, la: 0.42, h: 1.45, base: y0 + barH - 1.45,
+    style: Style.Glow, lit: 0.68, tint: 1.12, detail: 0, role: 'band',
+  });
+  addBox(d, {
+    s: -(spec.d * 0.34), t: spineT, lb: 2.1, la: 0.42,
+    h: Math.max(STOREY, spineH * 0.55), base: spineBase + spineH * 0.2,
+    style: Style.Glow, lit: 0.7, tint: 1.14, detail: 0, role: 'mass',
+  });
+  for (let y = y0 + STOREY * 3; y < y0 + barH - STOREY; y += STOREY * 4) {
+    addBox(d, {
+      s: -(spec.d * 0.46 + 0.15), t: spec.w * 0.22, lb: spec.w * 0.28, la: 0.7, h: 0.16, base: y,
+      style: Style.Solid, lit: 0.05, tint: spec.tint * 0.65,
+      detail: 1, ornament: 1, role: 'balcony',
+    });
+  }
+  addBox(d, {
+    s: spec.d * 0.1, t: -spec.w * 0.2, lb: 2.2, la: 1.4, h: 1.8, base: y0 + barH,
+    style: Style.Industrial, lit: 0.03, tint: spec.tint * 0.5,
+    detail: 2, ornament: 2, role: 'mass',
+  });
 }
 
 function dressRoof(d: Draft, spec: TowerSpec, r: Rng): void {
-  if (spec.kind === 'monolith' || spec.kind === 'hero-step' || spec.kind === 'hero-obelisk' || spec.kind === 'lantern') return;
+  if (
+    spec.kind === 'monolith' || spec.kind === 'hero-step' || spec.kind === 'hero-obelisk'
+    || spec.kind === 'lantern' || spec.kind === 'buttress'
+    || spec.kind === 'screen-wall' || spec.kind === 'flue-bank' || spec.kind === 'spine-bar'
+  ) return;
   const n = spec.kind === 'res-stack' ? 2 : 1;
   for (let k = 0; k < n; k++) {
     const bw = r.range(3, Math.min(9, spec.w * 0.22));
@@ -717,7 +976,7 @@ function dressSigns(d: Draft, spec: TowerSpec): void {
       s: 0, t: 0, hb: spec.w / 2, ha: spec.d / 2, face: 'a-', along: spec.w * 0.16,
       y: Math.max(40, d.height * 0.4), w: 16, h: 22, color: AD_COLORS[2]!, kind: 2,
     });
-  } else if (spec.holo || spec.kind === 'hero-obelisk') {
+  } else if (spec.holo) {
     d.signs.push({
       s: 0, t: 0, hb: spec.w / 2, ha: spec.d / 2, face: 'a+', along: 0,
       y: Math.max(28, d.height * 0.42), w: 18, h: 9, color: AD_COLORS[2]!, kind: 2,

@@ -62,6 +62,7 @@ export const SOUTH_BAY_PARAMS: RefineryParams = {
   doorS: DOOR_S,
   pumpH: PUMP_H,
   module: 5,
+  yard: 'flue-bank',
   sphere: [16.8, 25.2],
 };
 

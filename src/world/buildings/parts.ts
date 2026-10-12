@@ -35,7 +35,13 @@ export const TOWER_KINDS = [
 
 export const HERO_KINDS = ['hero-gate', 'hero-step', 'hero-obelisk'] as const;
 
-export type TowerKind = (typeof TOWER_KINDS)[number] | (typeof HERO_KINDS)[number];
+/**
+ * Families for districts the downtown roll does not cover.
+ * Kept off `TOWER_KINDS` so financial, downtown, and Long Beach keep their seeds.
+ */
+export const FIELD_KINDS = ['screen-wall', 'flue-bank', 'spine-bar'] as const;
+
+export type TowerKind = (typeof TOWER_KINDS)[number] | (typeof HERO_KINDS)[number] | (typeof FIELD_KINDS)[number];
 
 export type PartRole = 'mass' | 'door-header' | 'door-cheek' | 'door-jamb' | 'rail' | 'balcony' | 'deck' | 'band' | 'stair';
 

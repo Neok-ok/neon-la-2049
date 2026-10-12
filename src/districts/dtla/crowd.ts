@@ -67,8 +67,6 @@ function heroApron(query: CityQuery, blocks: PackedBlock[]): { extra: Array<Arra
   const extra: Array<Array<[number, number]>> = [];
   const life: CrowdLifeSpot[] = [];
   for (const [id, kind] of HERO_DOOR) {
-    // No door queue on the unplaced obelisk. The reserve is empty until a follow-up rebuilds it.
-    if (id === 'b1-obelisk') continue;
     const l = query.layout.landmarkById(id);
     if (!l) continue;
     let close = false;

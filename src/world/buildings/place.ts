@@ -2,7 +2,7 @@
 import type { Rng } from '../../core/rng';
 import type { FabricCtx, FaceDir, StyleId } from '../fabric/types';
 import { phraseSeed } from '../materials/signPhrases';
-import { HERO_KINDS, TOWER_KINDS, type BBox, type Draft, type TowerKind } from './parts';
+import { FIELD_KINDS, HERO_KINDS, TOWER_KINDS, type BBox, type Draft, type TowerKind } from './parts';
 import { buildTower, type TowerSpec } from './recipes';
 
 export interface PlacedBox {
@@ -100,9 +100,33 @@ export function placeHero(kind: (typeof HERO_KINDS)[number], w: number, d: numbe
     plinth: 0,
     decks: [],
     phrases: [],
-    holo: kind === 'hero-obelisk',
+    holo: false,
     minH: height - 8,
     maxH: height + 8,
+  };
+  return placedAt(0, 0, buildTower(spec), []);
+}
+
+/** A field family for a district the downtown roll does not cover. The lot seed is not touched. */
+export function fieldTower(
+  kind: (typeof FIELD_KINDS)[number],
+  w: number,
+  d: number,
+  height: number,
+  seed: number,
+  variant: number,
+): Placed {
+  const floor = kind === 'spine-bar' ? 40.8 : 43.2;
+  const spec: TowerSpec = {
+    kind, variant, seed, height, w, d,
+    lit: kind === 'flue-bank' ? 0.14 : kind === 'spine-bar' ? 0.28 : 0.36,
+    tint: kind === 'flue-bank' ? 0.62 : 0.8,
+    plinth: 0,
+    decks: [],
+    phrases: [],
+    holo: false,
+    minH: Math.max(floor, height - 8),
+    maxH: Math.min(160, height + 8),
   };
   return placedAt(0, 0, buildTower(spec), []);
 }

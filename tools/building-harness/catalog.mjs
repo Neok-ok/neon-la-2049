@@ -158,6 +158,61 @@ for (const id of ['b1-gate', 'b1-step', 'b1-obelisk']) {
   });
 }
 
+const hwPlan = await vite.ssrLoadModule('/src/districts/hollywood/plan.ts');
+const artsPlan = await vite.ssrLoadModule('/src/districts/arts-district/plan.ts');
+const sprawlMod = await vite.ssrLoadModule('/src/districts/_shared/sprawl/plan.ts');
+const eastSpec = await vite.ssrLoadModule('/src/districts/east-la/spec.ts');
+const sbPlan = await vite.ssrLoadModule('/src/districts/south-bay-refineries/plan.ts');
+
+function blocksIn(id) {
+  const d = layout.districts.find((x) => x.id === id);
+  if (!d) return [];
+  const [minX, minZ, maxX, maxZ] = d.bbox;
+  const size = Math.max(maxX - minX, maxZ - minZ) + 800;
+  return enumerateBlocks(layout, minX - 400, minZ - 400, size).filter((b) => b.district.id === id && b.ground <= 45);
+}
+
+const field = new Map();
+function note(block, boxes) {
+  for (const tower of clusterTowers(block, { boxes })) {
+    const list = field.get(tower.family) ?? [];
+    list.push(tower);
+    field.set(tower.family, list);
+  }
+}
+
+for (const b of blocksIn('hollywood')) note(b, hwPlan.planHollywood(b).boxes);
+for (const b of blocksIn('arts-district')) note(b, artsPlan.planArts(b, layout).boxes);
+for (const b of blocksIn('east-la')) {
+  const plan = sprawlMod.planSprawl({
+    id: 'east-la',
+    cx: b.cx, cz: b.cz, ax: b.ax, az: b.az, bx: b.bx, bz: b.bz,
+    la: b.la, lb: b.lb, street: b.street, seed: b.seed, ground: b.ground,
+  }, eastSpec.EAST_LA_PARAMS, layout);
+  note(b, plan.boxes);
+}
+for (const b of blocksIn('south-bay-refineries')) {
+  note(b, sbPlan.planSouthBay({
+    cx: b.cx, cz: b.cz, ax: b.ax, az: b.az, bx: b.bx, bz: b.bz,
+    la: b.la, lb: b.lb, street: b.street, seed: b.seed, ground: b.ground,
+  }, layout).boxes);
+}
+
+for (const [kind, list] of field) {
+  counts[kind] = list.length;
+  const best = pick(list);
+  if (!best) continue;
+  const pose = poseOf(best);
+  pose.district = best.block.district.id;
+  const standS = best.doorS - 8;
+  const standT = best.doorT + 2.2;
+  const [sx, sz] = toWorld(best.block, standS, standT);
+  pose.stand = [Number(sx.toFixed(2)), Number(sz.toFixed(2))];
+  pose.ground = Number(layout.heightAt(sx, sz).toFixed(2));
+  pose.gap = 8;
+  chosen.push(pose);
+}
+
 const report = { dressed, counts, towers: [...chosen, ...heroes] };
 mkdirSync(dirname(OUT), { recursive: true });
 writeFileSync(OUT, JSON.stringify(report, null, 2));
