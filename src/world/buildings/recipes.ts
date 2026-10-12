@@ -857,17 +857,19 @@ function flueBank(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
       style: Style.Solid, lit: 0.06, tint: spec.tint * 0.58, detail: 0, role: 'band',
     });
     addBox(d, {
-      s: ss - (depth / 2 + 0.15), t, lb: Math.min(2.2, w * 0.7), la: 0.4, h: 1.4,
-      base: y0 + h - 2.5,
-      style: Style.Glow, lit: 0.82, tint: 1.16, detail: 0, role: 'band',
+      s: ss - (depth / 2 + 0.15), t, lb: Math.min(2.2, w * 0.72), la: 0.4, h: 1.45,
+      base: y0 + h - 2.6,
+      style: Style.Glow, lit: 0.8, tint: 1.16, detail: 0, role: 'band',
     });
-    // A seam on every shaft, most of the shaft height, so the bank reads as three stacks.
-    addBox(d, {
-      s: ss - (depth / 2 + 0.28), t, lb: Math.min(2.2, w * 0.5), la: 0.42,
-      h: Math.max(STOREY * 2, (h - plinthH) * 0.78),
-      base: y0 + plinthH + STOREY * 0.35,
-      style: Style.Glow, lit: 0.88, tint: 1.18, detail: 0, role: 'mass',
-    });
+    // Short courses, not a full-height glow face. A tall glow cell tiles into windows.
+    const courseTop = y0 + h - 3.2;
+    for (let y = y0 + plinthH + STOREY * 2; y < courseTop; y += STOREY * 4) {
+      addBox(d, {
+        s: ss - (depth / 2 + 0.22), t, lb: Math.max(1.6, w * 0.78), la: 0.36, h: 1.35,
+        base: y,
+        style: Style.Glow, lit: 0.72, tint: 1.12, detail: 0, role: 'band',
+      });
+    }
   }
   const beamY = y0 + plinthH + (H - plinthH) * (variant === 2 ? 0.34 : 0.42);
   const spanL = Math.min(...shafts.map((s) => s.t - s.w / 2));
