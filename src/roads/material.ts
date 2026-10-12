@@ -161,7 +161,9 @@ function richSolid(): MeshStandardNodeMaterial {
     const band = mx_noise_float(vec3(wpos.x.mul(0.015), wpos.z.mul(0.015), float(4)));
     const mag = vec3(0.72, 0.08, 0.36);
     const cyan = vec3(0.08, 0.42, 0.58);
-    const local = mix(mix(mag, cyan, smoothstep(0.3, 0.7, band)), vec3(1.0, 0.5, 0.16), sodium);
+    const chroma = mix(mag, cyan, smoothstep(0.3, 0.7, band));
+    // Sheen 0 stays a trace. Full magenta read as a patch on the lane with no lamp.
+    const local = mix(chroma.mul(0.18), vec3(1.0, 0.5, 0.16), sodium);
     const altFade = smoothstep(80, 18, U.camAlt);
     // Puddles carry reflected neon. The wet sheet stays a dark sheen so asphalt
     // stays black even where a district's neonWet is high.
@@ -243,7 +245,7 @@ export function roadPuddleMaterial(): MeshStandardNodeMaterial {
     const ndv = max(dot(normalize(vec3(0, 1, 0)), view), float(0));
     const fres = pow(float(1).sub(ndv), float(3));
     const sodium = smoothstep(0.15, 0.85, U.sheen);
-    const neon = mix(vec3(0.85, 0.12, 0.4), vec3(1.0, 0.52, 0.16), sodium);
+    const neon = mix(vec3(0.85, 0.12, 0.4).mul(0.18), vec3(1.0, 0.52, 0.16), sodium);
     const a = smoothstep(0.5, 0.12, T.max(abs(uv().x.sub(0.5)), abs(uv().y.sub(0.5))).mul(1.4)).mul(U.wetness);
     return neon.mul(fres).mul(a).mul(U.night).mul(U.neonWet).mul(U.signPower).mul(mix(float(1), float(0.3), U.reflMix));
   })();
