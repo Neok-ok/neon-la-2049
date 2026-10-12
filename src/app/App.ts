@@ -1060,6 +1060,22 @@ export class App {
       setMode: (m: ModeId) => this.cams.setMode(m),
       setPose: (x: number, y: number, z: number, yawDeg = 0, pitchDeg = 0) =>
         this.cams.setPose({ position: new Vector3(x, y, z), heading: yawDeg * DEG, pitch: pitchDeg * DEG }),
+      /** Rise off the current walk pose and look down the street, so a still shows a pool and the gap past it. */
+      survey: (up = 7, back = 5, pitchDeg = -20) => {
+        const w = this.cams.walk;
+        const h = w.heading;
+        const fx = Math.sin(h);
+        const fz = -Math.cos(h);
+        const x = w.pos.x - fx * back;
+        const y = w.pos.y + up;
+        const z = w.pos.z - fz * back;
+        this.cams.fly.cockpit = true;
+        if (this.cams.mode !== 'fly') this.cams.setMode('fly');
+        this.cams.setPose({ position: new Vector3(x, y, z), heading: h, pitch: pitchDeg * DEG });
+        this.cams.fly.cockpit = true;
+        this.cams.fly.vel.set(0, 0, 0);
+        return true;
+      },
       /** Street-level camera on a real carriageway. `id` is a district id from `roadPoses()`. */
       roadView: (id = 'historic-core') => {
         const pose = roadPoses().find((p) => p.id === id);

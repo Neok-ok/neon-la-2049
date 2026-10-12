@@ -97,7 +97,10 @@ export function practicalLit(world: any, normal: any, viewDir: any, albedo: any)
   const bake = vec3(SODIUM_RGB[0], SODIUM_RGB[1], SODIUM_RGB[2]).mul(up).mul(bakedNits).mul(float(0.28).add(pool.mul(2.6)));
   const fres = pow(float(1).sub(clamp(dot(normal, viewDir), 0, 1)), float(5.5));
   const sheen = probeColor.mul(probeStrength).mul(fres).mul(up).mul(U.wetness);
-  return acc.add(bake).add(sheen);
+  // 12 lux on asphalt is about 0.1 nit and reads as a hole. This cool lift keeps the
+  // street a surface. A lantern is still several times brighter, so the pool stays local.
+  const sky = vec3(0.45, 0.55, 0.78).mul(up).mul(U.night).mul(0.42);
+  return acc.add(bake).add(sheen).add(sky);
 }
 
 /** In-scattered nits from the four haze slots. Henyey–Greenstein, g = 0.42, one sample at the surface. */

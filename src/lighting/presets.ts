@@ -61,11 +61,12 @@ function discharge(id: PresetId, rgb: RGB, rest: Omit<Preset, 'id' | 'rgb' | 'ke
 export const PRESETS: Record<PresetId, Preset> = {
   'street-sodium': blackbody('street-sodium', 2000, {
     candela: 7500, cdMin: 400, cdMax: 25000, nits: 28, range: 28,
-    cone: deg(68), inner: deg(40), contact: true, volumetric: true,
+    // 68° from a 7 m head covered the next lamp. 56° leaves a dark gap on a 32 m spacing.
+    cone: deg(56), inner: deg(32), contact: true, volumetric: true,
   }),
   'street-led': blackbody('street-led', 4000, {
     candela: 5200, cdMin: 400, cdMax: 25000, nits: 80, range: 26,
-    cone: deg(64), inner: deg(36), contact: true, volumetric: true,
+    cone: deg(52), inner: deg(30), contact: true, volumetric: true,
   }),
   // Neon and argon tubes are discharges. The sign shader scales a full glyph by about 1.65,
   // which just clears the bloom threshold. A painted wall (a few nits) does not.
