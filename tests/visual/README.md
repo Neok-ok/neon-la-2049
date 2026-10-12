@@ -51,7 +51,10 @@ Narrow a local run:
 
 ```bash
 ONLY=pyramid,lapd VIEWS=desktop QUALITIES=medium npm run visual
+SHARD=1/4 npm run visual
 ```
+
+`SHARD=1/4` keeps every fourth shot, starting at the first. The pull-request workflow runs `1/4` through `4/4` at the same time, because one SwiftShader machine cannot finish all 88 images inside the six-hour job limit. A publish job joins the four tables into one comment and one `visual-diff-report` artifact.
 
 `REPEAT=2` captures every image twice and fails if those two frames disagree. Use it when a shot looks flaky. `GPU=1` uses the machine GPU instead of SwiftShader; it will not match baselines, and `--update` refuses it.
 
@@ -75,7 +78,7 @@ git add tests/visual/baselines
 
 `npm run visual:update` is `node tests/visual/run.mjs --update`. That is the explicit script.
 
-On a pull request, add the label **`update-visual-baselines`**. The visual workflow recaptures, commits the new PNGs to the PR branch with `[visual-baselines]` in the message, and pushes. The next run compares and does not commit again. Remove the label once the refresh has landed if later commits on that PR should not keep replacing baselines.
+On a pull request, add the label **`update-visual-baselines`**. The four shards recapture, and the publish job commits the new PNGs to the PR branch with `[visual-baselines]` in the message and pushes once. The next run compares and does not commit again. Remove the label once the refresh has landed if later commits on that PR should not keep replacing baselines.
 
 `workflow_dispatch` can run the same job. It only writes baselines when "Update visual baselines" is checked, and that path uploads them as an artifact instead of pushing to `main`.
 

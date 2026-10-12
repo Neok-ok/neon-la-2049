@@ -156,6 +156,17 @@ export function assertCatalog() {
   if (errors.length) throw new Error(errors.join('\n'));
 }
 
+/** `1/4` keeps shots 0, 4, 8, … so a CI matrix can share one catalog. */
+export function takeShard(list, spec) {
+  if (!spec) return list;
+  const match = /^(\d+)\s*\/\s*(\d+)$/.exec(String(spec));
+  if (!match) throw new Error(`SHARD must look like 1/4, got ${spec}`);
+  const index = Number(match[1]);
+  const count = Number(match[2]);
+  if (count < 1 || index < 1 || index > count) throw new Error(`SHARD ${spec} is out of range`);
+  return list.filter((_, i) => i % count === index - 1);
+}
+
 function printCatalog() {
   assertCatalog();
   const views = Object.keys(VIEWS).length;

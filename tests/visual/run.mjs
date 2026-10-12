@@ -11,6 +11,7 @@
 //   MAX_DIFF     mismatch ratio, default 0.02
 //   GPU=1        real GPU instead of SwiftShader. Refuses --update (baselines are SwiftShader).
 //   REPEAT=2     capture each image twice and fail if the two frames disagree
+//   SHARD=1/4    this piece of the catalog only (CI splits the suite four ways)
 import { spawn } from 'node:child_process';
 import { appendFileSync, copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -28,6 +29,7 @@ import {
   fileName,
   queryFor,
   shots,
+  takeShard,
 } from './shots.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -338,8 +340,9 @@ async function main() {
   if (update && gpu) throw new Error('refusing --update with GPU=1; baselines are SwiftShader WebGL2');
   const views = pick(viewNames, Object.keys(VIEWS), 'view');
   const tiers = pick(qualities, QUALITIES, 'quality');
-  const selected = shots.filter((s) => !only.size || only.has(s.id));
+  const selected = takeShard(shots.filter((s) => !only.size || only.has(s.id)), process.env.SHARD);
   if (!selected.length) throw new Error('no shots selected');
+  if (process.env.SHARD) console.log(`shard ${process.env.SHARD}: ${selected.map((s) => s.id).join(', ')}`);
 
   mkdirSync(ACTUAL, { recursive: true });
   mkdirSync(DIFF, { recursive: true });

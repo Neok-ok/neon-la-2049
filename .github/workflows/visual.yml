@@ -18,22 +18,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  visual:
+  mode:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    outputs:
+      update: ${{ steps.mode.outputs.update }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.head_ref || github.ref_name }}
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - run: npm run build
 
       - id: mode
         shell: bash
@@ -55,13 +47,82 @@ jobs:
           fi
           echo "update=$update" >> "$GITHUB_OUTPUT"
 
+  visual:
+    needs: mode
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+
       - name: Compare or update baselines
-        run: node tests/visual/run.mjs ${{ steps.mode.outputs.update == 'true' && '--update' || '' }}
+        env:
+          SHARD: ${{ matrix.shard }}/4
+        run: node tests/visual/run.mjs ${{ needs.mode.outputs.update == 'true' && '--update' || '' }}
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visual-diff-${{ matrix.shard }}
+          path: tests/visual/output
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        if: always() && needs.mode.outputs.update == 'true'
+        with:
+          name: visual-baselines-${{ matrix.shard }}
+          path: tests/visual/baselines
+          if-no-files-found: ignore
+
+  publish:
+    needs: [mode, visual]
+    if: always() && needs.mode.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: visual-diff-*
+          path: shards
+
+      - uses: actions/download-artifact@v4
+        if: needs.mode.outputs.update == 'true'
+        with:
+          pattern: visual-baselines-*
+          path: baseline-shards
+
+      - name: Merge shard reports
+        id: merge
+        run: node tests/visual/merge-reports.mjs shards tests/visual/output
 
       - name: Commit updated baselines
-        if: github.event_name == 'pull_request' && steps.mode.outputs.update == 'true'
+        if: github.event_name == 'pull_request' && needs.mode.outputs.update == 'true' && steps.merge.outcome == 'success'
         run: |
           set -euo pipefail
+          mkdir -p tests/visual/baselines
+          find baseline-shards -name '*.png' -exec cp -f {} tests/visual/baselines/ \;
           git add tests/visual/baselines
           if git diff --cached --quiet; then
             echo "baselines unchanged"
@@ -120,7 +181,7 @@ jobs:
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
-        if: always() && steps.mode.outputs.update == 'true'
+        if: always() && needs.mode.outputs.update == 'true'
         with:
           name: visual-baselines
           path: tests/visual/baselines
