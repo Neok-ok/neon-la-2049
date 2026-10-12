@@ -410,17 +410,16 @@ function lantern(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolean
       style: Style.Glow, lit: 0.72, tint: 1.15, detail: 0, role: 'mass',
     });
   }
-  for (const fy of [0.48, 0.78]) {
-    const lip = y0 + H * fy;
-    addBox(d, {
-      s: 0, t: 0, lb: slabW * 0.98, la: 1.15, h: 1.5, base: lip,
-      style: Style.Glow, lit: 0.64, tint: 1.12, detail: 0, role: 'band',
-    });
-    addBox(d, {
-      s: 0, t: 0, lb: 1.15, la: spec.d * 0.94, h: 1.5, base: lip,
-      style: Style.Glow, lit: 0.64, tint: 1.12, detail: 0, role: 'band',
-    });
-  }
+  // On the roof, so a view from above sees the plan. Lips under the slab read as one bent edge.
+  const roof = y0 + H + 0.4;
+  addBox(d, {
+    s: 0, t: 0, lb: slabW * 0.98, la: 4.4, h: 1.35, base: roof,
+    style: Style.Glow, lit: 0.78, tint: 1.16, detail: 0, role: 'band',
+  });
+  addBox(d, {
+    s: 0, t: 0, lb: 4.4, la: spec.d * 0.92, h: 1.35, base: roof,
+    style: Style.Glow, lit: 0.78, tint: 1.16, detail: 0, role: 'band',
+  });
   const fins = variant === 2 ? 5 : 3;
   for (let i = 1; i <= fins; i++) {
     const y = y0 + (H * i) / (fins + 1);
