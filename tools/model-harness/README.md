@@ -127,6 +127,8 @@ The limit is the smaller of 3 cm and 1% of the length. The gate reports the furt
 
 `fixtures/spinner-round10-high.glb` is the mesh that shipped with the fins, the roof rod, and the rear slab. `npm run stray` asserts that this file fails, and that the three shipping tiers pass.
 
+The same gate runs on the ground car and the hauler. Their outline is the envelope in `build_traffic.py`, not K's trace. Lamps are still left out of the silhouette, and the side and front views include the tyres. `stray-traffic.json` justifies the places that envelope is a simplified plan: the car's nose and rocker, the hauler's cab roof and the fifth-wheel step. A plate on the trailer roof is not in those boxes. Pass `--kind car` or `--kind hauler` to check one file.
+
 ## LODs and the quality menu
 
 | Tier | File | What you get |

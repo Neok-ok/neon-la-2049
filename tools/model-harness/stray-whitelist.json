@@ -78,6 +78,11 @@
       "reason": "Canopy glass bedded in the roof."
     },
     {
+      "material": "trim",
+      "maxExtentM": 0.45,
+      "reason": "Shoulder crease. A bright line on the skin, in short pieces. A longer trim bar is a panel and is not excused."
+    },
+    {
       "material": "body",
       "minThicknessM": 0.08,
       "reason": "Hull and skirt. A thick shell is not a plate."

@@ -5,7 +5,7 @@
 //   node tools/model-harness/scripts/stray.mjs public/models/spinner/spinner-high.glb
 //
 // Exit 0 when the mesh passes. Exit 1 when it does not.
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
@@ -19,9 +19,14 @@ const OBLIQUE_PPM = 80;
 const OBLIQUE_HALF = 3.8;
 const VOXEL = 0.02;
 
-export async function check(glbPath, whitelistPath = join(HARNESS, 'stray-whitelist.json')) {
+export async function check(glbPath, whitelistPath = join(HARNESS, 'stray-whitelist.json'), options = {}) {
   await MeshoptDecoder.ready;
   const spec = JSON.parse(readFileSync(whitelistPath, 'utf8'));
+  // Spinner boxes describe K's drums and skirt. They must not excuse a traffic car.
+  if (options.kind) {
+    const traffic = JSON.parse(readFileSync(join(HARNESS, 'stray-traffic.json'), 'utf8'));
+    spec.justified = options.justified ?? traffic[options.kind] ?? [];
+  }
   for (const rule of spec.rules) {
     if (!rule.reason || !String(rule.reason).trim()) {
       throw new Error('a stray whitelist rule is missing its reason');
@@ -32,12 +37,22 @@ export async function check(glbPath, whitelistPath = join(HARNESS, 'stray-whitel
       throw new Error('a justified protrusion is missing its reason');
     }
   }
-  const trace = JSON.parse(readFileSync(TRACE_PATH, 'utf8'));
-  const frustum = JSON.parse(readFileSync(FRUSTUM_PATH, 'utf8'));
   const { triangles, lengthM } = loadGlb(glbPath);
-  const length = lengthM || trace.views.side.lengthM;
+  let frustum;
+  let refs;
+  let length = lengthM;
+  if (options.kind) {
+    const built = buildTrafficReference(options.kind);
+    frustum = built.frustum;
+    refs = built.refs;
+    if (!length) length = built.lengthM;
+  } else {
+    const trace = JSON.parse(readFileSync(TRACE_PATH, 'utf8'));
+    frustum = JSON.parse(readFileSync(FRUSTUM_PATH, 'utf8'));
+    refs = buildReference(trace, frustum);
+    if (!length) length = trace.views.side.lengthM;
+  }
   const limitM = Math.min(spec.protrusionM, spec.lengthFraction * length);
-  const refs = buildReference(trace, frustum);
   const bodyTris = triangles.filter((tri) => !tri.material.startsWith('light-'));
   const views = silhouetteViews(frustum).map((view) => scoreView(view, bodyTris, refs, limitM, spec, frustum));
   const parts = classifyParts(triangles, spec);
@@ -200,6 +215,178 @@ function buildReference(trace, frustum) {
   return { side, front, top, ppm };
 }
 
+// Same envelopes as build_traffic.py car_reference / hauler_reference.
+// Side and front points are (horizontal, up). Top points there are (x, y);
+// this gate's top axis is (nose, -x), so they are converted below.
+const TRAFFIC = {
+  car: {
+    length: 4.85, width: 1.78, height: 1.48, wheelR: 0.33, wheelW: 0.21, wheelX: 0.74,
+    wheels: [1.36, -1.36],
+  },
+  hauler: {
+    length: 16.2, width: 2.28, height: 3.9, wheelR: 0.52, wheelW: 0.30, wheelX: 0.78,
+    wheels: [7.15, 5.85, 5.15, -5.15, -6.15],
+  },
+};
+
+function trafficPolygons(kind) {
+  const { length, width, height } = TRAFFIC[kind];
+  const half = length / 2;
+  if (kind === 'car') {
+    const side = [
+      [half, 0.22 * height],
+      [half * 0.82, 0.52 * height],
+      [half * 0.42, 0.60 * height],
+      [half * 0.18, 0.78 * height],
+      [-half * 0.05, 0.98 * height],
+      [-half * 0.42, 0.99 * height],
+      [-half * 0.62, 0.78 * height],
+      [-half * 0.82, 0.58 * height],
+      [-half, 0.36 * height],
+      [-half, 0.16 * height],
+      [-half * 0.55, 0.14 * height],
+      [half * 0.15, 0.13 * height],
+      [half * 0.55, 0.14 * height],
+      [half, 0.18 * height],
+    ];
+    const top = [
+      [half * 0.15, half],
+      [width * 0.28, half * 0.72],
+      [width * 0.50, half * 0.15],
+      [width * 0.48, -half * 0.35],
+      [width * 0.36, -half * 0.82],
+      [width * 0.18, -half],
+      [-width * 0.18, -half],
+      [-width * 0.36, -half * 0.82],
+      [-width * 0.48, -half * 0.35],
+      [-width * 0.50, half * 0.15],
+      [-width * 0.28, half * 0.72],
+      [-half * 0.15, half],
+    ].map(([x, y]) => [y, -x]);
+    const front = [
+      [-width * 0.5, 0.16 * height],
+      [-width * 0.5, 0.62 * height],
+      [-width * 0.36, 0.78 * height],
+      [-width * 0.28, 0.98 * height],
+      [width * 0.28, 0.98 * height],
+      [width * 0.36, 0.78 * height],
+      [width * 0.5, 0.62 * height],
+      [width * 0.5, 0.16 * height],
+    ];
+    return { side, top, front };
+  }
+  const cabBack = half - 2.55;
+  const trailerFront = half - 3.05;
+  const side = [
+    [half, 0.18 * height],
+    [half, 0.28 * height],
+    [half - 0.4, 0.42 * height],
+    [cabBack + 0.3, 0.55 * height],
+    [cabBack, 0.82 * height],
+    [cabBack, 0.32 * height],
+    [trailerFront, 0.32 * height],
+    [trailerFront, 0.99 * height],
+    [-half, 0.99 * height],
+    [-half, 0.30 * height],
+    [-half + 0.4, 0.28 * height],
+    [cabBack, 0.28 * height],
+    [half - 0.5, 0.16 * height],
+  ];
+  const top = [
+    [width * 0.42, half],
+    [width * 0.50, cabBack],
+    [width * 0.50, -half],
+    [-width * 0.50, -half],
+    [-width * 0.50, cabBack],
+    [-width * 0.42, half],
+  ].map(([x, y]) => [y, -x]);
+  const front = [
+    [-width * 0.50, 0.30 * height],
+    [-width * 0.50, 0.99 * height],
+    [width * 0.50, 0.99 * height],
+    [width * 0.50, 0.30 * height],
+    [width * 0.42, 0.30 * height],
+    [width * 0.42, 0.06 * height],
+    [-width * 0.42, 0.06 * height],
+    [-width * 0.42, 0.30 * height],
+  ];
+  return { side, top, front };
+}
+
+function paintRect(frame, u0, v0, u1, v1) {
+  const { mask, w, h, ppm, x0, y1 } = frame;
+  const xLo = Math.max(0, Math.floor((Math.min(u0, u1) - x0) * ppm));
+  const xHi = Math.min(w - 1, Math.ceil((Math.max(u0, u1) - x0) * ppm));
+  const yLo = Math.max(0, Math.floor((y1 - Math.max(v0, v1)) * ppm));
+  const yHi = Math.min(h - 1, Math.ceil((y1 - Math.min(v0, v1)) * ppm));
+  for (let y = yLo; y <= yHi; y++) {
+    const row = y * w;
+    for (let x = xLo; x <= xHi; x++) mask[row + x] = 255;
+  }
+}
+
+function paintCircle(frame, cx, cy, radius) {
+  const { mask, w, h, ppm, x0, y1 } = frame;
+  const rpx = radius * ppm;
+  const pcx = (cx - x0) * ppm;
+  const pcy = (y1 - cy) * ppm;
+  const xLo = Math.max(0, Math.floor(pcx - rpx));
+  const xHi = Math.min(w - 1, Math.ceil(pcx + rpx));
+  const yLo = Math.max(0, Math.floor(pcy - rpx));
+  const yHi = Math.min(h - 1, Math.ceil(pcy + rpx));
+  const r2 = rpx * rpx;
+  for (let y = yLo; y <= yHi; y++) {
+    const dy = y + 0.5 - pcy;
+    const row = y * w;
+    for (let x = xLo; x <= xHi; x++) {
+      const dx = x + 0.5 - pcx;
+      if (dx * dx + dy * dy <= r2) mask[row + x] = 255;
+    }
+  }
+}
+
+function buildTrafficReference(kind) {
+  const spec = TRAFFIC[kind];
+  if (!spec) throw new Error(`unknown traffic kind ${kind}`);
+  const pad = 0.55;
+  const ppm = 100;
+  const frustum = {
+    ppm,
+    side: { x0: -spec.length / 2 - pad, x1: spec.length / 2 + pad, z0: -pad, z1: spec.height + pad },
+    front: { x0: -spec.width / 2 - pad, x1: spec.width / 2 + pad, z0: -pad, z1: spec.height + pad },
+    top: { x0: -spec.length / 2 - pad, x1: spec.length / 2 + pad, y0: -spec.width / 2 - pad, y1: spec.width / 2 + pad },
+  };
+  const polys = trafficPolygons(kind);
+  const refs = buildReference({
+    views: {
+      side: { points: polys.side },
+      front: { points: polys.front },
+      top: { points: polys.top },
+    },
+  }, frustum);
+  for (const y of spec.wheels) paintCircle(refs.side, y, spec.wheelR, spec.wheelR);
+  // Front view of a tyre is the tread circle seen edge-on: a short rectangle.
+  // The side scorer already includes these circles. The front polygon does not.
+  for (const x of [spec.wheelX, -spec.wheelX]) {
+    paintRect(refs.front, x - spec.wheelW / 2, 0, x + spec.wheelW / 2, spec.wheelR * 2);
+  }
+  refs.oblique = {
+    ppm: kind === 'hauler' ? 28 : 56,
+    half: spec.length * 0.58 + 1.1,
+    target: [0, spec.height * 0.45, 0],
+    voxel: kind === 'hauler' ? 0.05 : 0.03,
+    hull: {
+      x0: -spec.width / 2 - 0.45,
+      x1: spec.width / 2 + 0.45,
+      y0: -0.2,
+      y1: spec.height + 0.45,
+      z0: -spec.length / 2 - 0.45,
+      z1: spec.length / 2 + 0.45,
+    },
+  };
+  return { frustum, refs, lengthM: spec.length };
+}
+
 function rasterPolygon(points, bounds, ppm, mode) {
   const spanX = (mode === 'top' ? bounds.x1 - bounds.x0 : bounds.x1 - bounds.x0);
   const spanY = mode === 'top' ? bounds.y1 - bounds.y0 : bounds.z1 - bounds.z0;
@@ -354,9 +541,11 @@ function rearFrame(refs, frustum) {
 }
 
 function scoreOblique(view, triangles, refs, limitM, spec) {
-  const projector = obliqueProjector(view.yaw, 18);
-  const ppm = OBLIQUE_PPM;
-  const half = OBLIQUE_HALF;
+  const cfg = refs.oblique || {};
+  const projector = obliqueProjector(view.yaw, 18, cfg.target);
+  const ppm = cfg.ppm || OBLIQUE_PPM;
+  const half = cfg.half || OBLIQUE_HALF;
+  const voxel = cfg.voxel || VOXEL;
   const w = Math.round(half * 2 * ppm);
   const h = w;
   const frame = {
@@ -375,7 +564,7 @@ function scoreOblique(view, triangles, refs, limitM, spec) {
   // the view plane, and a box would also hide a fin. Orthographic views keep 3 cm.
   const justified = (spec.justified || []).filter((item) => item.view === view.id || item.view === 'oblique');
   const caps = justified.filter((item) => item.maxM !== undefined && item.u0 === undefined);
-  const viewLimit = Math.max(limitM + VOXEL, ...(caps.length ? caps.map((item) => item.maxM) : [0]));
+  const viewLimit = Math.max(limitM + voxel, ...(caps.length ? caps.map((item) => item.maxM) : [0]));
   const regions = strayRegions(model, distances, w, h, viewLimit * ppm, spec.minRegionPx || 3);
   return {
     id: view.id,
@@ -384,19 +573,19 @@ function scoreOblique(view, triangles, refs, limitM, spec) {
     strayRegions: regions.count,
     limitM: viewLimit,
     worst: regions.worstI < 0 ? null : {
-      u: round((regions.worstI % w) / ppm - OBLIQUE_HALF),
-      v: round(OBLIQUE_HALF - Math.floor(regions.worstI / w) / ppm),
+      u: round((regions.worstI % w) / ppm - half),
+      v: round(half - Math.floor(regions.worstI / w) / ppm),
     },
     regions: (regions.regions || []).slice(0, 8).map((region) => ({
       maxProtrusionM: round(region.maxPx / ppm),
       pixels: region.pixels,
-      u: round(region.x / ppm - OBLIQUE_HALF),
-      v: round(OBLIQUE_HALF - region.y / ppm),
+      u: round(region.x / ppm - half),
+      v: round(half - region.y / ppm),
     })),
   };
 }
 
-function obliqueProjector(yawDeg, elevDeg) {
+function obliqueProjector(yawDeg, elevDeg, target = [0, 0.62, 0]) {
   const yaw = yawDeg * Math.PI / 180;
   const elev = elevDeg * Math.PI / 180;
   const eye = [
@@ -408,7 +597,6 @@ function obliqueProjector(yawDeg, elevDeg) {
   const up = [0, 1, 0];
   const right = normalize(cross(up, forward));
   const trueUp = normalize(cross(forward, right));
-  const target = [0, 0.62, 0];
   return (p) => {
     const d0 = p[0] - target[0];
     const d1 = p[1] - target[1];
@@ -423,19 +611,17 @@ function obliqueProjector(yawDeg, elevDeg) {
 function rasterHull(refs, frame) {
   const mask = new Uint8Array(frame.w * frame.h);
   const { side, front, top } = refs;
-  const x0 = -1.55;
-  const x1 = 1.55;
-  const y0 = -0.05;
-  const y1 = 1.7;
-  const z0 = -3.15;
-  const z1 = 3.15;
-  for (let x = x0; x <= x1; x += VOXEL) {
-    for (let y = y0; y <= y1; y += VOXEL) {
+  const hull = refs.oblique?.hull || { x0: -1.55, x1: 1.55, y0: -0.05, y1: 1.7, z0: -3.15, z1: 3.15 };
+  const step = refs.oblique?.voxel || VOXEL;
+  const radius = Math.max(1, step * frame.ppm * 0.6);
+  const { x0, x1, y0, y1, z0, z1 } = hull;
+  for (let x = x0; x <= x1; x += step) {
+    for (let y = y0; y <= y1; y += step) {
       const fx = Math.floor((x - front.x0) * front.ppm);
       const fy = Math.floor((front.y1 - y) * front.ppm);
       if (fx < 0 || fy < 0 || fx >= front.w || fy >= front.h) continue;
       if (!front.mask[fy * front.w + fx]) continue;
-      for (let z = z0; z <= z1; z += VOXEL) {
+      for (let z = z0; z <= z1; z += step) {
         const length = -z;
         const sx = Math.floor((length - side.x0) * side.ppm);
         const sy = Math.floor((side.y1 - y) * side.ppm);
@@ -448,7 +634,7 @@ function rasterHull(refs, frame) {
         if (!top.mask[ty * top.w + tx]) continue;
         const [u, v] = frame.project([x, y, z]);
         const [px, py] = frame.toPix(u, v);
-        stamp(mask, frame.w, frame.h, px, py, 1);
+        stamp(mask, frame.w, frame.h, px, py, radius);
       }
     }
   }
@@ -1190,6 +1376,7 @@ function distPointTri(px, py, pz, ax, ay, az, bx, by, bz, cx, cy, cz) {
 }
 
 function writeOverlay(dir, id, ref, model, w, h) {
+  mkdirSync(dir, { recursive: true });
   const rgb = Buffer.alloc(w * h * 3);
   for (let i = 0; i < ref.length; i++) {
     const a = ref[i] > 0;
@@ -1226,7 +1413,9 @@ async function main() {
     process.exit(2);
   }
   const outFlag = args.indexOf('--out');
-  const report = await check(file);
+  const kindFlag = args.indexOf('--kind');
+  const kind = kindFlag === -1 ? undefined : args[kindFlag + 1];
+  const report = await check(file, undefined, kind ? { kind } : {});
   const text = JSON.stringify(report, null, 2);
   if (outFlag !== -1) writeFileSync(args[outFlag + 1], text);
   console.log(text);

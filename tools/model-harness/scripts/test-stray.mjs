@@ -38,3 +38,19 @@ for (const file of SHIPPING) {
   }
   console.log(`${file} pass · side ${sideView.iou} front ${frontView.iou} top ${topView.iou}`);
 }
+
+const TRAFFIC = ['car', 'hauler'].flatMap((kind) =>
+  ['high', 'medium', 'low'].map((lod) => ({ kind, file: `public/models/traffic/${kind}-${lod}.glb` })),
+);
+for (const { kind, file } of TRAFFIC) {
+  const report = await check(file, undefined, { kind });
+  if (!report.pass) {
+    const sample = [...report.loose, ...report.thin].slice(0, 3);
+    const regions = report.views
+      .filter((view) => view.strayRegions)
+      .slice(0, 3)
+      .map((view) => `${view.id}:${view.maxProtrusionM}`);
+    fail(`${file} failed stray gate: protrusion ${report.maxProtrusionM} m, ${report.strayRegions} regions (${regions.join(', ')}), loose ${report.loose.length}, thin ${report.thin.length} ${JSON.stringify(sample)}`);
+  }
+  console.log(`${file} pass · protrusion ${report.maxProtrusionM} m`);
+}
