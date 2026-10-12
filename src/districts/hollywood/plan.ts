@@ -300,12 +300,7 @@ function dressStrip(b: HwBlock, face: FaceDir, out: HwPlan): void {
     });
   }
   if (!north) return;
-  const mid = world(b, 0, 0);
-  out.pools.push({
-    x: mid.x, y: b.ground + 0.04, z: streetZ, yaw: 0,
-    wid: 9, len: Math.min(26, b.lb * 0.38),
-    rgb: [0.72, 0.18, 0.55], intensity: 0.85, rank: 1,
-  });
+  // No ground sheet. A magenta quad down the lane had no lamp, so the street read as a dyed beam.
   const x0 = b.cx - b.lb / 2 + 3;
   const x1 = b.cx + b.lb / 2 - 3;
   const zN = streetZ - 8.2;

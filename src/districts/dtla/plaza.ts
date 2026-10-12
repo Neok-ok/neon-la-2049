@@ -72,7 +72,7 @@ function apron(layout: CityLayout, id: string, x0: number, z0: number, size: num
         sx: 3.4, sy: 1, sz: 3.4, color: rgb, emissive: [rgb[0] * 0.4, rgb[1] * 0.4, rgb[2] * 0.4],
         metal: 0, rank: 1, pass: 'fade', alpha: 0.9,
       });
-      out.pools.push({ x, y: ground + 0.05, z, yaw: propYaw, len: 9, wid: 4, rgb, intensity: 1.25, rank: 0 });
+      // The canopy is the source. A coloured quad on the apron had no lamp and read as a dyed streak.
       if (i % 2 === 0) {
         out.steam.push({ x: x - wnx * 3.5, y: ground, z: z - wnz * 3.5, seed: (i + 1) / (n + 2) + si * 0.17, rank: 0 });
         out.props.push({
@@ -102,11 +102,7 @@ function bridgeShadow(layout: CityLayout, id: string, x0: number, z0: number, si
     if (!inChunk(x, z, x0, z0, size)) continue;
     if (layout.isReserved(x, z, -8) || layout.isOcean(x, z)) continue;
     const ground = layout.heightAt(x, z);
-    const rgb = SIGN_RGB[i % 3 === 0 ? 1 : 5]!;
     out.steam.push({ x, y: ground, z, seed: (i * 0.17) % 1, rank: 0 });
-    out.pools.push({
-      x, y: ground + 0.04, z, yaw: Math.atan2(ux, uz), len: 14, wid: 5, rgb, intensity: 0.55, rank: 1,
-    });
     if (i % 3 === 0) {
       out.props.push({
         template: 'box', x, y: ground + 1.15, z, yaw: Math.atan2(sx, sz),
