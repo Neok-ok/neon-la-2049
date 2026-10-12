@@ -23,6 +23,8 @@ Medium and Ultra still diverge at scale 1: LOD radii, rain count, bloom, traffic
 
 Walk shots load once per quality and then resize, because the feet do not move when the aspect changes. Fly shots (financial, pyramid, sea wall, LAX, spinner chase) load once per viewport so traffic spawns around that camera.
 
+A few streets use `frame=name:kind` (the dancer, K's megablock, the foundry, and the outer districts whose plain coordinates land inside a wall). That parameter applies the district's authored debug camera before the first frame. It does nothing unless the link sets it. The printed deep link from `npm run visual:list` includes it, so opening that URL shows the same camera.
+
 Frame time, draw calls, triangles and LOD0 are written into the report. They are not a pass/fail gate.
 
 The PNG is the WebGL canvas, read in the same turn as the frame that drew it. Headless SwiftShader does not return from a compositor screenshot. While chunks upload, the runner keeps the drawing buffer at the shot size and rasterizes a single pixel, then draws the real frame for the PNG. The HTML shell (loading plate, HUD, touch sticks) is not part of the image.

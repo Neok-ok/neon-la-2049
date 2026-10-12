@@ -177,13 +177,21 @@ async function settle(page) {
     window.__visualFrames = true;
     window.__visualDraw = false;
   });
-  await page.waitForFunction(() => window.__nla?.stats, null, { timeout: 240_000, polling: 200 });
+  await page.waitForFunction(() => {
+    if (window.__nlaFrameError) return true;
+    if (!window.__nla?.stats) return false;
+    const want = new URLSearchParams(location.search).get('frame');
+    if (!want) return true;
+    return window.__nlaFrame === want;
+  }, null, { timeout: 240_000, polling: 200 });
+  const frameError = await page.evaluate(() => window.__nlaFrameError || '');
+  if (frameError) throw new Error(frameError);
   await page.evaluate(() => {
     window.__idleN = 0;
     window.__camStill = 0;
     window.__cam = null;
   });
-  const settleDeadline = Date.now() + 420_000;
+  const settleDeadline = Date.now() + 900_000;
   let ready = false;
   let polls = 0;
   while (Date.now() < settleDeadline) {

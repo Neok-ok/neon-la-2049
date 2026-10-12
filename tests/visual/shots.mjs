@@ -53,14 +53,18 @@ function yawToward(from, to) {
 }
 
 function meta(spec) {
-  return { id: spec.id, district: spec.district, tag: spec.tag ?? null, place: spec.place, at: spec.at };
+  return { id: spec.id, district: spec.district, tag: spec.tag ?? null, place: spec.place, at: spec.at, frame: spec.frame ?? null };
 }
 
 function walk(spec) {
   const at = place(spec.at);
+  const eye = {
+    x: spec.x ?? at.x + (spec.east ?? 0),
+    z: spec.z ?? at.z + (spec.south ?? 0),
+  };
   const look = spec.look ? place(spec.look) : null;
-  const yaw = spec.yaw ?? (look ? yawToward(at, look) : 0);
-  return { ...meta(spec), mode: 'walk', x: Math.round(at.x), z: Math.round(at.z), yaw };
+  const yaw = spec.yaw ?? (look ? yawToward(eye, look) : 0);
+  return { ...meta(spec), mode: 'walk', x: Math.round(eye.x), z: Math.round(eye.z), yaw };
 }
 
 function fly(spec) {
@@ -78,29 +82,29 @@ function fly(spec) {
   };
 }
 
-/** @type {Array<{id: string, district: string, tag: string | null, place: string, mode: 'walk' | 'fly', at: string, x: number, z: number, y?: number, yaw: number, pitch?: number}>} */
+/** @type {Array<{id: string, district: string, tag: string | null, place: string, frame: string | null, mode: 'walk' | 'fly', at: string, x: number, z: number, y?: number, yaw: number, pitch?: number}>} */
 export const shots = [
   walk({ id: 'little-tokyo', district: 'little-tokyo-market', tag: null, place: 'Little Tokyo noodle bar', at: 'noodle-bar', yaw: 28 }),
   fly({ id: 'financial', district: 'financial-megatowers', tag: null, place: 'Megatower 1 approach', at: 'megatower-1', east: 620, south: 780, y: 380, pitch: 14 }),
   walk({ id: 'dtla', district: 'dtla', tag: null, place: 'Downtown canyon', at: 'dtla-canyon', yaw: 38 }),
   walk({ id: 'lapd', district: 'civic-center', tag: 'lapd', place: 'LAPD steps', at: 'lapd-steps', look: 'lapd-hq' }),
   walk({ id: 'broadway', district: 'historic-core', tag: null, place: 'Broadway at the Bradbury', at: 'bradbury', look: 'bradbury-building' }),
-  walk({ id: 'dancer', district: 'historic-core', tag: 'dancer', place: 'Dancer at the canyon bridge', at: 'joi-bridge', yaw: 38 }),
+  walk({ id: 'dancer', district: 'historic-core', tag: 'dancer', place: 'Dancer at the canyon bridge', at: 'joi-bridge', frame: 'broadway:bridge' }),
   fly({ id: 'pyramid', district: 'wallace-vernon', tag: 'pyramid', place: 'Wallace pyramid', at: 'wallace-pyramid', east: 700, south: -4200, y: 640, pitch: 12 }),
-  walk({ id: 'k-block', district: 'k-megablock', tag: null, place: "K's megablock street", at: 'k-megablock-tower', yaw: 16 }),
-  walk({ id: 'arts', district: 'arts-district', tag: null, place: 'Arts District foundry', at: 'arts-foundry', yaw: 12 }),
+  walk({ id: 'k-block', district: 'k-megablock', tag: null, place: "K's megablock street", at: 'k-megablock-tower', frame: 'k:street' }),
+  walk({ id: 'arts', district: 'arts-district', tag: null, place: 'Arts District street', at: 'arts-foundry', frame: 'arts:street' }),
   fly({ id: 'sea-wall', district: 'coastal-strip', tag: null, place: 'Sepulveda Sea Wall', at: 'sea-wall-fight', east: 320, south: 30, y: 70, pitch: -12 }),
   walk({ id: 'lakewood', district: 'lakewood-megablocks', tag: null, place: 'Lakewood market yard', at: 'lakewood-market', yaw: 8 }),
   walk({ id: 'south-la', district: 'south-la-megablocks', tag: null, place: 'South LA hub', at: 'south-la-hub', yaw: 90 }),
   walk({ id: 'westside', district: 'westside', tag: null, place: 'Westside market yard', at: 'westside-yard', yaw: 180 }),
   walk({ id: 'basin', district: 'basin-sprawl', tag: null, place: 'Basin strip corner', at: 'basin-strip', yaw: 40 }),
-  walk({ id: 'southeast', district: 'southeast-industrial', tag: null, place: 'Southeast pump house', at: 'southeast-pump', yaw: 24 }),
+  walk({ id: 'southeast', district: 'southeast-industrial', tag: null, place: 'Southeast works street', at: 'southeast-pump', frame: 'southeast:street' }),
   walk({ id: 'south-bay', district: 'south-bay-refineries', tag: null, place: 'South Bay tanks', at: 'south-bay-control', yaw: 200 }),
-  walk({ id: 'hollywood', district: 'hollywood', tag: null, place: 'Hollywood arcade', at: 'hollywood-lobby', yaw: 96 }),
+  walk({ id: 'hollywood', district: 'hollywood', tag: null, place: 'Hollywood boulevard', at: 'hollywood-lobby', frame: 'hollywood:street' }),
   fly({ id: 'lax', district: 'lax-spaceport', tag: 'lax', place: 'LAX gantries', at: 'lax-spaceport-towers', east: 280, south: 860, y: 140, pitch: 8 }),
-  walk({ id: 'harbor', district: 'harbor', tag: null, place: 'Harbor quay', at: 'harbor-control', yaw: 150 }),
-  walk({ id: 'long-beach', district: 'long-beach', tag: null, place: 'Long Beach concourse', at: 'long-beach-concourse', yaw: 70 }),
-  walk({ id: 'east-la', district: 'east-la', tag: null, place: 'East LA market hall', at: 'east-la-market', yaw: 36 }),
+  walk({ id: 'harbor', district: 'harbor', tag: null, place: 'Harbor street', at: 'harbor-control', frame: 'harbor:street' }),
+  walk({ id: 'long-beach', district: 'long-beach', tag: null, place: 'Long Beach canyon', at: 'long-beach-concourse', frame: 'longbeach:canyon' }),
+  walk({ id: 'east-la', district: 'east-la', tag: null, place: 'East LA market street', at: 'east-la-market', frame: 'eastla:market' }),
   fly({ id: 'spinner-chase', district: 'dtla', tag: 'spinner-chase', place: 'Spinner chase over downtown', at: 'dtla-canyon', east: -40, south: 80, y: 360, yaw: 38, pitch: -16 }),
 ];
 
@@ -120,6 +124,7 @@ export function queryFor(shot, quality) {
   if (shot.pitch !== undefined) q.set('pitch', String(shot.pitch));
   for (const [k, v] of COMMON) q.set(k, v);
   q.set('quality', quality);
+  if (shot.frame) q.set('frame', shot.frame);
   return q.toString();
 }
 

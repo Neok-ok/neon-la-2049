@@ -2,6 +2,7 @@
 //   ?mode=fly|walk|cine  &at=<landmark|poi id>  &x=&y=&z=&yaw=&pitch=  (yaw/pitch in degrees)
 //   &time=22.5  &weather=rain  &quality=low|medium|high|ultra  &webgl=1  &hud=1  &ui=0  &freeze=1
 //   &seed=123  pins weather, precipitation, traffic and the env map, and holds the sim clock at 48s
+//   &frame=k:street  applies one authored debug camera (name:kind) before the first frame
 //   &tonemap=agx|aces|neutral  &ev=4.26  locks the camera exposure value
 //   &surf=1 holds the sea-wall breaker at impact (screenshots)
 //   &refl=1 forces the planar wet-street mirror; &refl=0 keeps the cheap fake pools only
@@ -34,6 +35,8 @@ export const params = {
   /** `full` turns off the reduced coastal lightning. Default is gentle. */
   flash: q.get('flash') === 'full' ? 'full' as const : 'gentle' as const,
   seed: num('seed'),
+  /** Authored debug camera, `name:kind` (for example `k:street`). Absent unless the URL sets it. */
+  frame: q.get('frame') ?? undefined,
   /** 1 force planar reflector, 0 force off, undefined = auto (high/ultra, real GPU, in the market). */
   refl: q.get('refl') === '1' ? 1 : q.get('refl') === '0' ? 0 : undefined,
   /** Memory overlay. Does not change the picture by itself. */

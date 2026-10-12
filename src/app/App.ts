@@ -352,6 +352,7 @@ export class App {
     if (params.mem) mountMemoryOverlay(() => this.overlaySample());
     this.buildPipeline();
     this.boot.initMs = performance.now() - this.startMs;
+    if (params.frame) await this.applyNamedFrame(params.frame);
     this.timer.connect(document);
     r.setAnimationLoop((t) => this.frame(t));
   }
@@ -951,6 +952,59 @@ export class App {
   private async ensureFar(): Promise<void> {
     await farDistrictsPromise;
     this.applyFar();
+  }
+
+  /**
+   * `?frame=name:kind` runs one authored debug camera before the first painted frame.
+   * Walk deep links otherwise snap to the nearest open spot and a fixed pitch, which
+   * leaves some district cameras inside a wall. Omitted, play is unchanged.
+   */
+  private async applyNamedFrame(spec: string): Promise<void> {
+    const w = window as Window & { __nlaFrame?: string; __nlaFrameError?: string };
+    const split = spec.indexOf(':');
+    const name = split < 0 ? '' : spec.slice(0, split);
+    const kind = split < 0 ? '' : spec.slice(split + 1);
+    const method: Record<string, string> = {
+      market: 'marketView',
+      mega: 'megaView',
+      dtla: 'dtlaView',
+      civic: 'civicView',
+      broadway: 'broadwayView',
+      k: 'kView',
+      arts: 'artsView',
+      coast: 'coastView',
+      wallace: 'wallaceView',
+      lakewood: 'lakewoodView',
+      southla: 'southLaView',
+      westside: 'westsideView',
+      basin: 'basinView',
+      southeast: 'southeastView',
+      southbay: 'southBayView',
+      hollywood: 'hollywoodView',
+      lax: 'laxView',
+      harbor: 'harborView',
+      longbeach: 'longBeachView',
+      eastla: 'eastLaView',
+    };
+    const fn = (this.debugApi() as unknown as Record<string, (kind: string) => unknown>)[method[name] ?? ''];
+    if (!fn) {
+      w.__nlaFrameError = `unknown frame ${spec}`;
+      console.warn(w.__nlaFrameError);
+      return;
+    }
+    try {
+      const result = await fn(kind);
+      if (result === false) {
+        w.__nlaFrameError = `frame ${spec} was not applied`;
+        console.warn(w.__nlaFrameError);
+        return;
+      }
+    } catch (err) {
+      w.__nlaFrameError = err instanceof Error ? err.message : String(err);
+      console.warn(`frame ${spec} failed`, err);
+      return;
+    }
+    w.__nlaFrame = spec;
   }
 
   /** Debug / automation hooks (screenshots, console). */
