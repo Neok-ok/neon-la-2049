@@ -126,9 +126,9 @@ function addMarket(
       const rx = fz;
       const rz = -fx;
       vents.push(make({
-        x: x + fx * 5.2 + rx * 1.15,
+        x: x + fx * 6.4 + rx * 1.35,
         y: s.y + 0.2,
-        z: z + fz * 5.2 + rz * 1.15,
+        z: z + fz * 6.4 + rz * 1.35,
         kind: KIND.vent,
         rate: 10,
         life: 2.8,
@@ -143,9 +143,9 @@ function addMarket(
         floorY: s.y,
       }));
       holes.push(make({
-        x: x + fx * 5.0,
+        x: x + fx * 7.2,
         y: s.y + 0.5,
-        z: z + fz * 5.0,
+        z: z + fz * 7.2,
         kind: KIND.manhole,
         rate: 9,
         life: 2.2,

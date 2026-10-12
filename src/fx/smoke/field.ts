@@ -501,6 +501,7 @@ export class SmokeField {
       const d = Math.sqrt(dist[i]!);
       if (kind === KIND.exhaust && d < 7) baseA *= Math.max(0.12, (d - 2.5) / 4.5);
       if ((kind === KIND.stall || kind === KIND.vent) && d < 2.4) baseA *= Math.max(0, (d - 0.7) / 1.7);
+      if (kind === KIND.manhole && d < 4) baseA *= Math.max(0, (d - 1.6) / 2.4);
       // Draw the sheath a few metres toward the camera so it sits in front of
       // the gantry and over the ribbon. The offset is along the view ray, so
       // the column stays on the flame in screen space.
