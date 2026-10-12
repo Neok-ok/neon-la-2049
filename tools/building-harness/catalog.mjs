@@ -51,6 +51,17 @@ function clusterTowers(block, dress) {
     const height = near.reduce((m, b) => Math.max(m, b.base + b.h), 0);
     const sidewalkS = -(block.la / 2 + 2.6);
     const gap = faceS - sidewalkS;
+    // Metres of open ground in front of the door, before another mass.
+    let clear = 80;
+    for (const b of dress.boxes) {
+      if (b.h < 1.6 || b.base > 2.2) continue;
+      const t0 = b.t - b.lb / 2;
+      const t1 = b.t + b.lb / 2;
+      if (doorT < t0 + 0.3 || doorT > t1 - 0.3) continue;
+      const front = b.s + b.la / 2;
+      if (front > faceS - 0.35) continue;
+      clear = Math.min(clear, faceS - front);
+    }
     towers.push({
       family: body.family,
       s: body.s,
@@ -58,6 +69,7 @@ function clusterTowers(block, dress) {
       doorS: faceS,
       doorT,
       gap,
+      clear,
       height,
       w: body.lb,
       d: body.la,
@@ -158,8 +170,95 @@ for (const id of ['b1-gate', 'b1-step', 'b1-obelisk']) {
   });
 }
 
+const hwPlan = await vite.ssrLoadModule('/src/districts/hollywood/plan.ts');
+const artsPlan = await vite.ssrLoadModule('/src/districts/arts-district/plan.ts');
+const sprawlMod = await vite.ssrLoadModule('/src/districts/_shared/sprawl/plan.ts');
+const eastSpec = await vite.ssrLoadModule('/src/districts/east-la/spec.ts');
+const sbPlan = await vite.ssrLoadModule('/src/districts/south-bay-refineries/plan.ts');
+
+function blocksIn(id) {
+  const d = layout.districts.find((x) => x.id === id);
+  if (!d) return [];
+  const [minX, minZ, maxX, maxZ] = d.bbox;
+  const size = Math.max(maxX - minX, maxZ - minZ) + 800;
+  return enumerateBlocks(layout, minX - 400, minZ - 400, size).filter((b) => b.district.id === id && b.ground <= 45);
+}
+
+const field = new Map();
+const worldBoxes = [];
+function note(block, boxes) {
+  for (const b of boxes) {
+    if (b.h < 1.5 || b.base > 3) continue;
+    const [cx, cz] = toWorld(block, b.s, b.t);
+    worldBoxes.push({
+      cx, cz, ax: block.ax, az: block.az, bx: block.bx, bz: block.bz,
+      hs: b.la / 2, ht: b.lb / 2, y0: b.base || 0, top: (b.base || 0) + b.h,
+    });
+  }
+  for (const tower of clusterTowers(block, { boxes })) {
+    const list = field.get(tower.family) ?? [];
+    list.push(tower);
+    field.set(tower.family, list);
+  }
+}
+
+function worldClear(tower) {
+  const b = tower.block;
+  const [dx, dz] = toWorld(b, tower.doorS, tower.doorT);
+  const nx = -b.ax;
+  const nz = -b.az;
+  for (let dist = 1.4; dist <= 16; dist += 1.2) {
+    const x = dx + nx * dist;
+    const z = dz + nz * dist;
+    for (const box of worldBoxes) {
+      const s = (x - box.cx) * box.ax + (z - box.cz) * box.az;
+      const t = (x - box.cx) * box.bx + (z - box.cz) * box.bz;
+      if (Math.abs(s) > box.hs || Math.abs(t) > box.ht) continue;
+      if (1.4 < box.y0 || 1.4 > box.top) continue;
+      return Number(dist.toFixed(1));
+    }
+  }
+  return 16;
+}
+
+for (const b of blocksIn('hollywood')) note(b, hwPlan.planHollywood(b).boxes);
+for (const b of blocksIn('arts-district')) note(b, artsPlan.planArts(b, layout).boxes);
+for (const b of blocksIn('east-la')) {
+  const plan = sprawlMod.planSprawl({
+    id: 'east-la',
+    cx: b.cx, cz: b.cz, ax: b.ax, az: b.az, bx: b.bx, bz: b.bz,
+    la: b.la, lb: b.lb, street: b.street, seed: b.seed, ground: b.ground,
+  }, eastSpec.EAST_LA_PARAMS, layout);
+  note(b, plan.boxes);
+}
+for (const b of blocksIn('south-bay-refineries')) {
+  note(b, sbPlan.planSouthBay({
+    cx: b.cx, cz: b.cz, ax: b.ax, az: b.az, bx: b.bx, bz: b.bz,
+    la: b.la, lb: b.lb, street: b.street, seed: b.seed, ground: b.ground,
+  }, layout).boxes);
+}
+
+for (const [kind, list] of field) {
+  counts[kind] = list.length;
+  for (const tower of list) tower.clear = worldClear(tower);
+  const open = list.filter((t) => t.clear >= 12 && t.height > 45);
+  open.sort((a, b) => b.height - a.height || b.clear - a.clear);
+  const best = open[0] ?? list.slice().sort((a, b) => b.clear - a.clear)[0];
+  if (!best) continue;
+  const pose = poseOf(best);
+  pose.clear = Number((best.clear ?? 0).toFixed(1));
+  pose.district = best.block.district.id;
+  const standS = best.doorS - 8;
+  const standT = best.doorT + 2.2;
+  const [sx, sz] = toWorld(best.block, standS, standT);
+  pose.stand = [Number(sx.toFixed(2)), Number(sz.toFixed(2))];
+  pose.ground = Number(layout.heightAt(sx, sz).toFixed(2));
+  pose.gap = 8;
+  chosen.push(pose);
+}
+
 const report = { dressed, counts, towers: [...chosen, ...heroes] };
 mkdirSync(dirname(OUT), { recursive: true });
 writeFileSync(OUT, JSON.stringify(report, null, 2));
-console.log(JSON.stringify({ dressed, counts, towers: report.towers.map((t) => ({ kind: t.kind, gap: t.gap, height: t.height, door: t.door, stand: t.stand })) }, null, 2));
+console.log(JSON.stringify({ dressed, counts, towers: report.towers.map((t) => ({ kind: t.kind, gap: t.gap, clear: t.clear, height: t.height, door: t.door, stand: t.stand })) }, null, 2));
 await vite.close();

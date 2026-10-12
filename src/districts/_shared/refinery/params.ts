@@ -55,6 +55,11 @@ export interface RefineryParams {
    * Omitted → no extra keep-out. A reserve of 0 does not do this by itself.
    */
   keepOut?: (x: number, z: number) => boolean;
+  /**
+   * Cracking-yard mass. Omitted keeps the three plain columns, so the southeast belt is unchanged.
+   * The South Bay bed is a wide plinth with short drums, not a downtown shaft.
+   */
+  yard?: 'flare-bed';
 }
 
 export interface ResolvedRefinery {
@@ -78,6 +83,7 @@ export interface ResolvedRefinery {
   pumpH: number;
   module: number;
   keepOut: ((x: number, z: number) => boolean) | null;
+  yard: 'flare-bed' | null;
 }
 
 export const REFINERY_OFF: ResolvedRefinery = {
@@ -101,6 +107,7 @@ export const REFINERY_OFF: ResolvedRefinery = {
   pumpH: 10.2,
   module: 0,
   keepOut: null,
+  yard: null,
 };
 
 export function resolveRefinery(p: RefineryParams = {}): ResolvedRefinery {
@@ -130,6 +137,7 @@ export function resolveRefinery(p: RefineryParams = {}): ResolvedRefinery {
     pumpH: p.pumpH ?? 10.2,
     module: p.module ?? 0,
     keepOut: p.keepOut ?? null,
+    yard: p.yard ?? null,
   };
 }
 

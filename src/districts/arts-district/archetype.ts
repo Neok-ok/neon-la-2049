@@ -11,13 +11,16 @@ registerArchetype('industrial-dense', (ctx) => {
   };
   const plan = planArts(block, ctx.layout);
   for (const box of plan.boxes) {
-    ctx.box(box.s, box.t, box.lb, box.la, box.h, {
+    const made = ctx.box(box.s, box.t, box.lb, box.la, box.h, {
       style: box.style,
       lit: box.lit,
       tint: box.tint,
       detail: box.detail,
-      base: box.base > 0.01 ? box.base : undefined,
+      base: box.base > 0.01 || box.base < -0.02 ? box.base : undefined,
     });
+    if (!made) continue;
+    if (box.kit) made.kit = true;
+    if (box.ornament !== undefined) made.ornament = box.ornament;
   }
   for (const s of plan.signs) {
     ctx.sign(s.s, s.t, s.hb, s.ha, s.face, s.along, s.y, s.w, s.h, s.color, s.kind, s.seed);

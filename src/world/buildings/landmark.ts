@@ -116,7 +116,7 @@ function applySlot(slot: HeroSlot, cap: BuildingCap): void {
   slot.lods.replace(slot.id, meshes, distsFor(capsFor(cap)));
 }
 
-/** Quality changes rebuild the three heroes. Fabric chunks rebuild on their own. */
+/** Quality changes rebuild the placed heroes. The kite reserve has no mesh. Fabric chunks rebuild on their own. */
 export function setB1HeroTier(tier: Tier): void {
   const cap = buildingDetailCap(tier);
   if (cap === heroCap) return;
@@ -125,12 +125,12 @@ export function setB1HeroTier(tier: Tier): void {
 }
 
 registerLandmarkType('b1-hero', (l: Landmark, env: LandmarkEnv) => {
+  // MT-4 is already a 600 m cruciform. Caldera Step is a 640 m taper on this same
+  // 70 m base. A 480 m kite beside it is a third needle, so the reserve stays empty.
   if (l.id === 'b1-obelisk') {
-    // The taper did not clear 7. The layout reserve stays so lanes still step over the slot.
-    // Follow-up tower agents rebuild the mass. An empty LOD list crashes the switch.
-    const object = new Group();
-    object.name = l.id;
-    return { object, colliders: [] };
+    const held = new Group();
+    held.name = l.id;
+    return { object: held, colliders: [] };
   }
   const kind = KIND_OF[l.id] ?? 'hero-step';
   const w = l.baseWidth;

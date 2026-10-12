@@ -5,6 +5,7 @@
 import { Rng } from '../../../core/rng';
 import { Style, SignColor, type FaceDir, type FabricCtx, type StyleId } from '../../../world/fabric/types';
 import type { CityLayout } from '../../../world/layout';
+import { fieldTower } from '../../../world/buildings/place';
 import { phraseSeed } from '../../../world/materials/signPhrases';
 
 /** Matches the global hill swap in fabric/generator.ts. Left alone on purpose. */
@@ -53,6 +54,11 @@ export interface SprawlParams {
     /** Chance a Wilshire-style line block grows one tower. Omitted keeps 0.16. */
     lineChance?: number;
     /** Chance a cluster block grows one or two towers. Omitted keeps 0.85. */
+    /**
+     * Replace the plain tower box with a B1 field family.
+     * Omitted keeps the single sprawl mass, so Westside and the basin stay as they are.
+     */
+    kind?: 'shelf-row';
   };
   /** The block whose cell contains this point becomes the covered yard. Omitted means none. */
   hub?: { x: number; z: number };
@@ -90,6 +96,9 @@ export interface SprawlBox {
   detail: 0 | 1 | 2;
   lit: number;
   tint: number;
+  ornament?: 0 | 1 | 2;
+  kit?: boolean;
+  family?: string;
 }
 
 export interface SprawlSign {
@@ -200,9 +209,11 @@ interface Cap { n: number }
 function push(
   boxes: SprawlBox[], layout: CityLayout, b: SprawlBlock, cap: Cap,
   s: number, t: number, lb: number, la: number, h: number,
-  o: { base?: number; style: StyleId; detail?: 0 | 1 | 2; lit?: number; tint?: number },
+  o: { base?: number; style: StyleId; detail?: 0 | 1 | 2; lit?: number; tint?: number; ornament?: 0 | 1 | 2; kit?: boolean; family?: string },
 ): boolean {
-  if (h < 0.08 || lb < 0.35 || la < 0.35) return false;
+  if (o.kit) {
+    if (h < 0.06 || lb < 0.07 || la < 0.07) return false;
+  } else if (h < 0.08 || lb < 0.35 || la < 0.35) return false;
   const detail = o.detail ?? 0;
   if (detail > 0 && boxes.length >= cap.n) return false;
   if (!keep(layout, b, s, t, la, lb)) return false;
@@ -213,6 +224,9 @@ function push(
     detail,
     lit: o.lit ?? 0,
     tint: o.tint ?? 0.75,
+    ornament: o.ornament,
+    kit: o.kit,
+    family: o.family,
   });
   return true;
 }
@@ -575,6 +589,29 @@ export function planSprawl(block: SprawlBlock, params: SprawlParams, layout: Cit
     const h = wantTower
       ? floors(rng.int(13, Math.floor((capH + 1e-6) / module)), module, capH)
       : storeyHeight(rng, storeys[0], hi, module, capH);
+    const towerKind = wantTower ? params.towers?.kind : undefined;
+    const tw = Math.min(mlb * 0.92, 28);
+    const td = Math.min(mla * 0.92, 22);
+    let built = false;
+    if (towerKind === 'shelf-row' && tw >= 10 && td >= 10 && keep(layout, block, ms, mt, td, tw)) {
+      const variant = Math.abs(Math.floor(ms * 3 + mt)) % 3;
+      const seed = ((Math.abs(Math.floor(ms * 17 + mt * 13)) % 997) + 1) / 1000;
+      const placed = fieldTower('shelf-row', tw, td, h, seed, variant);
+      let n = 0;
+      for (const box of placed.boxes) {
+        if (push(boxes, layout, block, cap, ms + box.s, mt + box.t, box.lb, box.la, box.h, {
+          base: box.base, style: box.style, detail: box.detail, lit: box.lit, tint: box.tint,
+          ornament: box.ornament, kit: true, family: 'shelf-row',
+        })) n++;
+      }
+      if (n > 0) {
+        towersLeft -= 1;
+        remember(ms, mt, placed.draft.height);
+        clutter(boxes, layout, block, cap, rng, ms, mt, td * 0.8, tw * 0.8, placed.draft.height);
+        built = true;
+      }
+    }
+    if (built) continue;
     if (!push(boxes, layout, block, cap, ms, mt, mlb, mla, h, {
       style: Style.Sprawl, detail: 0, lit: wantTower ? Math.min(0.5, lit + 0.08) : lit, tint,
     })) continue;
@@ -594,13 +631,16 @@ export function fillSprawlBlock(ctx: FabricCtx, params: SprawlParams): void {
   };
   const plan = planSprawl(block, params, ctx.layout);
   for (const box of plan.boxes) {
-    ctx.box(box.s, box.t, box.lb, box.la, box.h, {
+    const made = ctx.box(box.s, box.t, box.lb, box.la, box.h, {
       style: box.style,
       lit: box.lit,
       tint: box.tint,
       detail: box.detail,
-      base: box.base > 0.01 ? box.base : undefined,
+      base: box.base > 0.01 || box.base < -0.02 ? box.base : undefined,
     });
+    if (!made) continue;
+    if (box.kit) made.kit = true;
+    if (box.ornament !== undefined) made.ornament = box.ornament;
   }
   for (const s of plan.signs) {
     ctx.sign(s.s, s.t, s.hb, s.ha, s.face, s.along, s.y, s.w, s.h, s.color, s.kind, s.seed);

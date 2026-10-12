@@ -19,6 +19,9 @@ export interface ArtsBox {
   lit: number;
   tint: number;
   detail: 0 | 1 | 2;
+  ornament?: 0 | 1 | 2;
+  kit?: boolean;
+  family?: string;
 }
 
 export interface ArtsSign {
@@ -166,11 +169,17 @@ export function planArts(block: ArtsBlock, layout: CityLayout): ArtsPlan {
   const put = (
     s: number, t: number, lb: number, la: number, h: number, base: number,
     style: StyleId, lit: number, tint: number, detail: 0 | 1 | 2,
+    extra?: { kit?: boolean; ornament?: 0 | 1 | 2; family?: string },
   ) => {
-    if (lb < 0.2 || la < 0.2 || h < 0.15) return;
+    if (extra?.kit) {
+      if (lb < 0.07 || la < 0.07 || h < 0.06) return;
+    } else if (lb < 0.2 || la < 0.2 || h < 0.15) return;
     const p = world(block, s, t, 0);
     if (layout.isReserved(p.x, p.z, Math.max(lb, la) * 0.35)) return;
-    boxes.push({ s, t, lb, la, h, base, style, lit, tint, detail });
+    boxes.push({
+      s, t, lb, la, h, base, style, lit, tint, detail,
+      kit: extra?.kit, ornament: extra?.ornament, family: extra?.family,
+    });
   };
 
   const prop = (
@@ -360,11 +369,17 @@ function stackYard(
   put: Emit, prop: PropFn, puff: PuffFn, r: Rng, force: boolean, s = 10, t = 14,
 ): void {
   const H = force ? r.range(92, 128) : r.range(74, 136);
-  put(s, t, 5.2, 5.2, H, 0, Style.Industrial, 0.02, r.range(0.48, 0.66), 0);
-  for (let i = 0; i < 3; i++) {
-    put(s, t, 5.8, 5.8, 0.7, H * (0.28 + i * 0.22), Style.Industrial, 0.02, 0.4, 1);
+  const tint = r.range(0.48, 0.66);
+  if (!force) {
+    // Flue bank stayed under the street film gate. One solid of the yard size. The tint draw above stays.
+    put(s, t, 18, 14, H, 0, Style.Solid, 0.06, tint, 0);
+  } else {
+    put(s, t, 5.2, 5.2, H, 0, Style.Industrial, 0.02, tint, 0);
+    for (let i = 0; i < 3; i++) {
+      put(s, t, 5.8, 5.8, 0.7, H * (0.28 + i * 0.22), Style.Industrial, 0.02, 0.4, 1);
+    }
+    put(s, t, 3.2, 3.2, 1.4, H, Style.Industrial, 0.02, 0.55, 1);
   }
-  put(s, t, 3.2, 3.2, 1.4, H, Style.Industrial, 0.02, 0.55, 1);
   // Cooling stack beside it, inside the fabric band.
   const cH = r.range(22, 38);
   put(s + 8, t - 6, 8.5, 8.5, cH, 0, Style.Industrial, 0.02, 0.58, 0);
@@ -377,10 +392,13 @@ function stackYard(
     puff(s + (i - 1) * 1.6, t, H + 14, 2, r.next(), 12, 32, 12, 0);
   }
   puff(s + 8, t - 6, cH + 6, 2, r.next(), 8, 14, 8, 1);
-  // Static column. Indexed kit quads, so the plume still reads if the card batch is thin.
-  prop(s, t, H + 18, 'quadZ', 14, 36, 1, 0, DARK, [1.2, 1.08, 0.9], 0, 0, 0, 0.78, 'add');
-  prop(s, t, H + 18, 'quadZ', 14, 36, 1, Math.PI / 2, DARK, [1.2, 1.08, 0.9], 0, 0, 0, 0.78, 'add');
-  prop(s + 8, t - 6, cH + 8, 'quadZ', 8, 16, 1, 0.5, DARK, [1.05, 0.96, 0.82], 0, 1, 0, 0.66, 'add');
+  // The flue bank is the mass. The additive cards read as white slabs in a night still.
+  // Foundry stacks keep them. Particle puffs still mark the flue.
+  if (force) {
+    prop(s, t, H + 18, 'quadZ', 14, 36, 1, 0, DARK, [1.2, 1.08, 0.9], 0, 0, 0, 0.78, 'add');
+    prop(s, t, H + 18, 'quadZ', 14, 36, 1, Math.PI / 2, DARK, [1.2, 1.08, 0.9], 0, 0, 0, 0.78, 'add');
+    prop(s + 8, t - 6, cH + 8, 'quadZ', 8, 16, 1, 0.5, DARK, [1.05, 0.96, 0.82], 0, 1, 0, 0.66, 'add');
+  }
 }
 
 function pipeRack(put: Emit, r: Rng, block: ArtsBlock): void {
@@ -517,6 +535,7 @@ function propsPush(
 type Emit = (
   s: number, t: number, lb: number, la: number, h: number, base: number,
   style: StyleId, lit: number, tint: number, detail: 0 | 1 | 2,
+  extra?: { kit?: boolean; ornament?: 0 | 1 | 2; family?: string },
 ) => void;
 
 type PropFn = (

@@ -35,6 +35,9 @@ export interface RefineryBox {
   lit: number;
   tint: number;
   detail: 0 | 1 | 2;
+  ornament?: 0 | 1 | 2;
+  kit?: boolean;
+  family?: string;
 }
 
 export interface RefinerySign {
@@ -129,13 +132,16 @@ export function planRefinery(block: RefineryBlock, layout: CityLayout, raw: Refi
   const put = (
     s: number, t: number, lb: number, la: number, h: number, base: number,
     style: StyleId, lit: number, tint: number, detail: 0 | 1 | 2,
+    extra?: { kit?: boolean; ornament?: 0 | 1 | 2; family?: string },
   ) => {
-    if (lb < 0.15 || la < 0.15 || h < 0.12) return;
+    if (extra?.kit) {
+      if (lb < 0.07 || la < 0.07 || h < 0.06) return;
+    } else if (lb < 0.15 || la < 0.15 || h < 0.12) return;
     const q = world(block, s, t, 0);
     if (p.keepOut?.(q.x, q.z)) return;
     if (layout.isReserved(q.x, q.z, Math.max(lb, la) * 0.35)) return;
     if (layout.isOcean(q.x, q.z)) return;
-    boxes.push({ s, t, lb, la, h, base, style, lit, tint, detail });
+    boxes.push({ s, t, lb, la, h, base, style, lit, tint, detail, kit: extra?.kit, ornament: extra?.ornament, family: extra?.family });
   };
 
   const prop = (
@@ -346,6 +352,15 @@ function cracker(put: Emit, prop: PropFn, r: Rng, p: ResolvedRefinery): void {
   const t = r.range(-6, 6);
   let H = r.range(p.tower[0], p.tower[1]);
   H = Math.min(p.tower[1], Math.max(p.tower[0], onModule(H, p.module)));
+  if (p.yard === 'flare-bed') {
+    // The column loop drew three tints. Keep that draw so later yards keep their seeds.
+    r.range(0.48, 0.66);
+    r.range(0.48, 0.66);
+    r.range(0.48, 0.66);
+    // Flare bed stayed under the film gate. One solid in the column band. No further draw.
+    put(s, t, 36, 24, H, 0, Style.Solid, 0.05, 0.55, 0);
+    return;
+  }
   put(s, t, 22, 28, 8.4, 0, Style.Industrial, 0.06, 0.5, 0);
   const cols: Array<[number, number, number, number]> = [
     [0, 0, 7.2, 1],
@@ -450,6 +465,7 @@ function sidewalk(loops: Array<Array<[number, number]>>, block: RefineryBlock): 
 type Emit = (
   s: number, t: number, lb: number, la: number, h: number, base: number,
   style: StyleId, lit: number, tint: number, detail: 0 | 1 | 2,
+  extra?: { kit?: boolean; ornament?: 0 | 1 | 2; family?: string },
 ) => void;
 
 type PropFn = (

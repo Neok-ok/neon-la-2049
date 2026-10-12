@@ -14,7 +14,7 @@ const dtla = await vite.ssrLoadModule('/src/districts/dtla/block.ts');
 
 const { buildTower } = recipes;
 const { measureDraft, scaleOk } = scaleMod;
-const { TOWER_KINDS, HERO_KINDS, STOREY } = parts;
+const { TOWER_KINDS, HERO_KINDS, FIELD_KINDS, STOREY } = parts;
 const layout = layoutMod.getLayout();
 const fails = [];
 
@@ -31,6 +31,12 @@ for (const kind of TOWER_KINDS) {
 for (const kind of HERO_KINDS) {
   const height = kind === 'hero-gate' ? 560 : kind === 'hero-step' ? 640 : 480;
   specs.push({ kind, variant: 0, height, w: 70, d: 48, minH: height - 8, maxH: height + 8, plinth: 0 });
+}
+for (const kind of FIELD_KINDS) {
+  const height = kind === 'shelf-row' ? 54.4 : kind === 'flare-bed' ? 54 : kind === 'flue-bank' ? 108 : 115.2;
+  for (const variant of [0, 1, 2]) {
+    specs.push({ kind, variant, height, w: 48, d: 32, minH: Math.max(40, height - 8), maxH: Math.min(160, height + 8), plinth: 0 });
+  }
 }
 specs.push({ kind: 'band-slab', variant: 0, height: 90, w: 22, d: 16, minH: 57.6, maxH: 120, plinth: 0 });
 specs.push({ kind: 'res-stack', variant: 2, height: 80, w: 20, d: 14, minH: 57.6, maxH: 120, plinth: 0 });
@@ -49,6 +55,10 @@ for (const s of specs) {
   if (s.kind.startsWith('hero') && top < s.height - 12) fails.push(`${s.kind} top ${top.toFixed(1)} short of ${s.height}`);
   const off = draft.boxes.filter((b) => Math.abs(b.t) + b.lb / 2 > s.w / 2 + 2.2 || Math.abs(b.s) + b.la / 2 > s.d / 2 + 2.2);
   if (off.length) fails.push(`${s.kind} v${s.variant} ${off.length} boxes outside footprint`);
+  for (const b of draft.boxes) {
+    if (b.style !== 13) continue;
+    if (b.h >= 4.5 && b.h < 12) fails.push(`${s.kind} v${s.variant} glow h ${b.h.toFixed(2)} tiles into a window wall`);
+  }
 }
 
 function raster(draft, axis) {
@@ -91,6 +101,33 @@ function iou(a, b) {
   return union ? inter / union : 0;
 }
 
+/**
+ * South Bay yard. A plinth, then three fat drums. The middle one is the tallest.
+ * Signed across the width.
+ */
+function flareEnv(s, y) {
+  if (y < 0 || y > 1.06) return false;
+  if (y < 0.1 && Math.abs(s) < 1.02) return true;
+  const cols = [
+    { c: -0.69, half: 0.28, top: 0.66 },
+    { c: 0.0, half: 0.34, top: 1.04 },
+    { c: 0.69, half: 0.26, top: 0.56 },
+  ];
+  return cols.some((col) => y < col.top && Math.abs(s - col.c) < col.half);
+}
+
+/** Three stacks on a plinth. Signed across the width, because the shafts are not a mirror. */
+function flueEnv(s, y) {
+  if (y < 0 || y > 1.05) return false;
+  if (y < 0.06 && Math.abs(s) < 1.02) return true;
+  const cols = [
+    { c: -0.68, half: 0.28, top: 0.82 },
+    { c: 0.02, half: 0.36, top: 1.03 },
+    { c: 0.7, half: 0.26, top: 0.68 },
+  ];
+  return cols.some((col) => y < col.top && Math.abs(s - col.c) < col.half);
+}
+
 /** Design envelopes, drawn as profiles, not traced off the mesh. u is centred, v is up. */
 function envelope(kind, u, v, maxU, maxV) {
   const x = Math.abs(u) / maxU;
@@ -102,9 +139,17 @@ function envelope(kind, u, v, maxU, maxV) {
     const f = 1 - i * (0.62 / steps);
     return x < f * 0.92 + 0.08;
   }
-  if (kind === 'monolith' || kind === 'hero-obelisk') {
+  if (kind === 'monolith') {
     return x < (1 - y * 0.62) * 0.9 + 0.08;
   }
+  if (kind === 'hero-obelisk') {
+    const p = recipes.kiteProfile(Math.max(0, Math.min(1, y)));
+    return x < p + 0.02;
+  }
+  if (kind === 'screen-wall') return x < 1.02;
+  if (kind === 'shelf-row') return y < 0.7 ? x < 1.02 : x < 0.42;
+  if (kind === 'flue-bank') return flueEnv(u / maxU, y);
+  if (kind === 'flare-bed') return flareEnv(u / maxU, y);
   if (kind === 'cantilever') return x < (y < 0.3 ? 0.72 : 1.02);
   if (kind === 'holo-shaft') return x < (y < 0.14 ? 0.95 : 0.62);
   if (kind === 'buttress') return x < (y < 0.66 ? 1.02 : 0.58);
@@ -114,10 +159,18 @@ function envelope(kind, u, v, maxU, maxV) {
 }
 
 const iouRows = [];
-for (const kind of [...TOWER_KINDS, ...HERO_KINDS]) {
-  const height = kind === 'hero-gate' ? 560 : kind === 'hero-step' ? 640 : kind === 'hero-obelisk' ? 480 : 220;
-  const maxH = kind.startsWith('hero') ? height + 8 : 302.4;
-  const minH = kind.startsWith('hero') ? height - 8 : 151.2;
+for (const kind of [...TOWER_KINDS, ...HERO_KINDS, ...FIELD_KINDS]) {
+  const height = kind === 'hero-gate' ? 560
+    : kind === 'hero-step' ? 640
+      : kind === 'hero-obelisk' ? 480
+        : kind === 'shelf-row' ? 54.4
+          : kind === 'flare-bed' ? 54
+          : kind === 'flue-bank' ? 108
+            : kind === 'screen-wall' ? 115.2
+              : 220;
+  const field = FIELD_KINDS.includes(kind);
+  const maxH = kind.startsWith('hero') ? height + 8 : field ? Math.min(160, height + 8) : 302.4;
+  const minH = kind.startsWith('hero') ? height - 8 : field ? Math.max(40, height - 8) : 151.2;
   const draft = buildTower({
     kind, variant: 0, seed: 0.2, height, w: 64, d: 40, lit: 0.4, tint: 0.7,
     plinth: 0, decks: [], phrases: [], holo: false, minH, maxH,
@@ -150,6 +203,27 @@ for (const h of heroes) {
 }
 const pair = Math.hypot(heroes[1].x - heroes[2].x, heroes[1].z - heroes[2].z);
 check('step-obelisk gap', pair > 100, pair.toFixed(1));
+
+const geo = await vite.ssrLoadModule('/src/world/geo.ts');
+const [ox, oz] = geo.geoToLocal(34.0505, -118.2405);
+const pyr = layout.landmarkById('wallace-pyramid');
+const rayX = pyr.x - ox;
+const rayZ = pyr.z - oz;
+const rayLen2 = rayX * rayX + rayZ * rayZ;
+function rayDist(x, z) {
+  const t = ((x - ox) * rayX + (z - oz) * rayZ) / rayLen2;
+  return Math.hypot(x - (ox + rayX * t), z - (oz + rayZ * t));
+}
+for (const h of heroes) {
+  if (!h) continue;
+  const d = rayDist(h.x, h.z);
+  check(h.id + ' off opening ray', d > 140, d.toFixed(1));
+}
+const lapd = layout.landmarkById('lapd-hq');
+const hall = layout.landmarkById('city-hall');
+check('lapd spared', !!lapd && lapd.type !== 'b1-hero', lapd && lapd.type);
+check('city hall spared', !!hall && hall.type !== 'b1-hero', hall && hall.type);
+check('wallace spared', pyr && pyr.type === 'wallace-pyramid', pyr && pyr.type);
 
 function generateChunk(x0, z0, size) {
   return gen.generateFabric(layout, x0, z0, size);

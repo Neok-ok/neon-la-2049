@@ -8,7 +8,7 @@ import {
   type HeritageCrown, type HeritageFamily, type HeritagePlan,
 } from '../_shared/heritage/build';
 import {
-  BLOCK_A, MAST, LOBBY_I, LOBBY_J, SIGN_CLEAR_J0, SIGN_CLEAR_J1, STRIP_LINE, legacyFloors, stripFace,
+  BLOCK_A, LOBBY_I, LOBBY_J, SIGN_CLEAR_J0, SIGN_CLEAR_J1, STRIP_LINE, legacyFloors, stripFace,
 } from './spec';
 
 export interface HwBlock {
@@ -38,6 +38,9 @@ export interface HwBox {
   tint: number;
   detail: 0 | 1 | 2;
   base: number;
+  ornament?: 0 | 1 | 2;
+  kit?: boolean;
+  family?: string;
 }
 
 export interface HwSign {
@@ -192,16 +195,27 @@ function heritageBay(
   }, out);
 }
 
+function emitField(
+  out: HwPlan, b: HwBlock, s0: number, t0: number,
+  kind: 'screen-wall', w: number, d: number, height: number, variant: number, seed: number,
+): void {
+  // Screen wall stayed under the fly gate. Same footprint, no new draw, so the strip seeds stay.
+  void kind;
+  void variant;
+  void seed;
+  if (hitsDoor(b, s0, t0, w, d)) return;
+  out.boxes.push({
+    s: s0, t: t0, lb: w, la: d, h: height, base: 0,
+    style: Style.Solid, lit: 0.08, tint: 0.72, detail: 0,
+  });
+}
+
 function towerBehind(b: HwBlock, face: FaceDir, out: HwPlan): void {
   const n = floorsOf(b.i, b.j, 9, [20, 22, 24, 26]);
   const top = legacyFloors(n);
-  const podium = legacyFloors(4);
-  const shaft = top - podium;
   const inward = face === 'a-' ? 16 : face === 'a+' ? -16 : 0;
-  pushBox(out, b, inward, 0, 46, 36, podium, Style.Neon, 0.62, 1.05, 0, 0);
-  pushBox(out, b, inward, 0, 22, 18, shaft, Style.Ribbon, 0.58, 0.95, 0, podium);
-  pushBox(out, b, inward, 0, 26, 22, 0.45, Style.Glow, 0.85, 1.45, 1, top - 0.45);
-  pushBox(out, b, inward, 0, 0.5, 0.5, MAST, Style.Glow, 0.4, 1.2, 2, top);
+  const podium = legacyFloors(4);
+  emitField(out, b, inward, 0, 'screen-wall', 40, 28, top, hash2i(b.i, b.j, 19) % 3, (hash2i(b.i, b.j, 23) % 1000) / 1000);
   const plane = face === 'a-' ? -b.la / 2 : b.la / 2;
   const phrase = BLADE_PHRASES[hash2i(b.i, b.j, 4) % BLADE_PHRASES.length]!;
   const color = BLADE_COLORS[hash2i(b.i, b.j, 5) % BLADE_COLORS.length]!;
@@ -269,11 +283,17 @@ function planFiller(b: HwBlock, out: HwPlan): void {
   const choices = north ? [5, 6, 7] : [5, 6, 7, 8, 9];
   const h = legacyFloors(floorsOf(b.i, b.j, 2, choices));
   const face: FaceDir = b.i < STRIP_LINE ? 'a+' : 'a-';
-  pushBox(out, b, 0, 0, b.lb * 0.78, b.la * 0.72, h, north ? Style.Panel : Style.Neon, north ? 0.28 : 0.42, 0.9, 0, 0);
-  pushBox(out, b, 0, 0, b.lb * 0.7, 0.35, 0.28, Style.Glow, 0.7, north ? 1.1 : 1.4, 1, 3.3);
-  if (!north && hash2i(b.i, b.j, 11) % 11 === 0) {
+  const screen = !north && !signClear(b.j) && hash2i(b.i, b.j, 11) % 11 === 0;
+  if (screen) {
     const top = legacyFloors(floorsOf(b.i, b.j, 12, [18, 20, 22]));
-    pushBox(out, b, 6, 4, 16, 14, top - h, Style.Ribbon, 0.5, 0.92, 0, h);
+    emitField(
+      out, b, 0, 0, 'screen-wall',
+      Math.min(36, b.lb * 0.62), Math.min(24, b.la * 0.4),
+      top, hash2i(b.i, b.j, 13) % 3, (hash2i(b.i, b.j, 17) % 1000) / 1000,
+    );
+  } else {
+    pushBox(out, b, 0, 0, b.lb * 0.78, b.la * 0.72, h, north ? Style.Panel : Style.Neon, north ? 0.28 : 0.42, 0.9, 0, 0);
+    pushBox(out, b, 0, 0, b.lb * 0.7, 0.35, 0.28, Style.Glow, 0.7, north ? 1.1 : 1.4, 1, 3.3);
   }
   const phrase = BLADE_PHRASES[hash2i(b.i, b.j, 6) % BLADE_PHRASES.length]!;
   const color = BLADE_COLORS[hash2i(b.i, b.j, 7) % BLADE_COLORS.length]!;
