@@ -9,6 +9,7 @@ import {
 import * as TSL from 'three/tsl';
 import type { Tier } from '../../core/quality';
 import { resources } from '../../core/memory';
+import { authoredLiftU } from '../../lighting/shade.ts';
 import { U } from '../../atmosphere/uniforms';
 import { allHolograms } from '../holograms/registry';
 import { installDancerMask, releaseDancerMask } from '../holograms/material';
@@ -131,7 +132,7 @@ function heroMaterial(palette: Texture): MeshBasicNodeMaterial {
     const haze = T.clamp(T.exp(dist.mul(U.fogDensity).mul(-0.22)), 0.35, 1);
     const night = U.night.mul(0.75).add(0.28);
     // Peak stays under the bloom threshold so the diamond head, skirts, and veil read.
-    return T.vec4(tint.mul(scan).mul(flick).mul(haze).mul(night).mul(U.signPower).mul(0.8).mul(close), 1);
+    return T.vec4(tint.mul(scan).mul(flick).mul(haze).mul(night).mul(U.signPower).mul(0.8).mul(close).mul(authoredLiftU), 1);
   })();
   return m;
 }

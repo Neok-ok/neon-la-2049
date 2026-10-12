@@ -10,6 +10,7 @@ import {
 import * as TSL from 'three/tsl';
 import type { Tier } from '../../core/quality';
 import { resources } from '../../core/memory';
+import { authoredLiftU } from '../../lighting/shade.ts';
 import { U } from '../../atmosphere/uniforms';
 import { loadHumanGeometry } from './gltfGeom';
 import { disposeHumanKtx, preferHumanKtx2, textureGpuBytes, transcodeKtx2 } from './ktx';
@@ -242,7 +243,9 @@ function crowdMaterial(palette: Texture, atlas: Texture): MeshStandardNodeMateri
   emissive = emissive.add(T.vec3(0.5, 0.48, 0.52).mul(isLeg).mul(T.float(1).sub(isShoe)));
 
   m.colorNode = T.vec4(albedo, 1);
-  m.emissiveNode = emissive;
+  // The pants and coat glow were painted at exposure 1. Lift them with the
+  // iris so a night exposure does not drop the cloth back into the pavement.
+  m.emissiveNode = emissive.mul(authoredLiftU);
   const roughCloth = T.mix(T.float(0.82), T.float(0.28), U.wetness);
   const roughSkin = T.mix(T.float(0.52), T.float(0.3), U.wetness);
   const roughVinyl = T.mix(T.float(0.38), T.float(0.12), U.wetness);
