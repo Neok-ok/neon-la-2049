@@ -310,7 +310,7 @@ export class SmokeField {
         size0: size,
         size1: size,
         kind: KIND.column,
-        heat: Math.max(0.05, (1 - t) * 0.75) * Math.exp(-rad / 14),
+        heat: Math.max(0.2, (1 - t) * 0.5) + Math.exp(-rad / 7) * 0.7,
         fade: 5200,
         aspect: 1.55,
         floorY: drive.y,
@@ -416,8 +416,8 @@ export class SmokeField {
       if (!must && smokeRand() > rate * dt) continue;
       const spin = t.heavy === 2;
       const truck = t.heavy === 1;
-      const wakeX = (t.wx ?? Math.cos(wind.dir) * wind.speed * 0.15) * 0.55;
-      const wakeZ = (t.wz ?? Math.sin(wind.dir) * wind.speed * 0.15) * 0.55;
+      const wakeX = (t.wx ?? Math.cos(wind.dir) * wind.speed * 0.15) * 0.72;
+      const wakeZ = (t.wz ?? Math.sin(wind.dir) * wind.speed * 0.15) * 0.72;
       spawnParticle(this.pool, {
         x: t.x, y: t.y, z: t.z,
         vx: wakeX,
@@ -430,7 +430,7 @@ export class SmokeField {
         kind: KIND.exhaust,
         heat: truck ? 0.08 : 0.02,
         fade: spin ? 90 : 55,
-        aspect: spin ? 0.85 : 1.45,
+        aspect: spin ? 0.7 : 0.55,
         floorY: spin ? t.y - 2 : ground,
         slot: 0,
         slotCap: cap,
@@ -450,7 +450,7 @@ export class SmokeField {
           kind: KIND.exhaust,
           heat: 0.02,
           fade: 55,
-          aspect: 1.35,
+          aspect: 0.5,
           floorY: ground,
           slot: 0,
           slotCap: cap,
@@ -506,7 +506,7 @@ export class SmokeField {
       // the gantry and over the ribbon. The offset is along the view ray, so
       // the column stays on the flame in screen space.
       if (kind === KIND.column && d > 30) {
-        const pull = 34 / d;
+        const pull = 48 / d;
         px += (camX - px) * pull;
         py += (camY - py) * pull;
         pz += (camZ - pz) * pull;
