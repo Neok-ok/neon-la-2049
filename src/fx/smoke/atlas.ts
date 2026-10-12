@@ -6,35 +6,28 @@ import { resources } from '../../core/memory';
 import { fbm } from './curl';
 
 const FRAMES = 8;
-const CELL = 64;
+const CELL = 96;
 const COLS = 4;
 const ROWS = 2;
 
-function ball(u: number, v: number, cx: number, cy: number, rx: number, ry: number): number {
-  const r = Math.hypot((u - cx) / rx, (v - cy) / ry);
-  return Math.pow(Math.max(0, 1 - r), 1.15);
-}
-
-/** A few offset lobes, not a disc. The body stays filled so a small street card still reads. */
+/**
+ * A filled wisp with a torn rim. Round lobes were reading as a rope of spheres.
+ * The core stays dense so a street card still shows; only the rim is eaten.
+ */
 function density(u: number, v: number, frame: number): number {
   const tear = frame / (FRAMES - 1);
-  const spin = tear * 0.85;
-  const c = Math.cos(spin);
-  const s = Math.sin(spin);
-  const ru = u * c - v * s;
-  const rv = u * s + v * c;
-  const lobes =
-    ball(ru, rv, -0.1, 0.04, 0.58, 0.66) * 1.05 +
-    ball(ru, rv, 0.3, -0.18, 0.38, 0.42) * 0.82 +
-    ball(ru, rv, -0.26, 0.28, 0.34, 0.38) * 0.78 +
-    ball(ru, rv, 0.06, -0.36, 0.28, 0.32) * 0.6 +
-    ball(ru, rv, 0.2, 0.26, 0.24, 0.26) * 0.5;
-  const pits =
-    ball(ru, rv, 0.02, 0.06, 0.16, 0.18) * 0.42 +
-    ball(ru, rv, -0.18, -0.1, 0.12, 0.14) * 0.32;
-  const fine = fbm(u * 2.6 + frame * 0.33, v * 2.8 - frame * 0.17, frame * 0.11);
-  const body = Math.max(0, lobes - pits);
-  return Math.min(1, body * (0.82 + 0.18 * Math.max(0, fine))) * (1 - tear * 0.1);
+  const warp = fbm(u * 1.6 + frame * 0.27, v * 1.9, frame * 0.13);
+  const uu = u + warp * 0.22;
+  const vv = v * (0.86 + tear * 0.2) + warp * 0.14;
+  const n = fbm(uu * 2.6 + frame * 0.2, vv * 3.1, 0.6);
+  const n2 = fbm(uu * 5.2 + 4, vv * 6, 1.4);
+  const r2 = uu * uu * 0.9 + vv * vv * 0.72;
+  const body = Math.max(0, 1 - r2);
+  const rim = Math.min(1, r2 * 1.35);
+  const eat = Math.max(0, -n) * rim * 1.15;
+  const grain = 0.78 + 0.22 * n2;
+  const d = Math.max(0, body - eat) * Math.max(0.45, grain);
+  return Math.min(1, d) * (1 - tear * 0.1);
 }
 
 function bake(): Uint8Array {

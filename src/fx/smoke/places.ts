@@ -171,7 +171,7 @@ function addMarket(
         aspect: 2.05,
         floorY: s.y,
       }));
-      const hole = laneSpot(query, x, s.y, z, ax, az, lx, lz, 18, -0.4, 0.28);
+      const hole = laneSpot(query, x, s.y, z, ax, az, lx, lz, 13.5, -2.1, 0.22);
       holes.push(make({
         x: hole.x,
         y: hole.y,
@@ -217,15 +217,15 @@ function addMarket(
         x: spot.x, y: spot.roof + 0.8, z: spot.z,
         kind: KIND.roof,
         rate: 8,
-        life: 5.6,
-        size0: 1.05,
-        size1: 2.7,
+        life: 3.6,
+        size0: 0.7,
+        size1: 1.7,
         heat: 0,
-        radius: 0.16,
-        spread: 0.12,
-        rise: 3.1,
-        fade: 44,
-        aspect: 1.9,
+        radius: 0.14,
+        spread: 0.1,
+        rise: 1.4,
+        fade: 36,
+        aspect: 1.6,
         floorY: spot.roof,
       }));
     }
@@ -384,14 +384,14 @@ export function gatherEmitters(
         kind: KIND.barrel,
         rate: 14,
         life: 3.6,
-        size0: 0.34,
-        size1: 1.15,
+        size0: 0.22,
+        size1: 0.58,
         heat: 1,
-        radius: 0.16,
-        spread: 0.07,
-        rise: 1.0,
-        fade: 28,
-        aspect: 1.28,
+        radius: 0.12,
+        spread: 0.05,
+        rise: 0.65,
+        fade: 24,
+        aspect: 1.15,
         floorY: door.y,
       }));
     }

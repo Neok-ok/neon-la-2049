@@ -92,7 +92,7 @@ function shade(lit: boolean): MeshBasicNodeMaterial {
     // exposure is stopped down. practicalLit stays in nits and is added, not scaled.
     const albedo = vec3(0.92, 0.93, 0.95).mul(steam)
       .add(vec3(0.36, 0.34, 0.32).mul(barrel))
-      .add(vec3(0.68, 0.67, 0.66).mul(stack))
+      .add(vec3(0.42, 0.4, 0.38).mul(stack))
       .add(vec3(0.5, 0.51, 0.52).mul(exhaustK))
       .add(vec3(0.88, 0.86, 0.82).mul(launch));
     const body = albedo.mul(authoredLiftU);
@@ -112,7 +112,8 @@ function shade(lit: boolean): MeshBasicNodeMaterial {
       .mul(authoredLiftU)
       .mul(heatGain)
       .mul(smoothstep(0.92, 0.04, life));
-    const rgb = body.mul(0.95).add(lamps).add(veil).add(heat);
+    const shade = mix(float(0.62), float(1), stamp.a);
+    const rgb = body.mul(mix(float(1), shade, soot.add(launch.mul(0.65)))).add(lamps).add(veil).add(heat);
 
     const dist = length(ctr.xyz.sub(cameraPosition));
     const thin = smoothstep(extra.w, extra.w.mul(0.2), dist);

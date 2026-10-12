@@ -25,7 +25,7 @@ import {
 /** Share of the street budget. Indexed by KIND. Launch kinds stay on their own slots. */
 const KIND_SHARE = [0.16, 0.12, 0.12, 0.1, 0.14, 0.22, 0.14];
 /** Card opacity. Stack cards overlap into one column, so each stamp stays lighter. */
-const KIND_ALPHA = [0.96, 0.94, 0.9, 0.84, 0.9, 0.74, 0.88, 0.4, 0.86];
+const KIND_ALPHA = [0.94, 0.9, 0.88, 0.82, 0.88, 0.58, 0.84, 0.38, 0.72];
 /** How many aged cards one emitter may seed, so a still shows the plume and not the first puff. */
 const SEED_CAP = [12, 10, 14, 12, 14, 36];
 
@@ -298,7 +298,7 @@ export class SmokeField {
       const want = columnRadius(along, 0);
       const rad = want * (0.7 + smokeRand() * 0.5);
       const lean = plumeLean(along, len, wind.speed);
-      const size = (tier === 'low' ? 9 : tier === 'medium' ? 12 : 14) + t * (tier === 'low' ? 6 : 12) + smokeRand() * 4;
+      const size = (tier === 'low' ? 10 : tier === 'medium' ? 14 : 20) + t * (tier === 'low' ? 6 : 14) + smokeRand() * 4;
       spawnParticle(this.pool, {
         x: drive.x + Math.cos(wind.dir) * lean + Math.cos(ang) * rad,
         y: drive.y + along,
