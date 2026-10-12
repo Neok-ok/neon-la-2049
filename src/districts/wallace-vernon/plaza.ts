@@ -43,7 +43,8 @@ function col(f: PlazaFrame, lx: number, lz: number, hw: number, hd: number, y0: 
 
 /** Amber shells on the court practicals. The old puddle sheets had no lamp. */
 function lampHeads(f: PlazaFrame, parent: Group, spots: Array<[number, number, number]>): void {
-  const geo = resources.sharedGeometry('wallace-lamp-head', () => new BoxGeometry(0.72, 0.16, 0.36));
+  const geo = resources.sharedGeometry('wallace-lamp-head', () => new BoxGeometry(1.15, 0.24, 0.58));
+  const stemGeo = resources.sharedGeometry('wallace-lamp-stem', () => new BoxGeometry(0.16, 1.8, 0.16));
   const mat = resources.material('wallace-lamp-head', () => {
     const m = new MeshBasicNodeMaterial();
     const sodium = T.vec3(1.0, 0.58, 0.16);
@@ -64,6 +65,16 @@ function lampHeads(f: PlazaFrame, parent: Group, spots: Array<[number, number, n
   mesh.name = 'wallace-lamp-heads';
   mesh.frustumCulled = false;
   parent.add(mesh);
+  const stem = new InstancedMesh(stemGeo, mat, spots.length);
+  for (let i = 0; i < spots.length; i++) {
+    const [lx, y, lz] = spots[i]!;
+    const [x, z] = localToWorld(f.x, f.z, f.yaw, lx, lz);
+    stem.setMatrixAt(i, m.compose(p.set(x, f.y + y - 1.0, z), q, s));
+  }
+  stem.instanceMatrix.needsUpdate = true;
+  stem.name = 'wallace-lamp-stems';
+  stem.frustumCulled = false;
+  parent.add(stem);
 }
 
 /** Adds the plaza to `lod0` (it hides with the far pyramid) and returns walk colliders. */
