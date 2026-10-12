@@ -331,9 +331,11 @@ for (const tier of tiers) {
           lateral = Math.max(p.w, p.d) * 0.9;
           y = p.ground + p.height * 0.26;
         } else if (p.kind === 'cantilever') {
-          reach = Math.max(150, p.height * 0.72);
-          lateral = Math.max(p.w, p.d) * 0.9;
-          y = p.ground + p.height * 0.52;
+          // Stay in the street canyon, just under the shelf, so the wider top
+          // is the subject. A longer reach lands inside the block opposite.
+          reach = Math.max(p.d, p.w) * 1.35 + 36;
+          lateral = Math.max(p.w, p.d) * 0.48;
+          y = p.ground + Math.max(38, p.height * 0.2);
         } else if (gate) {
           reach = Math.max(120, p.height * 0.32);
           lateral = 52;
@@ -343,7 +345,7 @@ for (const tier of tiers) {
         const pz = p.center[1] + p.normal[1] * reach * face + p.bz * lateral;
         const ax = p.center[0];
         const az = p.center[1];
-        const aimF = zig || cross ? 0.38 : p.kind === 'cantilever' ? 0.34 : p.kind === 'holo-shaft' ? 0.46 : 0.42;
+        const aimF = zig || cross ? 0.38 : p.kind === 'cantilever' ? 0.3 : p.kind === 'holo-shaft' ? 0.46 : 0.42;
         const ay = p.ground + p.height * aimF;
         const heading = Math.atan2(ax - px, -(az - pz));
         const pitch = Math.atan2(ay - y, Math.hypot(ax - px, az - pz));
@@ -377,16 +379,16 @@ for (const tier of tiers) {
         // before climbing, so a blocked start does not become a roof shot.
         const feature = {
           'holo-shaft': [
-            { dist: 155, yF: 0.42, side: 0.1, aim: 0.46 },
-            { dist: 190, yF: 0.4, side: -0.14, aim: 0.46 },
-            { dist: 230, yF: 0.48, side: 0.08, aim: 0.5 },
-            { dist: 280, yF: 0.5, side: 0.02, aim: 0.5 },
+            { dist: 120, yF: 0.42, side: 0.12, aim: 0.46 },
+            { dist: 145, yF: 0.4, side: -0.1, aim: 0.46 },
+            { dist: 100, yF: 0.38, side: 0.16, aim: 0.44 },
+            { dist: 170, yF: 0.45, side: 0.06, aim: 0.48 },
           ],
           cantilever: [
-            { dist: 175, yF: 0.5, side: 0.42, aim: 0.34 },
-            { dist: 210, yF: 0.55, side: -0.38, aim: 0.36 },
-            { dist: 250, yF: 0.6, side: 0.28, aim: 0.38 },
-            { dist: 310, yF: 0.66, side: 0.16, aim: 0.4 },
+            { dist: 115, yF: 0.22, side: 0.28, aim: 0.32 },
+            { dist: 140, yF: 0.26, side: -0.22, aim: 0.34 },
+            { dist: 95, yF: 0.18, side: 0.18, aim: 0.3 },
+            { dist: 165, yF: 0.3, side: 0.12, aim: 0.36 },
           ],
         };
         const tries = feature[p.kind];
