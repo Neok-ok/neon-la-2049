@@ -1,5 +1,6 @@
 // Shared node materials for the street kit. One material per pass, reused by every chunk.
 import { AdditiveBlending, DoubleSide, MeshBasicNodeMaterial, MeshStandardNodeMaterial, NormalBlending } from 'three/webgpu';
+import { uniform } from 'three/tsl';
 import * as TSL from 'three/tsl';
 import { U } from '../../../atmosphere/uniforms';
 import { NITS } from '../../../lighting/presets.ts';
@@ -69,6 +70,13 @@ export function getKitMaterial(pass: KitPass): MeshStandardNodeMaterial | MeshBa
 }
 
 /**
+ * District kit crosses. The smoke field sets this to 0 so those crosses do not
+ * sit on top of the wind-driven puffs. Default 1 keeps a chunk readable if the
+ * field is not mounted.
+ */
+export const kitSteamGain = uniform(1);
+
+/**
  * Soft steam cards. `iSteam.x` is a per-instance seed.
  * positionLocal already includes the instance transform, so the puff only rises and drifts.
  */
@@ -87,7 +95,7 @@ export function getSteamMaterial(): MeshBasicNodeMaterial {
   const fade = sin(life.mul(Math.PI));
   const dist = length(positionWorld.sub(cameraPosition));
   const col = mix(vec3(0.78, 0.8, 0.82).mul(authoredLiftU), U.fogColor.mul(2.4), float(0.4));
-  steam.colorNode = vec4(col, fade.mul(0.32).mul(smoothstep(36.0, 5.0, dist)));
+  steam.colorNode = vec4(col, fade.mul(0.32).mul(kitSteamGain).mul(smoothstep(36.0, 5.0, dist)));
   return steam;
 }
 

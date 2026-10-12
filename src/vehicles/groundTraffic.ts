@@ -710,4 +710,35 @@ export class GroundTraffic {
     const fade = alt < 28 ? 1 : Math.max(0, 1 - (alt - 28) / 150);
     this.bed = Math.min(1, bed * fade);
   }
+
+  /** Tailpipes behind live cars. Structural so this file does not import the smoke field. */
+  collectExhaust(
+    x: number,
+    z: number,
+    range: number,
+    out: { x: number; y: number; z: number; drive: number; heavy: number }[],
+  ): void {
+    const r2 = range * range;
+    const scan = (list: Agent[]) => {
+      for (const a of list) {
+        if (!a.live || a.speed < 0.4) continue;
+        const back = a.len * 0.5;
+        const px = a.p.x - a.fwd.x * back;
+        const pz = a.p.z - a.fwd.z * back;
+        const dx = px - x;
+        const dz = pz - z;
+        if (dx * dx + dz * dz > r2) continue;
+        const heavy = a.mesh === 'hauler' || a.mesh === 'tanker' || a.mesh === 'box' ? 1 : 0;
+        out.push({
+          x: px,
+          y: a.p.y + (heavy ? 0.85 : 0.32),
+          z: pz,
+          drive: Math.min(1, a.speed / 14),
+          heavy,
+        });
+      }
+    };
+    scan(this.street);
+    scan(this.freeway);
+  }
 }

@@ -11,6 +11,7 @@ import { U } from '../../atmosphere/uniforms';
 import { fogDepth } from '../../atmosphere/SkyFog';
 import type { Tier } from '../../core/quality';
 import type { CityLayout } from '../../world/layout';
+import { syncLaunchPlume } from '../../fx/smoke/launchDrive';
 import { PAD_BLOCKS, STACK_H, blockCenter } from './spec';
 
 const T = TSL as any;
@@ -182,17 +183,30 @@ export function updateLaunch(elapsed: number, tier: Tier, windRad: number, wind:
   const lean = 10 + Math.min(12, Math.max(0, wind)) * 1.4;
   launchWindX.value = Math.cos(windRad) * lean;
   launchWindZ.value = Math.sin(windRad) * lean;
+  const p = pads[pad]!;
+  const head = live ? headHeight(u, p.y) : p.y;
+  const known = start > -1e8;
+  syncLaunchPlume({
+    id: known ? start : 0,
+    age: known ? Math.max(0, elapsed - start) : 0,
+    burning: live && envNow > 0.02,
+    x: p.x,
+    y: p.y,
+    z: p.z,
+    headY: head,
+    wind,
+    windDir: windRad,
+    tier,
+  });
   if (mesh) mesh.visible = envNow > 0.02;
   if (!live || !mesh || envNow <= 0.02) return;
-  const p = pads[pad]!;
-  const head = headHeight(u, p.y);
   const base = p.y + 2;
   const len = Math.max(24, head - base);
   const halfW = 18 + Math.min(1, Math.max(0, (u - 0.08) / 0.7)) * 26;
   const ignite = u < 0.12 ? 0.45 + (u / 0.12) * 0.9 : Math.max(0.28, 0.7 - (u - 0.12) * 0.5);
   writeQuad(0, p.x, base + 6, p.z, 14 + ignite * 36, 0.72, 0);
   writeQuad(1, p.x, base + len * 0.5, p.z, halfW, len / Math.max(8, halfW * 2), 1);
-  writeQuad(2, p.x, base + len * 0.42, p.z, halfW * 1.8, (len * 0.8) / Math.max(12, halfW * 3.6), 1);
+  writeQuad(2, p.x, base + len * 0.48, p.z, halfW * 0.42, (len * 0.55) / Math.max(10, halfW), 1);
   writeQuad(3, p.x, head, p.z, 32 + Math.min(1, u / 0.5) * 28, 1.15, 2);
   if (ctr) ctr.needsUpdate = true;
   if (crn) crn.needsUpdate = true;

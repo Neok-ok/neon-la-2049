@@ -53,6 +53,7 @@ import { sampleDistrictLook } from '../atmosphere/districtLook';
 import '../atmosphere/looks';
 import { setAirSample, setAirTier, airFlags } from '../atmosphere/airState';
 import { AirField, shaftCapFor, type GlowMark } from '../atmosphere/AirField';
+import { SmokeField, smokePunctual, type Tailpipe } from '../fx/smoke';
 import { fillEmptyAirLights } from '../atmosphere/airLights';
 import {
   allLights, disposeLightingPipeline, ephemeralLights, lightCensus, lightingStats, lockExposureEv, parseTone, rebuildLightingPipeline,
@@ -143,6 +144,8 @@ export class App {
   interiors!: InteriorSystem;
   readonly haze = new GroundHaze();
   readonly air = new AirField(this.scene);
+  readonly smoke = new SmokeField(this.scene);
+  private readonly exhaustScratch: Tailpipe[] = [];
   readonly wet: WetReflector;
   private readonly software: boolean;
   private lastCam = new Vector3();
@@ -688,6 +691,26 @@ export class App {
     });
     if (sky.strike) this.ambience.cueThunder(sky.delay, sky.amount * Math.max(0.35, coast.near));
     this.photoMod?.postAtmosphere();
+    this.exhaustScratch.length = 0;
+    this.ground.collectExhaust(cam.x, cam.z, 80, this.exhaustScratch);
+    this.traffic.collectExhaust(cam.x, cam.y, cam.z, 90, this.exhaustScratch);
+    sampleFarFrame({
+      elapsed: this.elapsed, tier: this.quality.tier, windDir: wNow.windDir, wind: wNow.params.wind,
+      x: cam.x, y: cam.y, z: cam.z, layout: this.query.layout,
+    });
+    this.smoke.update({
+      dt: simDt,
+      time: this.elapsed,
+      tier: this.quality.tier,
+      camX: cam.x,
+      camY: cam.y,
+      camZ: cam.z,
+      wind: wNow.params.wind,
+      windDir: wNow.windDir,
+      rain: wNow.params.rain,
+      query: this.query,
+      tails: this.exhaustScratch,
+    });
     this.syncCityLights();
     this.crowd.update(simDt, cam.x, cam.z, this.query, this.quality, this.atmosphere.weather.params.rain, this.elapsed, this.cams.pose().heading);
     this.haze.update(cam.x, cam.z, ground, alt, this.quality.tier);
@@ -812,6 +835,7 @@ export class App {
     this.haze.group.visible = false;
     this.air.glowMesh.visible = false;
     this.air.breathMesh.visible = false;
+    this.smoke.conceal();
     this.streamer.root.visible = false;
     this.holos.group.visible = false;
     this.crowd.mesh.visible = false;
@@ -830,7 +854,7 @@ export class App {
       signs: this.signGlows,
       holos: this.holos.glowMarks,
       interior: this.interiors.lightSpill(),
-    }));
+    }).concat(smokePunctual()));
     const census = lightCensus();
     const sd = this.atmosphere.dayNight.sunDir(this.sunScratch);
     syncLighting({
@@ -1561,6 +1585,7 @@ export class App {
         lighting: lightingStats(),
         windows: windowState(),
         air: this.air.snapshot(),
+        smoke: this.smoke.snapshot(),
         storm: { ...stormSnap },
         qualityChoice: this.qualityChoice,
         autoTier: this.autoTier,
