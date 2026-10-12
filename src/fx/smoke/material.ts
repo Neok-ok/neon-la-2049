@@ -112,8 +112,8 @@ function shade(lit: boolean): MeshBasicNodeMaterial {
       .mul(authoredLiftU)
       .mul(heatGain)
       .mul(smoothstep(0.92, 0.04, life));
-    const shade = mix(float(0.62), float(1), stamp.a);
-    const rgb = body.mul(mix(float(1), shade, soot.add(launch.mul(0.65)))).add(lamps).add(veil).add(heat);
+    const crease = mix(float(0.42), float(1), stamp.b);
+    const rgb = body.mul(crease).add(lamps).add(veil).add(heat);
 
     const dist = length(ctr.xyz.sub(cameraPosition));
     const thin = smoothstep(extra.w, extra.w.mul(0.2), dist);

@@ -25,7 +25,7 @@ import {
 /** Share of the street budget. Indexed by KIND. Launch kinds stay on their own slots. */
 const KIND_SHARE = [0.16, 0.12, 0.12, 0.1, 0.14, 0.22, 0.14];
 /** Card opacity. Stack cards overlap into one column, so each stamp stays lighter. */
-const KIND_ALPHA = [0.94, 0.9, 0.88, 0.82, 0.88, 0.58, 0.95, 0.38, 0.72];
+const KIND_ALPHA = [0.62, 0.72, 0.8, 0.7, 0.86, 0.46, 0.95, 0.28, 0.8];
 /** How many aged cards one emitter may seed, so a still shows the plume and not the first puff. */
 const SEED_CAP = [12, 10, 14, 12, 14, 36];
 
@@ -265,7 +265,7 @@ export class SmokeField {
     const gCap = LAUNCH_GROUND_CAP[tier];
     const cCap = LAUNCH_COLUMN_CAP[tier];
     const grown = Math.min(1, Math.max(0.35, drive.age / 10));
-    const gCount = Math.min(gCap, Math.max(8, Math.floor(gCap * grown * 0.55)));
+    const gCount = Math.min(gCap, Math.max(10, Math.floor(gCap * grown * 0.85)));
     for (let n = 0; n < gCount; n++) {
       const puff = groundPuff(drive, camX, camZ, grown);
       const size1 = (tier === 'low' ? 10 : tier === 'medium' ? 14 : 16) + smokeRand() * 6;
@@ -292,13 +292,13 @@ export class SmokeField {
     const len = Math.max(80, drive.headY - drive.y);
     const span = Math.min(len * 0.94, 1500);
     for (let n = 0; n < cCap; n++) {
-      const along = 28 + (n + smokeRand() * 0.85) / cCap * (span - 28);
+      const along = 8 + Math.pow(smokeRand(), 1.35) * (span - 8);
       const ang = smokeRand() * Math.PI * 2;
       const t = Math.max(0, Math.min(1, along / len));
       const want = columnRadius(along, 0);
       const rad = want * (0.7 + smokeRand() * 0.5);
       const lean = plumeLean(along, len, wind.speed);
-      const size = (tier === 'low' ? 10 : tier === 'medium' ? 14 : 20) + t * (tier === 'low' ? 6 : 14) + smokeRand() * 4;
+      const size = (tier === 'low' ? 11 : tier === 'medium' ? 15 : 18) + (1 - t) * 10 + t * 8 + smokeRand() * 4;
       spawnParticle(this.pool, {
         x: drive.x + Math.cos(wind.dir) * lean + Math.cos(ang) * rad,
         y: drive.y + along,

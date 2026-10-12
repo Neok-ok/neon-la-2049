@@ -24,7 +24,7 @@ function density(u: number, v: number, frame: number): number {
   const r2 = uu * uu * 0.9 + vv * vv * 0.72;
   const body = Math.max(0, 1 - r2);
   const rim = Math.min(1, r2 * 1.35);
-  const eat = Math.max(0, -n) * rim * 1.15;
+  const eat = Math.max(0, -n) * rim * 1.75;
   const grain = 0.78 + 0.22 * n2;
   const d = Math.max(0, body - eat) * Math.max(0.45, grain);
   return Math.min(1, d) * (1 - tear * 0.1);
