@@ -136,7 +136,8 @@ function compose(m: MeshStandardNodeMaterial, living: boolean): void {
   const glow = mix(glowNear, glowFar, farFade);
   const windows = mix(mix(nearWindows, avgWindows, farFade).mul(1.1), glow, isGlow).mul(isWall);
   // A few nits on the wall around a lit pane, so the window is a source and not a sticker.
-  const paneSpill = smoothstep(0.62, 0.16, abs(f.x.sub(0.5))).mul(smoothstep(0.7, 0.18, abs(f.y.sub(0.55))));
+  // The halo dies before the cell edge. A reach of 0.62 met the next pane and washed the facade.
+  const paneSpill = smoothstep(0.38, 0.16, abs(f.x.sub(0.5))).mul(smoothstep(0.42, 0.16, abs(f.y.sub(0.55))));
   const windowSpill = winColor.mul(paneSpill).mul(float(1).sub(winMask)).mul(isWall).mul(litForWindows).mul(U.night).mul(8);
 
   // ---- ground sprawl lights (far LOD: low-rise city rendered as a carpet of lights) ----
