@@ -312,7 +312,8 @@ async function grabCanvas(page, dest) {
     window.__warmLeft = 1;
     window.__grabFrame = true;
   });
-  await page.waitForFunction(() => !!(window.__lastPng || window.__grabErr), null, { timeout: 480_000, polling: 200 });
+  // Ultra desktop readback on SwiftShader can sit in toDataURL for well over eight minutes.
+  await page.waitForFunction(() => !!(window.__lastPng || window.__grabErr), null, { timeout: 2_400_000, polling: 200 });
   const dataUrl = await page.evaluate(() => {
     if (window.__grabErr) throw new Error(window.__grabErr);
     return window.__lastPng;
