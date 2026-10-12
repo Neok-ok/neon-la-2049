@@ -168,10 +168,10 @@ function addMarket(
         spread: 0.05,
         rise: 1.7,
         fade: 26,
-        aspect: 2.8,
+        aspect: 2.05,
         floorY: s.y,
       }));
-      const hole = laneSpot(query, x, s.y, z, ax, az, lx, lz, 9.4, -1.8, 0.12);
+      const hole = laneSpot(query, x, s.y, z, ax, az, lx, lz, 14.5, -2.4, 0.08);
       holes.push(make({
         x: hole.x,
         y: hole.y,
@@ -242,7 +242,7 @@ function addMarket(
     const rx = hz;
     const rz = -hx;
     food.push(make({
-      x: s.x + hx * 2.2 + rx * 0.45, y: s.y + 1.05, z: s.z + hz * 2.2 + rz * 0.45,
+      x: s.x + hx * 4.4 + rx * 0.8, y: s.y + 1.05, z: s.z + hz * 4.4 + rz * 0.8,
       kind: KIND.stall,
       rate: 12,
       life: 0.95,
@@ -359,13 +359,13 @@ export function gatherEmitters(
       x: f.x, y: f.y + 0.2, z: f.z,
       kind: KIND.stack,
       rate: 16,
-      life: 8,
-      size0: 3.4,
-      size1: 7.2,
+      life: 10,
+      size0: 2.8,
+      size1: 5.6,
       heat: 0.55,
-      radius: 0.45,
-      spread: 0.12,
-      rise: 3.4,
+      radius: 0.4,
+      spread: 0.14,
+      rise: 6.2,
       fade: 1100,
       aspect: 1.85,
       floorY: f.y,

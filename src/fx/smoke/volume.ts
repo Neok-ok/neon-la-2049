@@ -102,7 +102,7 @@ function volumeMaterial(): MeshBasicNodeMaterial {
         .mul(smoothstep(-2.0, 1.5, height))
         .mul(smoothstep(0.28, 0.7, n1));
       // Billboards carry the body. A fatter march read as a blue searchlight.
-      const density = column.mul(0.34).add(ground.mul(0.28)).mul(volDensity);
+      const density = column.mul(0.22).add(ground.mul(0.26)).mul(volDensity);
 
       const toEng = volEngine.sub(pos);
       const dE = max(length(toEng), 1.0);

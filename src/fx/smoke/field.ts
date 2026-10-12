@@ -303,7 +303,7 @@ export class SmokeField {
       const want = columnRadius(along, 0);
       const rad = core ? want * (0.02 + smokeRand() * 0.08) : want * (0.55 + smokeRand() * 0.5);
       const lean = plumeLean(along, len, wind.speed);
-      const size = want * (core ? 0.1 : 0.85) + smokeRand() * (core ? 1 : 6);
+      const size = want * (core ? 0.1 : 0.62) + smokeRand() * (core ? 1 : 4);
       spawnParticle(this.pool, {
         x: drive.x + Math.cos(wind.dir) * lean + Math.cos(ang) * rad,
         y: drive.y + along,
