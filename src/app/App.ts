@@ -54,7 +54,7 @@ import { setAirSample, setAirTier, airFlags } from '../atmosphere/airState';
 import { AirField, shaftCapFor, type GlowMark } from '../atmosphere/AirField';
 import { fillEmptyAirLights } from '../atmosphere/airLights';
 import {
-  disposeLightingPipeline, ephemeralLights, lightCensus, lightingStats, lockExposureEv, parseTone, rebuildLightingPipeline,
+  allLights, disposeLightingPipeline, ephemeralLights, lightCensus, lightingStats, lockExposureEv, parseTone, rebuildLightingPipeline,
   releaseLightingTierTargets, rendererTone, setEphemeral, syncLighting, type ToneId,
 } from '../lighting';
 import { wallaceCamera, type WallaceView } from '../districts/wallace-vernon/view';
@@ -1072,6 +1072,33 @@ export class App {
         this.cams.fly.cockpit = true;
         if (this.cams.mode !== 'fly') this.cams.setMode('fly');
         this.cams.setPose({ position: new Vector3(x, y, z), heading: h, pitch: pitchDeg * DEG });
+        this.cams.fly.cockpit = true;
+        this.cams.fly.vel.set(0, 0, 0);
+        return true;
+      },
+      /** Stand near the nearest street practical so the still is the pool, not the gap. */
+      lampShot: (back = 9) => {
+        const origin = this.cams.walk.pos;
+        let best: { x: number; y: number; z: number } | null = null;
+        let bestD = 1e9;
+        for (const L of allLights()) {
+          if (L.preset !== 'street-sodium' && L.preset !== 'street-led' && L.preset !== 'beacon-white') continue;
+          const d = Math.hypot(L.x - origin.x, L.z - origin.z);
+          if (d < 3 || d > 160 || d >= bestD) continue;
+          best = L;
+          bestD = d;
+        }
+        if (!best) return false;
+        const dx = origin.x - best.x;
+        const dz = origin.z - best.z;
+        const len = Math.hypot(dx, dz) || 1;
+        const x = best.x + (dx / len) * back;
+        const z = best.z + (dz / len) * back;
+        const y = best.y - 4.2;
+        const heading = Math.atan2(best.x - x, -(best.z - z));
+        this.cams.fly.cockpit = true;
+        if (this.cams.mode !== 'fly') this.cams.setMode('fly');
+        this.cams.setPose({ position: new Vector3(x, y, z), heading, pitch: -14 * DEG });
         this.cams.fly.cockpit = true;
         this.cams.fly.vel.set(0, 0, 0);
         return true;

@@ -85,7 +85,8 @@ export const PRESETS: Record<PresetId, Preset> = {
   }),
   'hologram': discharge('hologram', [0.35, 0.85, 1], {
     candela: 280, cdMin: 10, cdMax: 4000, nits: 14, range: 14,
-    cone: Math.PI, inner: Math.PI, contact: false, volumetric: true,
+    // The panel is the source. A haze slot from this candela drew a sourceless shaft down the lane.
+    cone: Math.PI, inner: Math.PI, contact: false, volumetric: false,
   }),
   // Low-intensity aviation red is on the order of tens of candela. The strobe is the bright one.
   'beacon-red': discharge('beacon-red', [1, 0.08, 0.03], {
