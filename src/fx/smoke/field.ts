@@ -25,7 +25,7 @@ import {
 /** Share of the street budget. Indexed by KIND. Launch kinds stay on their own slots. */
 const KIND_SHARE = [0.16, 0.12, 0.12, 0.1, 0.14, 0.22, 0.14];
 /** Card opacity. Stack cards overlap into one column, so each stamp stays lighter. */
-const KIND_ALPHA = [0.92, 0.88, 0.9, 0.84, 0.9, 0.72, 0.95, 0.58, 0.82];
+const KIND_ALPHA = [0.58, 0.82, 0.88, 0.62, 0.86, 0.78, 0.95, 0.72, 0.84];
 /** How many aged cards one emitter may seed, so a still shows the plume and not the first puff. */
 const SEED_CAP = [12, 10, 14, 12, 14, 36];
 
@@ -440,8 +440,8 @@ export class SmokeField {
         vz: wakeZ,
         life: spin ? 2.2 : truck ? 1.7 : 1.5,
         age: 0,
-        size0: spin ? 0.34 : truck ? 0.26 : 0.22,
-        size1: spin ? 0.9 : truck ? 0.7 : 0.58,
+        size0: spin ? 0.4 : truck ? 0.34 : 0.28,
+        size1: spin ? 1.15 : truck ? 1.05 : 0.9,
         kind: KIND.exhaust,
         heat: truck ? 0.08 : 0.02,
         fade: spin ? 90 : 55,
@@ -453,15 +453,15 @@ export class SmokeField {
       const sp = Math.hypot(wakeX, wakeZ) || 1;
       const bx = -wakeX / sp;
       const bz = -wakeZ / sp;
-      const backs = must ? [0.22, 0.55, 0.95, 1.4, 1.95, 2.55, 3.3] : [0.3, 0.75, 1.3, 1.95, 2.7];
+      const backs = must ? [0.28, 0.62, 0.98, 1.36, 1.78, 2.25] : [0.35, 0.8, 1.3, 1.85];
       for (const back of backs) {
         spawnParticle(this.pool, {
-          x: t.x + bx * back, y: t.y + 0.04 + back * 0.03, z: t.z + bz * back,
-          vx: wakeX * 0.94, vy: 0.08, vz: wakeZ * 0.94,
-          life: truck ? 2.4 : 2.1,
-          age: back * 0.05,
-          size0: (truck ? 0.24 : 0.2) + back * 0.03,
-          size1: (truck ? 0.78 : 0.62) + back * 0.05,
+          x: t.x + bx * back, y: t.y + 0.04 + back * 0.025, z: t.z + bz * back,
+          vx: wakeX * 0.94, vy: 0.06, vz: wakeZ * 0.94,
+          life: truck ? 2.2 : 1.9,
+          age: back * 0.04,
+          size0: (truck ? 0.3 : 0.24) + back * 0.04,
+          size1: (truck ? 0.95 : 0.78) + back * 0.06,
           kind: KIND.exhaust,
           heat: 0.02,
           fade: 40,

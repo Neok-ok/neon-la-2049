@@ -77,12 +77,10 @@ function shade(lit: boolean): MeshBasicNodeMaterial {
       ctr.y.mul(0.62).add(corner.y.mul(3.4)).add(life.mul(0.4)),
       ctr.z.mul(0.55).add(seed.mul(2.2)),
     ));
-    const lumps = smoothstep(float(-0.15), float(0.75), n);
+    const lumps = smoothstep(float(-0.05), float(0.85), n);
     const launchK = smoothstep(6.15, 6.85, kind);
-    // A deep floor turned the stack and the street column into separate specks.
-    const floor = mix(float(0.84), float(0.58), launchK);
-    const grain = mix(floor, float(1), lumps);
-    const shape = stamp.a.mul(grain).mul(smoothstep(1.15, 0.7, length(corner)));
+    // Creases darken the colour. Eating the alpha turned the column into specks.
+    const shape = stamp.a.mul(smoothstep(1.15, 0.7, length(corner)));
 
     const toCam = normalize(cameraPosition.sub(ctr.xyz));
     const ref = select(abs(toCam.y).greaterThan(0.92), vec3(1, 0, 0), vec3(0, 1, 0));
@@ -106,12 +104,13 @@ function shade(lit: boolean): MeshBasicNodeMaterial {
       .add(vec3(0.3, 0.29, 0.28).mul(stack))
       .add(vec3(0.5, 0.51, 0.52).mul(exhaustK))
       .add(vec3(0.88, 0.86, 0.82).mul(launch));
-    const body = albedo.mul(authoredLiftU);
+    // The painted body used to swamp the lamps, so a puff stayed flat grey in neon.
+    const body = albedo.mul(authoredLiftU).mul(0.48);
 
     const soot = barrel.add(stack).add(exhaustK);
     const veilW = float(0.06).mul(steam).add(float(0.08).mul(soot)).add(float(0.1).mul(launch));
     const veil = U.fogColor.mul(veilW);
-    const litScale = float(1.35).mul(steam).add(float(0.7).mul(soot)).add(float(1.05).mul(launch));
+    const litScale = float(3.2).mul(steam).add(float(2.2).mul(soot)).add(float(2.4).mul(launch));
     let lamps = vec3(SODIUM[0], SODIUM[1], SODIUM[2]).mul(authoredLiftU).mul(0.045).mul(steam.add(soot.mul(0.35)));
     if (lit) {
       const world = ctr.xyz;
@@ -129,10 +128,11 @@ function shade(lit: boolean): MeshBasicNodeMaterial {
       .mul(smoothstep(0.92, 0.04, life));
     // Steam stays bright. Launch and stack valleys take the shadow.
     const stackK = smoothstep(4.55, 5.05, kind).mul(float(1).sub(smoothstep(5.45, 5.95, kind)));
-    const shade = mix(float(0.78), float(0.26), launchK.add(stackK.mul(0.9)));
-    const crease = mix(shade, float(1), lumps).mul(mix(float(0.88), float(1), stamp.b));
-    const hot = smoothstep(float(0.55), float(1.15), extra.x).mul(launch);
-    const core = vec3(1.55, 0.95, 0.5).mul(authoredLiftU).mul(hot).mul(coreDisc).mul(0.95);
+    const barrelK = smoothstep(3.55, 4.05, kind).mul(float(1).sub(smoothstep(4.45, 4.95, kind)));
+    const shade = mix(float(0.62), float(0.08), launchK.add(stackK).add(barrelK.mul(0.7)));
+    const crease = mix(shade, float(1), lumps);
+    const hot = smoothstep(float(0.5), float(1.05), extra.x).mul(launch);
+    const core = vec3(2.1, 1.45, 0.72).mul(authoredLiftU).mul(hot).mul(coreDisc);
     const rgb = body.mul(crease).add(lamps).add(veil).add(heat).add(core);
 
     const dist = length(ctr.xyz.sub(cameraPosition));

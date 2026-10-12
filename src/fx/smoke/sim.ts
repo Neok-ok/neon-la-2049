@@ -299,12 +299,12 @@ export function integrate(
         const nz = oz / dist;
         const heat = pool.heat[i] ?? 0;
         if (heat > 0.85) {
-          // Hot cards stay on the spine. The sheath spring was emptying the core.
-          if (dist > want * 0.45) {
-            const back = dist - want * 0.16;
-            x -= nx * back * pull;
-            z -= nz * back * pull;
-          }
+          // Hot cards sit on the near face so the white core draws in front of the sheath.
+          const camAng = Math.atan2(camZ - az, camX - ax);
+          const tx = ax + Math.cos(camAng) * want * 0.62;
+          const tz = az + Math.sin(camAng) * want * 0.62;
+          x += (tx - x) * pull;
+          z += (tz - z) * pull;
         } else {
           const err = dist - want;
           const grip = pull * (err > 0 ? 1 : 0.45);
