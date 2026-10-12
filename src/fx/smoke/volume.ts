@@ -1,9 +1,9 @@
-// Ray-marched launch plume for high and ultra.
-// The box is the bounds. The fragment walks from the near hit to the far hit,
-// accumulates Beer-Lambert extinction (Max, 1995) and a Henyey-Greenstein
-// scatter toward the engine, the same phase the street haze already uses.
-// Schneider's Horizon cloudscapes are the reference for marching a noise field
-// instead of filling the box with cards. Low and medium do not build this draw.
+// Ray-marched launch plume. The box only bounds the draw. The fragment walks
+// the finite cylinder that holds the sheath, accumulates Beer-Lambert
+// extinction (Max, 1995) and one Henyey-Greenstein in-scatter sample.
+// Schneider's Horizon cloudscapes are the reference for marching a noise
+// field. The shader is original: one noise tap per step, no baked texture.
+// Cards do not carry this body.
 import {
   BackSide, BoxGeometry, CustomBlending, Mesh, MeshBasicNodeMaterial,
   OneFactor, OneMinusSrcAlphaFactor, Vector3,
@@ -19,8 +19,9 @@ import { VOLUME_STEPS } from './tiers';
 
 const T = TSL as any;
 const {
-  Fn, cameraPosition, clamp, dot, exp, float, length, max, min, mix,
-  mx_noise_float, normalize, positionWorld, pow, smoothstep, step, vec3, vec4,
+  Fn, cameraPosition, clamp, cos, exp, float, fract, length, max, min, mix,
+  mx_noise_float, normalize, positionWorld, screenUV, sin, smoothstep,
+  sqrt, step, vec2, vec3, vec4,
 } = T;
 
 const FLAME = PRESETS.flare.rgb;
@@ -31,8 +32,10 @@ export const volWind = uniform(new Vector3());
 export const volEngine = uniform(new Vector3());
 export const volHeight = uniform(80);
 export const volGroundR = uniform(40);
+/** Vertical-cylinder radius the march is clipped to, metres. */
+export const volBound = uniform(86);
 export const volDensity = uniform(0);
-export const volSteps = uniform(8);
+export const volSteps = uniform(6);
 
 let mesh: Mesh | null = null;
 
@@ -62,73 +65,105 @@ function volumeMaterial(): MeshBasicNodeMaterial {
     const t2 = bmax.sub(origin).mul(inv);
     const tmin = min(t1, t2);
     const tmax = max(t1, t2);
-    const tNear = max(max(tmin.x, tmin.y), tmin.z);
-    const tFar = min(min(tmax.x, tmax.y), tmax.z);
-    const tStart = max(tNear, 0.0);
-    const span = max(tFar.sub(tStart), 0.0);
+    const tBox0 = max(max(tmin.x, tmin.y), tmin.z);
+    const tBox1 = min(min(tmax.x, tmax.y), tmax.z);
+
+    // Steps stay inside the sheath. A uniform walk of the whole kilometre box
+    // spends its taps on empty air.
+    const R = max(volBound, 8.0);
+    const ox = origin.x.sub(volBase.x);
+    const oz = origin.z.sub(volBase.z);
+    const A = max(dir.x.mul(dir.x).add(dir.z.mul(dir.z)), 1e-4);
+    const B = ox.mul(dir.x).add(oz.mul(dir.z));
+    const C = ox.mul(ox).add(oz.mul(oz)).sub(R.mul(R));
+    const disc = B.mul(B).sub(A.mul(C));
+    const root = sqrt(max(disc, 0.0));
+    const tC0 = B.negate().sub(root).div(A);
+    const tC1 = B.negate().add(root).div(A);
+    const grazing = step(A, float(0.008));
+    const inside = step(ox.mul(ox).add(oz.mul(oz)), R.mul(R));
+    const hit = max(step(0.0, disc).mul(float(1.0).sub(grazing)), grazing.mul(inside));
+    const tCy0 = mix(tC0, float(-1e5), grazing);
+    const tCy1 = mix(tC1, float(1e5), grazing);
+    const y0 = volBase.y.sub(volHalf.y);
+    const y1 = y0.add(volHeight);
+    const dy = mix(dir.y.sub(1e-5), dir.y.add(1e-5), step(0.0, dir.y));
+    const tYa = y0.sub(origin.y).div(dy);
+    const tYb = y1.sub(origin.y).div(dy);
+    const tStart = max(max(max(tCy0, min(tYa, tYb)), tBox0), 0.0);
+    const tEnd = min(min(tCy1, max(tYa, tYb)), tBox1);
+    const span = max(tEnd.sub(tStart), 0.0).mul(hit);
     const stepLen = span.div(max(volSteps, 1.0));
+
     const acc = vec3(0, 0, 0).toVar();
     const tr = float(1).toVar();
-    const pos = origin.add(dir.mul(tStart)).toVar();
-    // One in-scatter sample per ray. Repeating the cluster loop per step
-    // blows the WebGL2 compile, so the march only integrates emission.
-    const mid = origin.add(dir.mul(tStart.add(span.mul(0.45))));
-    const scatter = practicalInscatter(mid).mul(1.1);
+    const jitter = fract(sin(dotScreen(screenUV)).mul(43758.5453));
+    const pos = origin.add(dir.mul(tStart.add(stepLen.mul(jitter.mul(0.8))))).toVar();
+    const mid = origin.add(dir.mul(tStart.add(span.mul(0.42))));
+    const scatter = practicalInscatter(mid).mul(0.1);
+
+    const wsp = max(length(vec2(volWind.x, volWind.z)), 0.001);
+    const wdx = volWind.x.div(wsp);
+    const wdz = volWind.z.div(wsp);
+    const mag = float(10.0).add(min(wsp, 12.0).mul(1.4));
 
     T.Loop(6, ({ i }: { i: unknown }) => {
       const live = step(float(i).add(0.5), volSteps);
       pos.addAssign(dir.mul(stepLen).mul(live));
       const rel = pos.sub(volBase);
       const height = rel.y.add(volHalf.y);
-      // The box is already leaned with the ribbon. A tall shear slid a second orange streak off the sheath.
-      const shear = volWind.mul(height.sub(volHeight.mul(0.45)).mul(0.004));
-      const radial = length(rel.xz.sub(shear.xz));
-      const t = clamp(height.div(max(volHeight, 1.0)), 0, 1);
-      const n1 = mx_noise_float(pos.mul(0.018).add(vec3(U.time.mul(0.03), U.time.mul(0.012), 0))).mul(0.5).add(0.5);
-      const clumps = smoothstep(0.32, 0.78, n1);
-      const pinch = mix(float(0.72), float(1.25), n1);
-      const radius = mix(float(28), float(48), t).mul(pinch);
-      const column = smoothstep(radius, radius.mul(0.2), radial)
-        .mul(smoothstep(0.0, 10.0, height))
-        .mul(smoothstep(volHeight, volHeight.mul(0.78), height))
-        .mul(mix(float(0.5), float(1), clumps));
-      // Orange only in the pad. A thin core up the whole box read as a searchlight.
-      const core = smoothstep(float(7.0), float(1.4), radial)
-        .mul(smoothstep(2.0, 16.0, height))
-        .mul(smoothstep(float(90.0), float(18.0), height));
-      const gRad = length(rel.xz);
-      const ground = smoothstep(volGroundR, volGroundR.mul(0.35), gRad)
-        .mul(smoothstep(16.0, 2.0, height))
-        .mul(smoothstep(-2.0, 1.5, height))
-        .mul(smoothstep(0.28, 0.7, n1));
-      // Billboards carry the body. A fatter march read as a blue searchlight.
-      const density = column.mul(0.4).add(ground.mul(0.34)).mul(volDensity);
-
-      const toEng = volEngine.sub(pos);
-      const dE = max(length(toEng), 1.0);
-      const att = exp(dE.mul(-0.012));
-      const V = normalize(cameraPosition.sub(pos));
-      const L = toEng.div(dE);
-      const cos = clamp(dot(V, L), -1, 1);
-      const g = 0.42;
-      const phase = float(1 - g * g).div(pow(max(float(1 + g * g).sub(cos.mul(2 * g)), 0.05), 1.5));
-      const flame = vec3(FLAME[0], FLAME[1], FLAME[2]).mul(att).mul(phase).mul(4.5);
-      // Grey sheath. The 1800 K term is the part of the billow that faces the engine.
-      const albedo = mix(vec3(0.74, 0.75, 0.77), vec3(FLAME[0], FLAME[1], FLAME[2]), core.mul(0.55));
-      const coreGlow = vec3(FLAME[0], FLAME[1], FLAME[2]).mul(core).mul(8.0);
-      const glow = scatter.mul(0.45).add(flame.mul(albedo)).add(coreGlow);
-      const absorb = density.mul(stepLen).mul(0.016);
-      acc.addAssign(tr.mul(glow).mul(density.add(core.mul(0.12))).mul(stepLen).mul(0.055).mul(live));
-      tr.mulAssign(mix(float(1), exp(absorb.negate()), live));
+      const t = clamp(height.div(max(volHeight, 1.0)), 0.0, 1.0);
+      const cover = min(float(1.0), t.div(0.5));
+      const lean = mag.mul(max(t, cover.mul(0.9)));
+      const twist = height.mul(0.01).add(U.time.mul(0.1));
+      const warp = vec3(
+        sin(height.mul(0.02).add(U.time.mul(0.25))).mul(6.0),
+        sin(pos.x.mul(0.008)).mul(3.0),
+        cos(height.mul(0.016).add(U.time.mul(0.18))).mul(6.0),
+      );
+      const n = mx_noise_float(pos.add(warp).mul(0.04).add(vec3(U.time.mul(0.03), U.time.mul(0.016), 0.0)));
+      const n01 = n.mul(0.5).add(0.5);
+      const bulb = max(sin(height.mul(0.0065).add(0.4)), 0.0);
+      const bulb2 = max(sin(height.mul(0.014).add(1.7)), 0.0);
+      const pinch = mix(float(0.74), float(1.16), n01);
+      const radius = float(22.0).add(t.mul(8.0)).add(bulb.mul(10.0)).add(bulb2.mul(5.0)).mul(pinch);
+      const dx = rel.x.sub(wdx.mul(lean)).sub(cos(twist).mul(4.0));
+      const dz = rel.z.sub(wdz.mul(lean)).sub(sin(twist).mul(4.0));
+      const radial = sqrt(dx.mul(dx).add(dz.mul(dz)));
+      const clumps = smoothstep(float(0.2), float(0.78), n01);
+      const column = smoothstep(radius, radius.mul(0.16), radial)
+        .mul(smoothstep(float(0.0), float(12.0), height))
+        .mul(smoothstep(volHeight, volHeight.mul(0.9), height))
+        .mul(mix(float(0.05), float(1.0), clumps));
+      const gRad = sqrt(rel.x.mul(rel.x).add(rel.z.mul(rel.z)));
+      const ground = smoothstep(volGroundR, volGroundR.mul(0.2), gRad)
+        .mul(smoothstep(float(24.0), float(1.6), height))
+        .mul(smoothstep(float(-1.0), float(1.4), height))
+        .mul(mix(float(0.18), float(1.0), clumps));
+      const density = min(column.add(ground.mul(0.85)), float(1.2)).mul(volDensity);
+      const core = smoothstep(float(16.0), float(2.2), radial)
+        .mul(smoothstep(float(2.0), float(14.0), height))
+        .mul(smoothstep(float(52.0), float(16.0), height));
+      const ash = vec3(0.7, 0.71, 0.73).mul(12.0);
+      const warm = vec3(FLAME[0], FLAME[1], FLAME[2]).mul(core).mul(14.0);
+      const glow = ash.add(warm).add(scatter);
+      const tau = density.mul(stepLen).mul(0.03).mul(live);
+      const gain = float(1.0).sub(exp(tau.negate()));
+      acc.addAssign(tr.mul(glow).mul(gain));
+      tr.mulAssign(exp(tau.negate()));
     });
 
-    const a = float(1).sub(tr);
+    const a = float(1.0).sub(tr);
     const dist = length(volBase.sub(cameraPosition));
     const thin = smoothstep(9000.0, 180.0, dist);
-    const outA = a.mul(thin).mul(smoothstep(0.5, 4.0, span));
-    return vec4(acc.mul(thin), outA);
+    const outA = a.mul(thin).mul(hit).mul(smoothstep(0.4, 3.0, span));
+    return vec4(acc.mul(thin).mul(hit), outA);
   })();
   return m;
+}
+
+function dotScreen(uv: any): any {
+  return uv.x.mul(12.9898).add(uv.y.mul(78.233));
 }
 
 export function launchVolumeMesh(): Mesh {

@@ -25,15 +25,35 @@ export const LAUNCH_COLUMN_CAP: Record<Tier, number> = {
 };
 
 /**
- * Ray-march steps inside the launch volume. Low and medium stay on billboards.
- * Four and six steps are enough for a Beer-Lambert plume; a 12-step march with
- * two noise octaves did not finish a frame on a software rasterizer.
+ * Samples along a launch ray. The march is the plume on every tier, so low
+ * is a coarser column rather than a card pad. The loop is six wide; extra
+ * taps are masked. A 12-step march with two noise octaves did not finish a
+ * frame on a software rasterizer, so each tap is one noise sample.
  */
 export const VOLUME_STEPS: Record<Tier, number> = {
-  low: 0,
-  medium: 0,
-  high: 4,
+  low: 3,
+  medium: 4,
+  high: 5,
   ultra: 6,
+};
+
+/**
+ * Samples inside a street puff (manhole sheet or exhaust wake). The box is a
+ * few metres, so the same cap of five stays cheap on the software rasterizer.
+ */
+export const PUFF_STEPS: Record<Tier, number> = {
+  low: 3,
+  medium: 4,
+  high: 4,
+  ultra: 5,
+};
+
+/** Manhole sheets and exhaust wakes sharing one instanced box. */
+export const PUFF_CAP: Record<Tier, number> = {
+  low: 4,
+  medium: 8,
+  high: 12,
+  ultra: 16,
 };
 
 export const RATE_SCALE: Record<Tier, number> = {

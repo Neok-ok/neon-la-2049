@@ -1,24 +1,26 @@
-// One billboard draw for every street puff and the launch cards, plus the
-// ray-marched plume on high and ultra. Buffers are the size of the tier
-// that is showing.
+// Launch, manhole, and exhaust are ray-marched volumes. Billboard cards stay
+// behind SMOKE_CARDS and are not drawn. Buffers for the card path are still
+// the size of the tier that is showing, and only allocated when that flag is on.
 import {
-  BufferAttribute, BufferGeometry, DynamicDrawUsage, Mesh, type Scene,
+  BufferAttribute, BufferGeometry, DynamicDrawUsage, InstancedMesh, Mesh, type Scene,
 } from 'three/webgpu';
 import type { Tier } from '../../core/quality';
 import { resources } from '../../core/memory';
 import { kitSteamGain } from '../../districts/_shared/kit/materials';
 import type { PunctualInput } from '../../lighting/validate.ts';
 import type { CityQuery } from '../../world/CityQuery';
+import { SMOKE_CARDS, SMOKE_EXHAUST_VOLUME, SMOKE_LAUNCH_VOLUME, SMOKE_MANHOLE_VOLUME } from './flags';
 import { smokeRain, smokeMaterial } from './material';
 import { launchDrive, type LaunchDrive } from './launchDrive';
 import { barrelLights, gatherEmitters } from './places';
+import { puffCount, puffRain, puffVolumeMesh, syncPuffs, type PuffPlacement } from './puffs';
 import { columnRadius, integrate, killParticle, plumeLean, smokeRand, smokeWindScale, spawnEmitter, spawnParticle } from './sim';
 import {
-  LAUNCH_COLUMN_CAP, LAUNCH_GROUND_CAP, RATE_SCALE, SMOKE_CAP, streetCap,
+  LAUNCH_COLUMN_CAP, LAUNCH_GROUND_CAP, PUFF_CAP, RATE_SCALE, SMOKE_CAP, streetCap,
 } from './tiers';
 import { KIND, createPool, type Emitter, type Pool, type Tailpipe, type Wind } from './types';
 import {
-  launchVolumeMesh, syncVolumeSteps, volBase, volDensity, volEngine, volGroundR,
+  launchVolumeMesh, syncVolumeSteps, volBase, volBound, volDensity, volEngine, volGroundR,
   volHalf, volHeight, volWind, volumeActive,
 } from './volume';
 
@@ -51,6 +53,7 @@ export interface SmokeSnapshot {
   draws: number;
   volume: boolean;
   launch: boolean;
+  puffs: number;
   cap: number;
   street: number;
   ground: number;
@@ -90,8 +93,9 @@ export function smokeCovers(x: number, z: number, radius: number): boolean {
 export class SmokeField {
   private pool: Pool = createPool(0);
   private geo: BufferGeometry | null = null;
-  private readonly mesh: Mesh;
+  private mesh: Mesh | null = null;
   private readonly volume: Mesh;
+  private readonly puffs: InstancedMesh;
   private tier: Tier = 'low';
   private emitters: Emitter[] = [];
   private anchorX = 1e9;
@@ -109,22 +113,29 @@ export class SmokeField {
 
   constructor(scene: Scene) {
     kitSteamGain.value = 0;
-    const cap = SMOKE_CAP.low;
     this.tier = 'low';
-    this.pool = createPool(cap);
-    this.geo = resources.geometry(() => buildGeo(cap), { label: 'smoke-billboards', owner: 'smoke', evictable: true });
-    this.mesh = new Mesh(this.geo, smokeMaterial(false));
-    this.mesh.name = 'smoke-field';
-    this.mesh.frustumCulled = false;
-    this.mesh.renderOrder = 8;
-    this.mesh.visible = false;
+    if (SMOKE_CARDS) {
+      const cap = SMOKE_CAP.low;
+      this.pool = createPool(cap);
+      this.geo = resources.geometry(() => buildGeo(cap), { label: 'smoke-billboards', owner: 'smoke', evictable: true });
+      this.mesh = new Mesh(this.geo, smokeMaterial(false));
+      this.mesh.name = 'smoke-field';
+      this.mesh.frustumCulled = false;
+      this.mesh.renderOrder = 8;
+      this.mesh.visible = false;
+      scene.add(this.mesh);
+    } else {
+      this.pool = createPool(0);
+    }
     this.volume = launchVolumeMesh();
-    scene.add(this.mesh, this.volume);
+    this.puffs = puffVolumeMesh();
+    scene.add(this.volume, this.puffs);
   }
 
   conceal(): void {
-    this.mesh.visible = false;
+    if (this.mesh) this.mesh.visible = false;
     this.volume.visible = false;
+    this.puffs.visible = false;
   }
 
   snapshot(): SmokeSnapshot {
@@ -132,9 +143,10 @@ export class SmokeField {
     return {
       particles: this.pool.n,
       emitters: this.emitters.length,
-      draws: (this.mesh.visible ? 1 : 0) + (this.volume.visible ? 1 : 0),
+      draws: (this.mesh?.visible ? 1 : 0) + (this.volume.visible ? 1 : 0) + (this.puffs.visible ? 1 : 0),
       volume: this.volume.visible,
       launch: drive.burning || (drive.id > 0 && drive.age < 180),
+      puffs: puffCount(),
       cap: this.pool.cap,
       street: this.pool.slotN[0],
       ground: this.pool.slotN[1],
@@ -175,27 +187,32 @@ export class SmokeField {
       this.anchorX = frame.camX;
       this.anchorZ = frame.camZ;
       this.gatherAt = frame.time;
-      this.seedEmitters(wind, frame.tier);
+      if (SMOKE_CARDS) this.seedEmitters(wind, frame.tier);
     }
     const drive = launchDrive();
-    this.noteLaunch(drive, wind, frame.camX, frame.camZ);
-    let left = dt;
-    while (left > 1e-4) {
-      const h = Math.min(0.034, left);
-      const scale = RATE_SCALE[frame.tier];
-      const cap = streetCap(frame.tier);
-      for (const e of this.emitters) {
-        const share = KIND_SHARE[e.kind] ?? 0.08;
-        const kindCap = Math.max(3, Math.floor(cap * share));
-        spawnEmitter(this.pool, e, cap, scale, wind, h, kindCap);
+    if (SMOKE_CARDS) {
+      this.noteLaunch(drive, wind, frame.camX, frame.camZ);
+      let left = dt;
+      while (left > 1e-4) {
+        const h = Math.min(0.034, left);
+        const scale = RATE_SCALE[frame.tier];
+        const cap = streetCap(frame.tier);
+        for (const e of this.emitters) {
+          const share = KIND_SHARE[e.kind] ?? 0.08;
+          const kindCap = Math.max(3, Math.floor(cap * share));
+          spawnEmitter(this.pool, e, cap, scale, wind, h, kindCap);
+        }
+        this.emitLaunch(h, drive, frame.tier, wind);
+        this.emitTails(h, frame, wind);
+        integrate(this.pool, h, wind, frame.query, frame.time, frame.camX, frame.camZ);
+        left -= h;
       }
-      this.emitLaunch(h, drive, frame.tier, wind);
-      this.emitTails(h, frame, wind);
-      integrate(this.pool, h, wind, frame.query, frame.time, frame.camX, frame.camZ);
-      left -= h;
+      this.write(frame.camX, frame.camY, frame.camZ);
+    } else if (this.mesh) {
+      this.mesh.visible = false;
     }
-    this.write(frame.camX, frame.camY, frame.camZ);
     this.placeVolume(drive, frame.tier);
+    this.placePuffs(frame, wind);
     this.writeLights(drive, frame.camX, frame.camZ);
   }
 
@@ -242,6 +259,10 @@ export class SmokeField {
   }
 
   private ensure(tier: Tier): void {
+    if (!SMOKE_CARDS || !this.mesh) {
+      this.tier = tier;
+      return;
+    }
     const cap = SMOKE_CAP[tier];
     const lit = tier !== 'low';
     this.mesh.material = smokeMaterial(lit);
@@ -477,7 +498,7 @@ export class SmokeField {
     if (!geo) return;
     const pool = this.pool;
     const n = pool.n;
-    this.mesh.visible = n > 0;
+    if (this.mesh) this.mesh.visible = n > 0;
     if (!n) {
       geo.setDrawRange(0, 0);
       return;
@@ -551,20 +572,21 @@ export class SmokeField {
 
   private placeVolume(drive: LaunchDrive, tier: Tier): void {
     const alive = drive.id > 0 && drive.age > 0.2 && drive.age < 200;
-    if (!volumeActive(tier) || !alive) {
+    if (!SMOKE_LAUNCH_VOLUME || !volumeActive(tier) || !alive) {
       this.volume.visible = false;
       volDensity.value = 0;
       return;
     }
-    const colH = Math.min(1100, Math.max(80, drive.headY - drive.y));
+    const colH = Math.min(1500, Math.max(80, drive.headY - drive.y));
     const height = colH;
-    const halfW = 78;
+    // Wide enough that the burn camera sits inside the box. The march itself
+    // is the tighter cylinder in the shader, centred on the pad.
+    const halfW = 120;
     const wx = Math.cos(drive.windDir) * drive.wind;
     const wz = Math.sin(drive.windDir) * drive.wind;
-    const midLean = plumeLean(height * 0.45, height, drive.wind);
-    const cx = drive.x + Math.cos(drive.windDir) * midLean;
+    const cx = drive.x;
     const cy = drive.y + height * 0.5;
-    const cz = drive.z + Math.sin(drive.windDir) * midLean;
+    const cz = drive.z;
     this.volume.position.set(cx, cy, cz);
     this.volume.scale.set(halfW * 2, height, halfW * 2);
     this.volume.visible = true;
@@ -573,10 +595,65 @@ export class SmokeField {
     volWind.value.set(wx, 0, wz);
     volEngine.value.set(drive.x, drive.y + 10, drive.z);
     volHeight.value = colH;
-    volGroundR.value = 72;
+    volGroundR.value = 58;
+    volBound.value = 86;
     const fade = drive.burning ? 1 : Math.max(0, 1 - Math.max(0, drive.age - 36) / 110);
     volDensity.value = fade;
     syncVolumeSteps(tier);
+  }
+
+  /** Manhole sheets and exhaust wakes. Cards are not a fallback. */
+  private placePuffs(frame: SmokeFrame, wind: Wind): void {
+    puffRain.value = frame.rain;
+    const list: PuffPlacement[] = [];
+    const cap = PUFF_CAP[frame.tier];
+    if (SMOKE_MANHOLE_VOLUME) {
+      const holes = this.emitters.filter((e) => e.kind === KIND.manhole);
+      holes.sort((a, b) => {
+        const da = (a.x - frame.camX) ** 2 + (a.z - frame.camZ) ** 2;
+        const db = (b.x - frame.camX) ** 2 + (b.z - frame.camZ) ** 2;
+        return da - db;
+      });
+      const wx = Math.cos(wind.dir) * wind.speed;
+      const wz = Math.sin(wind.dir) * wind.speed;
+      const n = Math.min(holes.length, 3, cap);
+      for (let i = 0; i < n; i++) {
+        const e = holes[i]!;
+        const dist = Math.hypot(e.x - frame.camX, e.z - frame.camZ);
+        if (dist > 22) continue;
+        list.push({
+          x: e.x + wx * 0.06,
+          y: e.y + 0.5,
+          z: e.z + wz * 0.06,
+          hx: 2.6,
+          hy: 0.48,
+          hz: 2.3,
+          ax: wx,
+          ay: 0.15,
+          az: wz,
+          mode: 0,
+          seed: fract(e.x * 0.17 + e.z * 0.31),
+          radius: 2.15,
+        });
+      }
+    }
+    if (SMOKE_EXHAUST_VOLUME) {
+      const tails = frame.tails.slice().sort((a, b) => {
+        const da = (a.x - frame.camX) ** 2 + (a.z - frame.camZ) ** 2;
+        const db = (b.x - frame.camX) ** 2 + (b.z - frame.camZ) ** 2;
+        return da - db;
+      });
+      for (const t of tails) {
+        if (list.length >= cap) break;
+        if (t.heavy === 2 && Math.abs(t.y - frame.camY) > 6) continue;
+        const dx = t.x - frame.camX;
+        const dz = t.z - frame.camZ;
+        const ahead = dx * Math.sin(frame.heading) + dz * -Math.cos(frame.heading);
+        if (ahead < -4 || dx * dx + dz * dz > 34 * 34) continue;
+        list.push(exhaustPuff(t));
+      }
+    }
+    syncPuffs(frame.tier, list);
   }
 
   private writeLights(drive: LaunchDrive, camX: number, camZ: number): void {
@@ -592,11 +669,56 @@ export class SmokeField {
         range: 48,
       });
     }
-    for (const b of barrelLights(this.emitters, camX, camZ, 3)) {
-      lights.push({ preset: 'flare', x: b.x, y: b.y + 0.4, z: b.z, candela: 420, range: 3.5 });
+    if (SMOKE_CARDS) {
+      for (const b of barrelLights(this.emitters, camX, camZ, 3)) {
+        lights.push({ preset: 'flare', x: b.x, y: b.y + 0.4, z: b.z, candela: 420, range: 3.5 });
+      }
     }
     punctual = lights;
   }
+}
+
+function fract(v: number): number {
+  return v - Math.floor(v);
+}
+
+/** Wake behind the bumper. wx/wz point along travel; the plume trails the other way. */
+function exhaustPuff(t: Tailpipe): PuffPlacement {
+  const fx = t.wx ?? 0;
+  const fz = t.wz ?? 0;
+  const sp = Math.hypot(fx, fz);
+  const dirx = sp > 0.2 ? fx / sp : 0;
+  const dirz = sp > 0.2 ? fz / sp : 1;
+  const truck = t.heavy === 1;
+  const spin = t.heavy === 2;
+  const len = spin ? 5.5 : truck ? 6.4 : 4.4;
+  const wide = spin ? 0.55 : truck ? 0.7 : 0.48;
+  const tall = spin ? 0.7 : truck ? 0.85 : 0.55;
+  const ax = -dirx;
+  const ay = 0.16;
+  const az = -dirz;
+  const al = Math.hypot(ax, ay, az) || 1;
+  const ux = ax / al;
+  const uy = ay / al;
+  const uz = az / al;
+  const half = len * 0.5;
+  const cx = t.x + ux * half * 0.85;
+  const cy = t.y + 0.2 + uy * half * 0.85;
+  const cz = t.z + uz * half * 0.85;
+  return {
+    x: cx,
+    y: cy,
+    z: cz,
+    hx: Math.abs(ux) * half + wide + 0.2,
+    hy: tall * 0.5 + Math.abs(uy) * half + 0.15,
+    hz: Math.abs(uz) * half + wide + 0.2,
+    ax: ux * half,
+    ay: uy * half,
+    az: uz * half,
+    mode: 1 + Math.min(1, Math.max(0, t.drive)) * 0.45,
+    seed: fract(t.x * 0.13 + t.z * 0.27 + t.y * 0.05),
+    radius: truck ? 0.42 : spin ? 0.36 : 0.28,
+  };
 }
 
 /** Ground billow on a ring the width of the LAX street, around the pad. */
