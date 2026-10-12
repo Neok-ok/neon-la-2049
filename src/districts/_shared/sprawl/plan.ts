@@ -58,7 +58,7 @@ export interface SprawlParams {
      * Replace the plain tower box with a B1 field family.
      * Omitted keeps the single sprawl mass, so Westside and the basin stay as they are.
      */
-    kind?: 'spine-bar';
+    kind?: 'shelf-row';
   };
   /** The block whose cell contains this point becomes the covered yard. Omitted means none. */
   hub?: { x: number; z: number };
@@ -593,15 +593,15 @@ export function planSprawl(block: SprawlBlock, params: SprawlParams, layout: Cit
     const tw = Math.min(mlb * 0.92, 28);
     const td = Math.min(mla * 0.92, 22);
     let built = false;
-    if (towerKind === 'spine-bar' && tw >= 10 && td >= 10 && keep(layout, block, ms, mt, td, tw)) {
+    if (towerKind === 'shelf-row' && tw >= 10 && td >= 10 && keep(layout, block, ms, mt, td, tw)) {
       const variant = Math.abs(Math.floor(ms * 3 + mt)) % 3;
       const seed = ((Math.abs(Math.floor(ms * 17 + mt * 13)) % 997) + 1) / 1000;
-      const placed = fieldTower('spine-bar', tw, td, h, seed, variant);
+      const placed = fieldTower('shelf-row', tw, td, h, seed, variant);
       let n = 0;
       for (const box of placed.boxes) {
         if (push(boxes, layout, block, cap, ms + box.s, mt + box.t, box.lb, box.la, box.h, {
           base: box.base, style: box.style, detail: box.detail, lit: box.lit, tint: box.tint,
-          ornament: box.ornament, kit: true, family: 'spine-bar',
+          ornament: box.ornament, kit: true, family: 'shelf-row',
         })) n++;
       }
       if (n > 0) {

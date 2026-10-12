@@ -171,7 +171,7 @@ function placeStreet(arg) {
     }
   }
 
-  const fieldKind = p.kind === 'screen-wall' || p.kind === 'flue-bank' || p.kind === 'spine-bar';
+  const fieldKind = p.kind === 'screen-wall' || p.kind === 'flue-bank' || p.kind === 'shelf-row' || p.kind === 'flare-bed';
   let framed = !fieldKind;
   if (fieldKind && phase === 'final') {
     // Fly climbs 10 m at a time when the pose is inside a solid. Stand where the
@@ -294,7 +294,7 @@ function placeStreet(arg) {
   const mesh = crowd?.mesh;
   if (crowd && mesh) {
     if (!crowd.__b1Orig) crowd.__b1Orig = crowd.update.bind(crowd);
-    const field = p.kind === 'screen-wall' || p.kind === 'flue-bank' || p.kind === 'spine-bar';
+    const field = p.kind === 'screen-wall' || p.kind === 'flue-bank' || p.kind === 'shelf-row' || p.kind === 'flare-bed';
     const hideKind = hero || field || p.kind === 'monolith' || p.kind === 'cantilever' || p.kind === 'band-slab' || p.kind === 'res-stack' || p.kind === 'lantern';
     if (planted && mesh.count > 0) planted.index = Math.min(planted.index, mesh.count - 1);
     const plant = () => {
@@ -558,10 +558,13 @@ function placeSubject(p) {
           // Front of a flue bank is the three shafts. A side swing collapses them.
           const prefer = p.kind === 'flue-bank'
             ? (p.shot === 'sky' ? Math.abs(Math.abs(swing) - 0.7) : Math.abs(swing))
-            : p.kind === 'spine-bar'
-              ? (p.shot === 'sky' ? Math.abs(Math.abs(swing) - 1.25) : Math.abs(Math.abs(swing) - 0.45))
-              : (p.shot === 'sky' ? Math.abs(Math.abs(swing) - 1.1) : 0);
-          const score = edge + span * 0.35 - prefer * 0.28;
+            : p.kind === 'flare-bed'
+              ? Math.abs(Math.abs(swing) - 0.36)
+              : p.kind === 'shelf-row'
+                ? (p.shot === 'sky' ? Math.abs(Math.abs(swing) - 0.9) : Math.abs(Math.abs(swing) - 0.36))
+                : (p.shot === 'sky' ? Math.abs(Math.abs(swing) - 1.1) : 0);
+          let score = edge + span * 0.35 - prefer * 0.28;
+          if (!kite && H < 80) score -= Math.min(dist, 200) * 0.0025;
           if (!found || score > found.score) found = { score, px, py, pz, swing, dist, edge, march };
         }
       }
@@ -569,7 +572,13 @@ function placeSubject(p) {
     return found;
   };
   // A loaded neighbour can nick the ray after the first still. The second pass keeps the frame test.
-  let best = consider(true) || consider(false);
+  // A short bar in a tall frame is a small shape at the distance that clears the ray, and the
+  // building behind it takes the picture. For those, a closer pose wins even if the ray nicks.
+  const marched = consider(true);
+  const relaxed = consider(false);
+  let best = marched;
+  if (relaxed && (!best || (!kite && H < 80 && relaxed.score > best.score + 0.06))) best = relaxed;
+  if (!best) best = relaxed;
   if (!best || (kite && (best.edge || 0) < 0.45)) {
     if (kite) {
       const swing = 2.52;
@@ -624,10 +633,14 @@ async function shot(page, file) {
   return false;
 }
 
-const SUBJECT = new Set(['hero-obelisk', 'flue-bank', 'spine-bar']);
+const SUBJECT = new Set(['hero-obelisk', 'flue-bank', 'shelf-row', 'flare-bed']);
 
 async function useFrame(page, kind, view) {
-  const [width, height] = view !== 'street' && SUBJECT.has(kind) ? [400, 1680] : [1600, 900];
+  const [width, height] = view === 'street' ? [1600, 900]
+    : kind === 'shelf-row' ? [900, 1500]
+    : kind === 'flare-bed' ? [1280, 960]
+    : SUBJECT.has(kind) ? [400, 1680]
+    : [1600, 900];
   const size = page.viewportSize();
   if (size && size.width === width && size.height === height) return;
   await page.setViewportSize({ width, height });
@@ -843,7 +856,7 @@ for (const tier of tiers) {
           lateral = Math.max(p.w, p.d) * 0.95;
           y = p.ground + p.height * 0.46;
           aimF = 0.52;
-        } else if (p.kind === 'spine-bar') {
+        } else if (p.kind === 'shelf-row' || p.kind === 'flare-bed') {
           reach = Math.max(70, p.height * 1.05);
           lateral = Math.max(p.w, p.d) * 0.8;
           y = p.ground + p.height * 0.42;
@@ -872,7 +885,7 @@ for (const tier of tiers) {
             }
           }
         }
-        const nudge = p.kind === 'cantilever' || p.kind === 'band-slab' || p.kind === 'res-stack' || p.kind === 'lantern' || p.kind === 'hero-step' || p.kind === 'buttress' || p.kind === 'monolith' || p.kind === 'screen-wall' || p.kind === 'flue-bank' || p.kind === 'spine-bar';
+        const nudge = p.kind === 'cantilever' || p.kind === 'band-slab' || p.kind === 'res-stack' || p.kind === 'lantern' || p.kind === 'hero-step' || p.kind === 'buttress' || p.kind === 'monolith' || p.kind === 'screen-wall' || p.kind === 'flue-bank' || p.kind === 'shelf-row' || p.kind === 'flare-bed';
         if (nudge) {
           for (let i = 0; i < 6; i++) {
             const tx = ox + p.normal[0] * reach * face + p.bx * lateral;
@@ -945,8 +958,11 @@ for (const tier of tiers) {
           'flue-bank': [
             { dist: Math.max(84, p.height * 1.05), y: p.ground + p.height * 0.46, sideM: Math.max(p.w, p.d) * 0.95, aim: 0.52 },
           ],
-          'spine-bar': [
+          'shelf-row': [
             { dist: Math.max(70, p.height * 1.05), y: p.ground + p.height * 0.42, sideM: Math.max(p.w, p.d) * 0.8, aim: 0.5 },
+          ],
+          'flare-bed': [
+            { dist: Math.max(78, p.height * 1.15), y: p.ground + p.height * 0.4, sideM: Math.max(p.w, p.d) * 0.7, aim: 0.46 },
           ],
           monolith: [
             { dist: Math.max(p.d, p.w) * 1.05 + 40, y: p.ground + p.height * 0.55, sideM: Math.max(p.w, p.d) * 0.38, aim: 0.58 },

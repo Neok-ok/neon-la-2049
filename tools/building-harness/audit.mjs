@@ -33,7 +33,7 @@ for (const kind of HERO_KINDS) {
   specs.push({ kind, variant: 0, height, w: 70, d: 48, minH: height - 8, maxH: height + 8, plinth: 0 });
 }
 for (const kind of FIELD_KINDS) {
-  const height = kind === 'spine-bar' ? 54.4 : kind === 'flue-bank' ? 108 : 115.2;
+  const height = kind === 'shelf-row' ? 54.4 : kind === 'flare-bed' ? 54 : kind === 'flue-bank' ? 108 : 115.2;
   for (const variant of [0, 1, 2]) {
     specs.push({ kind, variant, height, w: 48, d: 32, minH: Math.max(40, height - 8), maxH: Math.min(160, height + 8), plinth: 0 });
   }
@@ -55,6 +55,10 @@ for (const s of specs) {
   if (s.kind.startsWith('hero') && top < s.height - 12) fails.push(`${s.kind} top ${top.toFixed(1)} short of ${s.height}`);
   const off = draft.boxes.filter((b) => Math.abs(b.t) + b.lb / 2 > s.w / 2 + 2.2 || Math.abs(b.s) + b.la / 2 > s.d / 2 + 2.2);
   if (off.length) fails.push(`${s.kind} v${s.variant} ${off.length} boxes outside footprint`);
+  for (const b of draft.boxes) {
+    if (b.style !== 13) continue;
+    if (b.h >= 4.5 && b.h < 12) fails.push(`${s.kind} v${s.variant} glow h ${b.h.toFixed(2)} tiles into a window wall`);
+  }
 }
 
 function raster(draft, axis) {
@@ -97,6 +101,21 @@ function iou(a, b) {
   return union ? inter / union : 0;
 }
 
+/**
+ * South Bay yard. A plinth, then three fat drums. The middle one is the tallest.
+ * Signed across the width.
+ */
+function flareEnv(s, y) {
+  if (y < 0 || y > 1.06) return false;
+  if (y < 0.22 && Math.abs(s) < 1.02) return true;
+  const cols = [
+    { c: -0.69, half: 0.28, top: 0.66 },
+    { c: 0.0, half: 0.34, top: 1.04 },
+    { c: 0.69, half: 0.26, top: 0.56 },
+  ];
+  return cols.some((col) => y < col.top && Math.abs(s - col.c) < col.half);
+}
+
 /** Three stacks on a plinth. Signed across the width, because the shafts are not a mirror. */
 function flueEnv(s, y) {
   if (y < 0 || y > 1.05) return false;
@@ -128,8 +147,9 @@ function envelope(kind, u, v, maxU, maxV) {
     return x < p + 0.02;
   }
   if (kind === 'screen-wall') return x < 1.02;
-  if (kind === 'spine-bar') return y < 0.7 ? x < 1.02 : x < 0.42;
+  if (kind === 'shelf-row') return y < 0.7 ? x < 1.02 : x < 0.42;
   if (kind === 'flue-bank') return flueEnv(u / maxU, y);
+  if (kind === 'flare-bed') return flareEnv(u / maxU, y);
   if (kind === 'cantilever') return x < (y < 0.3 ? 0.72 : 1.02);
   if (kind === 'holo-shaft') return x < (y < 0.14 ? 0.95 : 0.62);
   if (kind === 'buttress') return x < (y < 0.66 ? 1.02 : 0.58);
@@ -143,7 +163,8 @@ for (const kind of [...TOWER_KINDS, ...HERO_KINDS, ...FIELD_KINDS]) {
   const height = kind === 'hero-gate' ? 560
     : kind === 'hero-step' ? 640
       : kind === 'hero-obelisk' ? 480
-        : kind === 'spine-bar' ? 54.4
+        : kind === 'shelf-row' ? 54.4
+          : kind === 'flare-bed' ? 54
           : kind === 'flue-bank' ? 108
             : kind === 'screen-wall' ? 115.2
               : 220;
@@ -391,7 +412,7 @@ function heroBytes(cap) {
   let meshes = 0;
   const caps = [];
   for (let c = cap; c >= 0; c--) caps.push(c);
-  for (const id of ['b1-gate', 'b1-step', 'b1-obelisk']) {
+  for (const id of ['b1-gate', 'b1-step']) {
     const lm = layout.landmarkById(id);
     const kind = id === 'b1-gate' ? 'hero-gate' : id === 'b1-step' ? 'hero-step' : 'hero-obelisk';
     const placed = place.placeHero(kind, lm.baseWidth, lm.baseDepth, lm.height, 0.2);

@@ -353,16 +353,16 @@ function cracker(put: Emit, prop: PropFn, r: Rng, p: ResolvedRefinery): void {
   const t = r.range(-6, 6);
   let H = r.range(p.tower[0], p.tower[1]);
   H = Math.min(p.tower[1], Math.max(p.tower[0], onModule(H, p.module)));
-  if (p.yard === 'flue-bank') {
+  if (p.yard === 'flare-bed') {
     // The column loop drew three tints. Keep that draw so later yards keep their seeds.
     r.range(0.48, 0.66);
     r.range(0.48, 0.66);
     r.range(0.48, 0.66);
     const seed = ((Math.round(H * 10) % 997) + 1) / 1000;
-    const placed = fieldTower('flue-bank', 22, 16, H, seed, Math.round(H) % 3);
+    const placed = fieldTower('flare-bed', 36, 24, H, seed, Math.round(H) % 3);
     for (const b of placed.boxes) {
       put(s + b.s, t + b.t, b.lb, b.la, b.h, b.base, b.style, b.lit, b.tint, b.detail, {
-        kit: true, ornament: b.ornament, family: 'flue-bank',
+        kit: true, ornament: b.ornament, family: 'flare-bed',
       });
     }
     return;

@@ -1,15 +1,18 @@
-// Eight downtown families, three field families, and three hero megastructures.
+// Eight downtown families, four field families, and three hero recipes.
 // Original masses in the 2049 spirit: banded slabs, setbacks, buttresses, a dark taper,
 // a residential stack, an ad shaft, a top-heavy cantilever, a cruciform lantern.
+// Field masses stay local: a Hollywood screen, an Arts District flue bank,
+// an East LA housing bar, and a South Bay flare bed.
+// The kite recipe stays. It is not placed: a 480 m needle beside Caldera Step is a third spire.
 // Storeys are 3.4 m (housing) or 3.6 m (everything else), from the shared scale module.
 // Doors are 2.2 m square. A ground flight uses planFlight when the facade has room.
 // Nothing here copies a film building, a logo, or a real brand.
 import { Rng } from '../../core/rng';
 import { planFlight } from '../architecture/scale';
-import { Style } from '../fabric/types';
+import { Style, type StyleId } from '../fabric/types';
 import { AD_COLORS } from './lights';
 import {
-  DOOR_H, DOOR_W, RES_STOREY, STOREY, addBox, band, emptyDraft, entryFlight, glowCrown, mastTip, rail, skin, snap,
+  DOOR_H, DOOR_W, RES_STOREY, STOREY, addBox, band, emptyDraft, entryFlight, mastTip, rail, skin, snap,
   type Draft, type TowerKind,
 } from './parts';
 
@@ -41,7 +44,7 @@ function rngOf(spec: TowerSpec): Rng {
 
 
 export function buildTower(spec: TowerSpec): Draft {
-  const module = spec.kind === 'res-stack' || spec.kind === 'spine-bar' ? RES_STOREY : STOREY;
+  const module = spec.kind === 'res-stack' || spec.kind === 'shelf-row' ? RES_STOREY : STOREY;
   let maxH = spec.maxH;
   // Roof plant sits above the crown. Keep the whole fabric stack under 305 m.
   if (maxH <= 320) maxH = Math.min(maxH, 299 - crownExtra(spec.kind));
@@ -75,7 +78,8 @@ export function buildTower(spec: TowerSpec): Draft {
     case 'lantern': lantern(d, spec, H, y0, door, variant); break;
     case 'screen-wall': screenWall(d, spec, H, y0, door, variant); break;
     case 'flue-bank': flueBank(d, spec, H, y0, door, variant); break;
-    case 'spine-bar': spineBar(d, spec, H, y0, door, variant); break;
+    case 'shelf-row': shelfRow(d, spec, H, y0, door, variant); break;
+    case 'flare-bed': flareBed(d, spec, H, y0, door, variant); break;
     case 'hero-gate': heroGate(d, spec, height); break;
     case 'hero-step': heroStep(d, spec, height); break;
     case 'hero-obelisk': heroObelisk(d, spec, height); break;
@@ -109,16 +113,18 @@ function crownExtra(kind: TowerKind): number {
   switch (kind) {
     case 'buttress': return 20;
     case 'holo-shaft': return 26;
-    case 'res-stack': return 12;
+    case 'res-stack': return 16;
     case 'lantern': return 16;
-    case 'band-slab': return 10;
+    case 'band-slab': return 12;
     case 'ziggurat': return 12;
-    case 'monolith': return 6;
+    case 'monolith': return 8;
+    case 'cantilever': return 12;
     case 'screen-wall': return 4;
     case 'flue-bank': return 6;
-    case 'spine-bar': return 4;
+    case 'shelf-row': return 4;
+    case 'flare-bed': return 4;
     case 'hero-obelisk': return 0;
-    default: return 6;
+    default: return 8;
   }
 }
 
@@ -140,7 +146,7 @@ function bandSlab(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
       winH = Math.min(Math.max(slice - 1.2, 0), Math.max(winH, DOOR_H + 0.6));
       bandH = Math.max(0, slice - winH);
     }
-    const style = variant === 0 ? Style.Panel : variant === 1 ? Style.Megablock : Style.Ribbon;
+    const style = variant === 0 ? Style.Panel : Style.Megablock;
     if (first && door) {
       skin(d, {
         s: 0, t: 0, lb: bw, la: bd, h: winH, base: y0 + y,
@@ -168,9 +174,6 @@ function bandSlab(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
     y += slice;
     first = false;
   }
-  if (variant !== 1) {
-    glowCrown(d, 0, 0, bw * 0.55, bd * 0.55, y0 + H, variant === 2 ? 8 : 4.2);
-  }
 }
 
 function ziggurat(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolean, variant: number): void {
@@ -195,7 +198,6 @@ function ziggurat(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
       });
     }
   }
-  glowCrown(d, 0, 0, spec.w * 0.18, spec.d * 0.18, y0 + H, variant === 2 ? 10 : 6);
 }
 
 function buttress(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolean, variant: number): void {
@@ -345,7 +347,6 @@ function monolith(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
     s: faceS - 0.35, t: faceW * 0.08, lb: 2.4, la: 0.7, h: slitH, base: y0 + STOREY,
     style: Style.Glow, lit: 0.72, tint: 1.15, detail: 0, role: 'mass',
   });
-  glowCrown(d, 0, 0, spec.w * 0.12, spec.d * 0.12, y0 + H, 5);
 }
 
 function resStack(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolean, variant: number): void {
@@ -353,8 +354,8 @@ function resStack(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
   const bd = spec.d * 0.9;
   skin(d, {
     s: 0, t: 0, lb: bw, la: bd, h: H, base: y0,
-    // Dark stone. A residential window grid hid the shelf rhythm even when few panes were lit.
-    style: Style.Monolith, lit: 0.08, tint: spec.tint * 0.7, door,
+    // Panel strips, not the monolith's dark stone. The shelves are what separate this shaft.
+    style: Style.Panel, lit: spec.lit * 0.9, tint: spec.tint, door,
   });
   const every = (variant === 1 ? 3 : 4) * RES_STOREY;
   const face = bd / 2;
@@ -421,11 +422,7 @@ function holoShaft(d: Draft, spec: TowerSpec, H: number, y0: number, door: boole
     s: bd * 0.08, t: bw / 2 + 0.3, lb: 0.55, la: 2.4, h: slitH, base: slitBase,
     style: Style.Glow, lit: 0.74, tint: 1.15, detail: 0, role: 'mass',
   });
-  addBox(d, {
-    s: 0, t: 0, lb: bw * 0.32, la: bd * 0.32, h: 2.2, base: shaftBase + shaftH,
-    style: Style.Solid, lit: 0.04, tint: spec.tint * 0.5, detail: 0, role: 'mass',
-  });
-  mastTip(d, 0, 0, shaftBase + shaftH + 2.2, 16);
+  mastTip(d, 0, 0, shaftBase + shaftH, 16);
 }
 
 function cantilever(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolean, variant: number): void {
@@ -629,7 +626,6 @@ function heroGate(d: Draft, spec: TowerSpec, H: number): void {
     });
     rail(d, 0, 0, gap, 0.12, y + 4.2, spec.tint);
   }
-  glowCrown(d, 0, spec.w * 0.28, slabW * 0.4, slabD * 0.3, H, 8);
   mastTip(d, 0, -spec.w * 0.28, H, 22);
 }
 
@@ -664,7 +660,6 @@ function heroStep(d: Draft, spec: TowerSpec, H: number): void {
       style: Style.Glow, lit: 0.66, tint: 1.12, detail: 0, role: 'band',
     });
   }
-  glowCrown(d, 0, 0, spec.w * 0.1, spec.d * 0.1, H, 7);
 }
 
 /**
@@ -819,6 +814,11 @@ function screenWall(d: Draft, spec: TowerSpec, H: number, y0: number, door: bool
     });
   }
   addBox(d, {
+    s: plateS + plateD * 0.12, t: -spec.w * 0.2,
+    lb: Math.min(8, spec.w * 0.2), la: Math.min(6, plateD * 0.4), h: 2.2, base: y0 + H,
+    style: Style.Solid, lit: 0.05, tint: spec.tint * 0.6, detail: 0, role: 'mass',
+  });
+  addBox(d, {
     s: plateS, t: rightT, lb: 0.8, la: 0.8, h: 3.2, base: y0 + H * 0.42,
     style: Style.Industrial, lit: 0.03, tint: spec.tint * 0.5,
     detail: 2, ornament: 2, role: 'mass',
@@ -883,7 +883,14 @@ function flueBank(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
     base: beamY + 2.2,
     style: Style.Glow, lit: 0.7, tint: 1.1, detail: 0, role: 'band',
   });
+  const tallest = shafts.reduce((a, b) => (a.h >= b.h ? a : b));
+  addBox(d, {
+    s: 0, t: tallest.t, lb: Math.min(3.2, tallest.w * 0.55), la: Math.min(3.2, spec.d * 0.22),
+    h: 2.2, base: y0 + tallest.h,
+    style: Style.Solid, lit: 0.05, tint: spec.tint * 0.55, detail: 0, role: 'mass',
+  });
   for (const shaft of shafts) {
+    if (shaft === tallest) continue;
     addBox(d, {
       s: spec.d * 0.12, t: shaft.t, lb: 0.7, la: 0.7, h: 1.6, base: y0 + shaft.h,
       style: Style.Industrial, lit: 0.04, tint: spec.tint * 0.5,
@@ -892,88 +899,214 @@ function flueBank(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
   }
 }
 
-function spineBar(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolean, variant: number): void {
-  if (variant === 2) {
-    const cuts = [0.56, 0.78, 1];
-    const shares = [0.28, 0.44, 0.28];
-    let cursor = -spec.w / 2;
-    for (let i = 0; i < 3; i++) {
-      const w = spec.w * shares[i]!;
-      const t = cursor + w / 2;
-      cursor += w;
-      const h = H * cuts[i]!;
-      const blade = i === 2;
-      if (i === 1 && door) {
-        skin(d, {
-          s: 0, t, lb: w * 0.96, la: spec.d * 0.9, h, base: y0,
-          style: Style.Monolith, lit: 0.1, tint: spec.tint * 0.7, door: true,
-        });
-      } else {
-        addBox(d, {
-          s: 0, t, lb: w * 0.96, la: spec.d * (0.72 + i * 0.06), h, base: y0,
-          style: blade ? Style.Slit : Style.Monolith, lit: blade ? 0.46 : 0.08,
-          tint: spec.tint * (blade ? 0.78 : 0.66 + i * 0.03),
-          detail: 0, role: 'mass',
-        });
-      }
-      addBox(d, {
-        s: -(spec.d * 0.42), t, lb: w * 0.88, la: 0.4, h: 1.35, base: y0 + h - 1.35,
-        style: Style.Glow, lit: 0.64, tint: 1.1, detail: 0, role: 'band',
-      });
-    }
-    return;
-  }
-  const barH = H * 0.68;
+/** East LA housing. A wide bar and a roof room, on 3.4 m floors. Not a downtown slit. */
+function shelfRow(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolean, variant: number): void {
+  const barH = H * 0.7;
+  const bw = spec.w * 0.98;
+  const bd = spec.d * 0.9;
   skin(d, {
-    s: 0, t: 0, lb: spec.w * 0.98, la: spec.d * 0.92, h: barH, base: y0,
-    style: Style.Monolith, lit: 0.1, tint: spec.tint * 0.7, door,
+    s: 0, t: 0, lb: bw, la: bd, h: barH, base: y0,
+    style: Style.Panel, lit: spec.lit, tint: spec.tint, door,
   });
-  const spineW = Math.max(4, spec.w * 0.34);
-  const spineT = variant === 1 ? spec.w * 0.2 : 0;
-  const spineBase = y0 + barH * 0.62;
-  const spineH = y0 + H - spineBase;
-  addBox(d, {
-    s: 0, t: spineT, lb: spineW, la: spec.d * 0.66, h: spineH, base: spineBase,
-    style: Style.Slit, lit: 0.48, tint: spec.tint * 0.78, detail: 0, role: 'mass',
-  });
-  addBox(d, {
-    s: -(spec.d * 0.46), t: 0, lb: spec.w * 0.9, la: 0.42, h: 1.45, base: y0 + barH - 1.45,
-    style: Style.Glow, lit: 0.68, tint: 1.12, detail: 0, role: 'band',
-  });
-  addBox(d, {
-    s: -(spec.d * 0.34), t: spineT, lb: 2.1, la: 0.42,
-    h: Math.max(STOREY, spineH * 0.55), base: spineBase + spineH * 0.2,
-    style: Style.Glow, lit: 0.7, tint: 1.14, detail: 0, role: 'mass',
-  });
-  for (let y = y0 + STOREY * 3; y < y0 + barH - STOREY; y += STOREY * 4) {
+  const every = (variant === 1 ? 3 : 2) * RES_STOREY;
+  const face = -bd / 2;
+  const plateD = Math.min(2.0, Math.max(1.15, spec.d * 0.1));
+  let firstShelf = true;
+  for (let y = y0 + every; y < y0 + barH - RES_STOREY; y += every) {
     addBox(d, {
-      s: -(spec.d * 0.46 + 0.15), t: spec.w * 0.22, lb: spec.w * 0.28, la: 0.7, h: 0.16, base: y,
-      style: Style.Solid, lit: 0.05, tint: spec.tint * 0.65,
-      detail: 1, ornament: 1, role: 'balcony',
+      s: face - plateD / 2, t: 0, lb: bw * 0.9, la: plateD, h: 0.85, base: y,
+      style: Style.Solid, lit: 0.06, tint: spec.tint * 0.74, detail: 0, role: 'balcony',
+    });
+    addBox(d, {
+      s: face - plateD - 0.12, t: 0, lb: bw * 0.84, la: 0.26, h: 1.15, base: y + 0.7,
+      style: Style.Glow, lit: 0.62, tint: 1.08, detail: 0, role: 'band',
+    });
+    if (firstShelf) {
+      rail(d, face - plateD / 2, 0, bw * 0.82, Math.max(0.4, plateD - 0.2), y + 0.85, spec.tint);
+      firstShelf = false;
+    }
+  }
+  if (variant === 2) {
+    addBox(d, {
+      s: 0, t: 0, lb: bw, la: bd * 1.02, h: 1.6, base: y0 + barH * 0.46,
+      style: Style.Solid, lit: 0.05, tint: spec.tint * 0.7, detail: 0, role: 'band',
     });
   }
+  const crownH = H - barH;
+  const tankH = Math.min(2.6, crownH * 0.28);
+  const houseH = Math.max(RES_STOREY, crownH - tankH);
+  const houseW = spec.w * (variant === 1 ? 0.36 : 0.32);
+  const houseD = spec.d * 0.42;
+  const houseT = variant === 1 ? spec.w * 0.16 : variant === 2 ? -spec.w * 0.14 : 0;
+  const houseS = spec.d * 0.06;
   addBox(d, {
-    s: spec.d * 0.1, t: -spec.w * 0.2, lb: 2.2, la: 1.4, h: 1.8, base: y0 + barH,
-    style: Style.Industrial, lit: 0.03, tint: spec.tint * 0.5,
+    s: houseS, t: houseT, lb: houseW, la: houseD, h: houseH, base: y0 + barH,
+    style: Style.Panel, lit: spec.lit * 0.9, tint: spec.tint * 0.92, detail: 0, role: 'mass',
+  });
+  addBox(d, {
+    s: houseS - houseD / 2 - 0.14, t: houseT, lb: houseW * 0.86, la: 0.32, h: 1.25,
+    base: y0 + barH + houseH - 1.25,
+    style: Style.Glow, lit: 0.64, tint: 1.08, detail: 0, role: 'band',
+  });
+  addBox(d, {
+    s: houseS, t: houseT + houseW * 0.18,
+    lb: Math.min(3.6, houseW * 0.34), la: Math.min(3.4, houseD * 0.4), h: tankH,
+    base: y0 + barH + houseH,
+    style: Style.Solid, lit: 0.05, tint: spec.tint * 0.58, detail: 0, role: 'mass',
+  });
+  addBox(d, {
+    s: houseS + houseD * 0.1, t: houseT - houseW * 0.16, lb: 1.6, la: 1.3, h: 1.2,
+    base: y0 + barH + houseH,
+    style: Style.Industrial, lit: 0.03, tint: spec.tint * 0.48,
     detail: 2, ornament: 2, role: 'mass',
   });
 }
 
+/**
+ * South Bay cracking yard. A broad plinth and three fat drums inside the 50–60 m band.
+ * The flare is a short lip on the tallest drum, not a downtown shaft.
+ */
+function flareBed(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolean, variant: number): void {
+  const plinthH = Math.min(STOREY * 3, Math.max(STOREY * 2, H * 0.2));
+  skin(d, {
+    s: 0, t: 0, lb: spec.w * 0.98, la: spec.d * 0.92, h: plinthH, base: y0,
+    style: Style.Industrial, lit: spec.lit, tint: spec.tint, door,
+  });
+  const drums = variant === 1
+    ? [
+      { t: -0.32, w: 0.24, dep: 0.46, k: 0.78, s: -0.06 },
+      { t: 0.02, w: 0.28, dep: 0.52, k: 0.48, s: 0.05 },
+      { t: 0.32, w: 0.22, dep: 0.4, k: 1, s: 0 },
+    ]
+    : variant === 2
+      ? [
+        { t: -0.22, w: 0.32, dep: 0.56, k: 0.7, s: -0.04 },
+        { t: 0.2, w: 0.3, dep: 0.5, k: 1, s: 0.06 },
+      ]
+      : [
+        { t: -0.34, w: 0.24, dep: 0.48, k: 0.55, s: -0.06 },
+        { t: 0, w: 0.3, dep: 0.58, k: 1, s: 0.02 },
+        { t: 0.34, w: 0.22, dep: 0.4, k: 0.42, s: 0.05 },
+      ];
+  let tallest: { t: number; w: number; depth: number; top: number; s: number } | null = null;
+  for (const drum of drums) {
+    const w = spec.w * drum.w;
+    const depth = spec.d * drum.dep;
+    const t = spec.w * drum.t;
+    const s = spec.d * drum.s;
+    const h = (H - plinthH) * drum.k;
+    const top = y0 + plinthH + h;
+    addBox(d, {
+      s, t, lb: w, la: depth, h, base: y0 + plinthH,
+      style: Style.Industrial, lit: spec.lit * 0.7, tint: spec.tint * 0.9,
+      detail: 0, role: 'mass',
+    });
+    addBox(d, {
+      s, t, lb: w + 1.1, la: depth + 0.8, h: 1.05, base: top - 2.5,
+      style: Style.Solid, lit: 0.05, tint: spec.tint * 0.62, detail: 0, role: 'band',
+    });
+    if (!tallest || top > tallest.top) tallest = { t, w, depth, top, s };
+  }
+  if (tallest) {
+    addBox(d, {
+      s: tallest.s - tallest.depth / 2 - 0.16, t: tallest.t,
+      lb: tallest.w * 0.78, la: 0.4, h: 1.4, base: tallest.top - 1.5,
+      style: Style.Glow, lit: 0.78, tint: 1.2, detail: 0, role: 'band',
+    });
+    addBox(d, {
+      s: tallest.s, t: tallest.t, lb: Math.min(tallest.w * 0.46, 3.4), la: Math.min(tallest.depth * 0.4, 3.2),
+      h: 1.8, base: tallest.top,
+      style: Style.Solid, lit: 0.05, tint: spec.tint * 0.5, detail: 0, role: 'mass',
+    });
+  }
+  const spanL = Math.min(...drums.map((drum) => spec.w * drum.t - spec.w * drum.w / 2));
+  const spanR = Math.max(...drums.map((drum) => spec.w * drum.t + spec.w * drum.w / 2));
+  const beamY = y0 + plinthH + (H - plinthH) * 0.28;
+  addBox(d, {
+    s: 0, t: (spanL + spanR) / 2, lb: spanR - spanL, la: spec.d * 0.16, h: 1.5, base: beamY,
+    style: Style.Solid, lit: 0.06, tint: spec.tint * 0.6, detail: 0, role: 'deck',
+  });
+  addBox(d, {
+    s: spec.d * 0.2, t: -spec.w * 0.28, lb: 1.8, la: 1.4, h: 1.5, base: y0 + plinthH,
+    style: Style.Industrial, lit: 0.03, tint: spec.tint * 0.48,
+    detail: 2, ornament: 2, role: 'mass',
+  });
+}
+
+interface RoofCrown {
+  s: number;
+  t: number;
+  lb: number;
+  la: number;
+  h: number;
+  style: StyleId;
+}
+
+/** A detail-0 roof mass. The shape is the family. The far mesh keeps it. */
+function crownFor(kind: TowerSpec['kind'], w: number, depth: number): RoofCrown {
+  switch (kind) {
+    case 'band-slab':
+      return { s: 0, t: 0, lb: w * 0.7, la: depth * 0.26, h: 6.4, style: Style.Solid };
+    case 'ziggurat':
+      return { s: depth * 0.04, t: w * 0.1, lb: w * 0.2, la: depth * 0.2, h: 6.4, style: Style.Megablock };
+    case 'monolith':
+      return { s: 0, t: 0, lb: w * 0.14, la: depth * 0.14, h: 4.2, style: Style.Solid };
+    case 'res-stack':
+      return { s: -depth * 0.08, t: w * 0.24, lb: w * 0.26, la: depth * 0.34, h: 10.2, style: Style.Panel };
+    case 'holo-shaft':
+      return { s: 0, t: 0, lb: w * 0.22, la: depth * 0.18, h: 5.4, style: Style.Solid };
+    case 'cantilever':
+      return { s: depth * 0.04, t: -w * 0.1, lb: w * 0.4, la: depth * 0.32, h: 6.4, style: Style.Solid };
+    case 'hero-gate':
+      return { s: 0, t: w * 0.28, lb: w * 0.16, la: depth * 0.26, h: 8.2, style: Style.Solid };
+    case 'hero-step':
+      return { s: 0, t: 0, lb: w * 0.12, la: depth * 0.12, h: 5.4, style: Style.Megablock };
+    default:
+      return { s: 0, t: 0, lb: Math.min(8, w * 0.18), la: Math.min(6, depth * 0.16), h: 3.6, style: Style.Solid };
+  }
+}
+
+function roofY(d: Draft): number {
+  let y = 0;
+  for (const b of d.boxes) {
+    if (b.detail !== 0) continue;
+    if (b.ornament !== undefined && b.ornament > 0) continue;
+    const top = b.base + b.h;
+    if (top > y) y = top;
+  }
+  return y;
+}
+
 function dressRoof(d: Draft, spec: TowerSpec, r: Rng): void {
   if (
-    spec.kind === 'monolith' || spec.kind === 'hero-step' || spec.kind === 'hero-obelisk'
-    || spec.kind === 'lantern' || spec.kind === 'buttress'
-    || spec.kind === 'screen-wall' || spec.kind === 'flue-bank' || spec.kind === 'spine-bar'
+    spec.kind === 'hero-obelisk' || spec.kind === 'lantern' || spec.kind === 'buttress'
+    || spec.kind === 'screen-wall' || spec.kind === 'flue-bank'
+    || spec.kind === 'shelf-row' || spec.kind === 'flare-bed'
   ) return;
-  const n = spec.kind === 'res-stack' ? 2 : 1;
-  for (let k = 0; k < n; k++) {
-    const bw = r.range(3, Math.min(9, spec.w * 0.22));
-    const bd = r.range(3, Math.min(9, spec.d * 0.22));
+  const y = roofY(d);
+  const crown = crownFor(spec.kind, spec.w, spec.d);
+  addBox(d, {
+    s: crown.s, t: crown.t, lb: crown.lb, la: crown.la, h: crown.h, base: y,
+    style: crown.style, lit: 0.07, tint: spec.tint * 0.66, detail: 0, role: 'mass',
+  });
+  addBox(d, {
+    s: crown.s, t: crown.t, lb: Math.max(0.9, crown.lb * 0.55), la: 0.22, h: 0.8,
+    base: y + crown.h,
+    style: Style.Solid, lit: 0.04, tint: spec.tint * 0.55,
+    detail: 1, ornament: 1, role: 'band',
+  });
+  for (let k = 0; k < 2; k++) {
+    const lb = r.range(1.4, Math.min(3.2, Math.max(1.5, crown.lb * 0.35)));
+    const la = r.range(1.2, Math.min(2.8, Math.max(1.3, crown.la * 0.4)));
+    const rawS = crown.s + (k === 0 ? -1 : 1) * crown.la * 0.16;
+    const rawT = crown.t + (k === 0 ? 1 : -1) * crown.lb * 0.14;
+    const maxS = d.halfD + 1.6 - la / 2;
+    const maxT = d.halfW + 1.6 - lb / 2;
     addBox(d, {
-      s: r.range(-spec.d * 0.15, spec.d * 0.15),
-      t: r.range(-spec.w * 0.15, spec.w * 0.15),
-      lb: bw, la: bd, h: r.range(2.2, 5.5), base: d.height,
-      style: Style.Industrial, lit: 0.04, tint: spec.tint * 0.6,
+      s: Math.max(-maxS, Math.min(maxS, rawS)),
+      t: Math.max(-maxT, Math.min(maxT, rawT)),
+      lb, la, h: r.range(1.2, 2.2), base: y + crown.h,
+      style: Style.Industrial, lit: 0.03, tint: spec.tint * 0.5,
       detail: 2, ornament: 2, role: 'mass',
     });
   }

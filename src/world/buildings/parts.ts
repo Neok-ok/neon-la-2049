@@ -38,8 +38,9 @@ export const HERO_KINDS = ['hero-gate', 'hero-step', 'hero-obelisk'] as const;
 /**
  * Families for districts the downtown roll does not cover.
  * Kept off `TOWER_KINDS` so financial, downtown, and Long Beach keep their seeds.
+ * East LA is a housing bar. The South Bay yard is a flare bed. Neither uses a downtown taper.
  */
-export const FIELD_KINDS = ['screen-wall', 'flue-bank', 'spine-bar'] as const;
+export const FIELD_KINDS = ['screen-wall', 'flue-bank', 'shelf-row', 'flare-bed'] as const;
 
 export type TowerKind = (typeof TOWER_KINDS)[number] | (typeof HERO_KINDS)[number] | (typeof FIELD_KINDS)[number];
 
@@ -245,7 +246,8 @@ function stairHits(d: Draft, s: number, t: number, la: number, lb: number, y0: n
 }
 
 /**
- * One flight beside the ground door, rising a storey.
+ * One flight beside the ground door, rising this draft's storey.
+ * Housing is 3.4 m and the office module is 3.6 m, so the landing meets the floor.
  * Risers come from planFlight. The run follows the facade so the stoop
  * stays inside the 2.2 m footprint allowance. Skipped when the wall is
  * too short or another mass already occupies the tread.
@@ -262,7 +264,8 @@ export function entryFlight(d: Draft): void {
   const tint = cheeks[0]!.tint;
   const tMin = Math.min(...cheeks.map((b) => b.t - b.lb / 2));
   const tMax = Math.max(...cheeks.map((b) => b.t + b.lb / 2));
-  const flight = planFlight(STOREY);
+  const riseTo = d.storey > 0 ? d.storey : STOREY;
+  const flight = planFlight(riseTo);
   const gap = snapMetres(0.4);
   const lay = (dir: 1 | -1): boolean => {
     const start = faceT + dir * (DOOR_W / 2 + gap);
@@ -274,7 +277,7 @@ export function entryFlight(d: Draft): void {
     const midT = (start + end) / 2;
     if (Math.abs(s) + STAIR_W / 2 > d.halfD + 2.2) return false;
     if (Math.max(Math.abs(lo), Math.abs(hi)) > d.halfW + 2.2) return false;
-    if (stairHits(d, s, midT, STAIR_W, flight.run, base, base + STOREY)) return false;
+    if (stairHits(d, s, midT, STAIR_W, flight.run, base, base + riseTo)) return false;
     for (let i = 0; i < flight.risers; i++) {
       const treadT = start + dir * flight.tread * (i + 0.5);
       addBox(d, {

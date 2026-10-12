@@ -116,11 +116,11 @@ export function fieldTower(
   seed: number,
   variant: number,
 ): Placed {
-  const floor = kind === 'spine-bar' ? 40.8 : 43.2;
+  const floor = kind === 'shelf-row' ? 40.8 : 43.2;
   const spec: TowerSpec = {
     kind, variant, seed, height, w, d,
-    lit: kind === 'flue-bank' ? 0.14 : kind === 'spine-bar' ? 0.28 : 0.36,
-    tint: kind === 'flue-bank' ? 0.62 : 0.8,
+    lit: kind === 'flare-bed' ? 0.16 : kind === 'flue-bank' ? 0.14 : kind === 'shelf-row' ? 0.38 : 0.36,
+    tint: kind === 'flare-bed' ? 0.52 : kind === 'flue-bank' ? 0.62 : 0.8,
     plinth: 0,
     decks: [],
     phrases: [],

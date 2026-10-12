@@ -1,7 +1,7 @@
 // Sidewalk loops for the shared crowd mesh. Registered from detail-index so App does not grow a
 // per-district import. Plaza loops are the MT-1 / MT-5 aprons, and only while a nearby block is loaded.
-// The three B1 heroes sit west of those plazas, so a loaded block near one also gets a sidewalk
-// around the footprint and a short queue at the door. Same mesh, same share.
+// The placed B1 heroes sit west of those plazas, so a loaded block near one also gets a sidewalk
+// around the footprint and a short queue at the door. The kite reserve has no door. Same mesh, same share.
 import type { CityQuery, PackedBlock } from '../../world/CityQuery';
 import { hash2i, hashString } from '../../core/rng';
 import { bearingToDir } from '../../world/geo';
@@ -12,10 +12,9 @@ import { registerCrowdSource } from '../little-tokyo-market/crowd';
 import { dressBlock, type DtlaBlock } from './block';
 import { plazaLoops } from './plaza';
 
-const HERO_DOOR: ReadonlyArray<readonly [string, 'hero-gate' | 'hero-step' | 'hero-obelisk']> = [
+const HERO_DOOR: ReadonlyArray<readonly [string, 'hero-gate' | 'hero-step']> = [
   ['b1-gate', 'hero-gate'],
   ['b1-step', 'hero-step'],
-  ['b1-obelisk', 'hero-obelisk'],
 ];
 
 function idOf(b: PackedBlock, query: CityQuery): string {

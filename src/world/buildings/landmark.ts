@@ -3,7 +3,7 @@
 // Each LOD is an instanced copy of the shared kit box, not a unique mesh.
 // Low keeps the mass (the impostor). Medium adds the mid band. High and ultra add the near band.
 // LAPD, City Hall and the Wallace pyramid are not built here.
-import { Mesh, type InstancedMesh, type Object3D } from 'three/webgpu';
+import { Group, Mesh, type InstancedMesh, type Object3D } from 'three/webgpu';
 import { hashString } from '../../core/rng';
 import type { Tier } from '../../core/quality';
 import { resources } from '../../core/memory/resources';
@@ -116,7 +116,7 @@ function applySlot(slot: HeroSlot, cap: BuildingCap): void {
   slot.lods.replace(slot.id, meshes, distsFor(capsFor(cap)));
 }
 
-/** Quality changes rebuild the three heroes. Fabric chunks rebuild on their own. */
+/** Quality changes rebuild the placed heroes. The kite reserve has no mesh. Fabric chunks rebuild on their own. */
 export function setB1HeroTier(tier: Tier): void {
   const cap = buildingDetailCap(tier);
   if (cap === heroCap) return;
@@ -125,6 +125,13 @@ export function setB1HeroTier(tier: Tier): void {
 }
 
 registerLandmarkType('b1-hero', (l: Landmark, env: LandmarkEnv) => {
+  // MT-4 is already a 600 m cruciform. Caldera Step is a 640 m taper on this same
+  // 70 m base. A 480 m kite beside it is a third needle, so the reserve stays empty.
+  if (l.id === 'b1-obelisk') {
+    const held = new Group();
+    held.name = l.id;
+    return { object: held, colliders: [] };
+  }
   const kind = KIND_OF[l.id] ?? 'hero-step';
   const w = l.baseWidth;
   const d = l.baseDepth ?? l.baseWidth * 0.7;
