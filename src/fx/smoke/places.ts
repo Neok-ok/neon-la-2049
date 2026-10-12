@@ -9,6 +9,7 @@ import { planSouthBay } from '../../districts/south-bay-refineries/plan';
 import { BLOCK_A as SB_A, BLOCK_B as SB_B, LATTICE as SB_L, controlBlock, doorWorld, southBayBlock } from '../../districts/south-bay-refineries/spec';
 import { planSoutheast } from '../../districts/southeast-industrial/plan';
 import { BLOCK_A as SE_A, BLOCK_B as SE_B, LATTICE as SE_L, southeastBlock } from '../../districts/southeast-industrial/spec';
+import { carriageNear } from '../../roads/streetSpan';
 import { enumerateBlocks } from '../../world/fabric/generator';
 import type { CityLayout } from '../../world/layout';
 import type { CityQuery } from '../../world/CityQuery';
@@ -145,27 +146,32 @@ function addMarket(
     if ((s.x - x) ** 2 + (s.z - z) ** 2 < 28 * 28 && y < s.y + 8) {
       const fx = Math.sin(heading);
       const fz = -Math.cos(heading);
-      const rx = fz;
-      const rz = -fx;
-      const vent = laneSpot(query, x, s.y, z, fx, fz, rx, rz, 7.4, 0.55, 0.55);
+      // The street camera yaws toward the shop. Follow the carriage, or the
+      // plume walks into the storefront.
+      const lane = carriageNear(layout, x, z, 'little-tokyo-market');
+      const ax = lane ? lane.fx : fx;
+      const az = lane ? lane.fz : fz;
+      const lx = -az;
+      const lz = ax;
+      const vent = laneSpot(query, x, s.y, z, ax, az, lx, lz, 6.2, 0.15, 0.45);
       vents.push(make({
         x: vent.x,
         y: vent.y,
         z: vent.z,
         kind: KIND.vent,
         rate: 12,
-        life: 2.3,
-        size0: 0.28,
-        size1: 0.72,
+        life: 2.4,
+        size0: 0.34,
+        size1: 0.95,
         heat: 0,
         radius: 0.08,
-        spread: 0.08,
-        rise: 1.65,
-        fade: 20,
-        aspect: 2.05,
+        spread: 0.07,
+        rise: 1.75,
+        fade: 22,
+        aspect: 2.2,
         floorY: s.y,
       }));
-      const hole = laneSpot(query, x, s.y, z, fx, fz, rx, rz, 13.2, -1.5, 0.38);
+      const hole = laneSpot(query, x, s.y, z, ax, az, lx, lz, 11.5, -1.15, 0.36);
       holes.push(make({
         x: hole.x,
         y: hole.y,
@@ -378,14 +384,14 @@ export function gatherEmitters(
         kind: KIND.barrel,
         rate: 14,
         life: 3.6,
-        size0: 0.3,
-        size1: 0.95,
+        size0: 0.34,
+        size1: 1.15,
         heat: 1,
-        radius: 0.14,
-        spread: 0.06,
-        rise: 0.95,
+        radius: 0.16,
+        spread: 0.07,
+        rise: 1.0,
         fade: 28,
-        aspect: 1.35,
+        aspect: 1.28,
         floorY: door.y,
       }));
     }
