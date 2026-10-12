@@ -153,40 +153,40 @@ function addMarket(
       const az = lane ? lane.fz : fz;
       const lx = -az;
       const lz = ax;
-      const vent = laneSpot(query, x, s.y, z, ax, az, lx, lz, 6.2, 0.15, 0.45);
+      const vent = laneSpot(query, x, s.y, z, ax, az, lx, lz, 9.2, 0.35, 0.3);
       vents.push(make({
         x: vent.x,
         y: vent.y,
         z: vent.z,
         kind: KIND.vent,
         rate: 12,
-        life: 2.4,
-        size0: 0.34,
-        size1: 0.95,
+        life: 2.1,
+        size0: 0.28,
+        size1: 0.68,
         heat: 0,
         radius: 0.08,
-        spread: 0.07,
-        rise: 1.75,
-        fade: 22,
-        aspect: 2.2,
+        spread: 0.06,
+        rise: 1.25,
+        fade: 24,
+        aspect: 1.9,
         floorY: s.y,
       }));
-      const hole = laneSpot(query, x, s.y, z, ax, az, lx, lz, 11.5, -1.15, 0.36);
+      const hole = laneSpot(query, x, s.y, z, ax, az, lx, lz, 15.5, -1.6, 0.32);
       holes.push(make({
         x: hole.x,
         y: hole.y,
         z: hole.z,
         kind: KIND.manhole,
-        rate: 11,
-        life: 1.9,
-        size0: 0.4,
-        size1: 1.15,
+        rate: 12,
+        life: 2.2,
+        size0: 0.55,
+        size1: 1.55,
         heat: 0,
-        radius: 0.2,
+        radius: 0.22,
         spread: 0.08,
-        rise: 0.28,
-        fade: 14,
-        aspect: 0.52,
+        rise: 0.22,
+        fade: 22,
+        aspect: 0.45,
         floorY: s.y,
       }));
     }
