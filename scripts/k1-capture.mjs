@@ -32,6 +32,18 @@ const shots = [
     after: async () => { await window.__nla.southBayView('flare'); },
   },
   {
+    name: 'refinery-street',
+    q: `mode=walk&quality=ultra&weather=clear&${common}`,
+    frames: 2,
+    after: async () => { await window.__nla.southBayView('street'); },
+  },
+  {
+    name: 'market-stall',
+    q: `mode=walk&quality=ultra&weather=clear&${common}`,
+    frames: 2,
+    after: () => { window.__nla.marketView('bibi'); },
+  },
+  {
     name: 'traffic-rain',
     q: `mode=walk&quality=ultra&weather=rain&${common}`,
     frames: 4,

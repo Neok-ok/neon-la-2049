@@ -85,9 +85,9 @@ function shade(lit: boolean): MeshBasicNodeMaterial {
     const soot = float(1).sub(steam).mul(float(1).sub(launch));
     // Body is a painted grey lifted like fog, so a puff still reads when the
     // exposure is stopped down. practicalLit stays in nits and is added, not scaled.
-    const albedo = vec3(0.72, 0.75, 0.8).mul(steam)
-      .add(vec3(0.34, 0.3, 0.26).mul(soot))
-      .add(vec3(0.48, 0.42, 0.36).mul(launch));
+    const albedo = vec3(0.9, 0.92, 0.95).mul(steam)
+      .add(vec3(0.42, 0.36, 0.3).mul(soot))
+      .add(vec3(0.55, 0.48, 0.4).mul(launch));
     const body = albedo.mul(authoredLiftU);
 
     const veilW = float(0.28).mul(steam).add(float(0.1).mul(soot)).add(float(0.18).mul(launch));
@@ -104,7 +104,7 @@ function shade(lit: boolean): MeshBasicNodeMaterial {
       .mul(authoredLiftU)
       .mul(heatGain)
       .mul(smoothstep(0.92, 0.04, life));
-    const rgb = body.mul(0.72).add(lamps).add(veil).add(heat);
+    const rgb = body.mul(0.95).add(lamps).add(veil).add(heat);
 
     const dist = length(ctr.xyz.sub(cameraPosition));
     const thin = smoothstep(extra.w, extra.w.mul(0.2), dist);

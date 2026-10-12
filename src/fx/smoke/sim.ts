@@ -2,6 +2,7 @@
 // local roll. Rain damps loft, adds a sideways push, and shortens the visible life.
 import type { CityQuery } from '../../world/CityQuery';
 import { curl } from './curl';
+import { launchDrive } from './launchDrive';
 import { KIND, type Emitter, type Pool, type Slot, type Wind } from './types';
 
 let rng = 0x6d2b79f5;
@@ -206,7 +207,7 @@ export function integrate(
     const c = curl(x * 0.07 + time * 0.05, y * 0.07, z * 0.07, 0.18);
     const roll = turb(kind);
     // The launch column leans, it does not leave the engine. Street smoke takes the full wind.
-    const windScale = kind === KIND.column ? 0.16 : kind === KIND.ground ? 0.42 : 1;
+    const windScale = kind === KIND.column ? 0.16 : kind === KIND.ground ? 0.42 : kind === KIND.stack ? 0.5 : 1;
     let vx = pool.vx[i]! + (wx * shear * push * windScale + c[0] * roll) * dt;
     let vy = pool.vy[i]! + (buoy(kind) * loft + c[1] * roll * 0.35) * dt;
     let vz = pool.vz[i]! + (wz * shear * push * windScale + c[2] * roll) * dt;
@@ -239,6 +240,19 @@ export function integrate(
           age = Math.max(age, life * 0.9);
           pool.age[i] = age;
         }
+      }
+    }
+
+    if (kind === KIND.column) {
+      const drive = launchDrive();
+      if (drive.id > 0) {
+        const height = Math.max(0, y - drive.y);
+        const lean = (10 + Math.min(12, wind.speed) * 1.4) * Math.min(1, height / 280);
+        const tx = drive.x + Math.cos(wind.dir) * lean;
+        const tz = drive.z + Math.sin(wind.dir) * lean;
+        const pull = 1 - Math.exp(-dt * 2.4);
+        x += (tx - x) * pull;
+        z += (tz - z) * pull;
       }
     }
 

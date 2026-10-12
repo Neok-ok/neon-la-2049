@@ -50,6 +50,7 @@ export interface SmokeSnapshot {
   ground: number;
   column: number;
   byKind: number[];
+  near: Array<{ kind: number; dist: number; dy: number }>;
 }
 
 let punctual: PunctualInput[] = [];
@@ -74,6 +75,9 @@ export class SmokeField {
   private columnAcc = 0;
   private order: number[] = [];
   private dist: number[] = [];
+  private camX = 0;
+  private camY = 0;
+  private camZ = 0;
 
   constructor(scene: Scene) {
     kitSteamGain.value = 0;
@@ -108,11 +112,30 @@ export class SmokeField {
       ground: this.pool.slotN[1],
       column: this.pool.slotN[2],
       byKind: this.pool.kindN.slice(),
+      near: this.nearest(),
     };
+  }
+
+  private nearest(): Array<{ kind: number; dist: number; dy: number }> {
+    const pool = this.pool;
+    const rows: Array<{ kind: number; dist: number; dy: number }> = [];
+    for (let i = 0; i < pool.n; i++) {
+      const dx = pool.x[i]! - this.camX;
+      const dy = pool.y[i]! - this.camY;
+      const dz = pool.z[i]! - this.camZ;
+      const dist = Math.hypot(dx, dy, dz);
+      if (dist > 40) continue;
+      rows.push({ kind: pool.kind[i]!, dist: Math.round(dist * 10) / 10, dy: Math.round(dy * 10) / 10 });
+    }
+    rows.sort((a, b) => a.dist - b.dist);
+    return rows.slice(0, 6);
   }
 
   update(frame: SmokeFrame): void {
     const dt = Math.min(0.08, Math.max(0, frame.dt));
+    this.camX = frame.camX;
+    this.camY = frame.camY;
+    this.camZ = frame.camZ;
     this.ensure(frame.tier);
     smokeRain.value = frame.rain;
     const wind: Wind = { dir: frame.windDir, speed: frame.wind, rain: frame.rain };
@@ -238,7 +261,7 @@ export class SmokeField {
     for (let n = 0; n < gCount; n++) {
       const age = smokeRand() * Math.min(Math.max(drive.age, 1), 70);
       const ang = smokeRand() * Math.PI * 2;
-      const ring = (8 + grown * 120) * Math.sqrt(smokeRand());
+      const ring = (3 + grown * 55) * Math.pow(smokeRand(), 1.7);
       const size1 = tier === 'low' ? 36 : tier === 'medium' ? 62 : 84;
       spawnParticle(this.pool, {
         x: drive.x + Math.cos(ang) * ring + wx * age * 0.4,
@@ -297,7 +320,7 @@ export class SmokeField {
       const grown = Math.min(1, drive.age / 14);
       while (this.groundAcc >= 1 && this.pool.slotN[1] < gCap) {
         const ang = smokeRand() * Math.PI * 2;
-        const ring = (6 + grown * 100) * Math.sqrt(smokeRand());
+        const ring = (2 + grown * 40) * Math.pow(smokeRand(), 1.7);
         const ok = spawnParticle(this.pool, {
           x: drive.x + Math.cos(ang) * ring,
           y: drive.y + 1 + smokeRand() * 2,
@@ -378,8 +401,8 @@ export class SmokeField {
         vz: Math.sin(wind.dir) * wind.speed * 0.2,
         life: spin ? 3.4 : truck ? 2.6 : 1.7,
         age: 0,
-        size0: spin ? 0.7 : truck ? 0.35 : 0.18,
-        size1: spin ? 3.2 : truck ? 1.6 : 0.95,
+        size0: spin ? 0.8 : truck ? 0.45 : 0.28,
+        size1: spin ? 3.4 : truck ? 2.1 : 1.35,
         kind: KIND.exhaust,
         heat: truck ? 0.12 : 0.05,
         fade: spin ? 90 : 26,
@@ -425,7 +448,9 @@ export class SmokeField {
       const size = pool.size0[i]! + (pool.size1[i]! - pool.size0[i]!) * Math.pow(u, 0.55);
       const fadeIn = Math.min(1, u / 0.06);
       const fadeOut = Math.min(1, (1 - u) / 0.28);
-      const alpha = fadeIn * fadeOut * (pool.kind[i]! >= KIND.column ? 0.58 : 0.78);
+      const kind = pool.kind[i]!;
+      const baseA = kind >= KIND.column ? 0.64 : kind === KIND.stack ? 0.46 : 0.86;
+      const alpha = fadeIn * fadeOut * baseA;
       // A fat fade against the street deletes a 1 m puff whose card touches the ground.
       const soft = Math.max(0.15, Math.min(4.5, size * 0.08));
       for (let k = 0; k < 4; k++) {

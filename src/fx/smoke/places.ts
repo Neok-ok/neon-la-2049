@@ -6,7 +6,7 @@ import type { Tier } from '../../core/quality';
 import { marketSpots } from '../../districts/little-tokyo-market/spots';
 import { PAD_BLOCKS, blockCenter } from '../../districts/lax-spaceport/spec';
 import { planSouthBay } from '../../districts/south-bay-refineries/plan';
-import { BLOCK_A as SB_A, BLOCK_B as SB_B, LATTICE as SB_L, southBayBlock } from '../../districts/south-bay-refineries/spec';
+import { BLOCK_A as SB_A, BLOCK_B as SB_B, LATTICE as SB_L, controlBlock, doorWorld, southBayBlock } from '../../districts/south-bay-refineries/spec';
 import { planSoutheast } from '../../districts/southeast-industrial/plan';
 import { BLOCK_A as SE_A, BLOCK_B as SE_B, LATTICE as SE_L, southeastBlock } from '../../districts/southeast-industrial/spec';
 import { enumerateBlocks } from '../../world/fabric/generator';
@@ -120,10 +120,11 @@ export function gatherEmitters(layout: CityLayout, query: CityQuery, x: number, 
     const side = (h & 2) === 0 ? 1 : -1;
     const along = ((h % 200) / 100) - 1;
 
-    if (u < 0.55) {
-      const p = curb(b, side, Math.max(0.8, b.street * 0.22), along);
+    if (u < 0.62) {
+      const manhole = u < 0.28;
+      const into = manhole ? b.street * 0.55 : Math.max(0.5, b.street * 0.12);
+      const p = curb(b, side, into, along);
       if (open(query, p.x, p.y, p.z)) {
-        const manhole = u < 0.22;
         const list = manhole ? holes : vents;
         const kind: SmokeKind = manhole ? KIND.manhole : KIND.vent;
         list.push(make({
@@ -131,14 +132,14 @@ export function gatherEmitters(layout: CityLayout, query: CityQuery, x: number, 
           kind,
           rate: manhole ? 3.4 : 5.2,
           life: manhole ? 6.2 : 4.4,
-          size0: manhole ? 0.7 : 0.28,
-          size1: manhole ? 2.4 : 1.55,
+          size0: manhole ? 0.9 : 0.45,
+          size1: manhole ? 3.2 : 2.8,
           heat: 0,
           radius: manhole ? 0.45 : 0.22,
           spread: manhole ? 0.55 : 0.25,
           rise: manhole ? 0.7 : 1.15,
           fade: manhole ? 38 : 48,
-          aspect: manhole ? 0.62 : 1.35,
+          aspect: manhole ? 0.5 : 1.7,
           floorY: p.y,
         }));
       }
@@ -197,15 +198,36 @@ export function gatherEmitters(layout: CityLayout, query: CityQuery, x: number, 
       size0: 2.2,
       size1: 11,
       heat: 0.28,
-      radius: 0.8,
-      spread: 0.6,
-      rise: 2.4,
+      radius: 0.35,
+      spread: 0.22,
+      rise: 2.8,
       fade: 720,
       aspect: 1.35,
       floorY: f.y,
     }));
   };
   for (const f of flames(layout, x, z, 'south-bay-refineries', SB_A, SB_B, SB_L, (i, j) => southBayBlock(layout, i, j), (block) => planSouthBay(block, layout), 'sb')) pushStack(f);
+  const gate = controlBlock(layout);
+  if (gate) {
+    const door = doorWorld(gate);
+    if ((door.x - x) ** 2 + (door.z - z) ** 2 < 90 * 90) {
+      barrels.push(make({
+        x: door.x + 2.2, y: door.y + 1.05, z: door.z + 1.4,
+        kind: KIND.barrel,
+        rate: 3.2,
+        life: 7,
+        size0: 0.4,
+        size1: 2.2,
+        heat: 0.85,
+        radius: 0.15,
+        spread: 0.2,
+        rise: 1.2,
+        fade: 40,
+        aspect: 1.3,
+        floorY: door.y,
+      }));
+    }
+  }
   for (const f of flames(layout, x, z, 'southeast-industrial', SE_A, SE_B, SE_L, (i, j) => southeastBlock(layout, i, j), (block) => planSoutheast(block, layout), 'se')) pushStack(f);
 
   const food: Emitter[] = [];
@@ -214,27 +236,26 @@ export function gatherEmitters(layout: CityLayout, query: CityQuery, x: number, 
     if (!shop) continue;
     const c = shop.cook;
     const s = shop.street;
-    if ((c.x - x) ** 2 + (c.z - z) ** 2 > 90 * 90) continue;
-    const dx = s.x - c.x;
-    const dz = s.z - c.z;
-    const len = Math.hypot(dx, dz) || 1;
+    if ((s.x - x) ** 2 + (s.z - z) ** 2 > 90 * 90) continue;
+    const hx = Math.sin(s.heading);
+    const hz = -Math.cos(s.heading);
     food.push(make({
-      x: c.x + (dx / len) * 0.7, y: c.y + 1.5, z: c.z + (dz / len) * 0.7,
+      x: s.x + hx * 2.4, y: s.y + 1.25, z: s.z + hz * 2.4,
       kind: KIND.stall,
-      rate: 6,
-      life: 2.8,
-      size0: 0.16,
-      size1: 0.72,
+      rate: 7,
+      life: 2.6,
+      size0: 0.22,
+      size1: 1.15,
       heat: 0.15,
       radius: 0.12,
       spread: 0.12,
       rise: 0.65,
       fade: 16,
-      aspect: 1.45,
+      aspect: 1.85,
       floorY: c.y,
     }));
     food.push(make({
-      x: s.x, y: s.y + 0.65, z: s.z,
+      x: s.x + hx * 6.5, y: s.y + 0.6, z: s.z + hz * 6.5,
       kind: KIND.manhole,
       rate: 1.4,
       life: 5.5,
