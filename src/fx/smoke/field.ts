@@ -25,7 +25,7 @@ import {
 /** Share of the street budget. Indexed by KIND. Launch kinds stay on their own slots. */
 const KIND_SHARE = [0.16, 0.12, 0.12, 0.1, 0.14, 0.22, 0.14];
 /** Card opacity. Street steam stays translucent so wisps do not fuse into a bank. */
-const KIND_ALPHA = [0.78, 0.68, 0.74, 0.84, 0.86, 0.58, 0.82, 0.5, 0.56];
+const KIND_ALPHA = [0.78, 0.68, 0.74, 0.72, 0.86, 0.7, 0.58, 0.52, 0.62];
 /** How many aged cards one emitter may seed, so a grate is a wisp and a stack is a column. */
 const SEED_CAP = [4, 4, 5, 6, 8, 18];
 
@@ -275,7 +275,7 @@ export class SmokeField {
         ? (6 + grown * 26) * Math.pow(smokeRand(), 0.9)
         : (4 + grown * 14) * Math.pow(smokeRand(), 1.1);
       const yLift = climb < 0.45 ? 5 + smokeRand() * 16 + age * 0.2 : 12 + smokeRand() * 28;
-      const size1 = tier === 'low' ? 18 : tier === 'medium' ? 28 : 36;
+      const size1 = tier === 'low' ? 22 : tier === 'medium' ? 36 : 44;
       const heat = Math.exp(-ring / 46) * Math.exp(-Math.max(0, yLift - 10) / 55);
       spawnParticle(this.pool, {
         x: drive.x + Math.cos(ang) * ring + wx * age * 0.2,
@@ -430,12 +430,12 @@ export class SmokeField {
         vz: wakeZ,
         life: spin ? 3.2 : truck ? 2.4 : 1.8,
         age: 0,
-        size0: spin ? 0.7 : truck ? 0.55 : 0.38,
-        size1: spin ? 2.8 : truck ? 2.4 : 1.85,
+        size0: spin ? 0.7 : truck ? 0.5 : 0.32,
+        size1: spin ? 2.6 : truck ? 1.8 : 1.15,
         kind: KIND.exhaust,
-        heat: truck ? 0.12 : 0.05,
-        fade: spin ? 90 : 26,
-        aspect: spin ? 0.8 : 1.1,
+        heat: truck ? 0.08 : 0.02,
+        fade: spin ? 90 : 22,
+        aspect: spin ? 0.85 : 1.55,
         floorY: spin ? t.y - 2 : ground,
         slot: 0,
         slotCap: cap,
