@@ -265,7 +265,7 @@ export class SmokeField {
     const gCap = LAUNCH_GROUND_CAP[tier];
     const cCap = LAUNCH_COLUMN_CAP[tier];
     const grown = Math.min(1, Math.max(0.35, drive.age / 10));
-    const gCount = Math.min(gCap, Math.max(10, Math.floor(gCap * grown)));
+    const gCount = Math.min(gCap, Math.max(8, Math.floor(gCap * grown * 0.55)));
     for (let n = 0; n < gCount; n++) {
       const puff = groundPuff(drive, camX, camZ, grown);
       const size1 = (tier === 'low' ? 10 : tier === 'medium' ? 14 : 16) + smokeRand() * 6;
@@ -298,7 +298,7 @@ export class SmokeField {
       const want = columnRadius(along, 0);
       const rad = want * (0.7 + smokeRand() * 0.5);
       const lean = plumeLean(along, len, wind.speed);
-      const size = (tier === 'low' ? 12 : tier === 'medium' ? 16 : 22) + Math.min(12, want * 0.45) + smokeRand() * 3;
+      const size = (tier === 'low' ? 9 : tier === 'medium' ? 12 : 14) + t * (tier === 'low' ? 6 : 12) + smokeRand() * 4;
       spawnParticle(this.pool, {
         x: drive.x + Math.cos(wind.dir) * lean + Math.cos(ang) * rad,
         y: drive.y + along,
@@ -437,11 +437,11 @@ export class SmokeField {
         slot: 0,
         slotCap: cap,
       });
-      if (!must) continue;
       const sp = Math.hypot(wakeX, wakeZ) || 1;
       const bx = -wakeX / sp;
       const bz = -wakeZ / sp;
-      for (const back of [0.45, 1.05, 1.75, 2.55, 3.4]) {
+      const backs = must ? [0.45, 1.05, 1.75, 2.55, 3.4] : [0.6, 1.4, 2.3];
+      for (const back of backs) {
         spawnParticle(this.pool, {
           x: t.x + bx * back, y: t.y + 0.08 + back * 0.05, z: t.z + bz * back,
           vx: wakeX * 0.92, vy: 0.22, vz: wakeZ * 0.92,
@@ -502,13 +502,12 @@ export class SmokeField {
       let baseA = KIND_ALPHA[kind] ?? 0.5;
       const d = Math.sqrt(dist[i]!);
       if (kind === KIND.exhaust && d < 7) baseA *= Math.max(0.12, (d - 2.5) / 4.5);
-      if ((kind === KIND.stall || kind === KIND.vent) && d < 2.4) baseA *= Math.max(0, (d - 0.7) / 1.7);
+      if ((kind === KIND.stall || kind === KIND.vent) && d < 4.2) baseA *= Math.max(0, (d - 2.2) / 2);
       if (kind === KIND.manhole && d < 4) baseA *= Math.max(0, (d - 1.6) / 2.4);
-      // Draw the sheath a few metres toward the camera so it sits in front of
-      // the gantry and over the ribbon. The offset is along the view ray, so
-      // the column stays on the flame in screen space.
-      if (kind === KIND.column && d > 30) {
-        const pull = 48 / d;
+      // A few metres along the view ray, so the sheath clears the gantry
+      // and stays on the flame. A 48 m pull put the base cloud on the lens.
+      if (kind === KIND.column && d > 40) {
+        const pull = 14 / d;
         px += (camX - px) * pull;
         py += (camY - py) * pull;
         pz += (camZ - pz) * pull;

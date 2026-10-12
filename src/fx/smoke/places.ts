@@ -147,25 +147,25 @@ function addMarket(
       const fz = -Math.cos(heading);
       const rx = fz;
       const rz = -fx;
-      const vent = laneSpot(query, x, s.y, z, fx, fz, rx, rz, 3.6, 0.4, 0.85);
+      const vent = laneSpot(query, x, s.y, z, fx, fz, rx, rz, 7.4, 0.55, 0.55);
       vents.push(make({
         x: vent.x,
         y: vent.y,
         z: vent.z,
         kind: KIND.vent,
         rate: 12,
-        life: 2.2,
-        size0: 0.32,
-        size1: 0.85,
+        life: 2.3,
+        size0: 0.28,
+        size1: 0.72,
         heat: 0,
         radius: 0.08,
         spread: 0.08,
-        rise: 1.55,
-        fade: 18,
-        aspect: 2.15,
+        rise: 1.65,
+        fade: 20,
+        aspect: 2.05,
         floorY: s.y,
       }));
-      const hole = laneSpot(query, x, s.y, z, fx, fz, rx, rz, 8.2, -1.3, 0.4);
+      const hole = laneSpot(query, x, s.y, z, fx, fz, rx, rz, 13.2, -1.5, 0.38);
       holes.push(make({
         x: hole.x,
         y: hole.y,
@@ -236,18 +236,18 @@ function addMarket(
     const rx = hz;
     const rz = -hx;
     food.push(make({
-      x: s.x + hx * 4.8 + rx * 1.15, y: s.y + 0.95, z: s.z + hz * 4.8 + rz * 1.15,
+      x: s.x + hx * 4.2 + rx * 2.15, y: s.y + 1.0, z: s.z + hz * 4.2 + rz * 2.15,
       kind: KIND.stall,
       rate: 14,
-      life: 1.15,
-      size0: 0.14,
-      size1: 0.4,
+      life: 1.2,
+      size0: 0.16,
+      size1: 0.5,
       heat: 0.12,
       radius: 0.06,
-      spread: 0.06,
-      rise: 0.5,
+      spread: 0.05,
+      rise: 0.58,
       fade: 8,
-      aspect: 1.65,
+      aspect: 1.75,
       floorY: s.y,
     }));
   }
@@ -378,14 +378,14 @@ export function gatherEmitters(
         kind: KIND.barrel,
         rate: 14,
         life: 3.6,
-        size0: 0.26,
-        size1: 0.72,
+        size0: 0.3,
+        size1: 0.95,
         heat: 1,
         radius: 0.14,
         spread: 0.06,
-        rise: 0.8,
+        rise: 0.95,
         fade: 28,
-        aspect: 1.25,
+        aspect: 1.35,
         floorY: door.y,
       }));
     }
