@@ -264,7 +264,7 @@ function resStack(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
   const every = (variant === 1 ? 3 : 4) * RES_STOREY;
   const faces = variant === 2 ? 2 : 1;
   for (let y = y0 + every; y < y0 + H - 2; y += every) {
-    balcony(d, bd / 2 + 0.32, 0, bw * 0.62, 1.05, y, spec.lit, spec.tint);
+    balcony(d, -(bd / 2 + 0.32), 0, bw * 0.62, 1.05, y, spec.lit, spec.tint);
     if (faces === 2) balcony(d, 0, bw / 2 + 0.32, 1.05, bd * 0.55, y, spec.lit, spec.tint);
     if (variant !== 0 && ((y / every) | 0) % 2 === 0) {
       addBox(d, {
@@ -334,6 +334,11 @@ function cantilever(d: Draft, spec: TowerSpec, H: number, y0: number, door: bool
   addBox(d, {
     s: 0, t, lb: topW, la: topD, h: H - baseH, base: y0 + baseH,
     style: Style.Panel, lit: spec.lit, tint: spec.tint, detail: 0, role: 'mass',
+  });
+  // A lit soffit on the joint, so the wider top reads against the night.
+  addBox(d, {
+    s: 0, t, lb: topW + 1.1, la: topD + 1.1, h: 1.15, base: y0 + baseH,
+    style: Style.Glow, lit: 0.55, tint: 1.12, detail: 0, role: 'band',
   });
   const bands = variant === 0 ? 4 : 3;
   for (let i = 1; i <= bands; i++) {

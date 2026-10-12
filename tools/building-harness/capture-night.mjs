@@ -331,9 +331,9 @@ for (const tier of tiers) {
           lateral = Math.max(p.w, p.d) * 0.9;
           y = p.ground + p.height * 0.26;
         } else if (p.kind === 'cantilever') {
-          reach = Math.max(p.d, p.w) * 1.7 + p.height * 0.12;
-          lateral = Math.max(p.w, p.d) * 0.42;
-          y = p.ground + p.height * 0.18;
+          reach = Math.max(150, p.height * 0.72);
+          lateral = Math.max(p.w, p.d) * 0.9;
+          y = p.ground + p.height * 0.52;
         } else if (gate) {
           reach = Math.max(120, p.height * 0.32);
           lateral = 52;
@@ -343,7 +343,8 @@ for (const tier of tiers) {
         const pz = p.center[1] + p.normal[1] * reach * face + p.bz * lateral;
         const ax = p.center[0];
         const az = p.center[1];
-        const ay = p.ground + p.height * (zig || cross ? 0.38 : 0.42);
+        const aimF = zig || cross ? 0.38 : p.kind === 'cantilever' ? 0.34 : p.kind === 'holo-shaft' ? 0.46 : 0.42;
+        const ay = p.ground + p.height * aimF;
         const heading = Math.atan2(ax - px, -(az - pz));
         const pitch = Math.atan2(ay - y, Math.hypot(ax - px, az - pz));
         if (nla.app.cams.mode !== 'fly') nla.setMode('fly');
@@ -366,31 +367,73 @@ for (const tier of tiers) {
         const face = 1;
         const framed = {
           buttress: { dist: 260, yF: 0.28, side: 0.46, aim: 0.42 },
-          cantilever: { dist: 420, yF: 0.14, side: 0.32, aim: 0.42 },
-          'res-stack': { dist: 240, yF: 0.3, side: 0.5, aim: 0.48 },
+          'res-stack': { dist: 200, yF: 0.34, side: 0.55, aim: 0.42 },
           'hero-step': { dist: 380, yF: 0.16, side: 0.46, aim: 0.42 },
           'hero-gate': { dist: 340, yF: 0.28, side: 0.5, aim: 0.46 },
           'hero-obelisk': { dist: 320, yF: 0.26, side: 0.38, aim: 0.48 },
-          'holo-shaft': { dist: 170, yF: 0.55, side: 0.18, aim: 0.42 },
           monolith: { dist: 220, yF: 0.28, side: 0.32, aim: 0.42 },
         };
-        const shot = framed[p.kind];
-        const side = shot ? shot.side : 0.06;
-        let dist = shot ? shot.dist : Math.max(480, p.height * 1.35);
-        let y = p.ground + (shot ? p.height * shot.yF : Math.max(80, Math.min(240, p.height * 0.42)));
+        // Stay at the feature (billboard, shelf, balcony band). Step sideways
+        // before climbing, so a blocked start does not become a roof shot.
+        const feature = {
+          'holo-shaft': [
+            { dist: 155, yF: 0.42, side: 0.1, aim: 0.46 },
+            { dist: 190, yF: 0.4, side: -0.14, aim: 0.46 },
+            { dist: 230, yF: 0.48, side: 0.08, aim: 0.5 },
+            { dist: 280, yF: 0.5, side: 0.02, aim: 0.5 },
+          ],
+          cantilever: [
+            { dist: 175, yF: 0.5, side: 0.42, aim: 0.34 },
+            { dist: 210, yF: 0.55, side: -0.38, aim: 0.36 },
+            { dist: 250, yF: 0.6, side: 0.28, aim: 0.38 },
+            { dist: 310, yF: 0.66, side: 0.16, aim: 0.4 },
+          ],
+        };
+        const tries = feature[p.kind];
+        let dist;
+        let y;
         let px = p.center[0];
         let pz = p.center[1];
-        for (let i = 0; i < 7; i++) {
-          px = p.center[0] + p.normal[0] * dist * face + p.bx * dist * side;
-          pz = p.center[1] + p.normal[1] * dist * face + p.bz * dist * side;
-          const blocked = q.insideSolid(px, y, pz, 14) || q.insideLandmark(px, y, pz, 18);
-          if (!blocked) break;
-          dist += shot ? 80 : 140;
-          y += shot ? 24 : 45;
+        let aimF;
+        if (tries) {
+          const pick = tries[tries.length - 1];
+          dist = pick.dist;
+          y = p.ground + p.height * pick.yF;
+          aimF = pick.aim;
+          px = p.center[0] + p.normal[0] * dist * face + p.bx * dist * pick.side;
+          pz = p.center[1] + p.normal[1] * dist * face + p.bz * dist * pick.side;
+          for (const shot of tries) {
+            const sy = p.ground + p.height * shot.yF;
+            const sx = p.center[0] + p.normal[0] * shot.dist * face + p.bx * shot.dist * shot.side;
+            const sz = p.center[1] + p.normal[1] * shot.dist * face + p.bz * shot.dist * shot.side;
+            const blocked = q.insideSolid(sx, sy, sz, 12) || q.insideLandmark(sx, sy, sz, 16);
+            if (!blocked) {
+              dist = shot.dist;
+              y = sy;
+              px = sx;
+              pz = sz;
+              aimF = shot.aim;
+              break;
+            }
+          }
+        } else {
+          const shot = framed[p.kind];
+          const side = shot ? shot.side : 0.06;
+          dist = shot ? shot.dist : Math.max(480, p.height * 1.35);
+          y = p.ground + (shot ? p.height * shot.yF : Math.max(80, Math.min(240, p.height * 0.42)));
+          aimF = shot ? shot.aim : 0.62;
+          for (let i = 0; i < 7; i++) {
+            px = p.center[0] + p.normal[0] * dist * face + p.bx * dist * side;
+            pz = p.center[1] + p.normal[1] * dist * face + p.bz * dist * side;
+            const blocked = q.insideSolid(px, y, pz, 14) || q.insideLandmark(px, y, pz, 18);
+            if (!blocked) break;
+            dist += shot ? 80 : 140;
+            y += shot ? 24 : 45;
+          }
         }
         const ax = p.center[0];
         const az = p.center[1];
-        const ay = p.ground + p.height * (shot ? shot.aim : 0.62);
+        const ay = p.ground + p.height * aimF;
         const heading = Math.atan2(ax - px, -(az - pz));
         const pitch = Math.atan2(ay - y, Math.hypot(ax - px, az - pz));
         if (nla.app.cams.mode !== 'fly') nla.setMode('fly');
