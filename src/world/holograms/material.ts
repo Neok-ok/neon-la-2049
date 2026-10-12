@@ -203,14 +203,15 @@ function veilDancer(p: any, t: any, seed: any, mot: any, detail: any, distCam: a
   const inside = step(float(0), uFig).mul(step(uFig, float(1)));
   const sampled = dancerMaskNode.sample(vec2(uFig.sub(sway.mul(1.4)), p.y)).r.mul(inside);
   const body = mix(sdf, sampled, dancerMaskReady);
-  // Hand the near slice to the hero mesh. Ghost slices stay on this quad.
+  // Hand every slice to the hero mesh inside 100 m. A ghost slice left up
+  // paints the solid mask into the skirt gaps and the street reads one crystal.
   // Distance is to the planted hem, not the fragment: a head fragment on a
   // 68 m panel is far enough that the flat column stayed up over the mesh.
   const hemDrop = mix(span.y.mul(0.48), span.y.mul(0.5), step(float(20), span.x));
   const anchorY = positionWorld.y.sub(p.y.sub(0.5).mul(span.y));
   const hem = vec3(positionWorld.x, anchorY.sub(hemDrop), positionWorld.z);
   const distFig = length(hem.sub(cameraPosition));
-  const close = smoothstep(float(80), float(24), distFig).mul(smoothstep(float(0.08), float(0.22), detail)).mul(step(slice, float(0.5)));
+  const close = smoothstep(float(132), float(100), distFig).mul(smoothstep(float(0.08), float(0.22), detail));
   // Stay under the bloom threshold (1.0). The shared *2.5 is for small signs;
   // this figure is 68 m tall and that gain clipped it to a white diamond.
   return body.mul(float(1).sub(close)).mul(0.4);

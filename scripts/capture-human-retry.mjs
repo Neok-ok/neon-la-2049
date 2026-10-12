@@ -10,6 +10,7 @@ const TIER = process.env.TIER || 'both';
 const SKIP_DANCER = process.env.SKIP_DANCER === '1';
 const SKIP_DOOR = process.env.SKIP_DOOR === '1';
 const DANCER_ONLY = process.env.DANCER_ONLY === '1';
+const DOOR_ONLY = process.env.DOOR_ONLY === '1';
 mkdirSync(OUT, { recursive: true });
 
 const DISTRICTS = [
@@ -777,7 +778,7 @@ async function boot(quality) {
       const nz = Math.cos(spec.yaw);
       // The figure is 68 m. Aiming at 0.66 of that height from 40 m cuts the
       // legs off and leaves a vertical smear. 0.40 from farther back keeps
-      // hem and crown inside a 60° view, and stays inside the 82 m hero gate.
+      // hem and crown inside a 60° view, and stays inside the 100 m mesh handoff.
       const lookY = hem + spec.h * 0.40;
       let placed = null;
       let lastFit = null;
@@ -1587,6 +1588,10 @@ async function runTier(tier) {
   if (DANCER_ONLY) {
     await dancerStrip(`dancer-broadway-${tier}`, 'joi-bridge-dancer');
     await dancerStrip(`dancer-hollywood-${tier}`, 'hollywood-dancer');
+    return;
+  }
+  if (DOOR_ONLY) {
+    await doorShot(tier);
     return;
   }
   for (const [id, fn, kinds] of DISTRICTS) {

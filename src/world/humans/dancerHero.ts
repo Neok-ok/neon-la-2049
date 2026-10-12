@@ -1,6 +1,6 @@
-// Nearest Veil House dancer, as a mesh, inside 82 m on medium and above.
+// Nearest Veil House dancer, as a mesh, inside 132 m on medium and above.
 // The instanced hologram quad keeps getHoloMaterial. This is the one extra draw.
-// Far and low stay on that quad, masked by the low-mesh silhouette.
+// Far and low stay on that quad. Street cameras (about 50–80 m) are fully on this mesh.
 import {
   AdditiveBlending, BufferAttribute, BufferGeometry, DataTexture, DoubleSide, LinearFilter, Mesh, MeshBasicNodeMaterial,
   NearestFilter, NoColorSpace, RGBAFormat, TextureLoader, UnsignedByteType, Vector3,
@@ -122,10 +122,10 @@ function heroMaterial(palette: Texture): MeshBasicNodeMaterial {
   m.colorNode = T.Fn(() => {
     // The figure is 60 m tall. Distance to a head vertex is much larger than
     // distance to the hem, so a per-vertex fade hid the diamond and left the
-    // flat panel in its place. One distance, to the planted hem, matches the
-    // 82 m gate and keeps the whole body on this mesh.
+    // flat panel in its place. One distance, to the planted hem. Fully on by
+    // 100 m, so a street frame sees the skirt gaps instead of the solid quad.
     const dist = T.length(T.modelPosition.sub(T.cameraPosition));
-    const close = T.smoothstep(T.float(80), T.float(24), dist);
+    const close = T.smoothstep(T.float(132), T.float(100), dist);
     const tint = T.vec3(1, 0.18, 0.55);
     // Diamond head (part 5) and the raised hand (part 2) take the hot core.
     // The skirts stay pink, so the pose separates under the scan.
@@ -378,7 +378,7 @@ export class DancerHero {
         best = spec;
       }
     }
-    if (!best || bestD > 82) {
+    if (!best || bestD > 132) {
       this.mesh.scale.setScalar(0);
       this.shown = 0;
       this.tris = 0;

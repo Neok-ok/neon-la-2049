@@ -63,8 +63,12 @@ def write_atlas(path: Path):
 
 
 def write_mask(path: Path):
-    """Front silhouette of the low dancer in the 15 m × 68 m quad's UV."""
-    mesh = build_dancer('low')
+    """Front silhouette in the 15 m × 68 m quad's UV.
+
+    Medium, not the low shell. The low shell is one filled polygon, and that
+    mask was painting the skirt gaps shut on the far quad.
+    """
+    mesh = build_dancer('medium')
     w, h = 256, 512
     img = Image.new('L', (w, h), 0)
     draw = ImageDraw.Draw(img)
