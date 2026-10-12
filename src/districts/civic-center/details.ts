@@ -126,13 +126,13 @@ registerDetail('civic-street', ['civic-center'], (ctx) => {
     if (!inside(p.x, p.z) || !keepRank(p.rank, scale)) continue;
     props.push(p);
     // A downward cone from the pylon missed the forecourt. A point practical reaches the plaza.
-    if (p.sy < 0.5 && (p.emissive[0] > 0.5 || p.emissive[2] > 0.28)) {
+    if (p.sy < 0.5 && (p.emissive[0] > 0.5 || p.emissive[2] > 0.15)) {
       const cool = p.emissive[2] >= p.emissive[0];
       plazaLights.push({
         preset: cool ? 'beacon-white' : 'street-sodium',
         x: p.x, y: p.y, z: p.z, dx: 0, dy: -1, dz: 0,
-        candela: cool ? 16000 : 9000,
-        range: cool ? 42 : 24,
+        candela: cool ? 42000 : 9000,
+        range: cool ? 48 : 24,
       });
     }
   }

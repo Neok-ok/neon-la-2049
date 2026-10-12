@@ -139,7 +139,9 @@ async function grab(page, s, errors) {
       const st = window.__nla?.stats?.();
       return st && st.fps > 0 && st.drawCalls > 20 && st.lod0 >= 4;
     }, null, { timeout: 75_000, polling: 400 }).catch(() => log(`${s.name}: still streaming`));
-    await page.waitForTimeout(1200);
+    // Lamps stream in with the chunk. Frame again once they exist.
+    await page.evaluate(s.after);
+    await page.waitForTimeout(900);
     await page.evaluate(() => new Promise((resolve) => {
       requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
     }));
