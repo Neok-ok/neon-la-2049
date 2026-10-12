@@ -25,7 +25,7 @@ import {
 /** Share of the street budget. Indexed by KIND. Launch kinds stay on their own slots. */
 const KIND_SHARE = [0.16, 0.12, 0.12, 0.1, 0.14, 0.22, 0.14];
 /** Card opacity. Stack cards overlap into one column, so each stamp stays lighter. */
-const KIND_ALPHA = [0.58, 0.82, 0.88, 0.62, 0.86, 0.78, 0.95, 0.72, 0.84];
+const KIND_ALPHA = [0.72, 0.82, 0.88, 0.74, 0.86, 0.78, 0.95, 0.72, 0.84];
 /** How many aged cards one emitter may seed, so a still shows the plume and not the first puff. */
 const SEED_CAP = [12, 10, 14, 12, 14, 36];
 
@@ -292,7 +292,7 @@ export class SmokeField {
     const len = Math.max(80, drive.headY - drive.y);
     const span = Math.min(len * 0.94, 1500);
     for (let n = 0; n < cCap; n++) {
-      const core = smokeRand() < 0.36;
+      const core = smokeRand() < 0.14;
       const capHead = !core && smokeRand() < 0.18;
       const along = core
         ? 4 + Math.pow(smokeRand(), 1.1) * Math.min(span, 480)
@@ -304,7 +304,7 @@ export class SmokeField {
       const want = columnRadius(along, 0);
       const rad = core ? want * (0.02 + smokeRand() * 0.12) : want * (0.78 + smokeRand() * 0.4);
       const lean = plumeLean(along, len, wind.speed);
-      const size = want * (core ? 0.22 : 0.58) + smokeRand() * (core ? 2 : 4);
+      const size = want * (core ? 0.12 : 0.62) + smokeRand() * (core ? 1.5 : 4);
       spawnParticle(this.pool, {
         x: drive.x + Math.cos(wind.dir) * lean + Math.cos(ang) * rad,
         y: drive.y + along,
@@ -366,7 +366,7 @@ export class SmokeField {
     this.columnAcc += (tier === 'ultra' ? 6 : tier === 'high' ? 4.5 : tier === 'medium' ? 2.4 : 1.4) * dt;
     const len = Math.max(80, drive.headY - drive.y);
     while (this.columnAcc >= 1 && this.pool.slotN[2] < cCap) {
-      const core = smokeRand() < 0.34;
+      const core = smokeRand() < 0.14;
       const along = core
         ? 4 + smokeRand() * Math.min(len, 280)
         : 6 + smokeRand() * Math.min(len, 360);
@@ -375,7 +375,7 @@ export class SmokeField {
       const want = columnRadius(along, 0);
       const rad = core ? want * (0.03 + smokeRand() * 0.1) : want * (0.8 + smokeRand() * 0.38);
       const lean = plumeLean(along, len, wind.speed);
-      const size = want * (core ? 0.2 : 0.55) + (core ? 1 : 3);
+      const size = want * (core ? 0.12 : 0.58) + (core ? 1 : 3);
       const ok = spawnParticle(this.pool, {
         x: drive.x + Math.cos(wind.dir) * lean + Math.cos(ang) * rad,
         y: drive.y + along,

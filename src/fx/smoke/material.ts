@@ -104,9 +104,12 @@ function shade(lit: boolean): MeshBasicNodeMaterial {
       .add(vec3(0.5, 0.51, 0.52).mul(exhaustK))
       .add(vec3(0.78, 0.76, 0.72).mul(launch));
     const body = U.fogColor.mul(albedo).mul(0.8);
-    // Soot and the pad sheath are a few nits of grey. A window is 18. This is not a lift.
+    // A few nits, not authoredLift. A window is 18 nits (~0.78 after the night exposure).
+    // Steam at ~4 nits is a dark wisp (~0.19) and the lamps still add on top.
     const sootK = barrel.add(stack).add(exhaustK);
-    const ash = vec3(0.5, 0.48, 0.45).mul(sootK).mul(7.0).add(vec3(0.72, 0.68, 0.62).mul(launch).mul(8.0));
+    const ash = vec3(0.78, 0.8, 0.82).mul(steam).mul(5.5)
+      .add(vec3(0.5, 0.48, 0.45).mul(sootK).mul(7.0))
+      .add(vec3(0.72, 0.68, 0.62).mul(launch).mul(8.0));
 
     const world = ctr.xyz;
     const litScale = float(1.6);
@@ -126,7 +129,7 @@ function shade(lit: boolean): MeshBasicNodeMaterial {
     const shade = mix(float(0.55), float(0.12), launchK.add(stackK).add(barrelK.mul(0.65)));
     const crease = mix(shade, float(1), lumps);
     const hot = smoothstep(float(0.5), float(1.05), extra.x).mul(launch);
-    const core = vec3(1.45, 0.82, 0.32).mul(hot).mul(coreDisc).mul(22.0);
+    const core = vec3(1.45, 0.82, 0.32).mul(hot).mul(coreDisc).mul(8.0);
     const rgb = body.mul(crease).add(ash.mul(crease)).add(lamps).add(heat).add(core);
 
     const dist = length(ctr.xyz.sub(cameraPosition));

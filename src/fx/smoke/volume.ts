@@ -80,7 +80,8 @@ function volumeMaterial(): MeshBasicNodeMaterial {
       pos.addAssign(dir.mul(stepLen).mul(live));
       const rel = pos.sub(volBase);
       const height = rel.y.add(volHalf.y);
-      const shear = volWind.mul(height.mul(0.08));
+      // The box is already leaned with the ribbon. A tall shear slid a second orange streak off the sheath.
+      const shear = volWind.mul(height.sub(volHeight.mul(0.45)).mul(0.004));
       const radial = length(rel.xz.sub(shear.xz));
       const t = clamp(height.div(max(volHeight, 1.0)), 0, 1);
       const n1 = mx_noise_float(pos.mul(0.018).add(vec3(U.time.mul(0.03), U.time.mul(0.012), 0))).mul(0.5).add(0.5);
