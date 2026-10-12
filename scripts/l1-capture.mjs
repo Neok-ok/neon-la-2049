@@ -26,7 +26,7 @@ const only = new Set((process.env.ONLY ?? '').split(',').map((s) => s.trim()).fi
 
 /** Night stills: every district, plus a neon close-up and a wet street, on ultra and medium. */
 const places = [
-  ['little-tokyo', () => { window.__nla.marketView('street'); window.__nla.lampShot(-8, -10, 5); }],
+  ['little-tokyo', () => { window.__nla.marketView('street'); window.__nla.lampShot(8, -10, 0); }],
   ['historic-core', () => { window.__nla.broadwayView('street'); window.__nla.lampShot(14, -12, 4); }],
   ['dtla', () => { window.__nla.dtlaView('street'); window.__nla.survey(); }],
   ['financial', () => { window.__nla.megaView('street'); window.__nla.lampShot(20, -6); }],
@@ -35,7 +35,7 @@ const places = [
   ['k-megablock', () => { window.__nla.kView('street'); window.__nla.lampShot(12); }],
   ['arts-district', () => { window.__nla.artsView('street'); window.__nla.lampShot(16, -14, 8); }],
   ['east-la', async () => { await window.__nla.eastLaView('street'); window.__nla.survey(6, -6, -18); }],
-  ['wallace', () => { window.__nla.wallaceView('plaza'); window.__nla.lampShot(-12, -14, 4); }],
+  ['wallace', () => { window.__nla.wallaceView('plaza'); window.__nla.lampShot(-10, -12, 0); }],
   ['lakewood', async () => { await window.__nla.lakewoodView('street'); window.__nla.survey(); }],
   ['south-la', async () => { await window.__nla.southLaView('street'); window.__nla.survey(); }],
   ['westside', async () => { await window.__nla.westsideView('street'); }],
@@ -44,7 +44,7 @@ const places = [
   ['lax', async () => { await window.__nla.laxView('terminal'); window.__nla.lampShot(16, -16, 14); }],
   ['south-bay', async () => { await window.__nla.southBayView('street'); window.__nla.lampShot(14, -16, 26); }],
   ['harbor', async () => { await window.__nla.harborView('street'); window.__nla.survey(); }],
-  ['long-beach', async () => { await window.__nla.longBeachView('canyon'); window.__nla.lampShot(14, -12); }],
+  ['long-beach', async () => { await window.__nla.longBeachView('canyon'); window.__nla.lampShot(14, -12, 10); }],
   ['coastal', () => { window.__nla.coastView('blocks'); window.__nla.survey(); }],
   ['road', () => { window.__nla.roadView('historic-core'); window.__nla.lampShot(18, -14, -6); }],
   ['neon-closeup', () => { window.__nla.holoView('street'); window.__nla.survey(12, 6, -34); }],

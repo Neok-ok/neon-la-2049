@@ -161,7 +161,8 @@ export class InteriorSystem {
         if (b.y0 < 12) continue;
         const dist = Math.hypot(x - b.x, z - b.z);
         const midY = (b.y0 + b.y1) * 0.5;
-        if (dist >= bd || Math.abs(y - midY) > 16) continue;
+        // A street pose is not a roof door. The old 16 m window handed the market camera to a pad.
+        if (dist >= bd || y < b.y0 - 3 || Math.abs(y - midY) > 8) continue;
         bd = dist;
         const vx = b.x - run.spec.volume.x;
         const vz = b.z - run.spec.volume.z;

@@ -61,7 +61,8 @@ function oneLight(i: number, world: any, N: any, V: any, albedo: any): any {
   const up = clamp(N.y, 0, 1);
   // A small disc under the pole. The old 2.5 m radius ate the pool the lantern was supposed to make.
   const disc = smoothstep(float(1.15), float(0.25), horiz).mul(up).mul(meta[i]!.w).mul(contactAmt);
-  const shade = float(1).sub(disc.mul(0.55));
+  // 0.55 left a black hole in the pool whenever the pole sat behind the bright ellipse.
+  const shade = float(1).sub(disc.mul(0.22));
   const diffuse = albedo.mul(E).mul(ndl).mul(shade).div(Math.PI);
   const H = normalize(L.add(V));
   const wet = U.wetness;
