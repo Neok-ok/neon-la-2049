@@ -731,12 +731,12 @@ export class GroundTraffic {
         const heavy = a.mesh === 'hauler' || a.mesh === 'tanker' || a.mesh === 'box' ? 1 : 0;
         out.push({
           x: px,
-          y: a.p.y + (heavy ? 1.35 : 1.05),
+          y: a.p.y + (heavy ? 0.55 : 0.38),
           z: pz,
           drive: Math.min(1, a.speed / 14),
           heavy,
-          wx: -a.fwd.x * a.speed * 0.55,
-          wz: -a.fwd.z * a.speed * 0.55,
+          wx: a.fwd.x * a.speed * 0.78,
+          wz: a.fwd.z * a.speed * 0.78,
         });
       }
     };

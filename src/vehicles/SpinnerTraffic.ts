@@ -113,8 +113,8 @@ export class SpinnerTraffic {
         x: px, y: py, z: pz,
         drive: Math.min(1, Math.max(0.35, c.speed / 40)),
         heavy: 2,
-        wx: -(c.dir.x / len) * c.speed * 0.22,
-        wz: -(c.dir.z / len) * c.speed * 0.22,
+        wx: (c.dir.x / len) * c.speed * 0.9,
+        wz: (c.dir.z / len) * c.speed * 0.9,
       });
       n++;
     }

@@ -83,7 +83,7 @@ function volumeMaterial(): MeshBasicNodeMaterial {
       const shear = volWind.mul(height.mul(0.08));
       const radial = length(rel.xz.sub(shear.xz));
       const t = clamp(height.div(max(volHeight, 1.0)), 0, 1);
-      const radius = mix(float(14), float(32), t);
+      const radius = mix(float(12), float(26), t);
       const column = smoothstep(radius, radius.mul(0.25), radial)
         .mul(smoothstep(0.0, 8.0, height))
         .mul(smoothstep(volHeight, volHeight.mul(0.7), height));
@@ -103,7 +103,7 @@ function volumeMaterial(): MeshBasicNodeMaterial {
       const g = 0.42;
       const phase = float(1 - g * g).div(pow(max(float(1 + g * g).sub(cos.mul(2 * g)), 0.05), 1.5));
       const flame = vec3(FLAME[0], FLAME[1], FLAME[2]).mul(att).mul(phase).mul(0.14).mul(authoredLiftU);
-      const albedo = mix(vec3(0.22, 0.18, 0.16), vec3(0.78, 0.62, 0.42), att);
+      const albedo = mix(vec3(0.72, 0.7, 0.66), vec3(0.95, 0.78, 0.48), att);
       const glow = flame.add(scatter).add(U.fogColor.mul(0.16)).mul(albedo);
       const absorb = density.mul(stepLen).mul(0.018);
       acc.addAssign(tr.mul(glow).mul(density).mul(stepLen).mul(0.07).mul(live));

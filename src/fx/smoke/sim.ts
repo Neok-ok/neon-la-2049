@@ -137,32 +137,38 @@ export function spawnEmitter(
 
 function buoy(kind: number): number {
   switch (kind) {
-    case KIND.vent: return 1.15;
-    case KIND.manhole: return 0.42;
-    case KIND.roof: return 0.95;
-    case KIND.stall: return 0.72;
-    case KIND.barrel: return 1.45;
-    case KIND.stack: return 1.7;
-    case KIND.exhaust: return 0.55;
-    case KIND.column: return 2.6;
-    case KIND.ground: return 1.35;
+    case KIND.vent: return 0.85;
+    case KIND.manhole: return 0.22;
+    case KIND.roof: return 1.05;
+    case KIND.stall: return 0.38;
+    case KIND.barrel: return 0.7;
+    case KIND.stack: return 2.05;
+    case KIND.exhaust: return 0.28;
+    case KIND.column: return 0.45;
+    case KIND.ground: return 0.55;
     default: return 1;
   }
 }
 
 function dragK(kind: number): number {
-  if (kind === KIND.column) return 0.09;
-  if (kind === KIND.ground) return 0.22;
-  if (kind === KIND.stack) return 0.18;
+  if (kind === KIND.column) return 0.42;
+  if (kind === KIND.ground) return 0.28;
+  if (kind === KIND.stack) return 0.16;
   return 0.45;
 }
 
 function turb(kind: number): number {
-  if (kind === KIND.column) return 2.1;
-  if (kind === KIND.ground) return 3.4;
-  if (kind === KIND.stack) return 1.8;
-  if (kind === KIND.barrel) return 0.9;
+  if (kind === KIND.column) return 0.7;
+  if (kind === KIND.ground) return 2.6;
+  if (kind === KIND.stack) return 3.1;
+  if (kind === KIND.barrel) return 0.55;
   return 0.45;
+}
+
+/** Same lean the flame ribbon uses: 0 at the pad, full lean at the head. */
+export function plumeLean(height: number, length: number, windSpeed: number): number {
+  const t = Math.max(0, Math.min(1, height / Math.max(24, length)));
+  return (10 + Math.min(12, Math.max(0, windSpeed)) * 1.4) * t;
 }
 
 /**
@@ -208,11 +214,13 @@ export function integrate(
     const c = curl(x * 0.07 + time * 0.05, y * 0.07, z * 0.07, 0.18);
     const roll = turb(kind);
     // The launch column leans, it does not leave the engine. Street smoke takes the full wind.
-    const windScale = kind === KIND.column ? 0.16
-      : kind === KIND.ground ? 0.28
-      : kind === KIND.stack ? 0.9
-      : kind === KIND.exhaust ? 0.22
-      : 0.4;
+    const windScale = kind === KIND.column ? 0.06
+      : kind === KIND.ground ? 0.42
+      : kind === KIND.stack ? 1.35
+      : kind === KIND.exhaust ? 0.12
+      : kind === KIND.stall ? 0.55
+      : kind === KIND.manhole ? 0.7
+      : 0.5;
     let vx = pool.vx[i]! + (wx * shear * push * windScale + c[0] * roll) * dt;
     let vy = pool.vy[i]! + (buoy(kind) * loft + c[1] * roll * 0.35) * dt;
     let vz = pool.vz[i]! + (wz * shear * push * windScale + c[2] * roll) * dt;
@@ -253,37 +261,25 @@ export function integrate(
     if (kind === KIND.column) {
       const drive = launchDrive();
       if (drive.id > 0) {
-        // Same lean magnitude as the flame ribbon, spread over the visible
-        // column so the sheath stays on the core instead of sliding off it.
+        // Hold a ring on the flame axis. The card centres sit off the core so
+        // the dense stamp reads as a sheath and the ribbon still shows through.
         const height = Math.max(0, y - drive.y);
-        const leanMag = 10 + Math.min(12, wind.speed) * 1.4;
         const len = Math.max(24, drive.headY - drive.y);
-        const y0 = 0.14 * len;
-        const y1 = 0.86 * len;
-        const lift = Math.max(0, Math.min(1, (height - y0) / Math.max(1, y1 - y0)));
-        const lean = leanMag * lift;
-        const toX = camX - drive.x;
-        const toZ = camZ - drive.z;
-        const inv = 1 / (Math.hypot(toX, toZ) || 1);
-        // A few metres toward the camera so the sheath draws over the ribbon
-        // instead of sitting in the open sky beside it.
-        const ax = drive.x + Math.cos(wind.dir) * lean + toX * inv * 3.2;
-        const az = drive.z + Math.sin(wind.dir) * lean + toZ * inv * 3.2;
+        const lean = plumeLean(height, len, wind.speed);
+        const ax = drive.x + Math.cos(wind.dir) * lean;
+        const az = drive.z + Math.sin(wind.dir) * lean;
         const ox = x - ax;
         const oz = z - az;
         const dist = Math.hypot(ox, oz) || 0.001;
-        const want = 3.5 + Math.min(8, height * 0.012);
+        const want = 5.5 + Math.min(9, height * 0.006);
         const err = dist - want;
-        const pull = 1 - Math.exp(-dt * 3.2);
+        const pull = 1 - Math.exp(-dt * 2.6);
         const nx = ox / dist;
         const nz = oz / dist;
-        if (err > 0) {
-          x -= nx * err * pull;
-          z -= nz * err * pull;
-        }
-        const swirl = dt * 1.1;
-        x += -nz * swirl * 1.6;
-        z += nx * swirl * 1.6;
+        x -= nx * err * pull * (err > 0 ? 1 : 0.45);
+        const swirl = dt * 0.35;
+        x += -nz * swirl;
+        z += nx * swirl;
       }
     }
 

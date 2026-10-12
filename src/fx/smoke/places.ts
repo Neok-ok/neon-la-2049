@@ -120,81 +120,80 @@ function addMarket(
   const noodle = spots.noodle;
   if (noodle) {
     const s = noodle.street;
-    const e = noodle.entrance;
-    const tx = e.x - s.x;
-    const tz = e.z - s.z;
-    const tl = Math.hypot(tx, tz) || 1;
-    const towardX = tx / tl;
-    const towardZ = tz / tl;
-    const ax = Math.sin(s.heading);
-    const az = -Math.cos(s.heading);
-    const lx = ax * 0.6 - towardX * 0.4;
-    const lz = az * 0.6 - towardZ * 0.4;
-    const heading = Math.atan2(lx, -lz) - 0.18;
-    const hx = Math.sin(heading);
-    const hz = -Math.cos(heading);
-    const camX = s.x + towardX * 1.15;
-    const camZ = s.z + towardZ * 1.15;
-    if ((camX - x) ** 2 + (camZ - z) ** 2 < 40 * 40) {
-      const rx = hz;
-      const rz = -hx;
+    if ((s.x - x) ** 2 + (s.z - z) ** 2 < 28 * 28 && y < s.y + 8) {
+      const fx = Math.sin(heading);
+      const fz = -Math.cos(heading);
+      const rx = fz;
+      const rz = -fx;
       vents.push(make({
-        x: camX + hx * 6.5 + rx * 1.4,
-        y: s.y + 1.9,
-        z: camZ + hz * 6.5 + rz * 1.4,
+        x: x + fx * 5.4 + rx * 1.7,
+        y: s.y + 0.7,
+        z: z + fz * 5.4 + rz * 1.7,
         kind: KIND.vent,
-        rate: 3.4,
-        life: 2.6,
-        size0: 0.22,
-        size1: 0.7,
+        rate: 4.2,
+        life: 3.2,
+        size0: 0.28,
+        size1: 1.15,
         heat: 0,
-        radius: 0.06,
-        spread: 0.1,
-        rise: 0.85,
-        fade: 18,
-        aspect: 1.35,
+        radius: 0.08,
+        spread: 0.35,
+        rise: 0.95,
+        fade: 16,
+        aspect: 1.45,
         floorY: s.y,
       }));
       holes.push(make({
-        x: camX + hx * 9.5 - rx * 0.6,
-        y: s.y + 0.85,
-        z: camZ + hz * 9.5 - rz * 0.6,
+        x: x + fx * 3.1 - rx * 0.85,
+        y: s.y + 0.22,
+        z: z + fz * 3.1 - rz * 0.85,
         kind: KIND.manhole,
-        rate: 2.4,
-        life: 4.4,
-        size0: 0.55,
-        size1: 1.8,
+        rate: 3.2,
+        life: 3.6,
+        size0: 0.7,
+        size1: 1.7,
         heat: 0,
-        radius: 0.18,
-        spread: 0.75,
-        rise: 0.18,
-        fade: 22,
-        aspect: 0.3,
+        radius: 0.35,
+        spread: 0.85,
+        rise: 0.16,
+        fade: 14,
+        aspect: 0.42,
         floorY: s.y,
       }));
     }
     if (y > s.y + 10 && (s.x - x) ** 2 + (s.z - z) ** 2 < 55 * 55) {
-      const hx2 = Math.sin(s.heading);
-      const hz2 = -Math.cos(s.heading);
-      const rx = s.x + hx2 * 6 + hz2 * 4;
-      const rz = s.z + hz2 * 6 - hx2 * 4;
-      let roof = query.floorBelow(rx, s.y + 80, rz, true);
-      if (!(roof > s.y + 5)) roof = query.floorBelow(s.x - hx2 * 5, s.y + 80, s.z - hz2 * 5, true);
-      if (!(roof > s.y + 5)) roof = s.y + 16;
+      const fx = Math.sin(heading);
+      const fz = -Math.cos(heading);
+      const rx = fz;
+      const rz = -fx;
+      let best: { x: number; z: number; roof: number; score: number } | null = null;
+      for (const along of [12, 20, 28, 36]) {
+        for (const side of [-14, -8, 8, 14]) {
+          const px = x + fx * along + rx * side;
+          const pz = z + fz * along + rz * side;
+          const roofY = query.floorBelow(px, y + 4, pz, true);
+          if (!(roofY > s.y + 6) || roofY > y - 1.2) continue;
+          const dist = Math.hypot(px - x, pz - z) || 1;
+          const pitch = Math.atan2(roofY - y, dist);
+          if (pitch > -0.18 || pitch < -1.0) continue;
+          const score = Math.abs(pitch + 0.5) * 5 + dist * 0.02;
+          if (!best || score < best.score) best = { x: px, z: pz, roof: roofY, score };
+        }
+      }
+      const spot = best ?? { x: x + fx * 16 + rx * 8, z: z + fz * 16 + rz * 8, roof: s.y + 18, score: 0 };
       roofs.push(make({
-        x: rx, y: roof + 1.8, z: rz,
+        x: spot.x, y: spot.roof + 1.15, z: spot.z,
         kind: KIND.roof,
-        rate: 3,
-        life: 4.8,
-        size0: 0.9,
-        size1: 3.2,
-        heat: 0.05,
-        radius: 0.2,
-        spread: 0.2,
-        rise: 1.35,
-        fade: 36,
-        aspect: 1.85,
-        floorY: roof,
+        rate: 4,
+        life: 5.5,
+        size0: 1.2,
+        size1: 4.6,
+        heat: 0,
+        radius: 0.25,
+        spread: 0.3,
+        rise: 1.5,
+        fade: 40,
+        aspect: 1.55,
+        floorY: spot.roof,
       }));
     }
   }
@@ -202,23 +201,23 @@ function addMarket(
     if (!shop) continue;
     const s = shop.street;
     if ((s.x - x) ** 2 + (s.z - z) ** 2 > 8 * 8) continue;
-    let dh = Math.atan2(Math.sin(heading - s.heading), Math.cos(heading - s.heading));
-    if (Math.abs(dh) > 0.45) continue;
+    const dh = Math.atan2(Math.sin(heading - s.heading), Math.cos(heading - s.heading));
+    if (Math.abs(dh) > 0.2) continue;
     const hx = Math.sin(s.heading);
     const hz = -Math.cos(s.heading);
     food.push(make({
-      x: s.x + hx * 2.6, y: s.y + 1.2, z: s.z + hz * 2.6,
+      x: s.x + hx * 1.4, y: s.y + 1.05, z: s.z + hz * 1.4,
       kind: KIND.stall,
-      rate: 8,
-      life: 1.7,
-      size0: 0.16,
-      size1: 0.7,
-      heat: 0.2,
-      radius: 0.1,
-      spread: 0.18,
-      rise: 0.45,
-      fade: 8,
-      aspect: 1.15,
+      rate: 11,
+      life: 1.25,
+      size0: 0.12,
+      size1: 0.48,
+      heat: 0.35,
+      radius: 0.12,
+      spread: 0.22,
+      rise: 0.28,
+      fade: 7,
+      aspect: 0.7,
       floorY: s.y,
     }));
   }
@@ -255,14 +254,14 @@ export function gatherEmitters(
           kind,
           rate: manhole ? 1.8 : 2.6,
           life: manhole ? 4.8 : 3.1,
-          size0: manhole ? 0.35 : 0.2,
-          size1: manhole ? 1.7 : 0.95,
+          size0: manhole ? 0.45 : 0.22,
+          size1: manhole ? 1.5 : 1.05,
           heat: 0,
-          radius: manhole ? 0.25 : 0.1,
-          spread: manhole ? 0.7 : 0.14,
-          rise: manhole ? 0.3 : 1.55,
-          fade: manhole ? 26 : 24,
-          aspect: manhole ? 0.32 : 2.5,
+          radius: manhole ? 0.3 : 0.08,
+          spread: manhole ? 0.6 : 0.22,
+          rise: manhole ? 0.2 : 0.9,
+          fade: manhole ? 18 : 16,
+          aspect: manhole ? 0.4 : 1.4,
           floorY: p.y,
         }));
       }
@@ -276,14 +275,14 @@ export function gatherEmitters(
           kind: KIND.barrel,
           rate: 4.2,
           life: 8,
-          size0: 0.55,
-          size1: 3.4,
+          size0: 0.2,
+          size1: 1.05,
           heat: 1,
-          radius: 0.18,
-          spread: 0.28,
-          rise: 1.7,
-          fade: 55,
-          aspect: 1.55,
+          radius: 0.12,
+          spread: 0.16,
+          rise: 0.55,
+          fade: 22,
+          aspect: 1.05,
           floorY: p.y,
         }));
       }
@@ -298,18 +297,18 @@ export function gatherEmitters(
         const roof = query.floorBelow(rx, b.ground + 90, rz, true);
         if (roof > b.ground + 6 && roof < b.ground + 80) {
           roofs.push(make({
-            x: rx, y: roof + 0.45, z: rz,
+            x: rx, y: roof + 1.15, z: rz,
             kind: KIND.roof,
             rate: 2.6,
             life: 5.2,
-            size0: 0.32,
-            size1: 1.45,
-            heat: 0.04,
-            radius: 0.18,
-            spread: 0.22,
-            rise: 1.25,
-            fade: 48,
-            aspect: 1.9,
+            size0: 0.55,
+            size1: 2.4,
+            heat: 0,
+            radius: 0.2,
+            spread: 0.25,
+            rise: 1.15,
+            fade: 36,
+            aspect: 1.5,
             floorY: roof,
           }));
           break;
@@ -323,16 +322,16 @@ export function gatherEmitters(
     stacks.push(make({
       x: f.x, y: f.y + 1.2, z: f.z,
       kind: KIND.stack,
-      rate: 3.6,
-      life: 18,
-      size0: 2.4,
-      size1: 9,
-      heat: 0.32,
-      radius: 0.45,
-      spread: 0.14,
-      rise: 4.2,
+      rate: 4.4,
+      life: 16,
+      size0: 1.5,
+      size1: 5.2,
+      heat: 0.06,
+      radius: 0.35,
+      spread: 0.55,
+      rise: 3.4,
       fade: 1100,
-      aspect: 1.4,
+      aspect: 2.35,
       floorY: f.y,
     }));
   };
@@ -347,16 +346,16 @@ export function gatherEmitters(
       barrels.push(make({
         x: bx, y: door.y + 1.3, z: bz,
         kind: KIND.barrel,
-        rate: 5,
-        life: 8,
-        size0: 0.45,
-        size1: 2.1,
+        rate: 7,
+        life: 4.5,
+        size0: 0.18,
+        size1: 0.95,
         heat: 1,
-        radius: 0.16,
-        spread: 0.2,
-        rise: 1.05,
-        fade: 40,
-        aspect: 1.15,
+        radius: 0.1,
+        spread: 0.12,
+        rise: 0.5,
+        fade: 24,
+        aspect: 0.95,
         floorY: door.y,
       }));
     }

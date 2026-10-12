@@ -12,7 +12,7 @@ import type { CityQuery } from '../../world/CityQuery';
 import { smokeRain, smokeMaterial } from './material';
 import { launchDrive, type LaunchDrive } from './launchDrive';
 import { barrelLights, gatherEmitters } from './places';
-import { integrate, killParticle, smokeRand, spawnEmitter, spawnParticle } from './sim';
+import { integrate, killParticle, plumeLean, smokeRand, spawnEmitter, spawnParticle } from './sim';
 import {
   LAUNCH_COLUMN_CAP, LAUNCH_GROUND_CAP, RATE_SCALE, SMOKE_CAP, streetCap,
 } from './tiers';
@@ -25,7 +25,7 @@ import {
 /** Share of the street budget. Indexed by KIND. Launch kinds stay on their own slots. */
 const KIND_SHARE = [0.16, 0.12, 0.12, 0.1, 0.14, 0.22, 0.14];
 /** Card opacity. Street steam stays translucent so wisps do not fuse into a bank. */
-const KIND_ALPHA = [0.78, 0.68, 0.74, 0.72, 0.86, 0.7, 0.72, 0.68, 0.62];
+const KIND_ALPHA = [0.84, 0.82, 0.88, 0.7, 0.92, 0.8, 0.84, 0.46, 0.68];
 /** How many aged cards one emitter may seed, so a grate is a wisp and a stack is a column. */
 const SEED_CAP = [4, 4, 5, 6, 8, 18];
 
@@ -263,64 +263,57 @@ export class SmokeField {
     const tier = drive.tier;
     const gCap = LAUNCH_GROUND_CAP[tier];
     const cCap = LAUNCH_COLUMN_CAP[tier];
-    const wx = Math.cos(wind.dir) * wind.speed;
-    const wz = Math.sin(wind.dir) * wind.speed;
-    const grown = Math.min(1, Math.max(0.15, drive.age / 12));
-    const gCount = Math.min(gCap, Math.max(8, Math.floor(gCap * grown)));
+    const grown = Math.min(1, Math.max(0.35, drive.age / 10));
+    const gCount = Math.min(gCap, Math.max(10, Math.floor(gCap * grown)));
     for (let n = 0; n < gCount; n++) {
-      const age = smokeRand() * Math.min(Math.max(drive.age, 1), 80);
-      const ang = smokeRand() * Math.PI * 2;
-      const climb = smokeRand();
-      const ring = climb < 0.45
-        ? (6 + grown * 26) * Math.pow(smokeRand(), 0.9)
-        : (4 + grown * 14) * Math.pow(smokeRand(), 1.1);
-      const yLift = climb < 0.45 ? 5 + smokeRand() * 16 + age * 0.2 : 12 + smokeRand() * 28;
-      const size1 = tier === 'low' ? 22 : tier === 'medium' ? 36 : 44;
-      const heat = Math.exp(-ring / 46) * Math.exp(-Math.max(0, yLift - 10) / 55);
+      const puff = groundPuff(drive, camX, camZ, grown);
+      const size1 = (tier === 'low' ? 10 : tier === 'medium' ? 14 : 18) + puff.ring * 0.1;
       spawnParticle(this.pool, {
-        x: drive.x + Math.cos(ang) * ring + wx * age * 0.2,
-        y: drive.y + yLift,
-        z: drive.z + Math.sin(ang) * ring + wz * age * 0.2,
-        vx: Math.cos(ang) * (2.2 + grown * 2),
-        vy: 1.4,
-        vz: Math.sin(ang) * (2.2 + grown * 2),
-        life: 120 + smokeRand() * 40,
-        age,
-        size0: 12,
+        x: puff.x,
+        y: puff.y,
+        z: puff.z,
+        vx: Math.cos(puff.ang) * (1.4 + grown),
+        vy: 0.6,
+        vz: Math.sin(puff.ang) * (1.4 + grown),
+        life: 140,
+        age: smokeRand() * 8,
+        size0: size1,
         size1,
         kind: KIND.ground,
-        heat,
+        heat: Math.exp(-puff.ring / 48) * Math.exp(-Math.max(0, puff.y - drive.y - 8) / 40),
         fade: 4500,
-        aspect: 0.72,
+        aspect: 0.78,
         floorY: drive.y,
         slot: 1,
         slotCap: gCap,
       });
     }
-    const h = Math.min(280, Math.max(40, drive.headY - drive.y));
+    const len = Math.max(80, drive.headY - drive.y);
+    const span = Math.min(len * 0.94, 1500);
     for (let n = 0; n < cCap; n++) {
-      const along = smokeRand() * h;
+      const along = 6 + (n + smokeRand() * 0.85) / cCap * (span - 6);
       const ang = smokeRand() * Math.PI * 2;
-      const rad = (1.8 + smokeRand() * 3.4) * (0.75 + along / Math.max(h, 1) * 0.4);
-      const len = Math.max(24, drive.headY - drive.y);
-      const lift = Math.max(0, Math.min(1, (along - 0.14 * len) / Math.max(1, 0.72 * len)));
-      const lean = (10 + Math.min(12, wind.speed) * 1.4) * lift;
-      const size1 = tier === 'low' ? 20 : tier === 'medium' ? 32 : 40;
+      const t = Math.max(0, Math.min(1, along / len));
+      const rad = smokeRand() < 0.28
+        ? smokeRand() * 2.4
+        : (4.5 + smokeRand() * 6.5) * (0.75 + t * 0.45);
+      const lean = plumeLean(along, len, wind.speed);
+      const size = (tier === 'low' ? 11 : tier === 'medium' ? 16 : 20) + t * (tier === 'low' ? 8 : 16);
       spawnParticle(this.pool, {
         x: drive.x + Math.cos(wind.dir) * lean + Math.cos(ang) * rad,
         y: drive.y + along,
         z: drive.z + Math.sin(wind.dir) * lean + Math.sin(ang) * rad,
-        vx: Math.cos(ang) * 1.4,
-        vy: 6 + smokeRand() * 5,
-        vz: Math.sin(ang) * 1.4,
-        life: 28 + smokeRand() * 12,
-        age: smokeRand() * 2.5,
-        size0: tier === 'low' ? 10 : 7,
-        size1,
+        vx: Math.cos(ang) * 0.4,
+        vy: 0.8,
+        vz: Math.sin(ang) * 0.4,
+        life: 48,
+        age: smokeRand() * 6,
+        size0: size,
+        size1: size,
         kind: KIND.column,
-        heat: Math.max(0.15, 1 - rad / 16) * (1 - along / Math.max(h, 1) * 0.55),
+        heat: Math.max(0.05, (1 - t) * 0.75) * Math.exp(-rad / 14),
         fade: 5200,
-        aspect: 1.35,
+        aspect: 1.55,
         floorY: drive.y,
         slot: 2,
         slotCap: cCap,
@@ -332,28 +325,27 @@ export class SmokeField {
     if (!drive.burning || drive.id <= 0) return;
     const gCap = LAUNCH_GROUND_CAP[tier];
     const cCap = LAUNCH_COLUMN_CAP[tier];
-    if (drive.age < 22 && this.pool.slotN[1] < gCap) {
-      this.groundAcc += (tier === 'low' ? 4 : 10) * dt;
-      const grown = Math.min(1, drive.age / 14);
+    if (drive.age < 28 && this.pool.slotN[1] < gCap) {
+      this.groundAcc += (tier === 'low' ? 4 : 8) * dt;
+      const grown = Math.min(1, drive.age / 10);
       while (this.groundAcc >= 1 && this.pool.slotN[1] < gCap) {
-        const ang = smokeRand() * Math.PI * 2;
-        const ring = (6 + grown * 50) * Math.pow(smokeRand(), 0.85);
-        const yLift = 6 + smokeRand() * 22;
+        const puff = groundPuff(drive, camX, camZ, grown);
+        const size1 = (tier === 'low' ? 10 : 16) + puff.ring * 0.1;
         const ok = spawnParticle(this.pool, {
-          x: drive.x + Math.cos(ang) * ring,
-          y: drive.y + yLift,
-          z: drive.z + Math.sin(ang) * ring,
-          vx: Math.cos(ang) * (3 + grown * 4),
-          vy: 1.6 + smokeRand(),
-          vz: Math.sin(ang) * (3 + grown * 4),
-          life: 110 + smokeRand() * 30,
+          x: puff.x,
+          y: puff.y,
+          z: puff.z,
+          vx: Math.cos(puff.ang) * 1.6,
+          vy: 0.7,
+          vz: Math.sin(puff.ang) * 1.6,
+          life: 120,
           age: 0,
-          size0: 10,
-          size1: tier === 'low' ? 32 : 54,
+          size0: size1 * 0.7,
+          size1,
           kind: KIND.ground,
-          heat: Math.exp(-ring / 40) * Math.exp(-yLift / 50),
+          heat: Math.exp(-puff.ring / 48),
           fade: 4500,
-          aspect: 0.68,
+          aspect: 0.78,
           floorY: drive.y,
           slot: 1,
           slotCap: gCap,
@@ -365,29 +357,30 @@ export class SmokeField {
         this.groundAcc -= 1;
       }
     }
-    this.columnAcc += (tier === 'ultra' ? 8 : tier === 'high' ? 6 : tier === 'medium' ? 3.5 : 2) * dt;
-    const h = Math.min(240, Math.max(20, drive.headY - drive.y));
-    const wx = Math.cos(wind.dir) * wind.speed;
-    const wz = Math.sin(wind.dir) * wind.speed;
+    this.columnAcc += (tier === 'ultra' ? 6 : tier === 'high' ? 4.5 : tier === 'medium' ? 2.4 : 1.4) * dt;
+    const len = Math.max(80, drive.headY - drive.y);
     while (this.columnAcc >= 1 && this.pool.slotN[2] < cCap) {
-      const along = smokeRand() * h * 0.45;
+      const along = 4 + smokeRand() * Math.min(len, 220);
       const ang = smokeRand() * Math.PI * 2;
-      const rad = 1.6 + smokeRand() * 3.2;
+      const t = Math.max(0, Math.min(1, along / len));
+      const rad = 4 + smokeRand() * 7;
+      const lean = plumeLean(along, len, wind.speed);
+      const size = (tier === 'low' ? 12 : 18) + t * 10;
       const ok = spawnParticle(this.pool, {
-        x: drive.x + Math.cos(ang) * rad + wx * 0.15,
-        y: drive.y + 4 + along,
-        z: drive.z + Math.sin(ang) * rad + wz * 0.15,
-        vx: Math.cos(ang) * 1.4,
-        vy: 8 + smokeRand() * 5,
-        vz: Math.sin(ang) * 1.4,
-        life: 24 + smokeRand() * 10,
+        x: drive.x + Math.cos(wind.dir) * lean + Math.cos(ang) * rad,
+        y: drive.y + along,
+        z: drive.z + Math.sin(wind.dir) * lean + Math.sin(ang) * rad,
+        vx: Math.cos(ang) * 0.35,
+        vy: 1.4,
+        vz: Math.sin(ang) * 0.35,
+        life: 36,
         age: 0,
-        size0: 7,
-        size1: tier === 'low' ? 24 : 42,
+        size0: size * 0.65,
+        size1: size,
         kind: KIND.column,
-        heat: Math.max(0.25, 1 - rad / 12),
+        heat: Math.max(0.15, 0.8 * (1 - t)),
         fade: 5200,
-        aspect: 1.25,
+        aspect: 1.55,
         floorY: drive.y,
         slot: 2,
         slotCap: cCap,
@@ -427,10 +420,10 @@ export class SmokeField {
         vx: wakeX,
         vy: spin ? 0.35 : 0.55,
         vz: wakeZ,
-        life: spin ? 3.2 : truck ? 2.4 : 1.8,
+        life: spin ? 2.2 : truck ? 1.35 : 1.05,
         age: 0,
-        size0: spin ? 0.7 : truck ? 0.5 : 0.32,
-        size1: spin ? 2.6 : truck ? 1.8 : 1.15,
+        size0: spin ? 0.45 : truck ? 0.28 : 0.16,
+        size1: spin ? 1.5 : truck ? 0.85 : 0.55,
         kind: KIND.exhaust,
         heat: truck ? 0.08 : 0.02,
         fade: spin ? 90 : 48,
@@ -444,10 +437,10 @@ export class SmokeField {
       spawnParticle(this.pool, {
         x: t.x + wakeX * back, y: t.y + 0.25, z: t.z + wakeZ * back,
         vx: wakeX, vy: 0.4, vz: wakeZ,
-        life: truck ? 2.2 : 1.6,
-        age: 0.35,
-        size0: truck ? 0.5 : 0.32,
-        size1: truck ? 1.8 : 1.15,
+        life: truck ? 1.3 : 1.0,
+        age: 0.28,
+        size0: truck ? 0.28 : 0.16,
+        size1: truck ? 0.85 : 0.55,
         kind: KIND.exhaust,
         heat: 0.02,
         fade: 48,
@@ -531,17 +524,15 @@ export class SmokeField {
       volDensity.value = 0;
       return;
     }
-    const grown = Math.min(1, drive.age / 14);
-    const ring = 18 + grown * 130;
-    const colH = Math.min(400, Math.max(50, drive.headY - drive.y));
-    const height = Math.max(colH + 30, 90);
-    const halfW = ring + 46;
+    const colH = Math.min(1100, Math.max(80, drive.headY - drive.y));
+    const height = colH;
+    const halfW = 42;
     const wx = Math.cos(drive.windDir) * drive.wind;
     const wz = Math.sin(drive.windDir) * drive.wind;
-    const lean = height * 0.08;
-    const cx = drive.x + wx * lean * 0.35;
+    const midLean = plumeLean(height * 0.45, height, drive.wind);
+    const cx = drive.x + Math.cos(drive.windDir) * midLean;
     const cy = drive.y + height * 0.5;
-    const cz = drive.z + wz * lean * 0.35;
+    const cz = drive.z + Math.sin(drive.windDir) * midLean;
     this.volume.position.set(cx, cy, cz);
     this.volume.scale.set(halfW * 2, height, halfW * 2);
     this.volume.visible = true;
@@ -550,7 +541,7 @@ export class SmokeField {
     volWind.value.set(wx, 0, wz);
     volEngine.value.set(drive.x, drive.y + 10, drive.z);
     volHeight.value = colH;
-    volGroundR.value = Math.min(180, ring + 20);
+    volGroundR.value = 58;
     const fade = drive.burning ? 1 : Math.max(0, 1 - Math.max(0, drive.age - 36) / 110);
     volDensity.value = fade;
     syncVolumeSteps(tier);
@@ -575,6 +566,26 @@ export class SmokeField {
     }
     punctual = lights;
   }
+}
+
+/** Ground billow around the pad, kept off the lens. */
+function groundPuff(
+  drive: LaunchDrive, camX: number, camZ: number, grown: number,
+): { x: number; y: number; z: number; ring: number; ang: number } {
+  const away = Math.atan2(drive.z - camZ, drive.x - camX);
+  const near = smokeRand() < 0.4;
+  let ring = near ? 8 + smokeRand() * 18 : 24 + grown * 78 * Math.pow(smokeRand(), 0.72);
+  let ang = near ? smokeRand() * Math.PI * 2 : away + (smokeRand() - 0.5) * Math.PI * 1.45;
+  let x = drive.x + Math.cos(ang) * ring;
+  let z = drive.z + Math.sin(ang) * ring;
+  if (Math.hypot(x - camX, z - camZ) < 36) {
+    ang = away + (smokeRand() - 0.5) * 1.1;
+    ring = Math.max(36, ring);
+    x = drive.x + Math.cos(ang) * ring;
+    z = drive.z + Math.sin(ang) * ring;
+  }
+  const y = drive.y + (near ? 3 + smokeRand() * 16 : 6 + smokeRand() * 36);
+  return { x, y, z, ring, ang };
 }
 
 function buildGeo(cap: number): BufferGeometry {

@@ -51,8 +51,15 @@ function shade(lit: boolean): MeshBasicNodeMaterial {
     const center = ctr.xyz;
     const toCam = normalize(cameraPosition.sub(center));
     const ref = select(abs(toCam.y).greaterThan(0.92), vec3(1, 0, 0), vec3(0, 1, 0));
-    const side = normalize(cross(ref, toCam));
-    const up = normalize(cross(toCam, side));
+    const sideC = normalize(cross(ref, toCam));
+    const upC = normalize(cross(toCam, sideC));
+    // The launch column is a world-up ribbon, same as the flame, so the sheath
+    // stays on the core instead of tilting off it as a camera-facing disc.
+    const columnish = smoothstep(6.45, 6.9, meta.y).mul(float(1).sub(smoothstep(7.25, 7.7, meta.y)));
+    const worldUp = vec3(0, 1, 0);
+    const sideW = normalize(cross(worldUp, toCam));
+    const side = mix(sideC, sideW, columnish);
+    const up = mix(upC, worldUp, columnish);
     const size = max(ctr.w, 0.05);
     return center
       .add(side.mul(corner.x.mul(size)))
@@ -84,23 +91,28 @@ function shade(lit: boolean): MeshBasicNodeMaterial {
     // The old edge sat on kind 4, so a burning barrel was painted white.
     const steam = float(1).sub(smoothstep(3.15, 3.85, kind));
     const launch = smoothstep(6.15, 6.85, kind);
-    const soot = float(1).sub(steam).mul(float(1).sub(launch));
+    const barrel = smoothstep(3.55, 4.05, kind).mul(float(1).sub(smoothstep(4.45, 4.95, kind)));
+    const stack = smoothstep(4.55, 5.05, kind).mul(float(1).sub(smoothstep(5.45, 5.95, kind)));
+    const exhaustK = smoothstep(5.55, 6.05, kind).mul(float(1).sub(launch));
     // Body is a painted grey lifted like fog, so a puff still reads when the
     // exposure is stopped down. practicalLit stays in nits and is added, not scaled.
-    const albedo = vec3(0.9, 0.92, 0.95).mul(steam)
-      .add(vec3(0.42, 0.36, 0.3).mul(soot))
-      .add(vec3(0.55, 0.48, 0.4).mul(launch));
+    const albedo = vec3(0.92, 0.93, 0.95).mul(steam)
+      .add(vec3(0.14, 0.13, 0.12).mul(barrel))
+      .add(vec3(0.68, 0.67, 0.66).mul(stack))
+      .add(vec3(0.5, 0.51, 0.52).mul(exhaustK))
+      .add(vec3(0.88, 0.86, 0.82).mul(launch));
     const body = albedo.mul(authoredLiftU);
 
-    const veilW = float(0.28).mul(steam).add(float(0.1).mul(soot)).add(float(0.18).mul(launch));
+    const soot = barrel.add(stack).add(exhaustK);
+    const veilW = float(0.22).mul(steam).add(float(0.08).mul(soot)).add(float(0.12).mul(launch));
     const veil = U.fogColor.mul(veilW);
-    const litScale = float(1.35).mul(steam).add(float(0.85).mul(soot)).add(float(1.15).mul(launch));
+    const litScale = float(1.35).mul(steam).add(float(0.7).mul(soot)).add(float(1.05).mul(launch));
     let lamps = vec3(SODIUM[0], SODIUM[1], SODIUM[2]).mul(authoredLiftU).mul(0.045).mul(steam.add(soot.mul(0.35)));
     if (lit) {
       const world = ctr.xyz;
       lamps = practicalLit(world, N, V, albedo).mul(litScale).add(practicalInscatter(world).mul(3.6));
     }
-    const heatGain = launch.mul(1.05).add(soot.mul(0.62)).add(steam.mul(0.08));
+    const heatGain = launch.mul(0.9).add(barrel.mul(1.65)).add(stack.mul(0.1)).add(exhaustK.mul(0.2)).add(steam.mul(0.1));
     const heat = vec3(FLAME[0], FLAME[1], FLAME[2])
       .mul(extra.x)
       .mul(authoredLiftU)
