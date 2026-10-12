@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B2 towers — 12 October 2026</title>
+<style>
+  :root { color-scheme: light; }
+  body { margin: 0; font: 16px/1.45 "Iowan Old Style", Palatino, Georgia, serif; color: #1c1915; background: #f6f3ec; }
+  header, main { max-width: 1100px; margin: 0 auto; padding: 24px 20px 48px; }
+  h1 { font-size: 2rem; margin: 0 0 8px; }
+  h2 { font-size: 1.45rem; margin: 2rem 0 0.4rem; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.82em; }
+  .lead { font-size: 1.05rem; }
+  table { width: 100%; border-collapse: collapse; background: #fff; margin: 12px 0 28px; font-size: 0.92rem; }
+  th, td { border-bottom: 1px solid #e4dfd4; text-align: left; vertical-align: top; padding: 8px 10px; }
+  th { background: #efeae0; }
+  .note { color: #5c564c; }
+  figure { margin: 12px 0; }
+  img { width: 100%; max-width: 1100px; height: auto; background: #111; }
+  figcaption { color: #5c564c; }
+</style>
+</head>
+<body>
+<header>
+  <h1>B2 towers — 12 October 2026</h1>
+  <p class="lead">The lantern and the buttress leave the monolith stand-in. The same lots keep their seeds. Each shipped night frame scored 7 or higher from a blind critic, a film critic, and a scale critic.</p>
+</header>
+<main>
+  <h2>What changed</h2>
+  <p>B1 rolled both families and then built a monolith, because the lantern cross only read from a roof camera and the buttress core read as a blank wall from the fly. The roll is unchanged. The lantern’s <code>r.chance(0.35)</code> still runs in that same place, and when it succeeds the holo sign hangs on the lantern. Downtown still finds 42 lanterns and 59 buttresses. The harness labels a lot by the kind it rolled (<code>sourceKind</code>), which matches the mass now that the stand-in is gone.</p>
+  <p>The lantern is a dark slab with the cross on the street face. A 2.4 m glow slit runs from one storey above the door to nine tenths of the height. Lips that cross it are 1.55 m, under one 4.5 m glow cell. A 6.2 m solid belt at mid height is the bar that still reads on a flyby. The roof is a cruciform parapet, a plant, and a short mast. Street level keeps the flight, a pale plate behind the treads, a door brow, and solid piers beside the run.</p>
+  <p>The buttress core is megablock at a dark tint, so the street and the fly both see a floor grid. Corner piers stay in the same mass, with 1.45 m ties and a 1.55 m cap. The roof is a cage: a pad, four posts, a ring, and a mast off the crown. A door brow and two base piers sit clear of the flight. There is no glow crown on either family.</p>
+
+  <h2>Night frames</h2>
+  <p>Ultra, rain, 21:30. The stand-in column is the monolith that B1 placed on these lots. The other three columns are the families as placed.</p>
+  <figure>
+    <img src="b2-compare.png" alt="Before and after night frames of the lantern and the buttress">
+    <figcaption>Street, flyby, and skyline. The lantern’s cross is on the wall beside the door and on the shaft in the fly. The buttress street is a window grid at a 2.2 m door. Its skyline pass shows the cage on the core.</figcaption>
+  </figure>
+
+  <h2>Critics</h2>
+  <p>Three readers, each with the six frames and no score from the others. Blind scores whether the tower is the subject. Film scores the downtown night: grey-brown concrete, rare warm windows, a cyan lease sign, rain. Scale scores the 1.80 m figure against the 2.2 m door and the 3.6 m flight, and does not treat the near spinner as a floor.</p>
+  <table>
+    <thead><tr><th>Frame</th><th>Blind</th><th>Film</th><th>Scale</th></tr></thead>
+    <tbody>
+      <tr><td>Lantern street</td><td>8</td><td>9</td><td>8</td></tr>
+      <tr><td>Lantern flyby</td><td>7</td><td>8</td><td>9</td></tr>
+      <tr><td>Lantern skyline</td><td>8</td><td>8</td><td>9</td></tr>
+      <tr><td>Buttress street</td><td>8</td><td>7</td><td>9</td></tr>
+      <tr><td>Buttress flyby</td><td>9</td><td>9</td><td>9</td></tr>
+      <tr><td>Buttress skyline</td><td>9</td><td>8</td><td>9</td></tr>
+    </tbody>
+  </table>
+  <p class="note">Lowest scores are the lantern fly (blind 7) and the buttress street (film 7). Both families stay placed.</p>
+
+  <h2>Checks</h2>
+  <p>Envelope IoU is the harness diagram, not the picture test. Lantern 0.994, buttress 0.811. The fail line is still 0.45. A 1 km financial patch stays under the fabric ceiling (top 304.5 m). Textures added: 0. Geometry with the harness camera in Long Beach:</p>
+  <table>
+    <thead><tr><th>Tier</th><th>Textures</th><th>Geometry</th><th>Boxes in the patch</th><th>Triangles</th></tr></thead>
+    <tbody>
+      <tr><td>Low</td><td>0 MB</td><td>1.59 MB</td><td>617</td><td>9,296</td></tr>
+      <tr><td>Medium</td><td>0 MB</td><td>4.52 MB</td><td>1,618</td><td>19,306</td></tr>
+      <tr><td>High / ultra</td><td>0 MB</td><td>5.15 MB</td><td>1,832</td><td>21,446</td></tr>
+      <tr><td>Far impostor</td><td></td><td></td><td>500</td><td>5,300</td></tr>
+    </tbody>
+  </table>
+  <p class="note">Tower boxes remain instances of the shared kit. Low keeps the masses, including the cage and the parapet. Medium keeps fins and decks. High and ultra add the roof plant and the antennas. Metres do not change. <code>npm run memory:check</code>, <code>npm run lighting:check</code>, <code>npm run stray</code>, and <code>npm run build</code> passed. Glow is <code>Style.Glow</code> on the city shader, scaled by the window nits. No punctual light was added.</p>
+
+  <h2>Left alone</h2>
+  <ul>
+    <li>The city glow shader, the facade cell tables, and the other six families.</li>
+    <li>The Kite Obelisk reserve, LAPD, City Hall, Wallace, the basin, and the human harness.</li>
+    <li>Lot assignment. A later lot still sees the same random stream.</li>
+  </ul>
+</main>
+</body>
+</html>
