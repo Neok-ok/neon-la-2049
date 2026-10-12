@@ -98,7 +98,7 @@ function shade(lit: boolean): MeshBasicNodeMaterial {
       const world = ctr.xyz;
       lamps = practicalLit(world, N, V, albedo).mul(litScale).add(practicalInscatter(world).mul(3.6));
     }
-    const heatGain = launch.mul(0.72).add(soot.mul(0.42)).add(steam.mul(0.06));
+    const heatGain = launch.mul(1.05).add(soot.mul(0.62)).add(steam.mul(0.08));
     const heat = vec3(FLAME[0], FLAME[1], FLAME[2])
       .mul(extra.x)
       .mul(authoredLiftU)
@@ -114,7 +114,7 @@ function shade(lit: boolean): MeshBasicNodeMaterial {
     // An empty depth buffer sits on the near plane and would zero every card.
     const depthAlive = float(1).sub(smoothstep(float(-3.0), float(-0.35), sceneZ));
     const softFade = mix(float(1), soft, smokeSoft.mul(depthAlive));
-    const rainDim = mix(float(1), float(0.62), smokeRain);
+    const rainDim = mix(float(1), float(0.78), smokeRain);
     const a = shape.mul(alphaIn).mul(thin).mul(softFade).mul(rainDim);
     return vec4(rgb.mul(a), a);
   })();

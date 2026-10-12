@@ -44,6 +44,12 @@ const shots = [
     after: () => { window.__nla.marketView('bibi'); },
   },
   {
+    name: 'market-roof',
+    q: `mode=fly&quality=ultra&weather=clear&${common}`,
+    frames: 2,
+    after: () => { window.__nla.marketView('roof'); },
+  },
+  {
     name: 'traffic-rain',
     q: `mode=walk&quality=ultra&weather=rain&${common}`,
     frames: 4,

@@ -52,6 +52,9 @@ export interface Tailpipe {
   drive: number;
   /** 0 car, 1 truck, 2 spinner. */
   heavy: number;
+  /** Wake, metres per second, opposite travel. Omitted wakes drift with the wind. */
+  wx?: number;
+  wz?: number;
 }
 
 export interface Wind {

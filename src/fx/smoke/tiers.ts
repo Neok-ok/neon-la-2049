@@ -23,12 +23,16 @@ export const LAUNCH_COLUMN_CAP: Record<Tier, number> = {
   ultra: 110,
 };
 
-/** Ray-march steps inside the launch volume. Low and medium stay on billboards. */
+/**
+ * Ray-march steps inside the launch volume. Low and medium stay on billboards.
+ * Four and six steps are enough for a Beer-Lambert plume; a 12-step march with
+ * two noise octaves did not finish a frame on a software rasterizer.
+ */
 export const VOLUME_STEPS: Record<Tier, number> = {
   low: 0,
   medium: 0,
-  high: 8,
-  ultra: 12,
+  high: 4,
+  ultra: 6,
 };
 
 export const RATE_SCALE: Record<Tier, number> = {

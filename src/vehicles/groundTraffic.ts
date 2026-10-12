@@ -716,7 +716,7 @@ export class GroundTraffic {
     x: number,
     z: number,
     range: number,
-    out: { x: number; y: number; z: number; drive: number; heavy: number }[],
+    out: { x: number; y: number; z: number; drive: number; heavy: number; wx?: number; wz?: number }[],
   ): void {
     const r2 = range * range;
     const scan = (list: Agent[]) => {
@@ -731,10 +731,12 @@ export class GroundTraffic {
         const heavy = a.mesh === 'hauler' || a.mesh === 'tanker' || a.mesh === 'box' ? 1 : 0;
         out.push({
           x: px,
-          y: a.p.y + (heavy ? 0.85 : 0.32),
+          y: a.p.y + (heavy ? 1.15 : 0.7),
           z: pz,
           drive: Math.min(1, a.speed / 14),
           heavy,
+          wx: -a.fwd.x * a.speed * 0.55,
+          wz: -a.fwd.z * a.speed * 0.55,
         });
       }
     };

@@ -14,7 +14,7 @@ import { U } from '../../atmosphere/uniforms';
 import type { Tier } from '../../core/quality';
 import { resources } from '../../core/memory';
 import { PRESETS } from '../../lighting/presets.ts';
-import { authoredLiftU, practicalInscatter } from '../../lighting/shade.ts';
+import { authoredLiftU } from '../../lighting/shade.ts';
 import { VOLUME_STEPS } from './tiers';
 
 const T = TSL as any;
@@ -72,29 +72,28 @@ function volumeMaterial(): MeshBasicNodeMaterial {
     const pos = origin.add(dir.mul(tStart)).toVar();
     // One in-scatter sample per ray. The march still integrates emission and
     // extinction; repeating the cluster loop per step blows the WebGL2 compile.
-    const mid = origin.add(dir.mul(tStart.add(span.mul(0.45))));
-    const scatter = practicalInscatter(mid).mul(2.2);
+    // Street in-scatter stays on the billboards. Sampling the cluster here
+    // made the march fail to finish a frame. Fog colour carries the ambient.
+    const scatter = U.fogColor.mul(0.35);
 
-    T.Loop(12, ({ i }: { i: unknown }) => {
+    T.Loop(6, ({ i }: { i: unknown }) => {
       const live = step(float(i).add(0.5), volSteps);
       pos.addAssign(dir.mul(stepLen).mul(live));
       const rel = pos.sub(volBase);
       const height = rel.y.add(volHalf.y);
-      const shear = volWind.mul(height.mul(0.11));
+      const shear = volWind.mul(height.mul(0.08));
       const radial = length(rel.xz.sub(shear.xz));
       const t = clamp(height.div(max(volHeight, 1.0)), 0, 1);
-      const radius = mix(float(16), float(38), t);
-      const column = smoothstep(radius, radius.mul(0.28), radial)
-        .mul(smoothstep(0.0, 10.0, height))
-        .mul(smoothstep(volHeight, volHeight.mul(0.62), height));
+      const radius = mix(float(14), float(32), t);
+      const column = smoothstep(radius, radius.mul(0.25), radial)
+        .mul(smoothstep(0.0, 8.0, height))
+        .mul(smoothstep(volHeight, volHeight.mul(0.7), height));
       const gRad = length(rel.xz);
-      const ground = smoothstep(volGroundR, volGroundR.mul(0.2), gRad)
-        .mul(smoothstep(48.0, 8.0, height))
+      const ground = smoothstep(volGroundR, volGroundR.mul(0.25), gRad)
+        .mul(smoothstep(55.0, 6.0, height))
         .mul(smoothstep(-2.0, 3.0, height));
-      const n1 = mx_noise_float(pos.mul(0.016).add(vec3(U.time.mul(0.12), U.time.mul(0.04), 0))).mul(0.5).add(0.5);
-      const n2 = mx_noise_float(pos.mul(0.042).add(U.time.mul(0.2))).mul(0.5).add(0.5);
-      const wispy = n1.mul(0.7).add(n2.mul(0.3));
-      const density = column.mul(0.9).add(ground.mul(1.25)).mul(wispy).mul(volDensity);
+      const n1 = mx_noise_float(pos.mul(0.02).add(vec3(U.time.mul(0.08), U.time.mul(0.03), 0))).mul(0.5).add(0.5);
+      const density = column.mul(0.85).add(ground.mul(1.15)).mul(n1).mul(volDensity);
 
       const toEng = volEngine.sub(pos);
       const dE = max(length(toEng), 1.0);

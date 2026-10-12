@@ -145,7 +145,7 @@ function buoy(kind: number): number {
     case KIND.stack: return 1.7;
     case KIND.exhaust: return 0.55;
     case KIND.column: return 2.6;
-    case KIND.ground: return 0.7;
+    case KIND.ground: return 1.35;
     default: return 1;
   }
 }
@@ -181,9 +181,9 @@ export function integrate(
   const wx = Math.cos(wind.dir) * wind.speed;
   const wz = Math.sin(wind.dir) * wind.speed;
   const rain = wind.rain;
-  const loft = 1 - rain * 0.62;
-  const push = 1 + rain * 0.32;
-  const lifeCut = 1 + rain * 0.35;
+  const loft = 1 - rain * 0.4;
+  const push = 1 + rain * 0.38;
+  const lifeCut = 1 + rain * 0.22;
   const near2 = 100 * 100;
   flip ^= 1;
 
@@ -211,8 +211,9 @@ export function integrate(
     let vx = pool.vx[i]! + (wx * shear * push * windScale + c[0] * roll) * dt;
     let vy = pool.vy[i]! + (buoy(kind) * loft + c[1] * roll * 0.35) * dt;
     let vz = pool.vz[i]! + (wz * shear * push * windScale + c[2] * roll) * dt;
-    // Rain knocks the loft down and adds a little downward drift.
-    vy -= rain * 1.4 * dt;
+    // Rain knocks loft down. Manholes stay low; a launch cloud keeps climbing.
+    const sink = kind === KIND.manhole ? 0.85 : kind >= KIND.column ? 0.18 : 0.4;
+    vy -= rain * sink * dt;
     const damp = Math.exp(-dt * dragK(kind));
     vx *= damp;
     vy *= damp;
@@ -246,13 +247,28 @@ export function integrate(
     if (kind === KIND.column) {
       const drive = launchDrive();
       if (drive.id > 0) {
+        // Same lean magnitude as the flame ribbon, spread over the visible
+        // column so the sheath stays on the core instead of sliding off it.
         const height = Math.max(0, y - drive.y);
-        const lean = (10 + Math.min(12, wind.speed) * 1.4) * Math.min(1, height / 280);
-        const tx = drive.x + Math.cos(wind.dir) * lean;
-        const tz = drive.z + Math.sin(wind.dir) * lean;
-        const pull = 1 - Math.exp(-dt * 2.4);
-        x += (tx - x) * pull;
-        z += (tz - z) * pull;
+        const leanMag = 10 + Math.min(12, wind.speed) * 1.4;
+        const lean = leanMag * Math.min(1, height / 640);
+        const ax = drive.x + Math.cos(wind.dir) * lean;
+        const az = drive.z + Math.sin(wind.dir) * lean;
+        const ox = x - ax;
+        const oz = z - az;
+        const dist = Math.hypot(ox, oz) || 0.001;
+        const want = 5 + Math.min(16, height * 0.022);
+        const err = dist - want;
+        const pull = 1 - Math.exp(-dt * 1.5);
+        const nx = ox / dist;
+        const nz = oz / dist;
+        if (err > 0) {
+          x -= nx * err * pull;
+          z -= nz * err * pull;
+        }
+        const swirl = dt * 1.1;
+        x += -nz * swirl * 1.6;
+        z += nx * swirl * 1.6;
       }
     }
 

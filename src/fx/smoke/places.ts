@@ -104,6 +104,125 @@ function takeNearest(list: Emitter[], x: number, z: number, n: number): Emitter[
   return list.slice(0, n);
 }
 
+function addMarket(
+  vents: Emitter[],
+  holes: Emitter[],
+  roofs: Emitter[],
+  food: Emitter[],
+  layout: CityLayout,
+  query: CityQuery,
+  x: number,
+  z: number,
+): void {
+  const spots = marketSpots(layout);
+  const noodle = spots.noodle;
+  if (noodle) {
+    const s = noodle.street;
+    const e = noodle.entrance;
+    const tx = e.x - s.x;
+    const tz = e.z - s.z;
+    const tl = Math.hypot(tx, tz) || 1;
+    const towardX = tx / tl;
+    const towardZ = tz / tl;
+    const ax = Math.sin(s.heading);
+    const az = -Math.cos(s.heading);
+    const lx = ax * 0.6 - towardX * 0.4;
+    const lz = az * 0.6 - towardZ * 0.4;
+    const heading = Math.atan2(lx, -lz) - 0.18;
+    const hx = Math.sin(heading);
+    const hz = -Math.cos(heading);
+    const camX = s.x + towardX * 1.15;
+    const camZ = s.z + towardZ * 1.15;
+    if ((camX - x) ** 2 + (camZ - z) ** 2 < 40 * 40) {
+      const rx = hz;
+      const rz = -hx;
+      vents.push(make({
+        x: camX + hx * 4.2 + rx * 1.7,
+        y: s.y + 1.12,
+        z: camZ + hz * 4.2 + rz * 1.7,
+        kind: KIND.vent,
+        rate: 3.4,
+        life: 2.6,
+        size0: 0.16,
+        size1: 0.78,
+        heat: 0,
+        radius: 0.06,
+        spread: 0.1,
+        rise: 1.75,
+        fade: 18,
+        aspect: 2.9,
+        floorY: s.y,
+      }));
+      holes.push(make({
+        x: camX + hx * 7.4,
+        y: s.y + 0.4,
+        z: camZ + hz * 7.4,
+        kind: KIND.manhole,
+        rate: 2.4,
+        life: 4.4,
+        size0: 0.32,
+        size1: 1.65,
+        heat: 0,
+        radius: 0.18,
+        spread: 0.75,
+        rise: 0.26,
+        fade: 22,
+        aspect: 0.3,
+        floorY: s.y,
+      }));
+    }
+    if ((s.x - x) ** 2 + (s.z - z) ** 2 < 55 * 55) {
+      const hx2 = Math.sin(s.heading);
+      const hz2 = -Math.cos(s.heading);
+      const rx = s.x + hx2 * 7;
+      const rz = s.z + hz2 * 7;
+      let roof = query.floorBelow(rx, s.y + 80, rz, true);
+      if (!(roof > s.y + 5)) roof = query.floorBelow(s.x - hx2 * 5, s.y + 80, s.z - hz2 * 5, true);
+      if (!(roof > s.y + 5)) roof = s.y + 16;
+      roofs.push(make({
+        x: rx, y: roof + 0.5, z: rz,
+        kind: KIND.roof,
+        rate: 3,
+        life: 4.8,
+        size0: 0.4,
+        size1: 1.7,
+        heat: 0.05,
+        radius: 0.2,
+        spread: 0.2,
+        rise: 1.35,
+        fade: 36,
+        aspect: 1.85,
+        floorY: roof,
+      }));
+    }
+  }
+  for (const shop of [spots.noodle, spots.bibi]) {
+    if (!shop) continue;
+    const c = shop.cook;
+    const s = shop.street;
+    if ((s.x - x) ** 2 + (s.z - z) ** 2 > 80 * 80) continue;
+    const hx = Math.sin(s.heading);
+    const hz = -Math.cos(s.heading);
+    food.push(make({
+      x: c.x * 0.45 + (s.x + hx * 2.6) * 0.55,
+      y: s.y + 1.12,
+      z: c.z * 0.45 + (s.z + hz * 2.6) * 0.55,
+      kind: KIND.stall,
+      rate: 6.5,
+      life: 1.55,
+      size0: 0.1,
+      size1: 0.46,
+      heat: 0.22,
+      radius: 0.05,
+      spread: 0.05,
+      rise: 1.4,
+      fade: 12,
+      aspect: 3,
+      floorY: s.y,
+    }));
+  }
+}
+
 export function gatherEmitters(layout: CityLayout, query: CityQuery, x: number, z: number, tier: Tier): Emitter[] {
   const radius = GATHER_RADIUS[tier];
   const blocks = enumerateBlocks(layout, x - radius, z - radius, radius * 2);
@@ -120,7 +239,8 @@ export function gatherEmitters(layout: CityLayout, query: CityQuery, x: number, 
     const side = (h & 2) === 0 ? 1 : -1;
     const along = ((h % 200) / 100) - 1;
 
-    if (u < 0.62) {
+    const market = b.district.id === 'little-tokyo-market';
+    if (!market && u < 0.62) {
       const manhole = u < 0.28;
       const into = manhole ? b.street * 0.55 : Math.max(0.5, b.street * 0.12);
       const p = curb(b, side, into, along);
@@ -128,62 +248,69 @@ export function gatherEmitters(layout: CityLayout, query: CityQuery, x: number, 
         const list = manhole ? holes : vents;
         const kind: SmokeKind = manhole ? KIND.manhole : KIND.vent;
         list.push(make({
-          x: p.x, y: p.y + (manhole ? 0.7 : 1.05), z: p.z,
+          x: p.x, y: p.y + (manhole ? 0.42 : 1.05), z: p.z,
           kind,
-          rate: manhole ? 3.4 : 5.2,
-          life: manhole ? 6.2 : 4.4,
-          size0: manhole ? 0.9 : 0.45,
-          size1: manhole ? 3.2 : 2.8,
+          rate: manhole ? 1.8 : 2.6,
+          life: manhole ? 4.8 : 3.1,
+          size0: manhole ? 0.35 : 0.2,
+          size1: manhole ? 1.7 : 0.95,
           heat: 0,
-          radius: manhole ? 0.45 : 0.22,
-          spread: manhole ? 0.55 : 0.25,
-          rise: manhole ? 0.7 : 1.15,
-          fade: manhole ? 38 : 48,
-          aspect: manhole ? 0.5 : 1.7,
+          radius: manhole ? 0.25 : 0.1,
+          spread: manhole ? 0.7 : 0.14,
+          rise: manhole ? 0.3 : 1.55,
+          fade: manhole ? 26 : 24,
+          aspect: manhole ? 0.32 : 2.5,
           floorY: p.y,
         }));
       }
     }
 
-    if (WORK.has(b.district.id) && (h % 5) === 1) {
+    if (!market && WORK.has(b.district.id) && (h % 5) === 1) {
       const p = curb(b, side, 0.7, along * 0.5);
       if (open(query, p.x, p.y, p.z)) {
         barrels.push(make({
-          x: p.x, y: p.y + 1.15, z: p.z,
+          x: p.x, y: p.y + 1.35, z: p.z,
           kind: KIND.barrel,
-          rate: 3.6,
-          life: 7.5,
-          size0: 0.45,
-          size1: 2.4,
-          heat: 0.9,
-          radius: 0.2,
-          spread: 0.3,
-          rise: 1.3,
-          fade: 60,
-          aspect: 1.25,
+          rate: 4.2,
+          life: 8,
+          size0: 0.55,
+          size1: 3.4,
+          heat: 1,
+          radius: 0.18,
+          spread: 0.28,
+          rise: 1.7,
+          fade: 55,
+          aspect: 1.55,
           floorY: p.y,
         }));
       }
     }
 
     if ((h % 6) === 2) {
-      const roof = query.floorBelow(b.cx, b.ground + 90, b.cz, false);
-      if (roof > b.ground + 6 && roof < b.ground + 80) {
-        roofs.push(make({
-          x: b.cx, y: roof + 0.4, z: b.cz,
-          kind: KIND.roof,
-          rate: 2.4,
-          life: 6.5,
-          size0: 0.5,
-          size1: 2.2,
-          heat: 0,
-          radius: 0.3,
-          spread: 0.35,
-          rise: 0.9,
-          fade: 80,
-          aspect: 1.2,
-          floorY: roof,
-        }));
+      const probes: Array<[number, number]> = [
+        [b.cx, b.cz],
+        [b.cx + b.ax * b.la * 0.22, b.cz + b.az * b.la * 0.22],
+      ];
+      for (const [rx, rz] of probes) {
+        const roof = query.floorBelow(rx, b.ground + 90, rz, true);
+        if (roof > b.ground + 6 && roof < b.ground + 80) {
+          roofs.push(make({
+            x: rx, y: roof + 0.45, z: rz,
+            kind: KIND.roof,
+            rate: 2.6,
+            life: 5.2,
+            size0: 0.32,
+            size1: 1.45,
+            heat: 0.04,
+            radius: 0.18,
+            spread: 0.22,
+            rise: 1.25,
+            fade: 48,
+            aspect: 1.9,
+            floorY: roof,
+          }));
+          break;
+        }
       }
     }
   }
@@ -193,16 +320,16 @@ export function gatherEmitters(layout: CityLayout, query: CityQuery, x: number, 
     stacks.push(make({
       x: f.x, y: f.y + 1.2, z: f.z,
       kind: KIND.stack,
-      rate: 2.4,
-      life: 14,
-      size0: 2.2,
-      size1: 11,
-      heat: 0.28,
-      radius: 0.35,
-      spread: 0.22,
-      rise: 2.8,
-      fade: 720,
-      aspect: 1.35,
+      rate: 4.4,
+      life: 20,
+      size0: 1.25,
+      size1: 5.6,
+      heat: 0.42,
+      radius: 0.4,
+      spread: 0.32,
+      rise: 5.4,
+      fade: 1100,
+      aspect: 1.65,
       floorY: f.y,
     }));
   };
@@ -210,20 +337,23 @@ export function gatherEmitters(layout: CityLayout, query: CityQuery, x: number, 
   const gate = controlBlock(layout);
   if (gate) {
     const door = doorWorld(gate);
-    if ((door.x - x) ** 2 + (door.z - z) ** 2 < 90 * 90) {
+    // The street camera stands about 16 m before the door. The barrel sits in that gap.
+    const bx = door.x + gate.ax * -7 + gate.bx * -1.6;
+    const bz = door.z + gate.az * -7 + gate.bz * -1.6;
+    if ((bx - x) ** 2 + (bz - z) ** 2 < 90 * 90) {
       barrels.push(make({
-        x: door.x + 2.2, y: door.y + 1.05, z: door.z + 1.4,
+        x: bx, y: door.y + 1.3, z: bz,
         kind: KIND.barrel,
-        rate: 3.2,
-        life: 7,
-        size0: 0.4,
-        size1: 2.2,
-        heat: 0.85,
-        radius: 0.15,
-        spread: 0.2,
-        rise: 1.2,
-        fade: 40,
-        aspect: 1.3,
+        rate: 5,
+        life: 8,
+        size0: 0.6,
+        size1: 3.8,
+        heat: 1,
+        radius: 0.16,
+        spread: 0.22,
+        rise: 1.85,
+        fade: 48,
+        aspect: 1.7,
         floorY: door.y,
       }));
     }
@@ -231,45 +361,7 @@ export function gatherEmitters(layout: CityLayout, query: CityQuery, x: number, 
   for (const f of flames(layout, x, z, 'southeast-industrial', SE_A, SE_B, SE_L, (i, j) => southeastBlock(layout, i, j), (block) => planSoutheast(block, layout), 'se')) pushStack(f);
 
   const food: Emitter[] = [];
-  const spots = marketSpots(layout);
-  for (const shop of [spots.noodle, spots.bibi]) {
-    if (!shop) continue;
-    const c = shop.cook;
-    const s = shop.street;
-    if ((s.x - x) ** 2 + (s.z - z) ** 2 > 90 * 90) continue;
-    const hx = Math.sin(s.heading);
-    const hz = -Math.cos(s.heading);
-    food.push(make({
-      x: s.x + hx * 2.4, y: s.y + 1.25, z: s.z + hz * 2.4,
-      kind: KIND.stall,
-      rate: 7,
-      life: 2.6,
-      size0: 0.22,
-      size1: 1.15,
-      heat: 0.15,
-      radius: 0.12,
-      spread: 0.12,
-      rise: 0.65,
-      fade: 16,
-      aspect: 1.85,
-      floorY: c.y,
-    }));
-    food.push(make({
-      x: s.x + hx * 6.5, y: s.y + 0.6, z: s.z + hz * 6.5,
-      kind: KIND.manhole,
-      rate: 1.4,
-      life: 5.5,
-      size0: 0.5,
-      size1: 2.0,
-      heat: 0,
-      radius: 0.35,
-      spread: 0.4,
-      rise: 0.6,
-      fade: 32,
-      aspect: 0.7,
-      floorY: s.y,
-    }));
-  }
+  addMarket(vents, holes, roofs, food, layout, query, x, z);
 
   return [
     ...takeNearest(vents, x, z, CAP.vent[tier]),
