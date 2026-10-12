@@ -16,7 +16,7 @@ import { PAD_BLOCKS, STACK_H, blockCenter } from './spec';
 
 const T = TSL as any;
 const {
-  Fn, attribute, vec3, vec4, normalize, cross, cameraPosition, sin, smoothstep, length, float, max, clamp, exp,
+  Fn, attribute, vec3, vec4, normalize, cross, cameraPosition, sin, smoothstep, length, float, max, mix, clamp, exp,
 } = T;
 
 const DUR = 36;
@@ -54,11 +54,14 @@ function material(): MeshBasicNodeMaterial {
   m.positionNode = Fn(() => {
     const center = c.xyz;
     const toCam = normalize(cameraPosition.sub(center));
-    const side = normalize(cross(vec3(0, 1, 0), toCam));
-    const up = normalize(cross(toCam, side));
+    const worldUp = vec3(0, 1, 0);
+    const side = normalize(cross(worldUp, toCam));
+    const camUp = normalize(cross(toCam, side));
     const dist = length(center.sub(cameraPosition));
     const head = smoothstep(1.5, 1.7, k.w);
     const column = smoothstep(0.5, 0.7, k.w).mul(head.oneMinus());
+    // The column is a vertical ribbon. A camera-facing quad missed the world-up smoke.
+    const up = mix(camUp, worldUp, column);
     const minA = float(0.0012).add(column.mul(0.0008)).add(head.mul(0.0052));
     const s = max(c.w, dist.mul(minA));
     const lift = k.y.mul(0.5).add(0.5);

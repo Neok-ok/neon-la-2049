@@ -449,7 +449,7 @@ export class SmokeField {
       const fadeIn = Math.min(1, u / 0.06);
       const fadeOut = Math.min(1, (1 - u) / 0.28);
       const kind = pool.kind[i]!;
-      const baseA = kind >= KIND.column ? 0.38 : kind === KIND.stack ? 0.5 : 0.88;
+      const baseA = kind >= KIND.column ? 0.52 : kind === KIND.stack ? 0.5 : 0.88;
       const alpha = fadeIn * fadeOut * baseA;
       // A fat fade against the street deletes a 1 m puff whose card touches the ground.
       const soft = Math.max(0.15, Math.min(4.5, size * 0.08));
