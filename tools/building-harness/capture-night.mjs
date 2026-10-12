@@ -73,8 +73,9 @@ function placeStreet(arg) {
     }
     found.sort((a, b) => a.d - b.d);
     // Beside the opening, not in it. A coat in the doorway hides the 2.2 m leaf and looks taller than it.
-    const beside = found.filter((c) => Math.abs(c.lat) > 1.45 && Math.abs(c.lat) < 7 && c.dep > 0.2 && c.dep < 9);
-    beside.sort((a, b) => Math.abs(a.lat) - Math.abs(b.lat));
+    // Same depth as the door. A figure several metres in front looks taller than the 2.2 m opening.
+    const beside = found.filter((c) => Math.abs(c.lat) > 1.5 && Math.abs(c.lat) < 5.5 && c.dep > 0.5 && c.dep < 2.8);
+    beside.sort((a, b) => Math.abs(a.dep - 1.4) - Math.abs(b.dep - 1.4) || Math.abs(a.lat) - Math.abs(b.lat));
     person = beside[0] ?? found.find((c) => Math.abs(c.lat) > 1.2) ?? found[0] ?? null;
   }
 
@@ -84,8 +85,9 @@ function placeStreet(arg) {
   const posed = {
     'hero-obelisk': { camLat: -3.2, out: 12.5, pitch: 0.16, mix: 0 },
     'hero-step': { camLat: 2.2, out: 14, pitch: 0.24, mix: 0.1 },
-    'hero-gate': { camLat: -3.2, out: 16, pitch: 0.2, mix: 0.1 },
-    'band-slab': { camLat: -5.6, out: 15.5, pitch: 0.14, mix: 0.1 },
+    'hero-gate': { camLat: -2.4, out: 14, pitch: 0.16, mix: 0 },
+    'band-slab': { camLat: -3.2, out: 13, pitch: 0.16, mix: 0 },
+    'res-stack': { camLat: 2.6, out: 12, pitch: 0.34, mix: 0 },
     monolith: { camLat: 4.2, out: 11.5, pitch: 0.22, mix: 0 },
     lantern: { camLat: -3.4, out: 9.4, pitch: 0.18, mix: 0.12 },
     cantilever: { camLat: -4.4, out: 13, pitch: 0.18, mix: 0.12 },
@@ -174,16 +176,18 @@ function placeStreet(arg) {
   const mesh = crowd?.mesh;
   if (crowd && mesh) {
     if (!crowd.__b1Orig) crowd.__b1Orig = crowd.update.bind(crowd);
-    const hideKind = hero || p.kind === 'monolith' || p.kind === 'cantilever' || p.kind === 'band-slab';
+    const hideKind = hero || p.kind === 'monolith' || p.kind === 'cantilever' || p.kind === 'band-slab' || p.kind === 'res-stack';
     const hide = (x, z) => {
       if (!hideKind || phase !== 'final') return false;
       if (person && Math.hypot(x - person.x, z - person.z) < 0.45) return false;
       // A coat against the lens becomes a cropped umbrella and hides the door.
-      if (Math.hypot(x - cx, z - cz) < 4.2) return true;
+      if (Math.hypot(x - cx, z - cz) < 7.2) return true;
       const lat = latOf(x, z);
+      const dep = depOf(x, z);
+      // A coat in front of the door plane reads taller than the opening.
+      if (dep > 3.2) return true;
       // The apron crowd runs off the frame and hides the opening.
       if (hero && Math.abs(lat) > 6.2) return true;
-      const dep = depOf(x, z);
       const half = p.kind === 'hero-obelisk' ? 2.4 : 1.45;
       if (Math.abs(lat) < half && dep > -0.6 && dep < 8) return true;
       if (p.kind !== 'hero-obelisk') return false;
@@ -317,11 +321,17 @@ for (const tier of tiers) {
         let reach = Math.max(p.d, p.w) * 0.5 + Math.min(90, Math.max(56, p.height * 0.22));
         let lateral = 22;
         if (zig) {
-          reach = Math.max(p.d, p.w) * 1.15 + p.height * 0.28;
-          lateral = Math.max(p.w, p.d) * 0.72;
+          reach = Math.max(p.d, p.w) * 1.05 + p.height * 0.22;
+          lateral = Math.max(p.w, p.d) * 0.85;
+          y = p.ground + p.height * 0.62;
         } else if (cross) {
-          reach = Math.max(p.d, p.w) * 1.35;
-          lateral = p.w * 0.95;
+          reach = Math.max(p.d, p.w) * 0.72;
+          lateral = Math.max(p.w, p.d) * 1.15;
+          y = p.ground + p.height * 0.78;
+        } else if (p.kind === 'monolith') {
+          reach = Math.max(p.d, p.w) * 1.15 + p.height * 0.28;
+          lateral = Math.max(p.w, p.d) * 0.48;
+          y = p.ground + p.height * 0.38;
         } else if (holo) {
           reach = Math.max(p.d, p.w) * 0.9 + Math.min(70, p.height * 0.16);
           lateral = 22;
@@ -331,10 +341,10 @@ for (const tier of tiers) {
           lateral = Math.max(p.w, p.d) * 0.9;
           y = p.ground + p.height * 0.26;
         } else if (p.kind === 'cantilever') {
-          // Stay in the street canyon, just under the shelf, so the wider top
-          // is the subject. A longer reach lands inside the block opposite.
-          reach = Math.max(p.d, p.w) * 1.35 + 36;
-          lateral = Math.max(p.w, p.d) * 0.48;
+          // Same pose as the skyline that shows the wider top. A longer reach
+          // lands inside the block opposite.
+          reach = Math.max(p.d, p.w) * 1.35 + 42;
+          lateral = Math.max(p.w, p.d) * 0.5;
           y = p.ground + Math.max(38, p.height * 0.2);
         } else if (gate) {
           reach = Math.max(120, p.height * 0.32);
@@ -345,7 +355,7 @@ for (const tier of tiers) {
         const pz = p.center[1] + p.normal[1] * reach * face + p.bz * lateral;
         const ax = p.center[0];
         const az = p.center[1];
-        const aimF = zig || cross ? 0.38 : p.kind === 'cantilever' ? 0.3 : p.kind === 'holo-shaft' ? 0.46 : 0.42;
+        const aimF = cross ? 0.42 : zig ? 0.45 : p.kind === 'cantilever' ? 0.3 : p.kind === 'holo-shaft' ? 0.46 : p.kind === 'monolith' ? 0.4 : 0.42;
         const ay = p.ground + p.height * aimF;
         const heading = Math.atan2(ax - px, -(az - pz));
         const pitch = Math.atan2(ay - y, Math.hypot(ax - px, az - pz));
@@ -372,8 +382,10 @@ for (const tier of tiers) {
           'res-stack': { dist: 200, yF: 0.34, side: 0.55, aim: 0.42 },
           'hero-step': { dist: 380, yF: 0.16, side: 0.46, aim: 0.42 },
           'hero-gate': { dist: 340, yF: 0.28, side: 0.5, aim: 0.46 },
-          'hero-obelisk': { dist: 320, yF: 0.26, side: 0.38, aim: 0.48 },
-          monolith: { dist: 220, yF: 0.28, side: 0.32, aim: 0.42 },
+          'hero-obelisk': { dist: 240, yF: 0.34, side: 0.42, aim: 0.46 },
+          monolith: { dist: 180, yF: 0.36, side: 0.4, aim: 0.42 },
+          lantern: { dist: 160, yF: 0.72, side: 0.85, aim: 0.4 },
+          ziggurat: { dist: 200, yF: 0.48, side: 0.62, aim: 0.42 },
         };
         // Stay at the feature (billboard, shelf, balcony band). Step sideways
         // before climbing, so a blocked start does not become a roof shot.

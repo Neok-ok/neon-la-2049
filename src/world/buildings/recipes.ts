@@ -196,6 +196,11 @@ function buttress(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
       s, t, lb: pw, la: pd, h: ph, base: y0,
       style: Style.Slit, lit: spec.lit * 0.45, tint: spec.tint * 0.85, detail: 0, role: 'mass',
     });
+    // A lit edge on the street side of each pier, so the supports read at night.
+    addBox(d, {
+      s: as * (spec.d / 2 + 0.28), t, lb: 0.55, la: Math.max(1.4, pw * 0.7), h: ph * 0.92, base: y0 + 2,
+      style: Style.Glow, lit: 0.62, tint: 1.12, detail: 0, role: 'mass',
+    });
   }
   const walks = variant === 2 ? [0.22, 0.4, 0.58] : [0.3, 0.52];
   for (const f of walks) {
@@ -264,7 +269,7 @@ function resStack(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
   const every = (variant === 1 ? 3 : 4) * RES_STOREY;
   const faces = variant === 2 ? 2 : 1;
   for (let y = y0 + every; y < y0 + H - 2; y += every) {
-    balcony(d, -(bd / 2 + 0.32), 0, bw * 0.62, 1.05, y, spec.lit, spec.tint);
+    balcony(d, -(bd / 2 + 1.2), 0, bw * 0.72, 2.5, y, spec.lit, spec.tint);
     if (faces === 2) balcony(d, 0, bw / 2 + 0.32, 1.05, bd * 0.55, y, spec.lit, spec.tint);
     if (variant !== 0 && ((y / every) | 0) % 2 === 0) {
       addBox(d, {
@@ -301,8 +306,9 @@ function holoShaft(d: Draft, spec: TowerSpec, H: number, y0: number, door: boole
     style: Style.Office, lit: spec.lit, tint: spec.tint, detail: 0, role: 'mass',
   });
   const ad = LIGHT_ROLES.adFace;
-  const adH = Math.min(shaftH * 0.42, variant === 2 ? 48 : 36);
-  const adW = Math.min(bw * 0.92, 22);
+  const adH = Math.min(shaftH * 0.55, variant === 2 ? 64 : 52);
+  // One glow cell wide, so the face is a shaft of light rather than a window wall.
+  const adW = 6.2;
   // Street face (a-), so the ad reads from the door and from the flyby.
   const adS = -(bd / 2 + 0.22);
   addBox(d, {
@@ -337,8 +343,8 @@ function cantilever(d: Draft, spec: TowerSpec, H: number, y0: number, door: bool
   });
   // A lit soffit on the joint, so the wider top reads against the night.
   addBox(d, {
-    s: 0, t, lb: topW + 1.1, la: topD + 1.1, h: 1.15, base: y0 + baseH,
-    style: Style.Glow, lit: 0.55, tint: 1.12, detail: 0, role: 'band',
+    s: 0, t, lb: topW + 2.4, la: topD + 2.2, h: 2.4, base: y0 + baseH - 0.4,
+    style: Style.Glow, lit: 0.86, tint: 1.2, detail: 0, role: 'band',
   });
   const bands = variant === 0 ? 4 : 3;
   for (let i = 1; i <= bands; i++) {
@@ -476,7 +482,12 @@ function dressSigns(d: Draft, spec: TowerSpec): void {
     s: 0, t: 0, hb: spec.w / 2, ha: spec.d / 2, face: 'b+', along: spec.w * 0.15,
     y: 8, w: 1.15, h: 5.6, color: AD_COLORS[1]!, kind: 1,
   });
-  if (spec.holo || spec.kind === 'holo-shaft' || spec.kind === 'hero-obelisk') {
+  if (spec.kind === 'holo-shaft') {
+    d.signs.push({
+      s: 0, t: 0, hb: spec.w / 2, ha: spec.d / 2, face: 'a-', along: spec.w * 0.16,
+      y: Math.max(40, d.height * 0.4), w: 16, h: 22, color: AD_COLORS[2]!, kind: 2,
+    });
+  } else if (spec.holo || spec.kind === 'hero-obelisk') {
     d.signs.push({
       s: 0, t: 0, hb: spec.w / 2, ha: spec.d / 2, face: 'a+', along: 0,
       y: Math.max(28, d.height * 0.42), w: 18, h: 9, color: AD_COLORS[2]!, kind: 2,
