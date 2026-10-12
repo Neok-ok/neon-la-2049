@@ -741,6 +741,8 @@ export class App {
         this.traffic.collectCraft(cam.x, cam.y, cam.z, range, out);
         this.lanes.collectSpinners(cam.x, cam.y, cam.z, range, out);
       },
+      wind: w.params.wind,
+      windDir: w.windDir,
     });
     if (coast.near > 0.2 && this.quality.tier !== 'low') {
       const slots = this.quality.tier === 'medium' ? 2 : 4;

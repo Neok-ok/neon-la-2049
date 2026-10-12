@@ -81,13 +81,14 @@ export function spawnParticle(pool: Pool, o: SpawnOpt): boolean {
   pool.vz[i] = o.vz;
   pool.age[i] = o.age;
   pool.life[i] = Math.max(0.4, o.life);
-  pool.size0[i] = o.size0;
-  pool.size1[i] = o.size1;
+  const js = 0.82 + smokeRand() * 0.36;
+  pool.size0[i] = o.size0 * js;
+  pool.size1[i] = o.size1 * js;
   pool.seed[i] = smokeRand();
   pool.kind[i] = o.kind;
   pool.heat[i] = o.heat;
   pool.fade[i] = o.fade;
-  pool.aspect[i] = o.aspect;
+  pool.aspect[i] = o.aspect * (0.84 + smokeRand() * 0.32);
   pool.floorY[i] = o.floorY;
   pool.slot[i] = o.slot;
   pool.kindN[o.kind] = (pool.kindN[o.kind] ?? 0) + 1;
@@ -141,11 +142,11 @@ export function spawnEmitter(
  */
 export function smokeWindScale(kind: number): number {
   if (kind === KIND.column) return 0;
-  if (kind === KIND.stack) return 1;
+  if (kind === KIND.stack) return 0.22;
   if (kind === KIND.roof) return 0.5;
   if (kind === KIND.manhole) return 0.45;
   if (kind === KIND.vent) return 0.35;
-  if (kind === KIND.ground) return 0.35;
+  if (kind === KIND.ground) return 0.04;
   if (kind === KIND.stall) return 0.3;
   if (kind === KIND.barrel) return 0.2;
   if (kind === KIND.exhaust) return 0.15;
@@ -156,10 +157,10 @@ function buoy(kind: number): number {
   switch (kind) {
     case KIND.vent: return 1.45;
     case KIND.manhole: return 0.22;
-    case KIND.roof: return 1.15;
-    case KIND.stall: return 0.28;
-    case KIND.barrel: return 0.95;
-    case KIND.stack: return 0.8;
+    case KIND.roof: return 1.35;
+    case KIND.stall: return 0.42;
+    case KIND.barrel: return 0.7;
+    case KIND.stack: return 1.25;
     case KIND.exhaust: return 0.32;
     case KIND.column: return 0.45;
     case KIND.ground: return 0.4;
@@ -170,7 +171,7 @@ function buoy(kind: number): number {
 function dragK(kind: number): number {
   if (kind === KIND.column) return 0.42;
   if (kind === KIND.ground) return 0.34;
-  if (kind === KIND.stack) return 0.4;
+  if (kind === KIND.stack) return 0.55;
   return 0.45;
 }
 
@@ -317,11 +318,18 @@ export function integrate(
             z -= nz * back * pull;
           }
         } else {
-          const err = dist - want;
-          const grip = pull * (err > 0 ? 1 : 0.45);
-          x -= nx * err * grip;
-          z -= nz * err * grip;
-          const swirl = dt * 0.35;
+          // A band, not a skin. Cards sprung onto one radius were a cotton tube.
+          const inner = want * 0.38;
+          const outer = want * 1.08;
+          let err = 0;
+          if (dist < inner) err = dist - inner;
+          else if (dist > outer) err = dist - outer;
+          if (err !== 0) {
+            const grip = pull * (err > 0 ? 1 : 0.55);
+            x -= nx * err * grip;
+            z -= nz * err * grip;
+          }
+          const swirl = dt * 0.22;
           x += -nz * swirl;
           z += nx * swirl;
         }

@@ -5,20 +5,24 @@ import {
   AdditiveBlending, BufferGeometry, BufferAttribute, DoubleSide, DynamicDrawUsage, InstancedBufferAttribute, InstancedMesh,
   Matrix4, MeshBasicNodeMaterial, NormalBlending, PlaneGeometry, Quaternion, Vector3, type Scene,
 } from 'three/webgpu';
+import { uniform } from 'three/tsl';
 import * as TSL from 'three/tsl';
 import type { Tier } from '../core/quality';
 import { resources } from '../core/memory';
 import { hash2i } from '../core/rng';
 import type { CityQuery } from '../world/CityQuery';
-import { authoredLiftU } from '../lighting/shade.ts';
 import { makeCross } from '../districts/_shared/kit/templates';
+import { smokeCovers } from '../fx/smoke/field';
 import { fogDepth } from './SkyFog';
 import { U } from './uniforms';
 import { airFlags, airSample, airTier } from './airState';
 import { AIR_LIGHT_SLOTS, AIR_SHAFT_SLOTS, clearAirLights, setAirLight, setAirShaft } from './airLights';
 
 const T = TSL as any;
-const { Fn, attribute, vec3, vec4, float, length, smoothstep, abs, exp, select, uv, sin, fract, mix, cameraPosition, positionWorld, positionLocal } = T;
+const { Fn, attribute, vec3, vec4, float, length, smoothstep, abs, exp, select, uv, sin, fract, cameraPosition, positionWorld, positionLocal } = T;
+
+/** Metres per second, shared with the weather the smoke field already uses. */
+const breathWind = uniform(new Vector3());
 
 const HALO_CAP: Record<Tier, number> = { low: 0, medium: 4, high: 8, ultra: 12 };
 const HALO_RANGE: Record<Tier, number> = { low: 0, medium: 52, high: 120, ultra: 190 };
@@ -131,12 +135,14 @@ function breathMaterial(): MeshBasicNodeMaterial {
     steam.fog = true;
     const seed = attribute('iSteam', 'vec4').x;
     const life = fract(U.time.mul(0.18).add(seed));
-    const drift = sin(U.time.mul(0.7).add(seed.mul(6.0))).mul(0.12);
-    steam.positionNode = positionLocal.add(vec3(drift, life.mul(1.7), drift.mul(0.6)));
+    const drift = sin(U.time.mul(0.7).add(seed.mul(6.0))).mul(0.08);
+    // Same wind as the vents, at a fraction of a metre per second. No authored lift.
+    const gust = breathWind.mul(life);
+    steam.positionNode = positionLocal.add(vec3(drift, life.mul(1.7), drift.mul(0.35))).add(gust);
     const fade = sin(life.mul(Math.PI));
     const dist = length(positionWorld.sub(cameraPosition));
-    const col = mix(vec3(0.78, 0.8, 0.82).mul(authoredLiftU), U.fogColor.mul(2.4), float(0.4));
-    steam.colorNode = vec4(col, fade.mul(0.32).mul(smoothstep(36.0, 5.0, dist)));
+    const col = U.fogColor.mul(1.35);
+    steam.colorNode = vec4(col, fade.mul(0.22).mul(smoothstep(36.0, 5.0, dist)));
     return steam;
   });
 }
@@ -204,6 +210,8 @@ export class AirField {
     holos: readonly GlowMark[];
     craft: (out: CraftMark[], range: number) => void;
     query: CityQuery;
+    wind?: number;
+    windDir?: number;
   }): void {
     const tier = opts.tier;
     this.placeHalos(tier, opts);
@@ -344,8 +352,12 @@ export class AirField {
 
   private placeBreath(tier: Tier, opts: {
     camX: number; camY: number; camZ: number; alt: number; query: CityQuery;
+    wind?: number; windDir?: number;
   }): void {
     const cap = airFlags.breath ? BREATH_CAP[tier] : 0;
+    const wind = opts.wind ?? 0;
+    const windDir = opts.windDir ?? 0;
+    breathWind.value.set(Math.cos(windDir) * wind * 0.08, 0, Math.sin(windDir) * wind * 0.08);
     const weight = airSample().breath;
     const reach = tier === 'ultra' ? 84 : tier === 'high' ? 68 : 46;
     if (cap === 0 || weight < 0.04 || opts.alt > 40 || opts.alt < -1) {
@@ -372,6 +384,7 @@ export class AirField {
         const dz = z - opts.camZ;
         if (dx * dx + dz * dz > r2) continue;
         if (layout.isOcean(x, z)) continue;
+        if (smokeCovers(x, z, 5)) continue;
         const gy = layout.heightAt(x, z);
         if (Math.abs(opts.camY - gy) > 16) continue;
         const kind = h % 3;

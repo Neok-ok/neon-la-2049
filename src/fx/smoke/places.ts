@@ -148,58 +148,62 @@ function addMarket(
       const fz = -Math.cos(heading);
       // The street camera yaws toward the shop. Follow the carriage, or the
       // plume walks into the storefront.
-      const lane = carriageNear(layout, x, z, 'little-tokyo-market');
+      const lane = carriageNear(layout, s.x, s.z, 'little-tokyo-market');
       const ax = lane ? lane.fx : fx;
       const az = lane ? lane.fz : fz;
       const lx = -az;
       const lz = ax;
-      const vent = laneSpot(query, x, s.y, z, ax, az, lx, lz, 5.6, 0.15, 0.35);
+      // Locked to the shop's carriage, not the camera, so the column does not walk.
+      const ox = lane ? lane.x : s.x;
+      const oy = lane ? lane.y : s.y;
+      const oz = lane ? lane.z : s.z;
+      const vent = laneSpot(query, ox, oy, oz, ax, az, lx, lz, 8.4, 1.05, 0.55);
       vents.push(make({
         x: vent.x,
         y: vent.y,
         z: vent.z,
         kind: KIND.vent,
-        rate: 9,
-        life: 2.0,
-        size0: 0.32,
-        size1: 0.72,
+        rate: 18,
+        life: 2.8,
+        size0: 0.3,
+        size1: 0.52,
         heat: 0,
-        radius: 0.08,
+        radius: 0.12,
         spread: 0.05,
-        rise: 1.7,
-        fade: 26,
-        aspect: 2.05,
-        floorY: s.y,
+        rise: 1.05,
+        fade: 22,
+        aspect: 2.1,
+        floorY: oy,
       }));
-      const hole = laneSpot(query, x, s.y, z, ax, az, lx, lz, 14.5, -2.4, 0.08);
+      const hole = laneSpot(query, ox, oy, oz, ax, az, lx, lz, 5.4, -1.7, 0.12);
       holes.push(make({
         x: hole.x,
         y: hole.y,
         z: hole.z,
         kind: KIND.manhole,
-        rate: 12,
-        life: 2.4,
-        size0: 0.9,
+        rate: 10,
+        life: 2.2,
+        size0: 1.0,
         size1: 1.7,
         heat: 0,
         radius: 0.3,
-        spread: 0.12,
-        rise: 0.32,
-        fade: 18,
-        aspect: 0.48,
-        floorY: s.y,
+        spread: 0.04,
+        rise: 0.18,
+        fade: 16,
+        aspect: 0.4,
+        floorY: oy,
       }));
     }
     if (y > s.y + 10 && (s.x - x) ** 2 + (s.z - z) ** 2 < 55 * 55) {
-      const fx = Math.sin(heading);
-      const fz = -Math.cos(heading);
+      const fx = Math.sin(s.heading);
+      const fz = -Math.cos(s.heading);
       const rx = fz;
       const rz = -fx;
       let best: { x: number; z: number; roof: number; score: number } | null = null;
       for (const along of [6, 10, 14, 18, 24, 30]) {
         for (const side of [-22, -14, -8, 8, 14, 22]) {
-          const px = x + fx * along + rx * side;
-          const pz = z + fz * along + rz * side;
+          const px = s.x + fx * along + rx * side;
+          const pz = s.z + fz * along + rz * side;
           const roofY = query.floorBelow(px, y + 4, pz, true);
           if (!(roofY > s.y + 4) || roofY > y - 1.2) continue;
           const dist = Math.hypot(px - x, pz - z) || 1;
@@ -212,21 +216,20 @@ function addMarket(
           if (!best || score < best.score) best = { x: px, z: pz, roof: roofY, score };
         }
       }
-      const spot = best ?? { x: x + fx * 16 + rx * 8, z: z + fz * 16 + rz * 8, roof: s.y + 18, score: 0 };
-      roofs.push(make({
-        x: spot.x, y: spot.roof + 0.8, z: spot.z,
+      if (best) roofs.push(make({
+        x: best.x, y: best.roof + 0.8, z: best.z,
         kind: KIND.roof,
-        rate: 11,
-        life: 4.1,
+        rate: 14,
+        life: 4.6,
         size0: 0.55,
-        size1: 1.35,
+        size1: 1.55,
         heat: 0,
-        radius: 0.14,
-        spread: 0.1,
-        rise: 2.5,
-        fade: 40,
-        aspect: 2.3,
-        floorY: spot.roof,
+        radius: 0.16,
+        spread: 0.06,
+        rise: 3.1,
+        fade: 42,
+        aspect: 2.35,
+        floorY: best.roof,
       }));
     }
   }
@@ -244,16 +247,16 @@ function addMarket(
     food.push(make({
       x: s.x + hx * 4.4 + rx * 0.8, y: s.y + 1.05, z: s.z + hz * 4.4 + rz * 0.8,
       kind: KIND.stall,
-      rate: 12,
-      life: 0.95,
+      rate: 16,
+      life: 1.4,
       size0: 0.14,
-      size1: 0.36,
-      heat: 0.16,
+      size1: 0.3,
+      heat: 0.12,
       radius: 0.05,
-      spread: 0.05,
-      rise: 0.38,
-      fade: 8,
-      aspect: 3.1,
+      spread: 0.04,
+      rise: 0.72,
+      fade: 10,
+      aspect: 2.7,
       floorY: s.y,
     }));
   }
@@ -288,16 +291,16 @@ export function gatherEmitters(
         list.push(make({
           x: p.x, y: p.y + (manhole ? 0.42 : 1.05), z: p.z,
           kind,
-          rate: manhole ? 1.8 : 2.6,
-          life: manhole ? 4.8 : 3.1,
-          size0: manhole ? 0.45 : 0.22,
-          size1: manhole ? 1.5 : 1.05,
+          rate: manhole ? 3.2 : 4.2,
+          life: manhole ? 1.8 : 2.8,
+          size0: manhole ? 0.7 : 0.24,
+          size1: manhole ? 1.85 : 0.85,
           heat: 0,
-          radius: manhole ? 0.3 : 0.08,
-          spread: manhole ? 0.6 : 0.22,
-          rise: manhole ? 0.2 : 0.9,
-          fade: manhole ? 18 : 16,
-          aspect: manhole ? 0.4 : 1.4,
+          radius: manhole ? 0.4 : 0.22,
+          spread: manhole ? 0.1 : 0.2,
+          rise: manhole ? 0.16 : 1.05,
+          fade: manhole ? 16 : 22,
+          aspect: manhole ? 0.3 : 1.45,
           floorY: p.y,
         }));
       }
@@ -307,18 +310,18 @@ export function gatherEmitters(
       const p = curb(b, side, 0.7, along * 0.5);
       if (open(query, p.x, p.y, p.z)) {
         barrels.push(make({
-          x: p.x, y: p.y + 1.35, z: p.z,
+          x: p.x, y: p.y + 0.7, z: p.z,
           kind: KIND.barrel,
-          rate: 4.2,
-          life: 8,
-          size0: 0.2,
-          size1: 1.05,
-          heat: 1,
-          radius: 0.12,
-          spread: 0.16,
-          rise: 0.55,
-          fade: 22,
-          aspect: 1.05,
+          rate: 6,
+          life: 3.1,
+          size0: 0.22,
+          size1: 0.62,
+          heat: 0.85,
+          radius: 0.1,
+          spread: 0.08,
+          rise: 0.85,
+          fade: 18,
+          aspect: 1.45,
           floorY: p.y,
         }));
       }
@@ -335,16 +338,16 @@ export function gatherEmitters(
           roofs.push(make({
             x: rx, y: roof + 1.15, z: rz,
             kind: KIND.roof,
-            rate: 2.6,
-            life: 5.2,
-            size0: 0.55,
-            size1: 2.4,
+            rate: 5,
+            life: 4.4,
+            size0: 0.8,
+            size1: 2.3,
             heat: 0,
-            radius: 0.2,
-            spread: 0.25,
-            rise: 1.15,
-            fade: 36,
-            aspect: 1.5,
+            radius: 0.28,
+            spread: 0.14,
+            rise: 2.1,
+            fade: 42,
+            aspect: 1.8,
             floorY: roof,
           }));
           break;
@@ -356,19 +359,19 @@ export function gatherEmitters(
   const stacks: Emitter[] = [];
   const pushStack = (f: Flame) => {
     stacks.push(make({
-      x: f.x, y: f.y + 0.2, z: f.z,
+      x: f.x, y: f.y + 1.5, z: f.z,
       kind: KIND.stack,
-      rate: 16,
-      life: 10,
-      size0: 2.8,
-      size1: 5.6,
-      heat: 0.55,
-      radius: 0.4,
-      spread: 0.14,
-      rise: 6.2,
+      rate: 14,
+      life: 16,
+      size0: 12,
+      size1: 16,
+      heat: 0.1,
+      radius: 4,
+      spread: 0.35,
+      rise: 7.5,
       fade: 1100,
-      aspect: 1.85,
-      floorY: f.y,
+      aspect: 1.8,
+      floorY: f.y - 20,
     }));
   };
   for (const f of flames(layout, x, z, 'south-bay-refineries', SB_A, SB_B, SB_L, (i, j) => southBayBlock(layout, i, j), (block) => planSouthBay(block, layout), 'sb')) pushStack(f);
@@ -383,15 +386,15 @@ export function gatherEmitters(
         x: bx, y: door.y + 0.65, z: bz,
         kind: KIND.barrel,
         rate: 16,
-        life: 2.8,
-        size0: 0.28,
+        life: 3.0,
+        size0: 0.38,
         size1: 0.72,
-        heat: 1,
+        heat: 0.55,
         radius: 0.1,
-        spread: 0.06,
-        rise: 1.15,
-        fade: 20,
-        aspect: 1.75,
+        spread: 0.04,
+        rise: 0.85,
+        fade: 16,
+        aspect: 1.7,
         floorY: door.y,
       }));
     }

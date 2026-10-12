@@ -85,37 +85,38 @@ function volumeMaterial(): MeshBasicNodeMaterial {
       const radial = length(rel.xz.sub(shear.xz));
       const t = clamp(height.div(max(volHeight, 1.0)), 0, 1);
       const n1 = mx_noise_float(pos.mul(0.018).add(vec3(U.time.mul(0.03), U.time.mul(0.012), 0))).mul(0.5).add(0.5);
-      const clumps = smoothstep(0.4, 0.82, n1);
-      const pinch = mix(float(0.42), float(1.65), n1);
-      const radius = mix(float(26), float(44), t).mul(pinch);
-      const column = smoothstep(radius, radius.mul(0.22), radial)
-        .mul(smoothstep(0.0, 8.0, height))
-        .mul(smoothstep(volHeight, volHeight.mul(0.72), height))
-        .mul(clumps);
-      // Thin bright spine. The billboards carry the billows; this is the engine core.
-      const core = smoothstep(float(8.0), float(1.2), radial)
-        .mul(smoothstep(2.0, 14.0, height))
-        .mul(smoothstep(volHeight.mul(0.42), float(10.0), height));
+      const clumps = smoothstep(0.32, 0.78, n1);
+      const pinch = mix(float(0.72), float(1.25), n1);
+      const radius = mix(float(28), float(48), t).mul(pinch);
+      const column = smoothstep(radius, radius.mul(0.2), radial)
+        .mul(smoothstep(0.0, 10.0, height))
+        .mul(smoothstep(volHeight, volHeight.mul(0.78), height))
+        .mul(mix(float(0.5), float(1), clumps));
+      // Orange only in the pad. A thin core up the whole box read as a searchlight.
+      const core = smoothstep(float(7.0), float(1.4), radial)
+        .mul(smoothstep(2.0, 16.0, height))
+        .mul(smoothstep(float(90.0), float(18.0), height));
       const gRad = length(rel.xz);
       const ground = smoothstep(volGroundR, volGroundR.mul(0.35), gRad)
         .mul(smoothstep(16.0, 2.0, height))
         .mul(smoothstep(-2.0, 1.5, height))
         .mul(smoothstep(0.28, 0.7, n1));
       // Billboards carry the body. A fatter march read as a blue searchlight.
-      const density = column.mul(0.22).add(ground.mul(0.26)).mul(volDensity);
+      const density = column.mul(0.4).add(ground.mul(0.34)).mul(volDensity);
 
       const toEng = volEngine.sub(pos);
       const dE = max(length(toEng), 1.0);
-      const att = exp(dE.mul(-0.01));
+      const att = exp(dE.mul(-0.012));
       const V = normalize(cameraPosition.sub(pos));
       const L = toEng.div(dE);
       const cos = clamp(dot(V, L), -1, 1);
       const g = 0.42;
       const phase = float(1 - g * g).div(pow(max(float(1 + g * g).sub(cos.mul(2 * g)), 0.05), 1.5));
-      const flame = vec3(FLAME[0], FLAME[1], FLAME[2]).mul(att).mul(phase).mul(6.0);
-      const albedo = mix(vec3(0.72, 0.7, 0.66), vec3(0.95, 0.58, 0.26), att);
-      const coreGlow = vec3(FLAME[0], FLAME[1], FLAME[2]).mul(core).mul(16.0);
-      const glow = scatter.add(flame).mul(albedo).add(coreGlow);
+      const flame = vec3(FLAME[0], FLAME[1], FLAME[2]).mul(att).mul(phase).mul(4.5);
+      // Grey sheath. The 1800 K term is the part of the billow that faces the engine.
+      const albedo = mix(vec3(0.74, 0.75, 0.77), vec3(FLAME[0], FLAME[1], FLAME[2]), core.mul(0.55));
+      const coreGlow = vec3(FLAME[0], FLAME[1], FLAME[2]).mul(core).mul(8.0);
+      const glow = scatter.mul(0.45).add(flame.mul(albedo)).add(coreGlow);
       const absorb = density.mul(stepLen).mul(0.016);
       acc.addAssign(tr.mul(glow).mul(density.add(core.mul(0.12))).mul(stepLen).mul(0.055).mul(live));
       tr.mulAssign(mix(float(1), exp(absorb.negate()), live));

@@ -1,34 +1,44 @@
 // Eight-frame flipbook, baked once. Density in A, tangent-space normal in RG.
 // Frames tear apart as the index rises so a puff does not slide through one stamp.
 // No downloaded art. The noise is the same value noise as the curl field.
-import { ClampToEdgeWrapping, DataTexture, LinearFilter, NoColorSpace, RGBAFormat, UnsignedByteType } from 'three/webgpu';
+import {
+  ClampToEdgeWrapping, DataTexture, LinearFilter, LinearMipmapLinearFilter,
+  NoColorSpace, RGBAFormat, UnsignedByteType,
+} from 'three/webgpu';
 import { resources } from '../../core/memory';
 import { fbm } from './curl';
 
 const FRAMES = 8;
-const CELL = 96;
+const CELL = 128;
 const COLS = 4;
 const ROWS = 2;
 
+function lobe(u: number, v: number, cx: number, cy: number, rx: number, ry: number): number {
+  const dx = (u - cx) / rx;
+  const dy = (v - cy) / ry;
+  return Math.exp(-(dx * dx + dy * dy) * 1.55);
+}
+
 /**
- * A filled wisp with a torn rim. Round lobes were reading as a rope of spheres.
- * The core stays dense so a street card still shows; only the rim is eaten.
+ * A fat body with soft creases. A hard slot lined the cards up into a staircase,
+ * and a single lobe was a ball. The rim dies inside the quad so the square never shows.
  */
 function density(u: number, v: number, frame: number): number {
-  const tear = frame / (FRAMES - 1);
-  const warp = fbm(u * 1.6 + frame * 0.27, v * 1.9, frame * 0.13);
-  const uu = u + warp * 0.16;
-  const vv = v * (0.88 + tear * 0.16) + warp * 0.1;
-  const n = fbm(uu * 3.4 + frame * 0.17, vv * 3.8, 0.55);
-  const n2 = fbm(uu * 6.5 + 4.2, vv * 7.1, 1.3);
-  const r2 = uu * uu * 0.82 + vv * vv * 0.68;
-  const body = Math.max(0, 1 - r2);
-  // Grooves cross the body, so a card is a lump with a dark crease, not a disc.
-  // The floor stays high enough that a street-sized card still reads at night.
-  const groove = Math.max(0, -n) * Math.min(1, body * 1.4) * 0.34;
-  const grain = 0.7 + 0.3 * n2;
-  const d = Math.max(0.0, body * Math.max(0.5, grain) - groove);
-  return Math.min(1, d) * (1 - tear * 0.08);
+  const w1 = fbm(u * 1.3 + frame * 0.17, v * 1.2, 0.2 + frame * 0.05);
+  const w2 = fbm(u * 1.1 + 1.7, v * 1.3 + frame * 0.09, 1.4);
+  const uu = u + w1 * 0.14;
+  const vv = v + w2 * 0.11;
+  const s = Math.sin(frame * 0.7);
+  let d = lobe(uu, vv, 0.03 * s, 0.02, 0.68, 0.56);
+  d += lobe(uu, vv, -0.22, 0.14, 0.36, 0.3) * 0.5;
+  d += lobe(uu, vv, 0.2, -0.16, 0.32, 0.26) * 0.42;
+  const crease = fbm(uu * 2.2 + 2.0, vv * 2.5 + frame * 0.13, 2.2 + frame * 0.08);
+  const crease2 = fbm(uu * 3.2 - vv * 1.1, vv * 2.6, 4.1 + frame * 0.18);
+  d *= 0.55 + 0.45 * crease * (0.65 + 0.35 * crease2);
+  const rad = Math.hypot(uu * 0.92, vv * 0.95);
+  const rim = Math.max(0, 1 - rad * rad);
+  d *= rim * rim;
+  return Math.max(0, Math.min(1, d));
 }
 
 function bake(): Uint8Array {
@@ -46,9 +56,9 @@ function bake(): Uint8Array {
         const d = density(u, v, f);
         const dx = density(u + du, v, f) - density(u - du, v, f);
         const dy = density(u, v + du, f) - density(u, v - du, f);
-        let nx = -dx * 4.5;
-        let ny = -dy * 4.5;
-        let nz = 0.55 + d * 0.8;
+        let nx = -dx * 5.5;
+        let ny = -dy * 5.5;
+        let nz = 0.42 + d * 0.9;
         const len = Math.hypot(nx, ny, nz) || 1;
         nx /= len; ny /= len; nz /= len;
         const i = ((oy + y) * w + (ox + x)) * 4;
@@ -76,8 +86,8 @@ export function smokeAtlas(): DataTexture {
   tex.wrapS = ClampToEdgeWrapping;
   tex.wrapT = ClampToEdgeWrapping;
   tex.magFilter = LinearFilter;
-  tex.minFilter = LinearFilter;
-  tex.generateMipmaps = false;
+  tex.minFilter = LinearMipmapLinearFilter;
+  tex.generateMipmaps = true;
   tex.flipY = false;
   tex.needsUpdate = true;
   tex.name = 'smoke-flipbook';
