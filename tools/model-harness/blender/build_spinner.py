@@ -1343,8 +1343,9 @@ def build(round_n, lod, out_path):
                     hull, f'well-{sign:+d}-{y:+.2f}', sign, y, radius + 0.02,
                     radius * HOUSED_TREAD + 0.010,
                     0.56 if front else 0.50,
-                    # Front opening stops just outside the tire, under the prong roof.
-                    0.92 if front else 1.15,
+                    # Front opening cuts the outer skin so the drum face is visible
+                    # in the prong, with the roof left arching over it.
+                    1.10 if front else 1.15,
                 )
         if filled:
             darken_channel(hull, y0=1.04 if housed else 1.76)
@@ -1381,9 +1382,9 @@ def build(round_n, lod, out_path):
     housed_specs = []
     for sign, y, radius in wheel_rows:
         width = 0.40 if abs(y) > 1 else 0.36
-        # Front drums sit under the prong roof, inboard of the outer lip.
-        # Rear drums stay in the tail fender.
-        root_x = (0.70 if y > 0 else 0.78) if housed else drum_x
+        # Front drums sit in the prong opening, under the roof, face toward
+        # the side. Rear drums stay in the tail fender.
+        root_x = (0.82 if y > 0 else 0.78) if housed else drum_x
         part = place_wheel(
             kit, f'drum-{sign:+d}-{y:+.2f}', sign, y, radius, width, seg,
             slots if y > 0 or detail else 0, x=root_x, pressed=loud and not split, covered=split,
@@ -1398,7 +1399,7 @@ def build(round_n, lod, out_path):
                 'radius': radius,
                 'center_x': root_x + (HOUSED_INNER + HOUSED_OUTER) * 0.5,
                 'well_r': radius * HOUSED_TREAD + 0.010,
-                'well_x1': 0.92 if y > 0 else 1.15,
+                'well_x1': 1.10 if y > 0 else 1.15,
                 'front': y > 0,
                 'part': part,
             })
