@@ -132,7 +132,7 @@ function heroMaterial(palette: Texture): MeshBasicNodeMaterial {
     const part = T.uv(1).x;
     const isDiamond = T.step(4.5, part).mul(T.step(part, 5.5));
     const isHand = T.step(1.5, part).mul(T.step(part, 2.5));
-    const hot = T.mix(tint, T.vec3(0.92, 0.97, 1.0), T.float(0.62).mul(isDiamond.add(isHand)));
+    const hot = T.mix(tint, T.vec3(0.94, 0.97, 1.0), T.float(0.88).mul(isDiamond.add(isHand)));
     const sweep = T.fract(T.uv().y.mul(28).sub(U.time.mul(1.15)));
     const line = T.smoothstep(0.06, 0.32, sweep).mul(T.smoothstep(0.58, 0.94, sweep).oneMinus());
     const scan = T.mix(T.float(0.58), T.float(1), line);

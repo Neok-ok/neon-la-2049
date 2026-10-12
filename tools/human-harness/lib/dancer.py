@@ -99,16 +99,19 @@ def _loft_band(mesh, poly, y0, y1, segs, part, bone_at, color, z_at, step):
     loft(mesh, band, z_at, segs, part, bone_at, color, (0.0, 0.0, 1.0, 1.0), y_extra=_samples(band, step))
 
 
-def _veil_along_skirt():
-    """Ribbon on the skirt edge. The bind veil is a straight bar beside the waist."""
+def _veil_piece(y0, y1):
+    """One ribbon on a skirt step. It stops at the step so it cannot weld the gaps."""
     left, right = [], []
-    for y in (3.0, 8.0, 13.0, 18.0, 22.0, 26.0, 30.0):
+    y = y0
+    while y <= y1 + 1e-4:
         span = x_span(DANCER_BIND['body'], y)
-        if span is None:
-            continue
-        edge = span[0]
-        left.append((round(edge - 0.45, 4), y))
-        right.append((round(edge + 1.05, 4), y))
+        if span is not None:
+            edge = span[0]
+            left.append((round(edge - 0.35, 4), round(y, 4)))
+            right.append((round(edge + 0.7, 4), round(y, 4)))
+        y += 2.0
+    if len(left) < 2:
+        return None
     return tuple(left + right[::-1])
 
 
@@ -123,18 +126,25 @@ def build_dancer(lod='high'):
     step = 1.15 if lod == 'medium' else 0.7
     segs = 8 if lod == 'medium' else 10
     body = DANCER_BIND['body']
-    # Three skirt steps, a torso, and a diamond head. Gaps are the holes the
-    # street was missing when one loft read as a single crystal.
+    # Three skirt steps, a torso, and a diamond head. The gaps are several
+    # metres so a street camera still sees holes after the scan lines.
     skirts = (
-        (0.6, 8.2, 1),
-        (10.6, 23.4, 1),
-        (26.0, 34.6, 1),
+        (0.8, 6.4, 1),
+        (12.2, 19.6, 1),
+        (26.6, 32.4, 1),
     )
     for y0, y1, part in skirts:
         _loft_band(mesh, body, y0, y1, segs, part, _bone_body, PINK, _body_z, step)
-    _loft_band(mesh, body, 37.2, 49.0, segs, 1, _bone_body, PINK, _body_z, step)
+        veil = _veil_piece(y0 + 0.3, y1 - 0.3)
+        if veil is not None:
+            loft(
+                mesh, veil, lambda y: _inside(y, 0.35, -0.2), 4, 4,
+                lambda _y: BI['veil'], CORE, (0.0, 0.0, 1.0, 1.0),
+                y_extra=_samples(veil, step),
+            )
+    _loft_band(mesh, body, 38.6, 46.8, segs, 1, _bone_body, PINK, _body_z, step)
     # Part 5 is the diamond, so the hero shader can lift it off the pink body.
-    _loft_band(mesh, body, 52.6, 59.4, max(6, segs - 2), 5, lambda _y: BI['head'], PINK, _body_z, step * 0.8)
+    _loft_band(mesh, body, 54.2, 59.2, max(6, segs - 2), 5, lambda _y: BI['head'], PINK, _body_z, step * 0.8)
     loft(
         mesh, DANCER_BIND['armUp'], lambda y: _inside(y, 0.7, 0.05), max(4, segs // 2), 2,
         lambda _y: BI['armUp'], CORE, (0.0, 0.0, 1.0, 1.0),
@@ -144,12 +154,6 @@ def build_dancer(lod='high'):
         mesh, DANCER_BIND['armOut'], lambda y: _inside(y, 0.55, 0.0), 4, 3,
         lambda _y: BI['armOut'], PINK, (0.0, 0.0, 1.0, 1.0),
         y_extra=_samples(DANCER_BIND['armOut'], step * 1.4),
-    )
-    veil = _veil_along_skirt()
-    loft(
-        mesh, veil, lambda y: _inside(y, 0.35, -0.2), 4, 4,
-        lambda _y: BI['veil'], CORE, (0.0, 0.0, 1.0, 1.0),
-        y_extra=_samples(veil, step),
     )
     return mesh.finish()
 

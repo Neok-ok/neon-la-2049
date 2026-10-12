@@ -196,7 +196,8 @@ async function boot(quality) {
       if (!c.__realUpdate) c.__realUpdate = c.update.bind(c);
       c.update = () => {};
       if (!w.__realUpdate) w.__realUpdate = w.update.bind(w);
-      w.update = () => {};
+      // A dancer pin, when one is set, has to survive hold(). Crowd shots leave it null.
+      w.update = () => { window.__pinDancerCam?.(); };
       if (g && !g.__realUpdate) g.__realUpdate = g.update.bind(g);
       if (g) g.update = () => {};
     };
@@ -204,9 +205,30 @@ async function boot(quality) {
       const a = app();
       const c = a.crowd;
       c.__pin = false;
+      window.__pinDancerCam = null;
+      window.__dancerPose = null;
       if (c.__realUpdate) c.update = c.__realUpdate;
       if (a.cams.walk.__realUpdate) a.cams.walk.update = a.cams.walk.__realUpdate;
       if (a.ground?.__realUpdate) a.ground.update = a.ground.__realUpdate;
+    };
+    // One quarter of the walk, coupled to travel, so the strip shows plant and lift.
+    H.quarter = (index) => {
+      const c = app().crowd;
+      const agent = c.agents[index];
+      if (!agent) return { ok: false };
+      const motion = c.motionAttr && c.motionAttr.array;
+      const umbrella = motion && motion[index * 4 + 2] > 0.5;
+      const gait = 1.42 * (agent.height / 1.8) * (umbrella ? 1 : (agent.strideScale || 1));
+      const speed = Math.max(agent.speed || agent.base || 1.3, 0.5);
+      const dt = (0.25 * gait) / speed;
+      const before = agent.cycle;
+      H.step(Math.min(dt, 0.45));
+      return {
+        ok: true,
+        dt: Math.round(dt * 1000) / 1000,
+        before: Math.round(before * 100) / 100,
+        cycle: Math.round(agent.cycle * 100) / 100,
+      };
     };
     H.pump = () => {
       const a = app();
@@ -759,7 +781,7 @@ async function boot(quality) {
       const lookY = hem + spec.h * 0.40;
       let placed = null;
       let lastFit = null;
-      for (const side of [0, 0.22, -0.22, 0.42, -0.42, 0.58, -0.58]) {
+      for (const side of [0, Math.PI, 1.15, -1.15, 2.0, -2.0, 0.55, -0.55]) {
         const px = spec.x + (nx * Math.cos(side) + nz * Math.sin(side)) * dist;
         const pz = spec.z + (nz * Math.cos(side) - nx * Math.sin(side)) * dist;
         const gy = a.query.groundHeight(px, pz);
@@ -798,14 +820,75 @@ async function boot(quality) {
           && Math.abs(hemN.x) < 0.55 && Math.abs(crownN.x) < 0.55
           && span > 0.9 && span < 1.7;
         if (!fits) continue;
-        placed = { px, pz, gy, side, pitch };
+        placed = { px, pz, gy, eyeY, yaw, pitch, side };
         break;
       }
       if (!placed) return { ok: false, reason: 'fit', lastFit };
+      // An interior ride in the app frame teleports the walk camera into a
+      // building between the evaluate and the screenshot, and the hero hides.
+      if (a.interiors && !a.interiors.__noRide) {
+        a.interiors.__noRide = true;
+        a.interiors.consumeRide = () => null;
+      }
+      window.__dancerPose = {
+        x: placed.px, y: placed.eyeY, z: placed.pz, yaw: placed.yaw, pitch: placed.pitch,
+      };
+      const pin = () => {
+        const pose = window.__dancerPose;
+        if (!pose) return;
+        a.cams.walk.pos.set(pose.x, pose.y - 1.7, pose.z);
+        a.cams.walk.heading = pose.yaw;
+        a.cams.walk.pitch = pose.pitch;
+        a.camera.position.set(pose.x, pose.y, pose.z);
+        a.camera.rotation.set(pose.pitch, -pose.yaw, 0, 'YXZ');
+        a.camera.updateMatrixWorld();
+      };
+      window.__pinDancerCam = pin;
+      pin();
       a.dancer.update(a.camera.position);
       H.hold();
-      return { ok: true, shown: a.dancer.shown, side: placed.side, pitch: Math.round(placed.pitch * 100) / 100 };
+      window.__pinDancerCam?.();
+      const witness = parkWitness(spec, hem, placed.px, placed.pz);
+      return {
+        ok: true,
+        shown: a.dancer.shown,
+        side: placed.side,
+        pitch: Math.round(placed.pitch * 100) / 100,
+        witness,
+      };
     };
+    function parkWitness(spec, hem, px, pz) {
+      const c = app().crowd;
+      const agent = c.agents && c.agents[0];
+      const mesh = c.mesh;
+      if (!agent || !mesh || !c.motionAttr) return null;
+      const dx = px - spec.x;
+      const dz = pz - spec.z;
+      const len = Math.hypot(dx, dz) || 1;
+      const x = spec.x + (dx / len) * 3.4;
+      const z = spec.z + (dz / len) * 3.4;
+      const gy = app().query.groundHeight(x, z);
+      const yaw = Math.atan2(px - x, pz - z);
+      const sc = agent.height / 1.8;
+      const cos = Math.cos(yaw);
+      const sin = Math.sin(yaw);
+      const arr = mesh.instanceMatrix.array;
+      arr[0] = cos * sc; arr[1] = 0; arr[2] = -sin * sc; arr[3] = 0;
+      arr[4] = 0; arr[5] = sc; arr[6] = 0; arr[7] = 0;
+      arr[8] = sin * sc; arr[9] = 0; arr[10] = cos * sc; arr[11] = 0;
+      arr[12] = x; arr[13] = gy; arr[14] = z; arr[15] = 1;
+      if (mesh.count < 1) mesh.count = 1;
+      mesh.instanceMatrix.needsUpdate = true;
+      const motion = c.motionAttr.array;
+      motion[0] = 0.25; motion[1] = 1; motion[2] = 0; motion[3] = 0;
+      c.motionAttr.needsUpdate = true;
+      if (c.extraAttr) {
+        c.extraAttr.array[3] = 1;
+        c.extraAttr.needsUpdate = true;
+      }
+      agent.x = x; agent.z = z; agent.yaw = yaw; agent.cycle = 0.25;
+      return { x: Math.round(x), z: Math.round(z), y: Math.round(gy * 10) / 10, hem: Math.round(hem) };
+    }
     const DANCER_PERIOD = 6.28318530718 / 1.2;
     function lockDancerTime(phase) {
       const a = app();
@@ -816,7 +899,9 @@ async function boot(quality) {
       }
       a.__dancerTime = phase * DANCER_PERIOD;
       a.elapsed = a.__dancerTime;
+      if (window.__pinDancerCam) window.__pinDancerCam();
       a.atmosphere.update(0.05, a.__dancerTime, a.renderer, { storm: false, coastal: false, gentle: true });
+      if (window.__pinDancerCam) window.__pinDancerCam();
       a.dancer.update(a.camera.position);
       return { shown: a.dancer.shown, phase, time: a.__dancerTime };
     }
@@ -931,20 +1016,42 @@ async function boot(quality) {
         }
       }
       if (!pick) {
-        let cars = 0;
-        a.scene.traverse((o) => {
-          if (!o.isInstancedMesh || (o.name !== 'ground-car' && o.name !== 'ground-van')) return;
-          const m = o.instanceMatrix.array;
-          for (let i = 0; i < Math.min(o.count, 120); i++) {
-            const x = m[i * 16 + 12];
-            const z = m[i * 16 + 14];
-            if (x > 1e5) continue;
-            const d = Math.hypot(x - door.x, z - door.z);
-            if (d < 30) cars++;
+        // Same orbit, but accept a doorway with a person and park a car into the lane.
+        for (const dist of [8, 9, 10, 12]) {
+          for (let lat = -8; lat <= 6.2; lat += 1.5) {
+            const fx = Math.sin(base);
+            const fz = Math.cos(base);
+            const rx = Math.cos(base);
+            const rz = -Math.sin(base);
+            const px = door.x + fx * dist + rx * lat;
+            const pz = door.z + fz * dist + rz * lat;
+            const gy = a.query.groundHeight(px, pz);
+            if (a.query.insideSolid(px, gy + 1.2, pz, 0.2, true)) continue;
+            const eyeY = gy + 1.55;
+            const yaw = Math.atan2(door.x - px, -(door.z - pz));
+            const horiz = Math.hypot(door.x - px, door.z - pz) || 1;
+            const pitch = Math.atan2((door.y + 1.25) - eyeY, horiz);
+            cam.position.set(px, eyeY, pz);
+            cam.rotation.set(pitch, -yaw, 0, 'YXZ');
+            cam.updateMatrixWorld();
+            const doorN = ndc(door.x, door.y + 1.1, door.z);
+            if (!doorN || Math.abs(doorN.x) > 0.42 || Math.abs(doorN.y) > 0.45) continue;
+            let person = null;
+            for (const p of people()) {
+              const d = Math.hypot(p.x - door.x, p.z - door.z);
+              if (d > 8) continue;
+              const n = ndc(p.x, p.y + p.s, p.z);
+              if (!n || Math.abs(n.x) > 0.78 || Math.abs(n.y) > 0.72) continue;
+              if (!person || d < person.d) person = { d: Math.round(d * 10) / 10, n };
+            }
+            if (!person) continue;
+            pick = { score: 9, dist, lat, doorN, car: null, person, px, pz, gy, yaw, pitch, fx, fz, rx, rz };
+            break;
           }
-        });
-        return { ok: false, reason: 'no-pose', door, cars, people: people().length };
+          if (pick) break;
+        }
       }
+      if (!pick) return { ok: false, reason: 'no-pose', door, people: people().length };
       cam.position.set(pick.px, pick.gy + 1.55, pick.pz);
       cam.rotation.set(pick.pitch, -pick.yaw, 0, 'YXZ');
       cam.updateMatrixWorld();
@@ -952,7 +1059,43 @@ async function boot(quality) {
       w.pos.set(pick.px, pick.gy, pick.pz);
       w.heading = pick.yaw;
       w.pitch = pick.pitch;
-      return { ok: true, dist: pick.dist, lat: pick.lat, doorN: pick.doorN, car: pick.car, person: pick.person };
+      if (a.interiors && !a.interiors.__noRide) {
+        a.interiors.__noRide = true;
+        a.interiors.consumeRide = () => null;
+      }
+      window.__dancerPose = {
+        x: pick.px, y: pick.gy + 1.55, z: pick.pz, yaw: pick.yaw, pitch: pick.pitch,
+      };
+      window.__pinDancerCam = () => {
+        const pose = window.__dancerPose;
+        if (!pose) return;
+        a.cams.walk.pos.set(pose.x, pose.y - 1.55, pose.z);
+        a.cams.walk.heading = pose.yaw;
+        a.cams.walk.pitch = pose.pitch;
+        a.camera.position.set(pose.x, pose.y, pose.z);
+        a.camera.rotation.set(pose.pitch, -pose.yaw, 0, 'YXZ');
+        a.camera.updateMatrixWorld();
+      };
+      window.__pinDancerCam();
+      let parked = null;
+      if (!pick.car) {
+        const fx = Math.sin(pick.yaw);
+        const fz = Math.cos(pick.yaw);
+        const rx = Math.cos(pick.yaw);
+        const rz = -Math.sin(pick.yaw);
+        const cx = door.x - fx * 7 + rx * 4.5;
+        const cz = door.z - fz * 7 + rz * 4.5;
+        const cy = a.query.groundHeight(cx, cz) + 0.45;
+        a.scene.traverse((o) => {
+          if (parked || !o.isInstancedMesh || o.name !== 'ground-car' || o.count < 1) return;
+          const m = o.instanceMatrix.array;
+          m[12] = cx; m[13] = cy; m[14] = cz;
+          o.instanceMatrix.needsUpdate = true;
+          parked = { x: Math.round(cx), z: Math.round(cz) };
+        });
+        if (parked) pick.car = { name: 'ground-car', parked: true, ...parked };
+      }
+      return { ok: true, dist: pick.dist, lat: pick.lat, doorN: pick.doorN, car: pick.car, person: pick.person, parked };
     };
     window.__retry = H;
   });
@@ -986,7 +1129,8 @@ async function shoot(id, tier, allowOpen) {
     window.__wantShort = want;
     window.__loose = loose;
     window.__headMax = headMax;
-    if (side) window.__side = side;
+    if (side) window.__sideBase = side;
+    window.__side = window.__sideBase || 1.45;
   }, {
     want: process.env.WANT_SHORT === '1',
     loose: process.env.LOOSE === '1',
@@ -1006,7 +1150,12 @@ async function shoot(id, tier, allowOpen) {
       note('no place', { id, tier, attempt, reason: placed?.reason, band: placed?.band, stacks: placed?.stacks, gap: placed?.gap });
       continue;
     }
-    const locked = await page.evaluate((index) => window.__retry.lock(index), who.i);
+    const locked = await page.evaluate(({ index, attempt }) => {
+      // A pure profile is the walk the critics can read. Later tries accept a
+      // three-quarter so a curved sidewalk still yields a frame.
+      window.__side = attempt >= 3 ? 1.05 : (window.__sideBase || 1.45);
+      return window.__retry.lock(index);
+    }, { index: who.i, attempt });
     const ahead = await page.evaluate((who) => window.__retry.ahead(who), who);
     note('try', { id, tier, attempt, placed, locked, ahead });
     if (ahead && ahead.ok === false) {
@@ -1319,7 +1468,8 @@ print(json.dumps({"left": tall(0, int(w*0.07)), "right": tall(int(w*0.93), w)}))
     }
     renameSync(tmp0, `${OUT}/${id}-${tier}-f0.png`);
     for (let f = 1; f < 4; f++) {
-      await page.evaluate(() => window.__retry.step(0.28));
+      const stepped = await page.evaluate((index) => window.__retry.quarter(index), who.i);
+      note('quarter', { id, tier, f, stepped });
       await frames();
       await page.screenshot({ path: `${OUT}/${id}-${tier}-f${f}.png`, timeout: 180000, animations: 'disabled' });
     }
@@ -1366,10 +1516,34 @@ async function district(id, fn, kinds, tier) {
 
 async function dancerStrip(name, id) {
   let framed = null;
-  for (const dist of name.includes('broadway') ? [58, 68, 50, 76] : [62, 74, 54, 78]) {
+  const dists = name.includes('broadway') ? [58, 68, 50, 76] : [62, 74, 54, 78];
+  for (const dist of dists) {
     framed = await page.evaluate(({ id, dist }) => window.__retry.frameDancer(id, dist), { id, dist });
     note('dancer frame', { name, framed });
-    if (framed?.ok && framed.shown) break;
+    if (!(framed?.ok && framed.shown)) {
+      framed = null;
+      continue;
+    }
+    await frames();
+    await page.evaluate(() => window.__pinDancerCam?.());
+    const probe = `/tmp/${name}-probe.png`;
+    await page.screenshot({ path: probe, timeout: 180000, animations: 'disabled' });
+    const pink = spawnSync('python3', ['-c', `
+from PIL import Image
+im = Image.open(${JSON.stringify(probe)}).convert('RGB')
+px = im.load()
+w, h = im.size
+n = 0
+for y in range(0, h, 3):
+    for x in range(0, w, 3):
+        r, g, b = px[x, y]
+        if r > 70 and r > g + 18 and b > 40:
+            n += 1
+print(n)
+`], { encoding: 'utf8' });
+    const count = Number(pink.stdout.trim() || 0);
+    note('dancer pink', { name, dist, count });
+    if (count > 400) break;
     framed = null;
   }
   if (!framed?.ok) {
@@ -1385,7 +1559,9 @@ async function dancerStrip(name, id) {
       note('dancer phase', { name, f, stepped });
     }
     await frames();
-    await page.waitForTimeout(180);
+    await page.evaluate(() => window.__pinDancerCam?.());
+    await page.evaluate(() => window.__nla.app.dancer.update(window.__nla.app.camera.position));
+    await page.waitForTimeout(80);
     await page.screenshot({ path: `${OUT}/${name}-f${f}.png`, timeout: 180000, animations: 'disabled' });
   }
   note('dancer shot', { name });
@@ -1399,12 +1575,15 @@ async function doorShot(tier) {
   note('door pose', { tier, found });
   if (!found?.ok) return;
   await frames();
+  await page.evaluate(() => window.__pinDancerCam?.());
   await page.screenshot({ path: `${OUT}/scale-door-car-${tier}.png`, timeout: 180000, animations: 'disabled' });
 }
 
 async function runTier(tier) {
   note('boot', tier);
   await boot(tier);
+  const mem = await page.evaluate(() => window.__nla.stats().humanMemory);
+  note('memory', mem);
   if (DANCER_ONLY) {
     await dancerStrip(`dancer-broadway-${tier}`, 'joi-bridge-dancer');
     await dancerStrip(`dancer-hollywood-${tier}`, 'hollywood-dancer');

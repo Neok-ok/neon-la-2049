@@ -193,9 +193,13 @@ def _clothes(mesh, segs, lod):
     loft(mesh, STAND['coat'], _coat_z, segs, 6, lambda _y: BI['coat'], coat_color, WOOL, y_extra=coat_ys)
     loft(mesh, SHORT['coat'], _coat_z, segs, 12, lambda _y: BI['coat'], CLOTH, WOOL)
 
-    # Hood, 0.30 m across, over the blank head. No face inside it.
-    hood = ((-0.15, 1.52), (0.15, 1.52), (0.15, 1.84), (-0.15, 1.84))
-    loft(mesh, hood, lambda _y: (-0.14, 0.12), max(4, segs - 2), 9, lambda _y: BI['hood'], CLOTH_DARK, WOOL)
+    # Hood, a cowl over the blank head. A square loft read as a second can.
+    ellipsoid(
+        mesh, 0.0, 1.70, -0.01, 0.11, 0.13, 0.12,
+        5 if lod == 'low' else 6,
+        8 if lod == 'low' else 10,
+        9, BI['hood'], CLOTH_DARK, WOOL,
+    )
 
     # Hat. Brim 0.34 m, crown to 1.92 m. The crown is a cap, not a second can.
     if lod == 'low':

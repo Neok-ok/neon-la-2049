@@ -196,7 +196,9 @@ def _foot_target(hip_x, phase, stride):
         s = _smooth(u)
         a0, R0, _, _, _ = _foot_target(hip_x, 0.5, stride)
         a1, _R1, _, _, _ = _foot_target(hip_x, 0.0, stride)
-        lift = math.sin(u * math.pi) * 0.11
+        # 14 cm of clearance. 11 cm stayed on the pavement and read as a
+        # skate. 20 cm kicked the foot up to the hem.
+        lift = math.sin(u * math.pi) * 0.14
         ankle = (
             hip_x,
             a0[1] * (1.0 - s) + a1[1] * s + lift,
@@ -333,11 +335,13 @@ def _arm(shoulder, wrist, l1, l2, pole):
 
 
 def _hang_wrist(rest_hand, swing):
-    # swing > 0 reaches forward (+Z). Shoulder pitch.
+    # swing > 0 reaches forward (+Z). The hanging hand is a full arm's
+    # length below the shoulder, so a pure Z offset locks the elbow.
+    # Raise the wrist and the elbow has to bend.
     return (
         rest_hand[0],
-        rest_hand[1] + 0.01 * abs(swing),
-        rest_hand[2] + 0.28 * swing,
+        rest_hand[1] + 0.045 + 0.055 * abs(swing),
+        rest_hand[2] + 0.24 * swing,
     )
 
 
@@ -389,8 +393,7 @@ def walk_skin(phase, stride=1.0, umbrella=False):
         else:
             rest_w = REST[f'hand{side}']
             wrist = _hang_wrist(add(rest_w, (delta[0] * 0.7, delta[1], delta[2] * 0.7)), swing)
-            # A little elbow bend so the arm is never a plank. Pole is back.
-            wrist = (wrist[0], wrist[1] + 0.03, wrist[2])
+            # Keep the hand inside the arm's reach so the elbow stays bent.
             pole = (0.15 if side == 'R' else -0.15, -0.25, -1.0)
         elbow, wrist = _arm(shoulder, wrist, UPPER, FORE, pole)
         worlds_t[f'armU{side}'] = shoulder

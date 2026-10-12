@@ -1,7 +1,7 @@
 {
   "crowd": {
     "low": {
-      "triangles": 1004,
+      "triangles": 1052,
       "iou": {
         "stand": 0.9672,
         "short": 0.8359,
@@ -30,19 +30,19 @@
         "bob_m": 0.01764,
         "pelvis_y_m": [
           0.938,
-          0.9556384252869671
+          0.95564
         ],
         "stance_knee_deg": [
-          10.934317025952652,
-          34.54300359038396
+          10.93432,
+          35.38676
         ],
-        "swing_knee_deg": 72.69125,
-        "elbow_deg": 39.2608,
+        "swing_knee_deg": 79.04544,
+        "elbow_deg": 57.58376,
         "samples": 64
       }
     },
     "medium": {
-      "triangles": 1792,
+      "triangles": 1876,
       "iou": {
         "stand": 0.9698,
         "short": 0.8389,
@@ -71,19 +71,19 @@
         "bob_m": 0.01764,
         "pelvis_y_m": [
           0.938,
-          0.9556384252869671
+          0.95564
         ],
         "stance_knee_deg": [
-          10.934317025952652,
-          34.54300359038396
+          10.93432,
+          35.38676
         ],
-        "swing_knee_deg": 72.69125,
-        "elbow_deg": 39.2608,
+        "swing_knee_deg": 79.04544,
+        "elbow_deg": 57.58376,
         "samples": 64
       }
     },
     "high": {
-      "triangles": 1896,
+      "triangles": 1964,
       "iou": {
         "stand": 0.9698,
         "short": 0.8389,
@@ -112,14 +112,14 @@
         "bob_m": 0.01764,
         "pelvis_y_m": [
           0.938,
-          0.9556384252869671
+          0.95564
         ],
         "stance_knee_deg": [
-          10.934317025952652,
-          34.54300359038396
+          10.93432,
+          35.38676
         ],
-        "swing_knee_deg": 72.69125,
-        "elbow_deg": 39.2608,
+        "swing_knee_deg": 79.04544,
+        "elbow_deg": 57.58376,
         "samples": 64
       }
     }
@@ -133,14 +133,14 @@
       }
     },
     "medium": {
-      "triangles": 1296,
+      "triangles": 1008,
       "iou": {
         "front": 0.7329,
         "side": 0.8216
       }
     },
     "high": {
-      "triangles": 2704,
+      "triangles": 2024,
       "iou": {
         "front": 0.7337,
         "side": 0.8216

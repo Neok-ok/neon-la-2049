@@ -239,7 +239,7 @@ function crowdMaterial(palette: Texture, atlas: Texture): MeshStandardNodeMateri
   let albedo = coat.mul(vcol).mul(detail);
   albedo = T.mix(albedo, skinTone.mul(vcol), isSkin);
   // Charcoal trousers. Lighter than the night pavement, darker than the coat.
-  const pants = T.vec3(0.09, 0.085, 0.09).mul(detail);
+  const pants = T.vec3(0.06, 0.056, 0.055).mul(detail);
   albedo = T.mix(albedo, pants, isLeg.mul(T.float(1).sub(isShoe)));
   albedo = T.mix(albedo, T.vec3(0.05, 0.048, 0.046).mul(detail), isShoe);
   albedo = T.mix(albedo, coat.mul(0.55).mul(vcol).mul(detail), isBag);
@@ -266,7 +266,7 @@ function crowdMaterial(palette: Texture, atlas: Texture): MeshStandardNodeMateri
   let emissive = albedo.mul(glow).add(sss);
   emissive = T.mix(emissive, shaftCol.mul(0.55), isShaft);
   emissive = emissive.add(can.mul(isCan).mul(0.18));
-  emissive = emissive.add(T.vec3(0.02, 0.018, 0.018).mul(isLeg).mul(T.float(1).sub(isShoe)));
+  emissive = emissive.add(T.vec3(0.012, 0.011, 0.011).mul(isLeg).mul(T.float(1).sub(isShoe)));
 
   m.colorNode = T.vec4(albedo, 1);
   // The pants and coat glow were painted at exposure 1. Lift them with the

@@ -2,7 +2,7 @@
   "crowd": {
     "medium": {
       "lod": "medium",
-      "triangles": 1792,
+      "triangles": 1876,
       "limitM": 0.03,
       "views": {
         "stand": {
@@ -32,7 +32,7 @@
     },
     "high": {
       "lod": "high",
-      "triangles": 1896,
+      "triangles": 1964,
       "limitM": 0.03,
       "views": {
         "stand": {
@@ -64,23 +64,23 @@
   "dancer": {
     "medium": {
       "lod": "medium",
-      "triangles": 1296,
+      "triangles": 1008,
       "limitM": 0.64,
       "views": {
         "front": {
-          "iou": 0.7329,
+          "iou": 0.4869,
           "outsidePx": 0,
-          "meshPx": 38495,
+          "meshPx": 25268,
           "protrusion": false
         },
         "side": {
-          "iou": 0.8216,
+          "iou": 0.5873,
           "outsidePx": 0,
-          "meshPx": 6356,
+          "meshPx": 4589,
           "protrusion": false
         }
       },
-      "components": 8,
+      "components": 10,
       "authoredSeparations": "diamond head, raised hand, three skirt steps, veil",
       "loose": [],
       "thinTriangles": 0,
@@ -89,23 +89,23 @@
     },
     "high": {
       "lod": "high",
-      "triangles": 2704,
+      "triangles": 2024,
       "limitM": 0.64,
       "views": {
         "front": {
-          "iou": 0.7337,
+          "iou": 0.487,
           "outsidePx": 0,
-          "meshPx": 38616,
+          "meshPx": 25291,
           "protrusion": false
         },
         "side": {
-          "iou": 0.8216,
+          "iou": 0.5919,
           "outsidePx": 0,
-          "meshPx": 6402,
+          "meshPx": 4596,
           "protrusion": false
         }
       },
-      "components": 8,
+      "components": 10,
       "authoredSeparations": "diamond head, raised hand, three skirt steps, veil",
       "loose": [],
       "thinTriangles": 0,
