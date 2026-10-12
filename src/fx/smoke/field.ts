@@ -25,7 +25,7 @@ import {
 /** Share of the street budget. Indexed by KIND. Launch kinds stay on their own slots. */
 const KIND_SHARE = [0.16, 0.12, 0.12, 0.1, 0.14, 0.22, 0.14];
 /** Card opacity. Street steam stays translucent so wisps do not fuse into a bank. */
-const KIND_ALPHA = [0.84, 0.82, 0.88, 0.7, 0.92, 0.8, 0.84, 0.46, 0.68];
+const KIND_ALPHA = [0.9, 0.86, 0.92, 0.74, 0.9, 0.86, 0.88, 0.62, 0.8];
 /** How many aged cards one emitter may seed, so a grate is a wisp and a stack is a column. */
 const SEED_CAP = [4, 4, 5, 6, 8, 18];
 
@@ -267,7 +267,7 @@ export class SmokeField {
     const gCount = Math.min(gCap, Math.max(10, Math.floor(gCap * grown)));
     for (let n = 0; n < gCount; n++) {
       const puff = groundPuff(drive, camX, camZ, grown);
-      const size1 = (tier === 'low' ? 10 : tier === 'medium' ? 14 : 18) + puff.ring * 0.1;
+      const size1 = (tier === 'low' ? 14 : tier === 'medium' ? 20 : 26) + puff.ring * 0.14;
       spawnParticle(this.pool, {
         x: puff.x,
         y: puff.y,
@@ -291,14 +291,12 @@ export class SmokeField {
     const len = Math.max(80, drive.headY - drive.y);
     const span = Math.min(len * 0.94, 1500);
     for (let n = 0; n < cCap; n++) {
-      const along = 6 + (n + smokeRand() * 0.85) / cCap * (span - 6);
+      const along = 28 + (n + smokeRand() * 0.85) / cCap * (span - 28);
       const ang = smokeRand() * Math.PI * 2;
       const t = Math.max(0, Math.min(1, along / len));
-      const rad = smokeRand() < 0.28
-        ? smokeRand() * 2.4
-        : (4.5 + smokeRand() * 6.5) * (0.75 + t * 0.45);
+      const rad = smokeRand() < 0.4 ? smokeRand() * 2.2 : 2.5 + smokeRand() * 4.5;
       const lean = plumeLean(along, len, wind.speed);
-      const size = (tier === 'low' ? 11 : tier === 'medium' ? 16 : 20) + t * (tier === 'low' ? 8 : 16);
+      const size = (tier === 'low' ? 16 : tier === 'medium' ? 26 : 34) + t * (tier === 'low' ? 12 : 28);
       spawnParticle(this.pool, {
         x: drive.x + Math.cos(wind.dir) * lean + Math.cos(ang) * rad,
         y: drive.y + along,
@@ -422,8 +420,8 @@ export class SmokeField {
         vz: wakeZ,
         life: spin ? 2.2 : truck ? 1.35 : 1.05,
         age: 0,
-        size0: spin ? 0.45 : truck ? 0.28 : 0.16,
-        size1: spin ? 1.5 : truck ? 0.85 : 0.55,
+        size0: spin ? 0.4 : truck ? 0.22 : 0.12,
+        size1: spin ? 1.2 : truck ? 0.62 : 0.38,
         kind: KIND.exhaust,
         heat: truck ? 0.08 : 0.02,
         fade: spin ? 90 : 48,
@@ -487,19 +485,30 @@ export class SmokeField {
       const fadeIn = Math.min(1, u / 0.06);
       const fadeOut = Math.min(1, (1 - u) / 0.28);
       const kind = pool.kind[i]!;
+      let px = pool.x[i]!;
+      let py = pool.y[i]!;
+      let pz = pool.z[i]!;
       let baseA = KIND_ALPHA[kind] ?? 0.5;
-      if (kind === KIND.exhaust) {
-        const d = Math.sqrt(dist[i]!);
-        if (d < 7) baseA *= Math.max(0.12, (d - 2.5) / 4.5);
+      const d = Math.sqrt(dist[i]!);
+      if (kind === KIND.exhaust && d < 7) baseA *= Math.max(0.12, (d - 2.5) / 4.5);
+      if ((kind === KIND.stall || kind === KIND.vent) && d < 2.4) baseA *= Math.max(0, (d - 0.7) / 1.7);
+      // Draw the sheath a few metres toward the camera so it sits in front of
+      // the gantry and over the ribbon. The offset is along the view ray, so
+      // the column stays on the flame in screen space.
+      if (kind === KIND.column && d > 30) {
+        const pull = 16 / d;
+        px += (camX - px) * pull;
+        py += (camY - py) * pull;
+        pz += (camZ - pz) * pull;
       }
       const alpha = fadeIn * fadeOut * baseA;
       // A fat fade against the street deletes a 1 m puff whose card touches the ground.
       const soft = Math.max(0.15, Math.min(4.5, size * 0.08));
       for (let k = 0; k < 4; k++) {
         const v = (s * 4 + k) * 4;
-        ca[v] = pool.x[i]!;
-        ca[v + 1] = pool.y[i]!;
-        ca[v + 2] = pool.z[i]!;
+        ca[v] = px;
+        ca[v + 1] = py;
+        ca[v + 2] = pz;
         ca[v + 3] = size;
         ma[v] = u;
         ma[v + 1] = pool.kind[i]!;

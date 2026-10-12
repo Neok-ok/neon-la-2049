@@ -160,7 +160,7 @@ function dragK(kind: number): number {
 function turb(kind: number): number {
   if (kind === KIND.column) return 0.7;
   if (kind === KIND.ground) return 2.6;
-  if (kind === KIND.stack) return 3.1;
+  if (kind === KIND.stack) return 1.15;
   if (kind === KIND.barrel) return 0.55;
   return 0.45;
 }
@@ -271,7 +271,7 @@ export function integrate(
         const ox = x - ax;
         const oz = z - az;
         const dist = Math.hypot(ox, oz) || 0.001;
-        const want = 5.5 + Math.min(9, height * 0.006);
+        const want = 2.8 + Math.min(4, height * 0.003);
         const err = dist - want;
         const pull = 1 - Math.exp(-dt * 2.6);
         const nx = ox / dist;

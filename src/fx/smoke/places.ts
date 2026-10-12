@@ -126,37 +126,37 @@ function addMarket(
       const rx = fz;
       const rz = -fx;
       vents.push(make({
-        x: x + fx * 5.4 + rx * 1.7,
-        y: s.y + 0.7,
-        z: z + fz * 5.4 + rz * 1.7,
+        x: x + fx * 6.6 + rx * 2.1,
+        y: s.y + 0.55,
+        z: z + fz * 6.6 + rz * 2.1,
         kind: KIND.vent,
-        rate: 4.2,
-        life: 3.2,
-        size0: 0.28,
-        size1: 1.15,
+        rate: 5,
+        life: 3.4,
+        size0: 0.35,
+        size1: 1.55,
         heat: 0,
-        radius: 0.08,
-        spread: 0.35,
-        rise: 0.95,
-        fade: 16,
-        aspect: 1.45,
+        radius: 0.1,
+        spread: 0.4,
+        rise: 1.35,
+        fade: 18,
+        aspect: 1.9,
         floorY: s.y,
       }));
       holes.push(make({
-        x: x + fx * 3.1 - rx * 0.85,
-        y: s.y + 0.22,
-        z: z + fz * 3.1 - rz * 0.85,
+        x: x + fx * 3.8 - rx * 1.3,
+        y: s.y + 0.4,
+        z: z + fz * 3.8 - rz * 1.3,
         kind: KIND.manhole,
-        rate: 3.2,
-        life: 3.6,
-        size0: 0.7,
-        size1: 1.7,
+        rate: 4,
+        life: 2.6,
+        size0: 0.4,
+        size1: 1.05,
         heat: 0,
-        radius: 0.35,
-        spread: 0.85,
-        rise: 0.16,
-        fade: 14,
-        aspect: 0.42,
+        radius: 0.2,
+        spread: 0.45,
+        rise: 0.55,
+        fade: 12,
+        aspect: 0.9,
         floorY: s.y,
       }));
     }
@@ -173,20 +173,21 @@ function addMarket(
           const roofY = query.floorBelow(px, y + 4, pz, true);
           if (!(roofY > s.y + 6) || roofY > y - 1.2) continue;
           const dist = Math.hypot(px - x, pz - z) || 1;
+          if (dist < 12 || dist > 34) continue;
           const pitch = Math.atan2(roofY - y, dist);
-          if (pitch > -0.18 || pitch < -1.0) continue;
-          const score = Math.abs(pitch + 0.5) * 5 + dist * 0.02;
+          if (pitch > -0.28 || pitch < -0.95) continue;
+          const score = Math.abs(pitch + 0.62) * 8 + dist * 0.04;
           if (!best || score < best.score) best = { x: px, z: pz, roof: roofY, score };
         }
       }
       const spot = best ?? { x: x + fx * 16 + rx * 8, z: z + fz * 16 + rz * 8, roof: s.y + 18, score: 0 };
       roofs.push(make({
-        x: spot.x, y: spot.roof + 1.15, z: spot.z,
+        x: spot.x, y: spot.roof + 3.6, z: spot.z,
         kind: KIND.roof,
-        rate: 4,
+        rate: 5,
         life: 5.5,
-        size0: 1.2,
-        size1: 4.6,
+        size0: 1.6,
+        size1: 6.4,
         heat: 0,
         radius: 0.25,
         spread: 0.3,
@@ -200,13 +201,14 @@ function addMarket(
   for (const shop of [spots.noodle, spots.bibi]) {
     if (!shop) continue;
     const s = shop.street;
+    if (y > s.y + 6) continue;
     if ((s.x - x) ** 2 + (s.z - z) ** 2 > 8 * 8) continue;
     const dh = Math.atan2(Math.sin(heading - s.heading), Math.cos(heading - s.heading));
     if (Math.abs(dh) > 0.2) continue;
     const hx = Math.sin(s.heading);
     const hz = -Math.cos(s.heading);
     food.push(make({
-      x: s.x + hx * 1.4, y: s.y + 1.05, z: s.z + hz * 1.4,
+      x: s.x + hx * 4.8, y: s.y + 1.15, z: s.z + hz * 4.8,
       kind: KIND.stall,
       rate: 11,
       life: 1.25,
@@ -322,16 +324,16 @@ export function gatherEmitters(
     stacks.push(make({
       x: f.x, y: f.y + 1.2, z: f.z,
       kind: KIND.stack,
-      rate: 4.4,
-      life: 16,
-      size0: 1.5,
-      size1: 5.2,
-      heat: 0.06,
-      radius: 0.35,
-      spread: 0.55,
-      rise: 3.4,
+      rate: 6,
+      life: 14,
+      size0: 2.4,
+      size1: 7.5,
+      heat: 0.04,
+      radius: 0.3,
+      spread: 0.12,
+      rise: 2.8,
       fade: 1100,
-      aspect: 2.35,
+      aspect: 2.6,
       floorY: f.y,
     }));
   };
@@ -347,15 +349,15 @@ export function gatherEmitters(
         x: bx, y: door.y + 1.3, z: bz,
         kind: KIND.barrel,
         rate: 7,
-        life: 4.5,
-        size0: 0.18,
-        size1: 0.95,
+        life: 5,
+        size0: 0.28,
+        size1: 1.45,
         heat: 1,
-        radius: 0.1,
-        spread: 0.12,
-        rise: 0.5,
-        fade: 24,
-        aspect: 0.95,
+        radius: 0.12,
+        spread: 0.1,
+        rise: 0.85,
+        fade: 28,
+        aspect: 1.25,
         floorY: door.y,
       }));
     }

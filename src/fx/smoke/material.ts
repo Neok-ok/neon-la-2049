@@ -51,15 +51,8 @@ function shade(lit: boolean): MeshBasicNodeMaterial {
     const center = ctr.xyz;
     const toCam = normalize(cameraPosition.sub(center));
     const ref = select(abs(toCam.y).greaterThan(0.92), vec3(1, 0, 0), vec3(0, 1, 0));
-    const sideC = normalize(cross(ref, toCam));
-    const upC = normalize(cross(toCam, sideC));
-    // The launch column is a world-up ribbon, same as the flame, so the sheath
-    // stays on the core instead of tilting off it as a camera-facing disc.
-    const columnish = smoothstep(6.45, 6.9, meta.y).mul(float(1).sub(smoothstep(7.25, 7.7, meta.y)));
-    const worldUp = vec3(0, 1, 0);
-    const sideW = normalize(cross(worldUp, toCam));
-    const side = mix(sideC, sideW, columnish);
-    const up = mix(upC, worldUp, columnish);
+    const side = normalize(cross(ref, toCam));
+    const up = normalize(cross(toCam, side));
     const size = max(ctr.w, 0.05);
     return center
       .add(side.mul(corner.x.mul(size)))
@@ -97,7 +90,7 @@ function shade(lit: boolean): MeshBasicNodeMaterial {
     // Body is a painted grey lifted like fog, so a puff still reads when the
     // exposure is stopped down. practicalLit stays in nits and is added, not scaled.
     const albedo = vec3(0.92, 0.93, 0.95).mul(steam)
-      .add(vec3(0.14, 0.13, 0.12).mul(barrel))
+      .add(vec3(0.36, 0.34, 0.32).mul(barrel))
       .add(vec3(0.68, 0.67, 0.66).mul(stack))
       .add(vec3(0.5, 0.51, 0.52).mul(exhaustK))
       .add(vec3(0.88, 0.86, 0.82).mul(launch));
