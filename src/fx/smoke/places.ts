@@ -176,8 +176,9 @@ function addMarket(
     if (y > s.y + 10 && (s.x - x) ** 2 + (s.z - z) ** 2 < 55 * 55) {
       const hx2 = Math.sin(s.heading);
       const hz2 = -Math.cos(s.heading);
-      const rx = s.x + hx2 * 7;
-      const rz = s.z + hz2 * 7;
+      // Beside the look, on the near roof, so the high camera sees it on a slab.
+      const rx = s.x + hz2 * 9;
+      const rz = s.z - hx2 * 9;
       let roof = query.floorBelow(rx, s.y + 80, rz, true);
       if (!(roof > s.y + 5)) roof = query.floorBelow(s.x - hx2 * 5, s.y + 80, s.z - hz2 * 5, true);
       if (!(roof > s.y + 5)) roof = s.y + 16;
@@ -212,7 +213,7 @@ function addMarket(
       rate: 8,
       life: 1.7,
       size0: 0.16,
-      size1: 0.48,
+      size1: 0.7,
       heat: 0.2,
       radius: 0.1,
       spread: 0.18,

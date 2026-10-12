@@ -298,12 +298,10 @@ export class SmokeField {
       });
     }
     const h = Math.min(280, Math.max(40, drive.headY - drive.y));
-    const front = Math.atan2(camZ - drive.z, camX - drive.x);
     for (let n = 0; n < cCap; n++) {
       const along = smokeRand() * h;
-      const nearSide = smokeRand() < 0.8;
-      const ang = nearSide ? front + (smokeRand() - 0.5) * 2.2 : smokeRand() * Math.PI * 2;
-      const rad = (nearSide ? 1.6 + smokeRand() * 3.2 : 3 + smokeRand() * 4) * (0.8 + along / Math.max(h, 1) * 0.35);
+      const ang = smokeRand() * Math.PI * 2;
+      const rad = (1.8 + smokeRand() * 3.4) * (0.75 + along / Math.max(h, 1) * 0.4);
       const len = Math.max(24, drive.headY - drive.y);
       const lift = Math.max(0, Math.min(1, (along - 0.14 * len) / Math.max(1, 0.72 * len)));
       const lean = (10 + Math.min(12, wind.speed) * 1.4) * lift;
@@ -371,12 +369,10 @@ export class SmokeField {
     const h = Math.min(240, Math.max(20, drive.headY - drive.y));
     const wx = Math.cos(wind.dir) * wind.speed;
     const wz = Math.sin(wind.dir) * wind.speed;
-    const front = Math.atan2(camZ - drive.z, camX - drive.x);
     while (this.columnAcc >= 1 && this.pool.slotN[2] < cCap) {
       const along = smokeRand() * h * 0.45;
-      const nearSide = smokeRand() < 0.8;
-      const ang = nearSide ? front + (smokeRand() - 0.5) * 2.2 : smokeRand() * Math.PI * 2;
-      const rad = nearSide ? 1.8 + smokeRand() * 3 : 3.2 + smokeRand() * 4;
+      const ang = smokeRand() * Math.PI * 2;
+      const rad = 1.6 + smokeRand() * 3.2;
       const ok = spawnParticle(this.pool, {
         x: drive.x + Math.cos(ang) * rad + wx * 0.15,
         y: drive.y + 4 + along,
@@ -412,13 +408,16 @@ export class SmokeField {
       const db = (b.x - frame.camX) ** 2 + (b.z - frame.camZ) ** 2;
       return da - db;
     });
+    let forced = 0;
     for (const t of tails) {
       const ground = frame.query.groundHeight(t.x, t.z);
       if (t.heavy === 2 && t.y < ground + 14) continue;
       const rate = (1.1 + t.drive * (t.heavy === 2 ? 2.2 : 4.2)) * scale;
       const exhaustCap = Math.max(4, Math.floor(cap * (KIND_SHARE[KIND.exhaust] ?? 0.1)));
       if ((this.pool.kindN[KIND.exhaust] ?? 0) >= exhaustCap) break;
-      if (smokeRand() > rate * dt) continue;
+      const must = forced < 2 && t.heavy !== 2 && smokeRand() < dt * 4;
+      if (must) forced += 1;
+      if (!must && smokeRand() > rate * dt) continue;
       const spin = t.heavy === 2;
       const truck = t.heavy === 1;
       const wakeX = t.wx ?? Math.cos(wind.dir) * wind.speed * 0.15;
@@ -437,6 +436,23 @@ export class SmokeField {
         fade: spin ? 90 : 48,
         aspect: spin ? 0.85 : 1.55,
         floorY: spin ? t.y - 2 : ground,
+        slot: 0,
+        slotCap: cap,
+      });
+      if (!must) continue;
+      const back = 0.35;
+      spawnParticle(this.pool, {
+        x: t.x + wakeX * back, y: t.y + 0.25, z: t.z + wakeZ * back,
+        vx: wakeX, vy: 0.4, vz: wakeZ,
+        life: truck ? 2.2 : 1.6,
+        age: 0.35,
+        size0: truck ? 0.5 : 0.32,
+        size1: truck ? 1.8 : 1.15,
+        kind: KIND.exhaust,
+        heat: 0.02,
+        fade: 48,
+        aspect: 1.55,
+        floorY: ground,
         slot: 0,
         slotCap: cap,
       });
