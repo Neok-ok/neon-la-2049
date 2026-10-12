@@ -184,9 +184,9 @@ function turb(kind: number): number {
  * them, so the column is a stack of billows and the core can show in the gaps.
  */
 export function columnRadius(height: number, time: number): number {
-  const bulb = Math.max(0, Math.sin(height * 0.02 + 0.6));
-  const wiggle = Math.sin(height * 0.047 + time * 0.35);
-  return 6.5 + bulb * 13 + wiggle * 2.5;
+  const bulb = Math.max(0, Math.sin(height * 0.018 + 0.6));
+  const wiggle = Math.sin(height * 0.041 + time * 0.35);
+  return 7 + bulb * 6 + wiggle * 1.4;
 }
 
 /** Same lean the flame ribbon uses: 0 at the pad, full lean at the head. */

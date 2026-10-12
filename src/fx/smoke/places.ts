@@ -68,6 +68,28 @@ function open(query: CityQuery, x: number, y: number, z: number): boolean {
   return !query.insideSolid(x, y + 0.8, z, 0.35, false);
 }
 
+/** A point in the lane the camera is looking down, nudged until it is not inside a wall. */
+function laneSpot(
+  query: CityQuery,
+  x: number, y: number, z: number,
+  fx: number, fz: number, rx: number, rz: number,
+  along: number, side: number, lift: number,
+): { x: number; y: number; z: number } {
+  const tries: Array<[number, number]> = [
+    [along, side],
+    [along, side + 1.4],
+    [along, side - 1.4],
+    [along + 1.6, 0],
+    [along - 1.2, side],
+  ];
+  for (const [a, s] of tries) {
+    const px = x + fx * a + rx * s;
+    const pz = z + fz * a + rz * s;
+    if (open(query, px, y + lift, pz)) return { x: px, y: y + lift, z: pz };
+  }
+  return { x: x + fx * along + rx * side, y: y + lift, z: z + fz * along + rz * side };
+}
+
 function flames(
   layout: CityLayout, x: number, z: number,
   id: string, a: number, b: number,
@@ -125,38 +147,40 @@ function addMarket(
       const fz = -Math.cos(heading);
       const rx = fz;
       const rz = -fx;
+      const vent = laneSpot(query, x, s.y, z, fx, fz, rx, rz, 3.6, 0.4, 0.85);
       vents.push(make({
-        x: x + fx * 6.4 + rx * 1.7,
-        y: s.y + 0.2,
-        z: z + fz * 6.4 + rz * 1.7,
+        x: vent.x,
+        y: vent.y,
+        z: vent.z,
         kind: KIND.vent,
-        rate: 11,
-        life: 2.5,
-        size0: 0.5,
-        size1: 1.55,
+        rate: 12,
+        life: 2.2,
+        size0: 0.32,
+        size1: 0.85,
         heat: 0,
-        radius: 0.1,
-        spread: 0.1,
-        rise: 2.05,
-        fade: 16,
-        aspect: 1.9,
+        radius: 0.08,
+        spread: 0.08,
+        rise: 1.55,
+        fade: 18,
+        aspect: 2.15,
         floorY: s.y,
       }));
+      const hole = laneSpot(query, x, s.y, z, fx, fz, rx, rz, 8.2, -1.3, 0.4);
       holes.push(make({
-        x: x + fx * 12.2 - rx * 1.5,
-        y: s.y + 0.35,
-        z: z + fz * 12.2 - rz * 1.5,
+        x: hole.x,
+        y: hole.y,
+        z: hole.z,
         kind: KIND.manhole,
-        rate: 10,
-        life: 2.1,
-        size0: 0.5,
-        size1: 1.35,
+        rate: 11,
+        life: 1.9,
+        size0: 0.4,
+        size1: 1.15,
         heat: 0,
-        radius: 0.18,
-        spread: 0.1,
-        rise: 0.32,
-        fade: 12,
-        aspect: 0.58,
+        radius: 0.2,
+        spread: 0.08,
+        rise: 0.28,
+        fade: 14,
+        aspect: 0.52,
         floorY: s.y,
       }));
     }
@@ -212,18 +236,18 @@ function addMarket(
     const rx = hz;
     const rz = -hx;
     food.push(make({
-      x: s.x + hx * 3.4 + rx * 1.7, y: s.y + 1.15, z: s.z + hz * 3.4 + rz * 1.7,
+      x: s.x + hx * 4.8 + rx * 1.15, y: s.y + 0.95, z: s.z + hz * 4.8 + rz * 1.15,
       kind: KIND.stall,
-      rate: 16,
-      life: 1.3,
-      size0: 0.22,
-      size1: 0.68,
-      heat: 0.15,
-      radius: 0.08,
-      spread: 0.08,
-      rise: 0.62,
+      rate: 14,
+      life: 1.15,
+      size0: 0.14,
+      size1: 0.4,
+      heat: 0.12,
+      radius: 0.06,
+      spread: 0.06,
+      rise: 0.5,
       fade: 8,
-      aspect: 1.45,
+      aspect: 1.65,
       floorY: s.y,
     }));
   }
@@ -354,14 +378,14 @@ export function gatherEmitters(
         kind: KIND.barrel,
         rate: 14,
         life: 3.6,
-        size0: 0.32,
-        size1: 1.05,
+        size0: 0.26,
+        size1: 0.72,
         heat: 1,
-        radius: 0.16,
-        spread: 0.07,
-        rise: 1.2,
+        radius: 0.14,
+        spread: 0.06,
+        rise: 0.8,
         fade: 28,
-        aspect: 1.4,
+        aspect: 1.25,
         floorY: door.y,
       }));
     }

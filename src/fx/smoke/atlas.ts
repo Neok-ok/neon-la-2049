@@ -12,7 +12,7 @@ const ROWS = 2;
 
 function ball(u: number, v: number, cx: number, cy: number, rx: number, ry: number): number {
   const r = Math.hypot((u - cx) / rx, (v - cy) / ry);
-  return Math.pow(Math.max(0, 1 - r), 1.45);
+  return Math.pow(Math.max(0, 1 - r), 1.15);
 }
 
 /** A few offset lobes, not a disc. The body stays filled so a small street card still reads. */

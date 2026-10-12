@@ -70,8 +70,8 @@ function shade(lit: boolean): MeshBasicNodeMaterial {
     const cell = corner.mul(0.5).add(0.5).mul(0.9).add(0.05);
     const uv = vec2(col.add(cell.x).div(4.0), row.add(cell.y).div(2.0));
     const stamp = texture(atlas, uv);
-    // The atlas lobes are the silhouette. The corner mask only kills the quad tips.
-    const shape = smoothstep(0.02, 0.4, stamp.a).mul(smoothstep(1.42, 1.02, length(corner)));
+    // Soft lobe alpha. A hard threshold turned every card into a cotton ball.
+    const shape = stamp.a.mul(smoothstep(1.2, 0.8, length(corner)));
 
     const toCam = normalize(cameraPosition.sub(ctr.xyz));
     const ref = select(abs(toCam.y).greaterThan(0.92), vec3(1, 0, 0), vec3(0, 1, 0));
