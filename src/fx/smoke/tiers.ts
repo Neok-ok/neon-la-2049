@@ -2,10 +2,10 @@ import type { Tier } from '../../core/quality';
 
 /** Billboard slots. Allocated for the tier that is showing, not the ultra count. */
 export const SMOKE_CAP: Record<Tier, number> = {
-  low: 64,
-  medium: 180,
-  high: 380,
-  ultra: 560,
+  low: 96,
+  medium: 320,
+  high: 520,
+  ultra: 720,
 };
 
 /** Launch ground-cloud cards held back from the street budget. */

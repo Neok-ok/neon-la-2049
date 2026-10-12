@@ -18,7 +18,7 @@ import {
 } from './tiers';
 
 /** Share of the street budget. Indexed by KIND. Launch kinds stay on their own slots. */
-const KIND_SHARE = [0.18, 0.16, 0.12, 0.08, 0.14, 0.22, 0.1];
+const KIND_SHARE = [0.24, 0.18, 0.12, 0.08, 0.12, 0.18, 0.08];
 import { KIND, createPool, type Emitter, type Pool, type Tailpipe, type Wind } from './types';
 import {
   launchVolumeMesh, syncVolumeSteps, volBase, volDensity, volEngine, volGroundR,
@@ -49,6 +49,7 @@ export interface SmokeSnapshot {
   street: number;
   ground: number;
   column: number;
+  byKind: number[];
 }
 
 let punctual: PunctualInput[] = [];
@@ -106,6 +107,7 @@ export class SmokeField {
       street: this.pool.slotN[0],
       ground: this.pool.slotN[1],
       column: this.pool.slotN[2],
+      byKind: this.pool.kindN.slice(),
     };
   }
 
@@ -119,6 +121,7 @@ export class SmokeField {
       this.anchorX = frame.camX;
       this.anchorZ = frame.camZ;
       this.gatherAt = frame.time;
+      this.seedEmitters(wind, frame.tier);
     }
     const drive = launchDrive();
     this.noteLaunch(drive, wind);
@@ -140,6 +143,46 @@ export class SmokeField {
     this.write(frame.camX, frame.camY, frame.camZ);
     this.placeVolume(drive, frame.tier);
     this.writeLights(drive, frame.camX, frame.camZ);
+  }
+
+  /** A still should show a plume, not the first puff leaving the grate. */
+  private seedEmitters(wind: Wind, tier: Tier): void {
+    const cap = streetCap(tier);
+    const wx = Math.cos(wind.dir) * wind.speed;
+    const wz = Math.sin(wind.dir) * wind.speed;
+    const rainCut = 1 + wind.rain * 0.35;
+    for (const e of this.emitters) {
+      const share = KIND_SHARE[e.kind] ?? 0.08;
+      const kindCap = Math.max(4, Math.floor(cap * share));
+      const have = this.pool.kindN[e.kind] ?? 0;
+      if (have >= kindCap * 0.45) continue;
+      const want = Math.min(kindCap - have, Math.max(5, Math.round(e.rate * Math.min(e.life, 8) * 0.55)));
+      for (let n = 0; n < want; n++) {
+        const age = smokeRand() * Math.min(e.life * 0.82, e.life / rainCut * 0.9);
+        const ang = smokeRand() * Math.PI * 2;
+        const rise = e.rise * age;
+        const shear = 1 + Math.min(2.1, rise / 60);
+        spawnParticle(this.pool, {
+          x: e.x + Math.cos(ang) * (e.radius + age * e.spread) + wx * shear * age * 0.85,
+          y: e.y + rise * (0.55 + smokeRand() * 0.5),
+          z: e.z + Math.sin(ang) * (e.radius + age * e.spread) + wz * shear * age * 0.85,
+          vx: Math.cos(ang) * e.spread,
+          vy: e.rise * 0.6,
+          vz: Math.sin(ang) * e.spread,
+          life: e.life * (0.85 + smokeRand() * 0.3),
+          age,
+          size0: e.size0,
+          size1: e.size1,
+          kind: e.kind,
+          heat: e.heat * Math.max(0, 1 - age / Math.max(1.5, e.life * 0.45)),
+          fade: e.fade,
+          aspect: e.aspect,
+          floorY: e.floorY,
+          slot: 0,
+          slotCap: cap,
+        });
+      }
+    }
   }
 
   private ensure(tier: Tier): void {
@@ -196,7 +239,7 @@ export class SmokeField {
       const age = smokeRand() * Math.min(Math.max(drive.age, 1), 70);
       const ang = smokeRand() * Math.PI * 2;
       const ring = (8 + grown * 120) * Math.sqrt(smokeRand());
-      const size1 = tier === 'low' ? 26 : tier === 'medium' ? 40 : 58;
+      const size1 = tier === 'low' ? 36 : tier === 'medium' ? 62 : 84;
       spawnParticle(this.pool, {
         x: drive.x + Math.cos(ang) * ring + wx * age * 0.4,
         y: drive.y + 2 + age * 0.85,
@@ -206,7 +249,7 @@ export class SmokeField {
         vz: Math.sin(ang) * 2.5,
         life: 110 + smokeRand() * 30,
         age,
-        size0: 8,
+        size0: 14,
         size1,
         kind: KIND.ground,
         heat: 0.45 * Math.max(0, 1 - age / 18),
@@ -232,8 +275,8 @@ export class SmokeField {
         vz: Math.sin(ang) * 1.2,
         life: 26 + smokeRand() * 14,
         age: smokeRand() * 3,
-        size0: tier === 'low' ? 8 : 6,
-        size1: tier === 'low' ? 18 : 30,
+        size0: tier === 'low' ? 10 : 8,
+        size1: tier === 'low' ? 24 : 52,
         kind: KIND.column,
         heat: Math.max(0, 1 - rad / 14) * (1 - along / Math.max(h, 1) * 0.45),
         fade: 5200,
@@ -264,8 +307,8 @@ export class SmokeField {
           vz: Math.sin(ang) * (3 + grown * 4),
           life: 100 + smokeRand() * 30,
           age: 0,
-          size0: 6,
-          size1: tier === 'low' ? 24 : 50,
+          size0: 10,
+          size1: tier === 'low' ? 32 : 68,
           kind: KIND.ground,
           heat: 0.55,
           fade: 4500,
@@ -298,8 +341,8 @@ export class SmokeField {
         vz: Math.sin(ang) * 1.5,
         life: 22 + smokeRand() * 10,
         age: 0,
-        size0: 5,
-        size1: tier === 'low' ? 16 : 28,
+        size0: 8,
+        size1: tier === 'low' ? 22 : 44,
         kind: KIND.column,
         heat: Math.max(0.2, 1 - rad / 10),
         fade: 5200,
@@ -382,7 +425,7 @@ export class SmokeField {
       const size = pool.size0[i]! + (pool.size1[i]! - pool.size0[i]!) * Math.pow(u, 0.55);
       const fadeIn = Math.min(1, u / 0.06);
       const fadeOut = Math.min(1, (1 - u) / 0.28);
-      const alpha = fadeIn * fadeOut * (pool.kind[i]! >= KIND.column ? 0.78 : 0.88);
+      const alpha = fadeIn * fadeOut * (pool.kind[i]! >= KIND.column ? 0.86 : 0.62);
       const soft = Math.max(0.35, size * 0.42);
       for (let k = 0; k < 4; k++) {
         const v = (s * 4 + k) * 4;

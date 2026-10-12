@@ -12,12 +12,12 @@ const ROWS = 2;
 
 function density(u: number, v: number, frame: number): number {
   const tear = frame / (FRAMES - 1);
-  const wobble = fbm(u * 3.2 + frame * 0.37, v * 3.2 - frame * 0.22, frame * 0.15);
-  const r = Math.hypot(u, v * (1 + tear * 0.35));
-  const body = Math.max(0, 1 - r * (0.95 + tear * 0.55));
-  const edge = Math.pow(body, 1.15 + tear * 0.4);
-  const wisps = 0.45 + 0.55 * (0.5 + 0.5 * wobble);
-  return edge * wisps * (1 - tear * 0.28);
+  const wobble = fbm(u * 2.2 + frame * 0.41, v * 3.4 - frame * 0.19, frame * 0.17);
+  const r = Math.hypot(u * (1.25 + tear * 0.45), v * (0.72 + tear * 0.15));
+  const body = Math.max(0, 1 - r * (1.05 + tear * 0.4));
+  const edge = Math.pow(body, 0.55);
+  const filaments = Math.pow(Math.max(0, 0.5 + 0.5 * wobble), 1.35);
+  return edge * (0.28 + 0.72 * filaments) * (1 - tear * 0.2);
 }
 
 function bake(): Uint8Array {

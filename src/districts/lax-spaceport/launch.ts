@@ -186,8 +186,10 @@ export function updateLaunch(elapsed: number, tier: Tier, windRad: number, wind:
   const p = pads[pad]!;
   const head = live ? headHeight(u, p.y) : p.y;
   const known = start > -1e8;
+  // A mid-burn screenshot sets start in the past, so the raw timestamp can be
+  // negative. Shift it; the field only treats 0 as "no launch".
   syncLaunchPlume({
-    id: known ? start : 0,
+    id: known ? start + 1e6 : 0,
     age: known ? Math.max(0, elapsed - start) : 0,
     burning: live && envNow > 0.02,
     x: p.x,

@@ -111,7 +111,9 @@ function shade(lit: boolean): MeshBasicNodeMaterial {
     const sceneZ = perspectiveDepthToViewZ(viewportDepthTexture(screenUV), cameraNear, cameraFar);
     const gap = positionView.z.sub(sceneZ);
     const soft = smoothstep(0.0, max(extra.z, 0.25), gap);
-    const softFade = mix(float(1), soft, smokeSoft);
+    // An empty depth buffer sits on the near plane and would zero every card.
+    const depthAlive = float(1).sub(smoothstep(float(-3.0), float(-0.35), sceneZ));
+    const softFade = mix(float(1), soft, smokeSoft.mul(depthAlive));
     const rainDim = mix(float(1), float(0.62), smokeRain);
     const a = shape.mul(alphaIn).mul(thin).mul(softFade).mul(rainDim);
     return vec4(rgb.mul(a), a);
