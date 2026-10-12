@@ -731,7 +731,7 @@ export class GroundTraffic {
         const heavy = a.mesh === 'hauler' || a.mesh === 'tanker' || a.mesh === 'box' ? 1 : 0;
         out.push({
           x: px,
-          y: a.p.y + (heavy ? 0.42 : 0.28),
+          y: a.p.y + (heavy ? 0.55 : 0.36),
           z: pz,
           drive: Math.min(1, a.speed / 14),
           heavy,

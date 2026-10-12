@@ -173,31 +173,23 @@ function addMarket(
           const roofY = query.floorBelow(px, y + 4, pz, true);
           if (!(roofY > s.y + 6) || roofY > y - 1.2) continue;
           const dist = Math.hypot(px - x, pz - z) || 1;
-          if (dist < 8 || dist > 28) continue;
-          const sy = roofY + 4;
+          if (dist < 6 || dist > 22) continue;
+          const sy = roofY + 2.8;
           const pitch = Math.atan2(sy - y, dist);
-          if (pitch > -0.2 || pitch < -1.05) continue;
-          if (query.insideSolid(px, sy, pz, 0.6, true)) continue;
-          let blocked = false;
-          for (const t of [0.35, 0.6, 0.82]) {
-            if (query.insideSolid(x + (px - x) * t, y + (sy - y) * t, z + (pz - z) * t, 0.45, false)) {
-              blocked = true;
-              break;
-            }
-          }
-          if (blocked) continue;
-          const score = Math.abs(pitch + 0.55) * 6 + dist * 0.05;
+          if (pitch > -0.45 || pitch < -1.25) continue;
+          if (query.insideSolid(px, sy, pz, 0.5, true)) continue;
+          const score = dist * 0.08 + Math.abs(pitch + 0.9) * 4;
           if (!best || score < best.score) best = { x: px, z: pz, roof: roofY, score };
         }
       }
       const spot = best ?? { x: x + fx * 16 + rx * 8, z: z + fz * 16 + rz * 8, roof: s.y + 18, score: 0 };
       roofs.push(make({
-        x: spot.x, y: spot.roof + 4.2, z: spot.z,
+        x: spot.x, y: spot.roof + 2.8, z: spot.z,
         kind: KIND.roof,
         rate: 6,
         life: 5.5,
-        size0: 2.2,
-        size1: 8,
+        size0: 1.4,
+        size1: 3.4,
         heat: 0,
         radius: 0.25,
         spread: 0.3,
