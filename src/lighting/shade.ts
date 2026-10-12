@@ -114,9 +114,8 @@ export function lanternPool(world: any): any {
   let acc = vec3(0, 0, 0);
   for (let i = 0; i < SLOT_COUNT; i++) {
     const live = step(float(0.5), meta[i]!.x).mul(step(float(0.5), meta[i]!.w));
-    const dx = world.x.sub(pos[i]!.x);
-    const dz = world.z.sub(pos[i]!.z);
-    const fall = exp(dx.mul(dx).add(dz.mul(dz)).mul(-0.05));
+    const delta = pos[i]!.xyz.sub(world);
+    const fall = exp(delta.x.mul(delta.x).add(delta.z.mul(delta.z)).mul(-0.07));
     acc = acc.add(warm.mul(fall).mul(live));
   }
   return acc.mul(float(NITS.pool * 2)).mul(U.night);

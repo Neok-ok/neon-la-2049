@@ -172,9 +172,11 @@ function richSolid(): MeshStandardNodeMaterial {
     const sheenAmt = puddleAmt().mul(0.9);
     const glow = local.mul(fres).mul(sheenAmt).mul(U.night).mul(U.neonWet)
       .mul(U.signPower).mul(mix(float(1), float(0.28), U.reflMix)).mul(altFade).mul(step(k, 0.5)).mul(18.0);
-    // A thin wet sheen on the whole carriageway. The mirror, when it is on, already carries the streak.
-    const wetFres = vec3(0.45, 0.52, 0.62).mul(fres).mul(U.wetness).mul(U.night)
-      .mul(mix(float(1), float(0.2), U.reflMix)).mul(step(k, 0.5)).mul(6.0);
+    // Grazing fresnel on the whole sheet washed the lane pale. A broken sheen stays
+    // dark between the streaks, and drops out while the mirror is already drawing them.
+    const sheen = smoothstep(0.42, 0.8, mx_noise_float(vec3(wpos.x.mul(0.07), wpos.z.mul(0.22), float(5))));
+    const wetFres = vec3(0.42, 0.48, 0.58).mul(fres).mul(sheen).mul(U.wetness).mul(U.night)
+      .mul(mix(float(1), float(0.12), U.reflMix)).mul(step(k, 0.5)).mul(1.1);
     const pool = lanternPool(wpos).mul(step(k, 0.5));
     return lampShell(head).add(roadLit(albedo, head)).add(glow).add(wetFres).add(pool);
   })();
