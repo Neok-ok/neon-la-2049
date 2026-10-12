@@ -288,7 +288,8 @@ function resStack(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
   const bd = spec.d * 0.9;
   skin(d, {
     s: 0, t: 0, lb: bw, la: bd, h: H, base: y0,
-    style: Style.Residential, lit: spec.lit, tint: spec.tint, door,
+    // Sparse panes. A fully lit residential grid hid the shelf rhythm.
+    style: Style.Residential, lit: spec.lit * 0.28, tint: spec.tint, door,
   });
   const every = (variant === 1 ? 3 : 4) * RES_STOREY;
   const face = bd / 2;
@@ -421,16 +422,26 @@ function lantern(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolean
       style: Style.Glow, lit: 0.72, tint: 1.15, detail: 0, role: 'mass',
     });
   }
-  // Vertical plates on the roof. A flat glow only lights its side faces, so the arms have to stand up.
+  // Standing shafts, each narrower than one glow cell. A single wide plate tiles into a window-grid cross.
   const roof = y0 + H;
-  addBox(d, {
-    s: 0, t: 0, lb: slabW * 0.96, la: 2.0, h: 4.2, base: roof,
-    style: Style.Glow, lit: 0.8, tint: 1.16, detail: 0, role: 'band',
-  });
-  addBox(d, {
-    s: 0, t: 0, lb: 2.0, la: spec.d * 0.9, h: 4.2, base: roof,
-    style: Style.Glow, lit: 0.8, tint: 1.16, detail: 0, role: 'band',
-  });
+  const post = 1.8;
+  const armT = slabW * 0.9;
+  const armS = spec.d * 0.84;
+  const crown = (span: number, axis: 's' | 't', skipCenter: boolean) => {
+    const n = Math.max(1, Math.floor(span / post));
+    const start = -((n - 1) * post) / 2;
+    for (let i = 0; i < n; i++) {
+      const p = start + i * post;
+      if (skipCenter && Math.abs(p) < post * 0.45) continue;
+      addBox(d, {
+        s: axis === 's' ? p : 0, t: axis === 't' ? p : 0,
+        lb: post, la: post, h: 4.2, base: roof,
+        style: Style.Glow, lit: 0.8, tint: 1.16, detail: 0, role: 'band',
+      });
+    }
+  };
+  crown(armT, 't', false);
+  crown(armS, 's', true);
   const fins = variant === 2 ? 5 : 3;
   for (let i = 1; i <= fins; i++) {
     const y = y0 + (H * i) / (fins + 1);

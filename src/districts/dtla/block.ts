@@ -364,9 +364,16 @@ function placeKiosks(
       });
     }
     if (vents < (busy ? 3 : 2) && r.chance(0.65)) {
-      const [vx, vz] = world(b, side.faceS + side.ns * 1.1, side.faceT + side.nt * 1.1);
+      // Doors sit on the middle of the face. A centred grate lands in the opening
+      // and, across a narrow street, in the facing tower's opening too.
+      const span = side.along === 't' ? lot.lb : lot.la;
+      const slideMag = Math.min(8.2, Math.max(3.4, span * 0.22));
+      const slide = (side.ns + side.nt) < 0 ? -slideMag : slideMag;
+      const vs = side.faceS + side.ns * 1.1 + (side.along === 's' ? slide : 0);
+      const vt = side.faceT + side.nt * 1.1 + (side.along === 't' ? slide : 0);
+      const [vx, vz] = world(b, vs, vt);
       steam.push({ x: vx, y: b.ground, z: vz, seed: r.next(), rank: 0 });
-      props.push(propAt(b, side.faceS + side.ns * 1.1, side.faceT + side.nt * 1.1, 0.04, 0, {
+      props.push(propAt(b, vs, vt, 0.04, 0, {
         template: 'quadY', sx: 1.8, sy: 1, sz: 1.8, color: [0.07, 0.07, 0.08], emissive: NONE, metal: 0.6, rank: 1,
       }));
       vents++;

@@ -209,8 +209,17 @@ function placeStreet(arg) {
       e[o + 12] = planted.x; e[o + 13] = gy; e[o + 14] = planted.z; e[o + 15] = 1;
       const motion = mesh.geometry.getAttribute('iMotion');
       if (motion) {
+        // Index 0 may be a vendor. A neutral stance keeps the 1.80 m body readable.
+        motion.array[i * 4] = 0;
+        motion.array[i * 4 + 1] = 0;
         motion.array[i * 4 + 2] = 0;
+        motion.array[i * 4 + 3] = 0;
         motion.needsUpdate = true;
+      }
+      const style = mesh.geometry.getAttribute('iStyle');
+      if (style) {
+        style.array[i * 4] = style.array[i * 4 + 1] = style.array[i * 4 + 2] = style.array[i * 4 + 3] = 0;
+        style.needsUpdate = true;
       }
     };
     const hide = (x, z, i) => {
@@ -268,7 +277,10 @@ function placeStreet(arg) {
   }
   if (scaleShot && nla.app.scene) {
     nla.app.scene.traverse((obj) => {
-      if (obj.name && obj.name.indexOf('-fade') >= 0) obj.visible = false;
+      if (!obj.name) return;
+      if (obj.name.indexOf('-fade') >= 0) obj.visible = false;
+      // A steam cross on the door centreline reads as a pale wedge over the opening.
+      if (obj.name.indexOf('steam') >= 0) obj.visible = false;
     });
   }
   return {
