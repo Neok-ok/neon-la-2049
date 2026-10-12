@@ -64,14 +64,13 @@ export function placeLot(r: Rng, o: LotPlace): Placed | null {
   if (o.w < 8 || o.d < 8) return null;
   const narrow = Math.min(o.w, o.d) < 26;
   const rolled = o.kind ?? pickKind(r, narrow);
-  // Lantern and buttress stayed under 7. The cross only reads from a roof camera, and the
-  // braced core reads as a blank wall from the fly and a warm slab from the street.
-  // Stand in a monolith after the kind roll so later lots keep their seeds. Recipes stay.
-  const kind = rolled === 'lantern' || rolled === 'buttress' ? 'monolith' : rolled;
+  // The roll stays put. Later lots keep their seeds. Lantern and buttress are placed as themselves.
+  const kind = rolled;
   const variant = r.int(0, 2);
   const seed = r.next();
   const height = narrow ? r.range(Math.max(o.minH, 64), Math.min(o.maxH, 120)) : r.skew(o.minH, o.maxH, 1.2);
-  if (o.holo == null && rolled === 'lantern') r.chance(0.35);
+  let lanternSign = false;
+  if (o.holo == null && rolled === 'lantern') lanternSign = r.chance(0.35);
   const spec: TowerSpec = {
     kind,
     variant,
@@ -84,11 +83,13 @@ export function placeLot(r: Rng, o: LotPlace): Placed | null {
     plinth: narrow ? 0 : o.plinth,
     decks: o.decks ?? [],
     phrases: o.phrases,
-    holo: o.holo ?? (rolled === 'holo-shaft' || rolled === 'hero-obelisk'),
+    holo: o.holo ?? (rolled === 'holo-shaft' || rolled === 'hero-obelisk' || lanternSign),
     minH: narrow ? 57.6 : o.minH,
     maxH: o.maxH,
   };
-  return placedAt(0, 0, buildTower(spec), o.phrases);
+  const placed = placedAt(0, 0, buildTower(spec), o.phrases);
+  placed.draft.sourceKind = rolled;
+  return placed;
 }
 
 export function placeHero(kind: (typeof HERO_KINDS)[number], w: number, d: number, height: number, seed: number): Placed {

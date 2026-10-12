@@ -244,7 +244,7 @@ function dressLot(
     boxes.push({
       s: lot.s + box.s, t: lot.t + box.t, lb: box.lb, la: box.la, h: box.h, base: box.base,
       style: box.style, lit: box.lit, tint: box.tint, detail: box.detail, ornament: box.ornament,
-      kit: true, family: placed.draft.kind,
+      kit: true, family: placed.draft.sourceKind,
     });
   }
   for (const s of placed.signs) {
