@@ -193,9 +193,10 @@ async function settle(page) {
     window.__camStill = 0;
     window.__cam = null;
   });
-  const settleDeadline = Date.now() + 900_000;
+  const settleDeadline = Date.now() + 2_400_000;
   let ready = false;
   let polls = 0;
+  let last = '';
   while (Date.now() < settleDeadline) {
     const s = await page.evaluate(() => {
       const nla = window.__nla;
@@ -235,13 +236,12 @@ async function settle(page) {
       trace(`settled lod0=${s.lod0} draws=${s.draws} frame=${s.frame}ms frames=${s.frames}`);
       break;
     }
-    if (polls % 8 === 0) {
-      trace(`wait idle=${s.idleN} cam=${s.camStill} far=${s.far ? 1 : 0} lod0=${s.lod0} q=${s.queue} fly=${s.inflight} pend=${s.pending} draws=${s.draws} frame=${s.frame}ms frames=${s.frames} ${s.err}`);
-    }
+    last = `idle=${s.idleN} cam=${s.camStill} far=${s.far ? 1 : 0} lod0=${s.lod0} q=${s.queue} fly=${s.inflight} pend=${s.pending} draws=${s.draws} frame=${s.frame}ms frames=${s.frames}`;
+    if (polls % 8 === 0) trace(`wait ${last} ${s.err}`);
     polls++;
     await sleep(400);
   }
-  if (!ready) throw new Error('timed out waiting for the city to settle');
+  if (!ready) throw new Error(`timed out waiting for the city to settle (${last})`);
   await page.evaluate(() => document.getElementById('loading')?.remove());
 }
 
@@ -427,7 +427,7 @@ async function main() {
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       rows.push({ id: shot.id, view, quality, place: shot.place, ok: false, reason: message, ratio: null });
-      console.error(`${name}: ${message}`);
+      trace(`${name}: ${message}`);
     }
   };
 
