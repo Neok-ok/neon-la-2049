@@ -27,9 +27,9 @@ export class WetReflector {
     const grain = mx_noise_float(vec3(w.x.mul(0.09), w.z.mul(0.31), float(3)));
     const cross = mx_noise_float(vec3(w.x.mul(0.37), w.z.mul(0.07), float(8)));
     const rib = sin(w.x.mul(0.42).add(w.z.mul(0.16)));
-    const streak = smoothstep(0.46, 0.78, grain.mul(0.62).add(cross.mul(0.38)).add(rib.mul(0.07)));
-    const dark = mirror.rgb.mul(float(0.18)).mul(mix(vec3(1, 1, 1), vec3(0.62, 0.72, 0.86), U.night));
-    mat.colorNode = vec4(dark, streak.mul(float(0.52)).mul(U.wetness));
+    const streak = smoothstep(0.38, 0.7, grain.mul(0.62).add(cross.mul(0.38)).add(rib.mul(0.07)));
+    const dark = mirror.rgb.mul(float(0.3)).mul(mix(vec3(1, 1, 1), vec3(0.62, 0.72, 0.86), U.night));
+    mat.colorNode = vec4(dark, streak.mul(float(0.6)).mul(U.wetness));
     this.mesh = new Mesh(geo, mat);
     this.mesh.name = 'wet-reflector';
     this.mesh.rotation.x = -Math.PI / 2;
