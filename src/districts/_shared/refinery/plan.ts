@@ -101,8 +101,6 @@ const CONC: RGB = [0.34, 0.32, 0.30];
 const DARK: RGB = [0.07, 0.065, 0.06];
 const RED: RGB = [0.9, 0.05, 0.03];
 const NONE: RGB = [0, 0, 0];
-const ORANGE: RGB = [1.35, 0.42, 0.08];
-
 /** BLACK OIL, hanzi STEAM, 2049, kana STEAM, COLD. No company names. */
 const PHRASES = PHRASE_POWER;
 
@@ -160,8 +158,8 @@ export function planRefinery(block: RefineryBlock, layout: CityLayout, raw: Refi
     if (p.keepOut?.(q.x, q.z)) return;
     if (layout.isReserved(q.x, q.z, 3)) return;
     flames.push({ x: q.x, y: q.y, z: q.z, size, seed });
-    // Ground wash. The sprite is the flame; this quad is the spill, not a scene light.
-    prop(s, t, 0.12, 'quadY', size * 3.4, 1, size * 3.4, r.range(0, 1.2), DARK, ORANGE, 0, 0, 0, 0.42, 'add');
+    // A small contact under the stack. The yard-sized sheet had no source in frame.
+    prop(s, t, 0.08, 'quadY', size * 0.7, 1, size * 0.7, r.range(0, 1.2), DARK, [0.18, 0.06, 0.02], 0, 0, 0, 0.3, 'add');
   };
 
   let kind: RefineryKind = 'shed';

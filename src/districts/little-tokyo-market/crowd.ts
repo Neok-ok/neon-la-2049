@@ -11,6 +11,7 @@ import type { CityQuery, PackedBlock } from '../../world/CityQuery';
 import type { QualitySettings, Tier } from '../../core/quality';
 import { hash2i } from '../../core/rng';
 import { U } from '../../atmosphere/uniforms';
+import { authoredLiftU } from '../../lighting/shade.ts';
 import type { CrowdLifeSpot } from '../../world/crowdLife';
 import { allHolograms } from '../../world/holograms/registry';
 import { streetGraph, visitBins } from '../../vehicles/streetGraph';
@@ -318,7 +319,7 @@ function crowdMaterial(): MeshBasicNodeMaterial {
   col = mix(col, can, isCan);
   col = mix(col, shaftCol, isShaft);
   const glow = float(0.55).add(isShaft.mul(0.85).add(isShaft.mul(U.night).mul(0.55))).add(isCan.mul(0.2));
-  m.colorNode = vec4(col.mul(glow), float(1));
+  m.colorNode = vec4(col.mul(glow).mul(authoredLiftU), float(1));
   const setup = m.setupPosition.bind(m);
   m.setupPosition = (builder) => {
     positionLocal.assign(pos);

@@ -36,6 +36,13 @@ export interface Puddle {
   sx: number; sz: number;
 }
 
+/** Head of a road street lamp. The mesh stays in the road solid; the light is a registry practical. */
+export interface RoadLamp {
+  x: number;
+  y: number;
+  z: number;
+}
+
 export interface RoadSolids {
   pos: Float32Array;
   nor: Float32Array;
@@ -49,6 +56,7 @@ export interface RoadChunk {
   stamps: Stamp[];
   signs: Stamp[];
   puddles: Puddle[];
+  lamps: RoadLamp[];
   tris: number;
   bytes: number;
 }
@@ -268,13 +276,17 @@ function addBarrierRun(acc: Acc, run: Station[], profile: RoadProfile, rx: numbe
   }
 }
 
-function addLamp(acc: Acc, x: number, y: number, z: number, yaw: number, inward: number): void {
+function addLamp(acc: Acc, lamps: RoadLamp[], x: number, y: number, z: number, yaw: number, inward: number): void {
   addBox(acc, x, y + 3.75, z, 0.16, 7.5, 0.16, yaw, KIND_POLE);
   const s = Math.sin(yaw), c = Math.cos(yaw);
   const ax = x + c * inward * 0.8;
   const az = z - s * inward * 0.8;
   addBox(acc, ax, y + 7.35, az, 1.6, 0.1, 0.12, yaw, KIND_POLE);
-  addBox(acc, x + c * inward * 1.35, y + 7.22, z - s * inward * 1.35, 0.55, 0.16, 0.28, yaw, KIND_HEAD);
+  const hx = x + c * inward * 1.35;
+  const hy = y + 7.22;
+  const hz = z - s * inward * 1.35;
+  addBox(acc, hx, hy, hz, 0.55, 0.16, 0.28, yaw, KIND_HEAD);
+  lamps.push({ x: hx, y: hy, z: hz });
 }
 
 interface MarkLine { lat: number; cell: number; step: number; len: number; width: number; solid: boolean }
@@ -308,6 +320,7 @@ export function buildRoadChunk(layout: CityLayout, x0: number, z0: number, size:
   const stamps: Stamp[] = [];
   const signs: Stamp[] = [];
   const puddles: Puddle[] = [];
+  const lamps: RoadLamp[] = [];
   const coast = nearestWall(layout, x0 + size * 0.5, z0 + size * 0.5).dist < 1800 + size;
   const x1 = x0 + size - 0.001;
   const z1 = z0 + size - 0.001;
@@ -325,16 +338,16 @@ export function buildRoadChunk(layout: CityLayout, x0: number, z0: number, size:
   for (const id of ids) {
     const e = g.edges[id];
     if (!e) continue;
-    paveEdge(layout, g, e, acc, stamps, signs, puddles, budget, x0, z0, x1, z1, blocked, seenNode);
+    paveEdge(layout, g, e, acc, stamps, signs, puddles, lamps, budget, x0, z0, x1, z1, blocked, seenNode);
   }
-  paveGradeFreeways(layout, acc, stamps, signs, puddles, budget, x0, z0, x1, z1, blocked);
+  paveGradeFreeways(layout, acc, stamps, signs, puddles, lamps, budget, x0, z0, x1, z1, blocked);
 
   const solid = acc.pack();
   if (!solid && !stamps.length && !signs.length && !puddles.length) return null;
   const tris = (solid ? solid.idx.length / 3 : 0) + stamps.length * 2 + signs.length * 2 + puddles.length * 2;
   const bytes = (solid ? solid.pos.byteLength + solid.nor.byteLength + solid.uv.byteLength + solid.kind.byteLength + solid.idx.byteLength : 0)
     + stamps.length * 64 + signs.length * 64 + puddles.length * 64;
-  return { solid, stamps, signs, puddles, tris, bytes };
+  return { solid, stamps, signs, puddles, lamps, tris, bytes };
 }
 
 function paveEdge(
@@ -345,6 +358,7 @@ function paveEdge(
   stamps: Stamp[],
   signs: Stamp[],
   puddles: Puddle[],
+  lamps: RoadLamp[],
   budget: Budget,
   x0: number, z0: number, x1: number, z1: number,
   blocked: (x: number, z: number) => boolean,
@@ -368,7 +382,7 @@ function paveEdge(
   for (const run of runs) {
     if (e.kind !== 'freeway') emitRibbon(acc, run, profile, rx, rz);
     else if (budget.barrier) addBarrierRun(acc, run, profile, rx, rz, e.fx, e.fz);
-    dressRun(e, profile, run, rx, rz, budget, stamps, signs, puddles, acc);
+    dressRun(e, profile, run, rx, rz, budget, stamps, signs, puddles, lamps, acc);
   }
   if (e.kind !== 'freeway') {
     approachMarks(layout, g, e, profile, crossA, -1, budget, stamps, x0, z0, x1, z1);
@@ -450,6 +464,7 @@ function dressRun(
   stamps: Stamp[],
   signs: Stamp[],
   puddles: Puddle[],
+  lamps: RoadLamp[],
   acc: Acc,
 ): void {
   const yaw = yawOf(e.fx, e.fz);
@@ -522,8 +537,8 @@ function dressRun(
     const side = profile.carriageHalf + profile.curbW + Math.min(0.7, profile.sidewalk * 0.4);
     placeEvery(run, 32, 10, (st) => {
       const y = st.y + ROAD_LIFT + CURB_H;
-      addLamp(acc, st.x + rx * side, y, st.z + rz * side, yaw, -1);
-      addLamp(acc, st.x - rx * side, y, st.z - rz * side, yaw, 1);
+      addLamp(acc, lamps, st.x + rx * side, y, st.z + rz * side, yaw, -1);
+      addLamp(acc, lamps, st.x - rx * side, y, st.z - rz * side, yaw, 1);
     });
   }
   if (e.kind !== 'freeway' && e.district !== 'historic-core' && profile.sidewalk > 0.4) {
@@ -712,7 +727,7 @@ function maybeIntersection(
 }
 
 function paveGradeFreeways(
-  layout: CityLayout, acc: Acc, stamps: Stamp[], signs: Stamp[], puddles: Puddle[], budget: Budget,
+  layout: CityLayout, acc: Acc, stamps: Stamp[], signs: Stamp[], puddles: Puddle[], lamps: RoadLamp[], budget: Budget,
   x0: number, z0: number, x1: number, z1: number,
   blocked: (x: number, z: number) => boolean,
 ): void {
@@ -749,7 +764,7 @@ function paveGradeFreeways(
           const y = (a.y + b.y) * 0.5 + ROAD_LIFT + 0.45;
           addBox(acc, mx, y, mz, 0.5, 0.7, Math.max(0.8, span), yaw, KIND_CONCRETE);
         }
-        dressRun(fake, profile, run, rx, rz, budget, stamps, signs, puddles, acc);
+        dressRun(fake, profile, run, rx, rz, budget, stamps, signs, puddles, lamps, acc);
       }
     }
   }

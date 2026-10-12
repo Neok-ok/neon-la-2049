@@ -14,6 +14,8 @@ import { LightKind } from '../../world/landmarks/Beacons';
 import type { Landmark } from '../../world/layout';
 import { levelGroup } from '../_shared/megatower/place';
 import { openDoorLeaf } from '../../world/architecture/trim';
+import { retainChunk } from '../../lighting/registry.ts';
+import type { PunctualInput } from '../../lighting/validate.ts';
 import { Mass, type Detail } from './mass';
 import { HQ, PADS, SHAFT_Y, STAIR, localToWorld } from './spec';
 
@@ -262,6 +264,28 @@ function signsFor(l: Landmark, yaw: number): Sign[] {
   ];
 }
 
+/** Sodium along the run, plus the two door orbs. The beacon quads do not light the treads. */
+function retainStepLights(l: Landmark, yaw: number, ground: number): void {
+  const put = (
+    lx: number, y: number, lz: number,
+    preset: PunctualInput['preset'],
+    extra?: Pick<PunctualInput, 'candela' | 'range' | 'rgb'>,
+  ): PunctualInput => {
+    const [x, z] = localToWorld(l.x, l.z, yaw, lx, lz);
+    return { preset, x, y: ground + y, z, dx: 0, dy: -1, dz: 0, ...extra };
+  };
+  const doorZ = -HQ.podiumD / 2 - 1.2;
+  const mid = (STAIR.z0 + STAIR.z1) / 2;
+  retainChunk(`lapd-steps:${l.id}`, [
+    put(-11, 3.4, STAIR.z0 + 4, 'street-sodium', { candela: 9000, range: 22 }),
+    put(11, 4.6, mid, 'street-sodium', { candela: 9000, range: 22 }),
+    put(-11, 6.4, STAIR.z1 - 2, 'street-sodium', { candela: 7000, range: 18 }),
+    put(11, 6.2, STAIR.z1 - 2, 'street-sodium', { candela: 7000, range: 18 }),
+    put(-6.4, 8.2, doorZ, 'beacon-red', { candela: 700, range: 16 }),
+    put(6.4, 8.2, doorZ, 'hologram', { candela: 500, range: 16, rgb: [0.2, 0.38, 1] }),
+  ]);
+}
+
 function beacons(l: Landmark, env: LandmarkEnv, yaw: number): void {
   const add = (lx: number, y: number, lz: number, kind: number, size: number) => {
     const [x, z] = localToWorld(l.x, l.z, yaw, lx, lz);
@@ -310,6 +334,7 @@ export function buildLapdHq(l: Landmark, env: LandmarkEnv) {
   const r = Math.hypot(HQ.crownW, HQ.crownD) / 2;
   const object = env.lods.add(l.id, [lod0, levels[1]!.mesh, levels[2]!.mesh], HQ_LOD_DIST, l.x, l.z, 0, HQ.height + 8, r);
   beacons(l, env, yaw);
+  retainStepLights(l, yaw, env.layout.heightAt(l.x, l.z));
   return { object, colliders: full.cols };
 }
 

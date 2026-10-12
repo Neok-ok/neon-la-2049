@@ -3,6 +3,7 @@ import { BufferGeometry, DoubleSide, Float32BufferAttribute, MeshBasicNodeMateri
 import * as TSL from 'three/tsl';
 import { U } from '../../atmosphere/uniforms';
 import { resources } from '../../core/memory/resources';
+import { authoredLiftU } from '../../lighting/shade.ts';
 import type { OpenSky } from './types';
 
 const T = TSL as any;
@@ -20,7 +21,7 @@ export function rainMaterial(): MeshBasicNodeMaterial {
     const scroll = T.fract(uv.y.sub(U.time.mul(1.15)));
     const streak = T.smoothstep(0.22, 0.0, T.abs(scroll.sub(0.12)));
     const edge = T.smoothstep(0.0, 0.2, uv.x).mul(T.smoothstep(1.0, 0.8, uv.x));
-    return T.vec4(T.vec3(0.72, 0.76, 0.82), streak.mul(edge).mul(0.42));
+    return T.vec4(T.vec3(0.72, 0.76, 0.82).mul(authoredLiftU), streak.mul(edge).mul(0.42));
   })();
   return m;
   });

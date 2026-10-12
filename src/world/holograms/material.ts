@@ -3,6 +3,7 @@
 import { AdditiveBlending, DoubleSide, MeshBasicNodeMaterial } from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import { U } from '../../atmosphere/uniforms';
+import { NITS } from '../../lighting/presets.ts';
 
 const T = TSL as any;
 const {
@@ -203,10 +204,10 @@ export function getHoloMaterial(): MeshBasicNodeMaterial {
 
     const sliceDim = mix(float(1), float(0.34), slice.mul(0.5));
     const core = smoothstep(0.2, 0.9, mask);
-    const rgb = mix(tint, vec3(0.92, 0.97, 1.0), core.mul(0.62));
+    const rgb = mix(tint, vec3(0.92, 0.97, 1.0), core.mul(0.06));
     const haze = clamp(exp(distCam.mul(U.fogDensity).mul(-0.22)), 0.35, 1);
     const night = U.night.mul(0.75).add(0.28);
-    return vec4(rgb.mul(mask).mul(scan).mul(flick).mul(sliceDim).mul(haze).mul(night).mul(U.signPower).mul(2.5), float(1));
+    return vec4(rgb.mul(mask).mul(scan).mul(flick).mul(sliceDim).mul(haze).mul(night).mul(U.signPower).mul(NITS.hologram), float(1));
   })();
 
   shared = m;
@@ -233,7 +234,7 @@ export function getHoloCardMaterial(): MeshBasicNodeMaterial {
   const r = length(u).mul(2.15);
   const fade = smoothstep(0.08, 1.0, r).oneMinus();
   m.colorNode = vec4(
-    light.xyz.mul(light.w).mul(fade).mul(U.wetness.mul(0.7).add(0.3)).mul(U.night.mul(0.8).add(0.2)).mul(U.signPower).mul(U.holoSpill),
+    light.xyz.mul(light.w).mul(fade).mul(U.wetness.mul(0.7).add(0.3)).mul(U.night.mul(0.8).add(0.2)).mul(U.signPower).mul(U.holoSpill).mul(NITS.holoCard),
     float(1),
   );
   cardMat = m;

@@ -4,10 +4,11 @@
 
 import { Vector2, type PerspectiveCamera, type Scene, type WebGPURenderer, RenderPipeline } from 'three/webgpu';
 import { createLensRig, type LensFrame } from './lensNode';
+import { lightingResolutionScale, watchLightingResolutionScale } from '../lighting/memory';
 import type { Tier } from '../core/quality';
 
 export interface PlayLens {
-  render(camera: PerspectiveCamera, frame: Omit<LensFrame, 'grainSeed'> & { grainSeed?: number }): void;
+  render(camera: PerspectiveCamera, frame: Omit<LensFrame, 'grainSeed'> & { grainSeed?: number }, exposure?: number): void;
   dispose(): void;
 }
 
@@ -27,11 +28,14 @@ export function createPlayLens(
   );
   const pipeline = new RenderPipeline(renderer, rig.node as never);
   pipeline.outputColorTransform = false;
+  rig.setResolutionScale(lightingResolutionScale());
+  const unwatch = watchLightingResolutionScale((scale) => rig.setResolutionScale(scale));
   const size = new Vector2();
   let seed = 0;
 
   return {
-    render(cam: PerspectiveCamera, frame: Omit<LensFrame, 'grainSeed'> & { grainSeed?: number }) {
+    render(cam: PerspectiveCamera, frame: Omit<LensFrame, 'grainSeed'> & { grainSeed?: number }, exposure?: number) {
+      if (exposure !== undefined) rig.setSceneExposure(exposure);
       seed = (seed + 1) % 997;
       rig.sync({ ...frame, grainSeed: seed + (frame.grainSeed ?? 0) });
       renderer.getDrawingBufferSize(size);
@@ -40,6 +44,7 @@ export function createPlayLens(
       rig.present(renderer, pipeline);
     },
     dispose() {
+      unwatch();
       pipeline.dispose();
       rig.dispose();
     },

@@ -1,7 +1,5 @@
 // Top-level wiring: renderer, scene, streaming city, landmarks, traffic, atmosphere, cameras, UI, audio.
-import { ACESFilmicToneMapping, MathUtils, PerspectiveCamera, RenderPipeline, Scene, Timer, Vector2, Vector3, WebGPURenderer } from 'three/webgpu';
-import * as TSL from 'three/tsl';
-import { bloom } from 'three/addons/tsl/display/BloomNode.js';
+import { MathUtils, NoToneMapping, PerspectiveCamera, Scene, Timer, Vector2, Vector3, WebGPURenderer } from 'three/webgpu';
 import { params } from '../core/params';
 import { autoTier, probeDevice, settingsFor, stepAutoGuard, storedTier, storeTier, TIERS, type QualitySettings, type Tier } from '../core/quality';
 import { Atmosphere } from '../atmosphere/Atmosphere';
@@ -53,8 +51,12 @@ import { installArtsHolos } from '../districts/arts-district/holos';
 import { sampleDistrictLook } from '../atmosphere/districtLook';
 import '../atmosphere/looks';
 import { setAirSample, setAirTier, airFlags } from '../atmosphere/airState';
-import { AirField, shaftCapFor } from '../atmosphere/AirField';
+import { AirField, shaftCapFor, type GlowMark } from '../atmosphere/AirField';
 import { fillEmptyAirLights } from '../atmosphere/airLights';
+import {
+  allLights, disposeLightingPipeline, ephemeralLights, lightCensus, lightingStats, lockExposureEv, parseTone, rebuildLightingPipeline,
+  releaseLightingTierTargets, rendererTone, setEphemeral, syncLighting, type ToneId,
+} from '../lighting';
 import { wallaceCamera, type WallaceView } from '../districts/wallace-vernon/view';
 import { updateWallace } from '../districts/wallace-vernon/live';
 import { wallaceFaceSectorCount } from '../districts/wallace-vernon/faceDetail';
@@ -82,6 +84,7 @@ import { U } from '../atmosphere/uniforms';
 import { GroundHaze } from '../atmosphere/GroundHaze';
 import { WetReflector } from '../atmosphere/WetReflector';
 import { cameraOverRoad } from '../roads/mirror';
+import { roadPoses } from '../roads/report';
 import { prepareRoadTextures, roadTexturesReady } from '../roads/textures';
 import { Ambience } from '../audio/Ambience';
 import { MarketAudio } from '../audio/MarketAudio';
@@ -94,7 +97,6 @@ import { setSeats } from '../world/seats';
 import { HologramField, hologramById, installShowcase } from '../world/holograms/api';
 import '../districts/detail-index';
 
-const T = TSL as any;
 const DEG = Math.PI / 180;
 const MODES: ModeId[] = ['fly', 'walk', 'cine'];
 
@@ -144,11 +146,14 @@ export class App {
   private readonly software: boolean;
   private lastCam = new Vector3();
 
-  private pipeline: RenderPipeline | null = null;
+  private pipeline: ReturnType<typeof rebuildLightingPipeline> = null;
   private playLens: PlayLens | null = null;
   private readonly lensSize = new Vector2();
   private ratioKey = '';
   private ratioCached = 0;
+  private tone: ToneId = 'agx';
+  private readonly signGlows: GlowMark[] = [];
+  private readonly sunScratch = new Vector3();
   private timer = new Timer();
   private elapsed = 0;
   private frames = 0;
@@ -228,7 +233,9 @@ export class App {
     this.backend = (r.backend as unknown as { isWebGPUBackend?: boolean }).isWebGPUBackend ? 'WebGPU' : 'WebGL2';
     await prepareAtlases(r, { preferCompressed: this.budget.deviceClass !== 'desktop' });
     await prepareRoadTextures(r, this.quality.tier);
-    r.toneMapping = ACESFilmicToneMapping;
+    this.tone = parseTone(params.tonemap);
+    if (params.ev !== undefined) lockExposureEv(params.ev);
+    r.toneMapping = rendererTone(this.tone);
     this.applyPixelRatio();
     this.camera.aspect = innerWidth / innerHeight;
     this.camera.updateProjectionMatrix();
@@ -379,20 +386,25 @@ export class App {
 
   /** Cinematic mode draws through the lens rig. Walk and fly keep buildPipeline. */
   private renderCine(): void {
+    if (this.pipeline) this.releasePlayPipeline();
     if (!this.playLens) {
       this.playLens = createPlayLens(this.renderer, this.scene, this.camera, this.quality.tier, this.quality.bloom);
     }
-    this.playLens.render(this.camera, this.cams.cine.lens);
+    // Exposure scales the linear plate. renderOutput applies AgX once at exposure 1.
+    this.playLens.render(this.camera, this.cams.cine.lens, this.atmosphere.exposure);
   }
 
   private buildPipeline(): void {
-    this.pipeline?.dispose();
+    if (this.photoMod?.active) return;
+    this.pipeline = rebuildLightingPipeline(
+      this.renderer, this.scene, this.camera, this.quality.bloom, this.tone,
+    );
+  }
+
+  /** Photo mode owns the frame, so the play bloom targets have to be gone first. */
+  private releasePlayPipeline(): void {
+    disposeLightingPipeline();
     this.pipeline = null;
-    if (!this.quality.bloom) return;
-    const scenePass = T.pass(this.scene, this.camera);
-    const color = scenePass.getTextureNode('output');
-    const glow = bloom(color, 0.4, 0.3, 1.0);
-    this.pipeline = new RenderPipeline(this.renderer, color.add(glow));
   }
 
   setQuality(choice: Tier | 'auto'): void {
@@ -403,7 +415,6 @@ export class App {
   }
 
   private applyTier(tier: Tier): void {
-    const had = this.quality.bloom;
     const windows = applyWindowTier(tier);
     setCityWindowDetail(windows.detail);
     this.quality = settingsFor(tier);
@@ -415,7 +426,8 @@ export class App {
     });
     this.streamer.invalidateLod0();
     this.interiors.setTier(tier);
-    if (had !== this.quality.bloom) this.buildPipeline();
+    releaseLightingTierTargets(this.scene, this.atmosphere.sun, tier);
+    if (!this.photoMod?.active) this.buildPipeline();
     this.photoMod?.retier();
     this.playLens?.dispose();
     this.playLens = null;
@@ -493,6 +505,8 @@ export class App {
   }
 
   private rtBytes(): number {
+    const lit = lightingStats().memory.bytes;
+    if (lit > 0) return lit;
     const w = this.canvas.width || 1;
     const h = this.canvas.height || 1;
     const samples = this.quality.antialias ? 4 : 1;
@@ -671,6 +685,7 @@ export class App {
     });
     if (sky.strike) this.ambience.cueThunder(sky.delay, sky.amount * Math.max(0.35, coast.near));
     this.photoMod?.postAtmosphere();
+    this.syncCityLights();
     this.crowd.update(simDt, cam.x, cam.z, this.query, this.quality, this.atmosphere.weather.params.rain, this.elapsed, this.cams.pose().heading);
     this.haze.update(cam.x, cam.z, ground, alt, this.quality.tier);
     const overRoad = cameraOverRoad(this.query.layout, cam.x, cam.z);
@@ -754,8 +769,15 @@ export class App {
 
     if (photoOn) this.photoMod!.render();
     else if (this.cams.mode === 'cine') this.renderCine();
-    else if (this.pipeline) this.pipeline.render();
-    else this.renderer.render(this.scene, this.camera);
+    else {
+      if (this.playLens) {
+        this.playLens.dispose();
+        this.playLens = null;
+      }
+      if (!this.pipeline && this.quality.bloom) this.buildPipeline();
+      if (this.pipeline) this.pipeline.render();
+      else this.renderer.render(this.scene, this.camera);
+    }
 
     this.hud.tick(raw, () => this.hudLines(alt));
     if (!photoOn) this.adaptQuality(raw);
@@ -797,6 +819,53 @@ export class App {
     }
   }
 
+  private syncCityLights(): void {
+    const cam = this.camera.position;
+    this.signGlows.length = 0;
+    this.streamer.collectSignGlows(cam.x, cam.y, cam.z, 40, 6, this.signGlows);
+    setEphemeral(ephemeralLights({
+      signs: this.signGlows,
+      holos: this.holos.glowMarks,
+      interior: this.interiors.lightSpill(),
+    }));
+    const census = lightCensus();
+    const sd = this.atmosphere.dayNight.sunDir(this.sunScratch);
+    syncLighting({
+      scene: this.scene,
+      tier: this.quality.tier,
+      tone: this.tone,
+      x: cam.x, y: cam.y, z: cam.z,
+      sheen: Number(U.sheen.value),
+      sun: this.atmosphere.sun,
+      sunX: sd.x, sunY: sd.y, sunZ: sd.z,
+      daylight: Number(U.daylight.value),
+      retained: census.retained,
+      ephemeral: census.ephemeral,
+      viewW: this.canvas.width,
+      viewH: this.canvas.height,
+    });
+    const lens = (this.photoMod?.active ?? false) || this.cams.mode === 'cine';
+    if (lens) {
+      // DoF reads linear nits already scaled by exposure. renderOutput applies AgX once.
+      this.renderer.toneMapping = rendererTone(this.tone);
+      this.renderer.toneMappingExposure = 1;
+    } else if (this.pipeline) {
+      // Bloom pipeline tone-maps in its own node. The renderer must not do it again.
+      this.renderer.toneMapping = NoToneMapping;
+    } else {
+      // Low and medium walk/fly: the renderer applies AgX, using the exposure Atmosphere just set.
+      this.renderer.toneMapping = rendererTone(this.tone);
+    }
+  }
+
+  private lightHud(): string {
+    const L = lightingStats();
+    const kind = L.baked ? 'baked' : L.volumetric ? 'haze' : 'direct';
+    const mb = L.memory.bytes / (1024 * 1024);
+    const mem = L.memory.bytes > 0 ? ` · ${mb.toFixed(1)}MB` : '';
+    return `${L.tonemap} EV ${L.ev.toFixed(2)} · ${L.shaded} shaded · ${L.retained}+${L.ephemeral} ${kind}${L.sunShadow ? ' · sun' : ''}${mem}`;
+  }
+
   private hudLines(alt: number): Array<[string, string | number]> {
     const info = this.renderer.info.render;
     const s = this.streamer.stats;
@@ -813,6 +882,7 @@ export class App {
       ['geo', `${lat.toFixed(4)}, ${lon.toFixed(4)}`],
       ['district', `${d.name} (stage ${d.stage})`],
       ['sky', `${a.dayNight.label} · ${a.weather.label} · wet ${a.weather.wetness.toFixed(2)}`],
+      ['light', this.lightHud()],
       ['mode', this.cams.mode === 'cine' ? `cinematic · ${this.cams.cine.label}` : this.cams.mode],
       ['lens', this.cams.mode === 'cine'
         ? `${this.cams.cine.lens.focalMm.toFixed(0)} mm · ${formatFStop(this.cams.cine.lens.fStop)} · ${this.cams.cine.lens.grade}`
@@ -918,7 +988,13 @@ export class App {
     this.spinnerWasVisible = this.cams.fly.spinner.visible;
     this.cams.fly.spinner.visible = false;
     this.releasePlayLens();
-    this.photoMod.enter();
+    this.releasePlayPipeline();
+    try {
+      this.photoMod.enter();
+    } catch (err) {
+      this.buildPipeline();
+      throw err;
+    }
     this.applyPixelRatio();
   }
 
@@ -926,6 +1002,7 @@ export class App {
     if (!this.photoMod?.active || this.captureLock) return;
     this.photoMod.exit();
     this.cams.fly.spinner.visible = this.spinnerWasVisible;
+    this.buildPipeline();
     this.applyPixelRatio();
   }
 
@@ -983,6 +1060,66 @@ export class App {
       setMode: (m: ModeId) => this.cams.setMode(m),
       setPose: (x: number, y: number, z: number, yawDeg = 0, pitchDeg = 0) =>
         this.cams.setPose({ position: new Vector3(x, y, z), heading: yawDeg * DEG, pitch: pitchDeg * DEG }),
+      /** Rise off the current walk pose and look down the street, so a still shows a pool and the gap past it. */
+      survey: (up = 7, back = 5, pitchDeg = -20) => {
+        const w = this.cams.walk;
+        const h = w.heading;
+        const fx = Math.sin(h);
+        const fz = -Math.cos(h);
+        const x = w.pos.x - fx * back;
+        const y = w.pos.y + up;
+        const z = w.pos.z - fz * back;
+        this.cams.fly.cockpit = true;
+        if (this.cams.mode !== 'fly') this.cams.setMode('fly');
+        this.cams.setPose({ position: new Vector3(x, y, z), heading: h, pitch: pitchDeg * DEG });
+        this.cams.fly.cockpit = true;
+        this.cams.fly.vel.set(0, 0, 0);
+        return true;
+      },
+      /**
+       * Stand near the nearest street practical so the still is the pool, not the gap.
+       * `aside` slides the camera to its right, in metres, when a second lamp crowds the frame.
+       */
+      lampShot: (back = 12, pitchDeg = -8, aside = 0, lift = 0) => {
+        const origin = this.cams.walk.pos;
+        let best: { x: number; y: number; z: number } | null = null;
+        let bestD = 1e9;
+        for (const L of allLights()) {
+          if (L.preset !== 'street-sodium' && L.preset !== 'street-led' && L.preset !== 'beacon-white') continue;
+          const d = Math.hypot(L.x - origin.x, L.z - origin.z);
+          if (d < 3 || d > 160 || d >= bestD) continue;
+          best = L;
+          bestD = d;
+        }
+        if (!best) return false;
+        const dx = origin.x - best.x;
+        const dz = origin.z - best.z;
+        const len = Math.hypot(dx, dz) || 1;
+        const fx = dx / len;
+        const fz = dz / len;
+        // Camera looks back at the head. Right is cross(forward, up).
+        const x = best.x + fx * back + fz * aside;
+        const z = best.z + fz * back - fx * aside;
+        const y = best.y - 2.6 + lift;
+        const heading = Math.atan2(best.x - x, -(best.z - z));
+        this.cams.fly.cockpit = true;
+        if (this.cams.mode !== 'fly') this.cams.setMode('fly');
+        this.cams.setPose({ position: new Vector3(x, y, z), heading, pitch: pitchDeg * DEG });
+        this.cams.fly.cockpit = true;
+        this.cams.fly.vel.set(0, 0, 0);
+        return true;
+      },
+      /** Street-level camera on a real carriageway. `id` is a district id from `roadPoses()`. */
+      roadView: (id = 'historic-core') => {
+        const pose = roadPoses().find((p) => p.id === id);
+        if (!pose) return false;
+        return this.applyDistrictPose({
+          x: pose.x, y: pose.y, z: pose.z,
+          heading: pose.yaw * DEG, pitch: pose.pitch * DEG,
+          mode: 'walk',
+          feet: { x: pose.x, y: pose.y - 1.7, z: pose.z },
+        });
+      },
       setTime: (h: number) => (this.atmosphere.dayNight.hours = h),
       setWeather: (w: WeatherId, instant = true) => this.atmosphere.weather.set(w, instant),
       cut: () => this.cams.cine.cut(),
@@ -1418,6 +1555,7 @@ export class App {
         jsHeap: (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize ?? null,
         sessionWorstMs: this.sessionWorstMs,
         photo: this.photoMod?.active ?? false,
+        lighting: lightingStats(),
         windows: windowState(),
         air: this.air.snapshot(),
         storm: { ...stormSnap },

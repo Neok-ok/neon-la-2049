@@ -8,6 +8,7 @@ import { AdditiveBlending, BufferAttribute, BufferGeometry, Mesh, MeshBasicNodeM
 import * as TSL from 'three/tsl';
 import { U } from '../../atmosphere/uniforms';
 import { fogDepth } from '../../atmosphere/SkyFog';
+import { authoredLiftU } from '../../lighting/shade.ts';
 
 const T = TSL as any;
 const { Fn, attribute, vec3, vec4, normalize, cross, cameraPosition, length, exp, step, fract, mix, select, float, max, min, smoothstep, sin, clamp } = T;
@@ -110,7 +111,7 @@ export class Beacons {
       const att = exp(fogDepth(cameraPosition, c.xyz).mul(-0.3));
       // red and amber read weakly against a bright day sky, the white strobes stay
       const dayDim = select(kind.greaterThan(2.5).and(kind.lessThan(3.5)), float(1.0), U.night.mul(0.6).add(0.4));
-      const a = core.add(halo).mul(spread).mul(att).mul(dayDim).mul(3.2);
+      const a = core.add(halo).mul(spread).mul(att).mul(dayDim).mul(3.2).mul(authoredLiftU);
       return vec4(col.mul(a), float(1));
     })();
     const mesh = new Mesh(g, m);

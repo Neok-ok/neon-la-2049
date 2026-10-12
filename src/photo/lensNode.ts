@@ -1,8 +1,8 @@
 // Lens stage.
-// Scatter (depth of field, motion smear, horizontal flare, edge fringing) reads the
-// linear scene colour, which is where a thin lens actually bends light. The print
-// (grade, grain, vignette) is a separate node after renderOutput(), so it sits on
-// top of whatever tone map the renderer is using.
+// Scatter (depth of field, motion smear, horizontal flare, edge fringing) reads
+// exposure-scaled linear colour, which is where a thin lens actually bends light.
+// renderOutput applies the tone map once. The print (grade, grain, vignette) is a
+// separate node after that.
 //
 // Circle of confusion, millimetres, then pixels of the film height:
 //   c = (f^2 / (N * (S - f))) * |S - D| / D
@@ -30,6 +30,7 @@ import { BOKEH } from './bokeh';
 import { CAPTURE_CAPS, dofDisc } from './limits';
 import type { GradeId } from './types';
 import type { Tier } from '../core/quality';
+import { BLOOM_BASE_SCALE } from '../lighting/memory';
 
 const T = TSL as any;
 
@@ -58,7 +59,11 @@ export interface BloomSpec {
 export interface LensRig {
   node: unknown;
   bloom: { strength: { value: number }; updateBeforeType: string; updateBefore(frame: object): void; dispose(): void } | null;
-  scenePass: { updateBeforeType: string; updateBefore(frame: object): void; dispose?: () => void };
+  scenePass: { updateBeforeType: string; updateBefore(frame: object): void; dispose?: () => void; setResolutionScale?: (scale: number) => void };
+  /** Scale linear nits before scatter and renderOutput. Leave renderer exposure at 1 so AgX runs once. */
+  setSceneExposure(exposure: number): void;
+  /** Scene colour follows the governor. Bloom, when present, stays at half of that. */
+  setResolutionScale(scale: number): void;
   sync(frame: LensFrame): void;
   /** Cheap glow on low and medium, and the bloom node's strength when that node exists. */
   setBloom(amount: number): void;
@@ -142,7 +147,14 @@ export function createLensRig(
     resources.tag(depthTex, { label: 'lens-depth', owner: 'lens' });
     tracked.push(depthTex);
   }
-  const color = scenePass!.getTextureNode('output') as any;
+  const sceneColor = scenePass!.getTextureNode('output') as any;
+  const uSceneExposure = T.uniform(1);
+  // Samples are exposure-scaled nits. renderOutput then applies AgX with renderer exposure 1.
+  const color = {
+    sample(uvNode: unknown) {
+      return sceneColor.sample(uvNode).mul(uSceneExposure);
+    },
+  };
   const depth = scenePass!.getTextureNode('depth') as any;
 
   const rttOptions = { type: HalfFloatType, depthBuffer: false, generateMipmaps: false, resolutionScale: cap.dofScale };
@@ -371,7 +383,9 @@ export function createLensRig(
   let image = optical;
   let bloomNode: LensRig['bloom'] = null;
   if (withBloom && bloomSpec) {
-    const source = bloomSpec.from === 'scene' ? color : optical;
+    const source = bloomSpec.from === 'scene'
+      ? T.Fn(() => sceneColor.sample(T.uv()).mul(uSceneExposure))()
+      : optical;
     const node = runTracked(() => bloom(source, bloomSpec.strength, bloomSpec.radius, bloomSpec.threshold));
     const internals = node as unknown as {
       _renderTargetBright?: RenderTarget;
@@ -393,7 +407,7 @@ export function createLensRig(
   }
 
   return finishRig(
-    scenePass!, bloomNode, prefilter, softH, soft, gather, image, camera, viewToPrev,
+    scenePass!, bloomNode, prefilter, softH, soft, gather, image, camera, viewToPrev, uSceneExposure,
     {
       uFocus, uFocal, uFStop, uSensor, uNear, uFar, uViewH, uProjX, uProjY, uAnamorphic, uFlare, uCa,
       uGrain, uVignette, uGradeMix, uMotion, uGrainSeed, uBloom, uLift, uGain, uSat, uContrast, uGamma,
@@ -429,6 +443,7 @@ function finishRig(
   image: any,
   _camera: PerspectiveCamera,
   viewToPrev: Matrix4,
+  uSceneExposure: { value: number },
   u: Uniforms,
   isTiled: () => boolean,
   setTiled: (next: boolean) => void,
@@ -478,6 +493,14 @@ function finishRig(
     node: printed,
     bloom: bloomNode,
     scenePass,
+    setSceneExposure(exposure: number) {
+      uSceneExposure.value = Math.max(1e-5, exposure);
+    },
+    setResolutionScale(scale: number) {
+      scenePass.setResolutionScale?.(scale);
+      const glow = bloomNode as { setResolutionScale?: (s: number) => void } | null;
+      glow?.setResolutionScale?.(BLOOM_BASE_SCALE * scale);
+    },
     sync(frame: LensFrame) {
       u.uFocus.value = Math.max(0.35, frame.focus);
       u.uFocal.value = Math.max(1, frame.focalMm);

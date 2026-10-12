@@ -693,6 +693,8 @@ function disposeGroup(g: Object3D): void {
     if (m.geometry && !o.userData.sharedGeometry && !resources.release(m.geometry)) m.geometry.dispose();
     // WebGPURenderer keeps the render object until the mesh fires dispose. geometry.dispose()
     // alone left those objects, and their typed arrays, alive after the chunk was gone.
+    const release = o.userData.releaseLights;
+    if (typeof release === 'function') release();
     o.dispose();
   });
 }

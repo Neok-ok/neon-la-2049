@@ -36,12 +36,14 @@ Graphics tier, field of view, look sensitivity, invert look, and desktop key bin
 npm install
 npm run dev          # http://localhost:5173  (add ?hud=1 for the perf HUD)
 npm run typecheck
+npm run lighting:check  # physical-light guard (also runs inside build)
+npm run memory:check    # residency budget and the GPU-resource guard
 npm run build        # static site in dist/
 npm run map          # regenerate docs/map*.svg from src/data/city-layout.json
 npm run screenshots  # headless captures (needs the dev server running)
 ```
 
-Handy URLs: `?mode=fly&at=wallace-pyramid`, `?mode=walk&at=noodle-bar`, `?mode=cine&weather=snow&time=6`, `?quality=low`, `?webgl=1`.
+Handy URLs: `?mode=fly&at=wallace-pyramid`, `?mode=walk&at=noodle-bar`, `?mode=cine&weather=snow&time=6`, `?quality=low`, `?webgl=1`, `?tonemap=aces|agx|neutral`, `?ev=4.26`.
 
 ## Docs
 
@@ -51,6 +53,7 @@ Handy URLs: `?mode=fly&at=wallace-pyramid`, `?mode=walk&at=noodle-bar`, `?mode=c
 * [docs/perf/MEMORY-RULES.html](docs/perf/MEMORY-RULES.html): how every pass creates and unloads GPU resources. The graphics tier is the look; the memory budget is how much stays loaded.
 * [docs/ROADMAP.md](docs/ROADMAP.md): the staged build plan (one district per stage).
 * [docs/ADDING_A_DISTRICT.md](docs/ADDING_A_DISTRICT.md): the plug-in pattern for district stages.
+* [docs/lighting/rules.html](docs/lighting/rules.html): how a light is allowed to exist (physical units, the registry, the guard).
 
 ## Deploy
 

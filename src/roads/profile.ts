@@ -38,6 +38,7 @@ export const ROAD_LAMPS = new Set([
   'historic-core',
   'south-la-megablocks',
   'hollywood',
+  'coastal-strip',
 ]);
 
 function clamp(v: number, a: number, b: number): number {

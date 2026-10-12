@@ -11,6 +11,8 @@ import type { QualitySettings } from '../../core/quality';
 import { buildKitMeshes, type KitInstance } from '../_shared/kit/batch';
 import { makeCross } from '../_shared/kit/templates';
 import { getPoolMaterial, getSteamMaterial } from '../_shared/kit/materials';
+import { retainChunk } from '../../lighting/registry.ts';
+import type { PunctualInput } from '../../lighting/validate.ts';
 import { dressBlock, type MarketBlock, type MarketProp } from './dress';
 
 const CAP: Record<QualitySettings['tier'], { props: number; steam: number; pools: number }> = {
@@ -83,15 +85,33 @@ registerDetail('little-tokyo-market', ['little-tokyo-market'], (ctx) => {
 
   const group = new Group();
   group.name = 'little-tokyo-market';
-  const kept = thin(props, cap.props) as unknown as KitInstance[];
-  for (const mesh of buildKitMeshes(kept, 'lt-kit')) group.add(mesh);
+  const keptProps = thin(props, cap.props);
+  for (const mesh of buildKitMeshes(keptProps as unknown as KitInstance[], 'lt-kit')) group.add(mesh);
 
   const steamKept = thin(steam, Math.min(cap.steam, ctx.quality.steam));
   if (steamKept.length) group.add(buildSteam(steamKept));
   const poolKept = thin(pools, cap.pools);
   if (poolKept.length) group.add(buildPools(poolKept));
+  const lights = marketLamps(keptProps);
+  if (lights.length) group.userData.releaseLights = retainChunk(`lt-lamps:${ctx.x0}:${ctx.z0}`, lights);
   return group;
 });
+
+/**
+ * The dress file only paints the lantern box. A 4 m head at 1 800 cd is about the
+ * same ground lux as a 7 500 cd street lamp at 8 m, so the pool stays under the shell.
+ * Cyan boxes stay shells. A cyan cone with the head out of frame read as a sourceless wash.
+ */
+function marketLamps(props: MarketProp[]): PunctualInput[] {
+  const lights: PunctualInput[] = [];
+  for (const p of props) {
+    if (p.template !== 'box' || p.sx !== 0.9 || p.sy !== 0.2 || p.sz !== 0.42) continue;
+    if (p.emissive[2] > p.emissive[0]) continue;
+    if (p.emissive[0] + p.emissive[1] + p.emissive[2] < 1) continue;
+    lights.push({ preset: 'street-sodium', x: p.x, y: p.y, z: p.z, candela: 1800, range: 14, dx: 0, dy: -1, dz: 0 });
+  }
+  return lights;
+}
 
 /** Even stride so a cap thins the whole chunk instead of deleting the far end of the block list. */
 function thin<T>(items: T[], cap: number): T[] {

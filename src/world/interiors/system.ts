@@ -11,7 +11,7 @@ import { buildInteriorGeometry, trisOf } from './geom';
 import { interiorMaterial } from './material';
 import { buildPortalGeometry, portalMaterial } from './portal';
 import { buildRainGeometry, rainMaterial } from './rain';
-import type { InteriorDetail, InteriorRide, InteriorSpec } from './types';
+import type { InteriorDetail, InteriorLight, InteriorRide, InteriorSpec } from './types';
 import { boxVolume, containsBox, distToBox } from './volume';
 
 export interface ExteriorHosts {
@@ -31,6 +31,7 @@ interface Run {
   rain: Mesh | null;
   mounted: boolean;
   shown: boolean;
+  lights: InteriorLight[];
   meshTris: number;
   portalTris: number;
   rainTris: number;
@@ -160,7 +161,8 @@ export class InteriorSystem {
         if (b.y0 < 12) continue;
         const dist = Math.hypot(x - b.x, z - b.z);
         const midY = (b.y0 + b.y1) * 0.5;
-        if (dist >= bd || Math.abs(y - midY) > 16) continue;
+        // A street pose is not a roof door. The old 16 m window handed the market camera to a pad.
+        if (dist >= bd || y < b.y0 - 3 || Math.abs(y - midY) > 8) continue;
         bd = dist;
         const vx = b.x - run.spec.volume.x;
         const vz = b.z - run.spec.volume.z;
@@ -235,6 +237,14 @@ export class InteriorSystem {
       interiorMeshes: meshes,
       interiorMounted: mounted,
     };
+  }
+
+  /** Baked fixtures of the room the walker is inside. Empty on the street. */
+  lightSpill(): InteriorLight[] {
+    if (!this.occluded || !this.activeId) return [];
+    const run = this.runs.get(this.activeId);
+    if (!run?.shown) return [];
+    return run.lights;
   }
 
   hudLabel(): string {
@@ -337,7 +347,7 @@ export class InteriorSystem {
     group.add(mesh, portal);
     this.group.add(group);
     return {
-      spec, group, mesh, portal, rain: null, mounted: false, shown: false,
+      spec, group, mesh, portal, rain: null, mounted: false, shown: false, lights: [],
       meshTris: 0, portalTris: 0, rainTris: 0, built: false,
     };
   }
@@ -363,6 +373,7 @@ export class InteriorSystem {
     const built = run.spec.build(this.detail);
     run.built = true;
     run.mesh.geometry.dispose();
+    run.lights = built.lights;
     run.mesh.geometry = buildInteriorGeometry(built.boxes, built.lights, built.ambient, this.detail);
     resources.tag(run.mesh.geometry, { label: run.spec.id, owner: 'interiors', evictable: true });
     run.meshTris = trisOf(run.mesh.geometry);

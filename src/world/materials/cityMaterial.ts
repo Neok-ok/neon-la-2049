@@ -4,6 +4,8 @@
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import { U } from '../../atmosphere/uniforms';
+import { NITS, WINDOW_COOL, WINDOW_WARM } from '../../lighting/presets.ts';
+import { practicalLit } from '../../lighting/shade.ts';
 import { hologramSpill } from '../holograms/spill';
 import { CELL_H, CELL_W, ROOM_STYLE, WIN_H, WIN_W } from '../windows/facade';
 import { heroMask, livingNear, scheduledLitNode } from '../windows/shade';
@@ -89,8 +91,8 @@ function compose(m: MeshStandardNodeMaterial, living: boolean): void {
   const litForWindows = living
     ? mix(litMask, float(1), hero.mul(W.on).mul(eligible).mul(winMask))
     : litMask;
-  const warmC = vec3(1.0, 0.58, 0.26);
-  const coolC = vec3(0.55, 0.78, 1.0);
+  const warmC = vec3(WINDOW_WARM[0], WINDOW_WARM[1], WINDOW_WARM[2]);
+  const coolC = vec3(WINDOW_COOL[0], WINDOW_COOL[1], WINDOW_COOL[2]);
   const winColor = mix(coolC, warmC, step(h2, warmth)).mul(h2.mul(0.9).add(0.35));
   // window interior read: mullion + transom, brighter ceiling, some blinds half drawn
   const lx = f.x.sub(0.5).div(max(winW, 0.01)).add(0.5);
@@ -125,13 +127,18 @@ function compose(m: MeshStandardNodeMaterial, living: boolean): void {
   // average for distant / grazing views (prevents moire + keeps the city glowing far away)
   // perceptually a field of sub-pixel lights reads darker than its true mean: scale the average down
   const avgWindows = mix(coolC, warmC, warmth).mul(litFrac.mul(winW.mul(winH)).mul(0.45));
-  // Glow glazing ignores the lit lottery: the whole pane burns, brighter toward the ceiling line.
+  // Glow glazing ignores the lit lottery: the pane burns, brighter toward the ceiling line.
+  // The floor stays inside the pane. An add outside winMask lit the whole wall cell.
   const glowC = mix(vec3(1.0, 0.62, 0.3), vec3(0.82, 0.9, 1.0), clamp(tint.sub(1.0), 0, 1));
-  const glowLevel = lit.mul(2.6).mul(U.night.mul(0.45).add(0.55));
-  const glowNear = glowC.mul(winMask.mul(mullion).mul(0.8).add(0.2)).mul(clamp(ly, 0, 1).mul(0.5).add(0.7)).mul(glowLevel);
+  const glowLevel = lit.mul(1.45).mul(U.night.mul(0.45).add(0.55));
+  const glowNear = glowC.mul(winMask).mul(mullion.mul(0.75).add(0.25)).mul(clamp(ly, 0, 1).mul(0.5).add(0.7)).mul(glowLevel);
   const glowFar = glowC.mul(glowLevel).mul(winW.mul(winH).mul(0.8).add(0.2));
   const glow = mix(glowNear, glowFar, farFade);
   const windows = mix(mix(nearWindows, avgWindows, farFade).mul(1.1), glow, isGlow).mul(isWall);
+  // A few nits on the wall around a lit pane, so the window is a source and not a sticker.
+  // The halo dies before the cell edge. A reach of 0.62 met the next pane and washed the facade.
+  const paneSpill = smoothstep(0.38, 0.16, abs(f.x.sub(0.5))).mul(smoothstep(0.42, 0.16, abs(f.y.sub(0.55))));
+  const windowSpill = winColor.mul(paneSpill).mul(float(1).sub(winMask)).mul(isWall).mul(litForWindows).mul(U.night).mul(8);
 
   // ---- ground sprawl lights (far LOD: low-rise city rendered as a carpet of lights) ----
   const gcell = floor(wpos.xz.add(100000).div(7.0));
@@ -139,7 +146,7 @@ function compose(m: MeshStandardNodeMaterial, living: boolean): void {
   const gLights = step(float(1).sub(lit.mul(0.16).mul(U.windowLit)), gh);
   const gFoot = fwidth(wpos.x).div(7.0);
   const gAvg = lit.mul(0.16).mul(U.windowLit).mul(0.8);
-  const groundLights = mix(gLights, gAvg, smoothstep(0.3, 1.0, gFoot)).mul(warmC).mul(isGround).mul(step(0.001, lit)).mul(2.0);
+  const groundLights = mix(gLights, gAvg, smoothstep(0.3, 1.0, gFoot)).mul(warmC).mul(isGround).mul(step(0.001, lit)).mul(NITS.groundCarpet);
 
   // ---- fake neon reflections on wet streets (near camera only) ----
   // Ground bdata.w is 1 + sheen + amount (see mesher emitGround). Sheen 0 is magenta/cyan
@@ -203,5 +210,6 @@ function compose(m: MeshStandardNodeMaterial, living: boolean): void {
   m.metalnessNode = mix(float(0), float(0.35), unlitGlass);
   const snowCover = float(1).sub(clamp(snowAmt, 0, 1));
   const spill = hologramSpill();
-  m.emissiveNode = Fn(() => windows.mul(snowCover.mul(0.6).add(0.4)).add(groundLights).add(neonRefl.mul(snowCover)).add(spill))();
+  const pools = practicalLit(wpos, normalWorld, viewToCam, baseColor);
+  m.emissiveNode = Fn(() => windows.mul(NITS.window).mul(snowCover.mul(0.6).add(0.4)).add(windowSpill).add(groundLights).add(neonRefl.mul(snowCover).mul(NITS.neonReflection)).add(spill).add(pools))();
 }

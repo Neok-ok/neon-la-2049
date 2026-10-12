@@ -7,6 +7,7 @@ import {
 import * as TSL from 'three/tsl';
 import { spinnerGeometries, spinnerMaterials } from './spinnerModel';
 import { U } from '../atmosphere/uniforms';
+import { authoredLiftU } from '../lighting/shade.ts';
 import type { CityQuery } from '../world/CityQuery';
 import { Rng, trueRandomSeed } from '../core/rng';
 import { advanceGraph, downtownGraph, edgeAround, poseOn } from './streetGraph';
@@ -118,7 +119,7 @@ export class SpinnerTraffic {
       const d = T.length(T.positionWorld.sub(T.cameraPosition));
       const att = T.exp(d.mul(U.fogDensity).mul(-0.3));
       const strobe = T.mix(T.float(1), T.step(0.5, T.fract(U.time.mul(2.5).add(c.w))), T.step(0.5, c.w));
-      return T.vec4(c.xyz.mul(fall).mul(att).mul(strobe).mul(1.6), T.float(1));
+      return T.vec4(c.xyz.mul(fall).mul(att).mul(strobe).mul(1.6).mul(authoredLiftU), T.float(1));
     })();
     this.glow = new InstancedMesh(glowGeo, gm, max);
     for (const im of [this.body, this.lights, this.glow]) {

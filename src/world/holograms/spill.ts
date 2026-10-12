@@ -5,6 +5,7 @@ import { uniform } from 'three/tsl';
 import { Color, Vector4 } from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import { U } from '../../atmosphere/uniforms';
+import { NITS } from '../../lighting/presets.ts';
 
 const T = TSL as any;
 const { vec3, length, max, exp, normalize, step, dot, positionWorld, normalWorld } = T;
@@ -46,5 +47,5 @@ export function hologramSpill(): any {
     const gate = step(0.5, radius);
     acc = acc.add(col[i].mul(fall).mul(wrap).mul(gate).mul(0.55));
   }
-  return acc.mul(U.holoSpill).mul(U.signPower).mul(U.night.mul(0.72).add(0.28));
+  return acc.mul(U.holoSpill).mul(U.signPower).mul(U.night.mul(0.72).add(0.28)).mul(NITS.holoSpill);
 }

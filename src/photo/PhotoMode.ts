@@ -224,7 +224,8 @@ export class PhotoMode {
       this.state.fog, w.params.layer, w.params.layerY, w.params.smogTint,
       Number(U.night.value), Number(U.daylight.value),
     );
-    this.host.renderer.toneMappingExposure = this.host.exposure() * this.state.exposure;
+    this.pipeline?.setSceneExposure(this.host.exposure() * this.state.exposure);
+    this.host.renderer.toneMappingExposure = 1;
   }
 
   update(dt: number): void {

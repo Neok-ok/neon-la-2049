@@ -9,6 +9,7 @@ import { uniform } from 'three/tsl';
 import * as TSL from 'three/tsl';
 import type { CityLayout } from '../world/layout';
 import { U } from '../atmosphere/uniforms';
+import { authoredLiftU } from '../lighting/shade.ts';
 import { NO_STREET_GRAPH, freewayRoutes, type FreewayTrafficSpec } from './trafficRegistry';
 import { TRENCH_LIP } from './trenchQuery';
 import { pastSeaWall } from '../districts/coastal-strip/profile';
@@ -99,7 +100,7 @@ function streakMaterial(): MeshBasicNodeMaterial {
   const dist = T.length(T.positionWorld.sub(T.cameraPosition));
   const fog = T.exp(dist.mul(U.fogDensity).mul(T.float(0.9)).negate());
   const night = T.mix(T.float(0.22), T.float(1.35), U.night);
-  m.colorNode = T.vec4(col.mul(near).mul(fog).mul(night), near.mul(fog));
+  m.colorNode = T.vec4(col.mul(near).mul(fog).mul(night).mul(authoredLiftU), near.mul(fog));
   return m;
 }
 
