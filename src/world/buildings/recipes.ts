@@ -8,7 +8,7 @@ import { Rng } from '../../core/rng';
 import { Style } from '../fabric/types';
 import { AD_COLORS, LIGHT_ROLES } from './lights';
 import {
-  DOOR_H, DOOR_W, RES_STOREY, STOREY, addBox, balcony, band, emptyDraft, entryFlight, glowCrown, mastTip, rail, skin, snap,
+  DOOR_H, DOOR_W, RES_STOREY, STOREY, addBox, band, emptyDraft, entryFlight, glowCrown, mastTip, rail, skin, snap,
   type Draft, type TowerKind,
 } from './parts';
 
@@ -120,14 +120,16 @@ function bandSlab(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
   const inset = variant === 2 ? 0.78 : 0.84;
   const bw = spec.w * inset;
   const bd = spec.d * inset;
+  // A 2 m belt disappears into the window grid past a hundred metres. These are storey-and-a-half stripes.
+  const dark = 6.2;
   let y = 0;
   let first = true;
   while (y < H - 0.5) {
     const slice = Math.min(step, H - y);
-    let bandH = Math.min(2.4, slice * 0.22);
+    let bandH = Math.min(dark, slice * 0.46);
     let winH = slice - bandH;
-    if (first && door && winH < DOOR_H + 0.4) {
-      winH = Math.min(slice, Math.max(winH, DOOR_H + 0.4));
+    if (first && door && winH < DOOR_H + 0.6) {
+      winH = Math.min(Math.max(slice - 1.2, 0), Math.max(winH, DOOR_H + 0.6));
       bandH = Math.max(0, slice - winH);
     }
     const style = variant === 0 ? Style.Panel : variant === 1 ? Style.Megablock : Style.Ribbon;
@@ -142,7 +144,19 @@ function bandSlab(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
         style, lit: spec.lit, tint: spec.tint, detail: 0, role: 'mass',
       });
     }
-    if (bandH > 0.4) band(d, 0, 0, spec.w, spec.d, y0 + y + winH, Math.max(bandH, 1.6), spec.lit, spec.tint);
+    if (bandH > 0.8) {
+      band(d, 0, 0, spec.w, spec.d, y0 + y + winH, bandH, spec.lit, spec.tint);
+      // Short in the vertical, so the glow stays one light bar and does not tile into windows.
+      const lip = y0 + y + winH;
+      addBox(d, {
+        s: -(spec.d / 2 + 0.4), t: 0, lb: spec.w * 0.98, la: 0.42, h: 1.55, base: lip,
+        style: Style.Glow, lit: 0.7, tint: 1.12, detail: 0, role: 'band',
+      });
+      addBox(d, {
+        s: 0, t: spec.w / 2 + 0.35, lb: 0.4, la: spec.d * 0.96, h: 1.55, base: lip,
+        style: Style.Glow, lit: 0.7, tint: 1.12, detail: 0, role: 'band',
+      });
+    }
     y += slice;
     first = false;
   }
@@ -267,10 +281,24 @@ function resStack(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
     style: Style.Residential, lit: spec.lit, tint: spec.tint, door,
   });
   const every = (variant === 1 ? 3 : 4) * RES_STOREY;
-  const faces = variant === 2 ? 2 : 1;
+  const plateD = 5.4;
+  const plateH = 1.7;
   for (let y = y0 + every; y < y0 + H - 2; y += every) {
-    balcony(d, -(bd / 2 + 1.2), 0, bw * 0.72, 2.5, y, spec.lit, spec.tint);
-    if (faces === 2) balcony(d, 0, bw / 2 + 0.32, 1.05, bd * 0.55, y, spec.lit, spec.tint);
+    // A deep shelf, not a 0.16 m rail. The lip is only 1.45 m tall so it stays a light line.
+    addBox(d, {
+      s: -(bd / 2 + plateD / 2), t: 0, lb: bw * 0.88, la: plateD, h: plateH, base: y,
+      style: Style.Solid, lit: 0.07, tint: spec.tint * 0.75, detail: 0, role: 'balcony',
+    });
+    addBox(d, {
+      s: -(bd / 2 + plateD + 0.2), t: 0, lb: bw * 0.92, la: 0.4, h: 1.45, base: y + plateH - 0.15,
+      style: Style.Glow, lit: 0.72, tint: 1.12, detail: 0, role: 'balcony',
+    });
+    if (variant === 2) {
+      addBox(d, {
+        s: 0, t: bw / 2 + 2.4, lb: 4.4, la: bd * 0.55, h: plateH, base: y,
+        style: Style.Solid, lit: 0.07, tint: spec.tint * 0.75, detail: 0, role: 'balcony',
+      });
+    }
     if (variant !== 0 && ((y / every) | 0) % 2 === 0) {
       addBox(d, {
         s: bd / 2 + 0.35, t: bw * 0.22, lb: 0.85, la: 0.55, h: 0.62, base: y,
@@ -326,24 +354,23 @@ function holoShaft(d: Draft, spec: TowerSpec, H: number, y0: number, door: boole
 function cantilever(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolean, variant: number): void {
   const split = variant === 1 ? 0.34 : 0.28;
   const baseH = H * split;
-  const bw = spec.w * 0.62;
+  // Narrow in width only. Depth stays put so the street door does not move.
+  const bw = spec.w * 0.4;
   const bd = spec.d * 0.62;
   skin(d, {
     s: 0, t: 0, lb: bw, la: bd, h: baseH, base: y0,
     style: Style.Megablock, lit: spec.lit * 0.7, tint: spec.tint, door,
   });
-  const topW = spec.w * 0.96;
-  const topD = spec.d * 0.92;
-  const shift = variant === 2 ? spec.w * 0.04 : spec.w * 0.06;
-  const maxShift = Math.max(0, (spec.w - topW) / 2);
-  const t = Math.max(-maxShift, Math.min(maxShift, shift));
+  const topW = spec.w * 1.24;
+  const topD = spec.d * 0.96;
+  const t = 0;
   addBox(d, {
     s: 0, t, lb: topW, la: topD, h: H - baseH, base: y0 + baseH,
     style: Style.Panel, lit: spec.lit, tint: spec.tint, detail: 0, role: 'mass',
   });
-  // A lit soffit on the joint, so the wider top reads against the night.
+  // A short lip, not a window wall. It marks the joint; the wider top is the mass above it.
   addBox(d, {
-    s: 0, t, lb: topW + 2.4, la: topD + 2.2, h: 2.4, base: y0 + baseH - 0.4,
+    s: 0, t, lb: topW + 1.2, la: topD + 1.0, h: 2.1, base: y0 + baseH - 0.3,
     style: Style.Glow, lit: 0.86, tint: 1.2, detail: 0, role: 'band',
   });
   const bands = variant === 0 ? 4 : 3;
@@ -368,11 +395,30 @@ function lantern(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolean
     s: 0, t: 0, lb: barT, la: spec.d * 0.96, h: H - 0.6, base: y0,
     style: Style.Ribbed, lit: spec.lit * 0.9, tint: spec.tint, detail: 0, role: 'mass',
   });
-  // Lit edges on the crossing bar, so the cross reads from the street and from above.
-  for (const side of [-1, 1]) {
+  // Caps at the four arm ends. A wide glow sheet tiles into a window wall and hides the cross.
+  const capH = H * 0.72;
+  const capBase = y0 + STOREY * 3;
+  const caps: Array<[number, number]> = [
+    [0, slabW / 2 - 0.9],
+    [0, -(slabW / 2 - 0.9)],
+    [spec.d * 0.46, 0],
+    [-spec.d * 0.46, 0],
+  ];
+  for (const [cs, ct] of caps) {
     addBox(d, {
-      s: 0, t: side * (barT / 2 + 0.22), lb: 0.4, la: spec.d * 0.9, h: H * 0.82, base: y0 + STOREY * 2,
-      style: Style.Glow, lit: 0.58, tint: 1.15, detail: 0, role: 'mass',
+      s: cs, t: ct, lb: 1.7, la: 1.7, h: capH, base: capBase,
+      style: Style.Glow, lit: 0.72, tint: 1.15, detail: 0, role: 'mass',
+    });
+  }
+  for (const fy of [0.48, 0.78]) {
+    const lip = y0 + H * fy;
+    addBox(d, {
+      s: 0, t: 0, lb: slabW * 0.98, la: 1.15, h: 1.5, base: lip,
+      style: Style.Glow, lit: 0.64, tint: 1.12, detail: 0, role: 'band',
+    });
+    addBox(d, {
+      s: 0, t: 0, lb: 1.15, la: spec.d * 0.94, h: 1.5, base: lip,
+      style: Style.Glow, lit: 0.64, tint: 1.12, detail: 0, role: 'band',
     });
   }
   const fins = variant === 2 ? 5 : 3;
@@ -395,6 +441,11 @@ function heroGate(d: Draft, spec: TowerSpec, H: number): void {
     skin(d, {
       s: 0, t, lb: slabW * 0.94, la: slabD, h: H, base: 0,
       style: Style.Panel, lit: spec.lit, tint: spec.tint, door: side < 0,
+    });
+    // A light column on the inner face. Narrower than one glow cell, so it stays a shaft.
+    addBox(d, {
+      s: 0, t: side * (gap / 2 - 1.5), lb: 2.6, la: 0.6, h: H * 0.66, base: STOREY * 3,
+      style: Style.Glow, lit: 0.78, tint: 1.18, detail: 0, role: 'mass',
     });
     for (let i = 1; i <= 7; i++) {
       band(d, 0, t, slabW, slabD * 1.02, (H * i) / 8, 2.2, spec.lit, spec.tint);
@@ -421,19 +472,31 @@ function heroStep(d: Draft, spec: TowerSpec, H: number): void {
   const slice = H / steps;
   for (let i = 0; i < steps; i++) {
     const f = 1 - i * (0.7 / steps);
+    const fw = spec.w * f;
+    const fd = spec.d * f;
     if (i === 0) {
       // The first setback is nearly 60 m up. A windowless base reads as a void from the street.
       skin(d, {
-        s: 0, t: 0, lb: spec.w * f, la: spec.d * f, h: slice, base: slice * i,
+        s: 0, t: 0, lb: fw, la: fd, h: slice, base: slice * i,
         style: Style.Megablock, lit: Math.max(0.28, spec.lit), tint: spec.tint, door: true,
       });
     } else {
       addBox(d, {
-        s: 0, t: 0, lb: spec.w * f, la: spec.d * f, h: slice, base: slice * i,
+        s: 0, t: 0, lb: fw, la: fd, h: slice, base: slice * i,
         style: Style.Megablock, lit: spec.lit * 0.45, tint: spec.tint * (0.85 - i * 0.03),
         detail: 0, role: 'mass',
       });
     }
+    // A short lip on the street face and the side the flyby sees. Tall glow faces become window walls.
+    const nose = slice * (i + 1) - 1.55;
+    addBox(d, {
+      s: -(fd / 2 + 0.35), t: 0, lb: fw * 0.96, la: 0.45, h: 1.55, base: nose,
+      style: Style.Glow, lit: 0.66, tint: 1.12, detail: 0, role: 'band',
+    });
+    addBox(d, {
+      s: 0, t: fw / 2 + 0.3, lb: 0.45, la: fd * 0.9, h: 1.55, base: nose,
+      style: Style.Glow, lit: 0.66, tint: 1.12, detail: 0, role: 'band',
+    });
   }
   glowCrown(d, 0, 0, spec.w * 0.1, spec.d * 0.1, H, 7);
 }
