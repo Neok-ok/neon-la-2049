@@ -34,6 +34,7 @@ export function installLongBeachHolos(layout: CityLayout): void {
     seed: 0.73,
     rank: 1,
     band: 'tower',
-    spill: 16,
+    // Spill drops a ground card. The panel sits on the tower, so the card read as a teal square with no lamp.
+    spill: 0,
   });
 }
