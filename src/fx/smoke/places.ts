@@ -166,28 +166,38 @@ function addMarket(
       const rx = fz;
       const rz = -fx;
       let best: { x: number; z: number; roof: number; score: number } | null = null;
-      for (const along of [12, 20, 28, 36]) {
-        for (const side of [-14, -8, 8, 14]) {
+      for (const along of [8, 14, 20, 26]) {
+        for (const side of [-16, -10, -6, 6, 10, 16]) {
           const px = x + fx * along + rx * side;
           const pz = z + fz * along + rz * side;
           const roofY = query.floorBelow(px, y + 4, pz, true);
           if (!(roofY > s.y + 6) || roofY > y - 1.2) continue;
           const dist = Math.hypot(px - x, pz - z) || 1;
-          if (dist < 12 || dist > 34) continue;
-          const pitch = Math.atan2(roofY - y, dist);
-          if (pitch > -0.28 || pitch < -0.95) continue;
-          const score = Math.abs(pitch + 0.62) * 8 + dist * 0.04;
+          if (dist < 8 || dist > 28) continue;
+          const sy = roofY + 4;
+          const pitch = Math.atan2(sy - y, dist);
+          if (pitch > -0.2 || pitch < -1.05) continue;
+          if (query.insideSolid(px, sy, pz, 0.6, true)) continue;
+          let blocked = false;
+          for (const t of [0.35, 0.6, 0.82]) {
+            if (query.insideSolid(x + (px - x) * t, y + (sy - y) * t, z + (pz - z) * t, 0.45, false)) {
+              blocked = true;
+              break;
+            }
+          }
+          if (blocked) continue;
+          const score = Math.abs(pitch + 0.55) * 6 + dist * 0.05;
           if (!best || score < best.score) best = { x: px, z: pz, roof: roofY, score };
         }
       }
       const spot = best ?? { x: x + fx * 16 + rx * 8, z: z + fz * 16 + rz * 8, roof: s.y + 18, score: 0 };
       roofs.push(make({
-        x: spot.x, y: spot.roof + 3.6, z: spot.z,
+        x: spot.x, y: spot.roof + 4.2, z: spot.z,
         kind: KIND.roof,
-        rate: 5,
+        rate: 6,
         life: 5.5,
-        size0: 1.6,
-        size1: 6.4,
+        size0: 2.2,
+        size1: 8,
         heat: 0,
         radius: 0.25,
         spread: 0.3,
@@ -207,19 +217,21 @@ function addMarket(
     if (Math.abs(dh) > 0.2) continue;
     const hx = Math.sin(s.heading);
     const hz = -Math.cos(s.heading);
+    const rx = hz;
+    const rz = -hx;
     food.push(make({
-      x: s.x + hx * 4.8, y: s.y + 1.15, z: s.z + hz * 4.8,
+      x: s.x + hx * 3.4 + rx * 1.7, y: s.y + 1.4, z: s.z + hz * 3.4 + rz * 1.7,
       kind: KIND.stall,
-      rate: 11,
-      life: 1.25,
-      size0: 0.12,
-      size1: 0.48,
-      heat: 0.35,
-      radius: 0.12,
-      spread: 0.22,
-      rise: 0.28,
-      fade: 7,
-      aspect: 0.7,
+      rate: 12,
+      life: 1.4,
+      size0: 0.18,
+      size1: 0.72,
+      heat: 0.4,
+      radius: 0.16,
+      spread: 0.2,
+      rise: 0.45,
+      fade: 8,
+      aspect: 0.75,
       floorY: s.y,
     }));
   }
