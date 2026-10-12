@@ -73,7 +73,8 @@ export const PRESETS: Record<PresetId, Preset> = {
   // which just clears the bloom threshold. A painted wall (a few nits) does not.
   'neon-sign': discharge('neon-sign', [1, 0.25, 0.55], {
     candela: 400, cdMin: 15, cdMax: 8000, nits: 20, range: 18,
-    cone: Math.PI, inner: Math.PI, contact: false, volumetric: true,
+    // The tube is the source. A haze slot from this candela painted a sourceless magenta shaft on the lane.
+    cone: Math.PI, inner: Math.PI, contact: false, volumetric: false,
   }),
   'window-warm': blackbody('window-warm', 2700, {
     candela: 30, cdMin: 1, cdMax: 400, nits: 18, range: 6,
