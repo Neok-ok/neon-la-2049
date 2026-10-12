@@ -696,23 +696,29 @@ function heroObelisk(d: Draft, spec: TowerSpec, H: number): void {
     if (i === 0) {
       skin(d, {
         s: 0, t: 0, lb: bw, la: bd, h: slice, base,
-        style: Style.Monolith, lit: 0.08, tint: spec.tint * 0.72, door: true,
+        style: Style.Monolith, lit: 0.1, tint: spec.tint * 0.9, door: true,
       });
     } else {
       addBox(d, {
         s: 0, t: 0, lb: bw, la: bd, h: slice, base,
-        style: Style.Monolith, lit: 0.07, tint: spec.tint * (0.8 - i * 0.012),
+        style: Style.Monolith, lit: 0.1, tint: spec.tint * 0.9,
         detail: 0, role: 'mass',
       });
     }
-    // Short ticks on the kite edge. A full-height glow face tiles into windows.
-    if (i > 1 && i < steps - 1 && i % 3 === 0) {
-      const tick = 1.45;
-      for (const side of [-1, 1] as const) {
+    // A light course at the width of this step. The lengths draw the kite at the
+    // distance that keeps the tip in frame. A full-height glow face tiles into windows.
+    if (i > 0 && i < steps - 1) {
+      const lip = 1.55;
+      addBox(d, {
+        s: -(bd / 2 + 0.22), t: 0, lb: Math.max(2.2, bw * 0.9), la: 0.4, h: lip,
+        base: base + slice - lip,
+        style: Style.Glow, lit: 0.76, tint: 1.14, detail: 0, role: 'band',
+      });
+      if (i % 2 === 0) {
         addBox(d, {
-          s: -(bd / 2 - 0.2), t: side * (bw / 2 - 1.15),
-          lb: 2.05, la: 0.4, h: tick, base: base + slice - tick,
-          style: Style.Glow, lit: 0.7, tint: 1.14, detail: 0, role: 'band',
+          s: 0, t: bw / 2 + 0.22, lb: 0.4, la: Math.max(2.2, bd * 0.82), h: lip,
+          base: base + slice - lip,
+          style: Style.Glow, lit: 0.66, tint: 1.1, detail: 0, role: 'band',
         });
       }
     }
@@ -839,19 +845,28 @@ function flueBank(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
     const h = plinthH + (H - plinthH) * order[i]!;
     shafts.push({ t, w, h });
     const depth = spec.d * (0.42 + (i === 1 ? 0.12 : 0));
+    // Stagger the stacks in depth so a three-quarter view does not collapse them into one slab.
+    const ss = (i - 1) * Math.min(1.6, spec.d * 0.1);
     addBox(d, {
-      s: 0, t, lb: w, la: Math.min(spec.d * 0.78, depth), h: h - plinthH, base: y0 + plinthH,
+      s: ss, t, lb: w, la: Math.min(spec.d * 0.78, depth), h: h - plinthH, base: y0 + plinthH,
       style: Style.Monolith, lit: 0.07, tint: spec.tint * (0.62 + i * 0.04),
       detail: 0, role: 'mass',
     });
     addBox(d, {
-      s: 0, t, lb: w + 0.9, la: Math.min(spec.d * 0.84, depth + 0.8), h: 1.05, base: y0 + h - 1.05,
+      s: ss, t, lb: w + 0.9, la: Math.min(spec.d * 0.84, depth + 0.8), h: 1.05, base: y0 + h - 1.05,
       style: Style.Solid, lit: 0.06, tint: spec.tint * 0.58, detail: 0, role: 'band',
     });
     addBox(d, {
-      s: -(depth / 2 + 0.15), t, lb: Math.min(2.2, w * 0.7), la: 0.4, h: 1.4,
+      s: ss - (depth / 2 + 0.15), t, lb: Math.min(2.2, w * 0.7), la: 0.4, h: 1.4,
       base: y0 + h - 2.5,
-      style: Style.Glow, lit: 0.7, tint: 1.12, detail: 0, role: 'band',
+      style: Style.Glow, lit: 0.82, tint: 1.16, detail: 0, role: 'band',
+    });
+    // A seam on every shaft, most of the shaft height, so the bank reads as three stacks.
+    addBox(d, {
+      s: ss - (depth / 2 + 0.28), t, lb: Math.min(2.2, w * 0.5), la: 0.42,
+      h: Math.max(STOREY * 2, (h - plinthH) * 0.78),
+      base: y0 + plinthH + STOREY * 0.35,
+      style: Style.Glow, lit: 0.88, tint: 1.18, detail: 0, role: 'mass',
     });
   }
   const beamY = y0 + plinthH + (H - plinthH) * (variant === 2 ? 0.34 : 0.42);
@@ -861,11 +876,10 @@ function flueBank(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
     s: 0, t: (spanL + spanR) / 2, lb: spanR - spanL, la: spec.d * 0.28, h: 2.2, base: beamY,
     style: Style.Solid, lit: 0.08, tint: spec.tint * 0.66, detail: 0, role: 'deck',
   });
-  const tall = shafts.reduce((a, b) => (a.h > b.h ? a : b));
   addBox(d, {
-    s: -(spec.d * 0.28), t: tall.t, lb: 1.8, la: 0.42, h: Math.min(H * 0.28, tall.h * 0.34),
-    base: y0 + plinthH + STOREY,
-    style: Style.Glow, lit: 0.66, tint: 1.1, detail: 0, role: 'mass',
+    s: 0, t: (spanL + spanR) / 2, lb: Math.max(2.4, spanR - spanL), la: 0.36, h: 1.4,
+    base: beamY + 2.2,
+    style: Style.Glow, lit: 0.7, tint: 1.1, detail: 0, role: 'band',
   });
   for (const shaft of shafts) {
     addBox(d, {
@@ -886,6 +900,7 @@ function spineBar(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
       const t = cursor + w / 2;
       cursor += w;
       const h = H * cuts[i]!;
+      const blade = i === 2;
       if (i === 1 && door) {
         skin(d, {
           s: 0, t, lb: w * 0.96, la: spec.d * 0.9, h, base: y0,
@@ -894,7 +909,8 @@ function spineBar(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
       } else {
         addBox(d, {
           s: 0, t, lb: w * 0.96, la: spec.d * (0.72 + i * 0.06), h, base: y0,
-          style: Style.Monolith, lit: 0.08, tint: spec.tint * (0.66 + i * 0.03),
+          style: blade ? Style.Slit : Style.Monolith, lit: blade ? 0.46 : 0.08,
+          tint: spec.tint * (blade ? 0.78 : 0.66 + i * 0.03),
           detail: 0, role: 'mass',
         });
       }
@@ -916,7 +932,7 @@ function spineBar(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
   const spineH = y0 + H - spineBase;
   addBox(d, {
     s: 0, t: spineT, lb: spineW, la: spec.d * 0.66, h: spineH, base: spineBase,
-    style: Style.Monolith, lit: 0.07, tint: spec.tint * 0.58, detail: 0, role: 'mass',
+    style: Style.Slit, lit: 0.48, tint: spec.tint * 0.78, detail: 0, role: 'mass',
   });
   addBox(d, {
     s: -(spec.d * 0.46), t: 0, lb: spec.w * 0.9, la: 0.42, h: 1.45, base: y0 + barH - 1.45,

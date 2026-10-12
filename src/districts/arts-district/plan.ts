@@ -398,10 +398,13 @@ function stackYard(
     puff(s + (i - 1) * 1.6, t, H + 14, 2, r.next(), 12, 32, 12, 0);
   }
   puff(s + 8, t - 6, cH + 6, 2, r.next(), 8, 14, 8, 1);
-  // Static column. Indexed kit quads, so the plume still reads if the card batch is thin.
-  prop(s, t, H + 18, 'quadZ', 14, 36, 1, 0, DARK, [1.2, 1.08, 0.9], 0, 0, 0, 0.78, 'add');
-  prop(s, t, H + 18, 'quadZ', 14, 36, 1, Math.PI / 2, DARK, [1.2, 1.08, 0.9], 0, 0, 0, 0.78, 'add');
-  prop(s + 8, t - 6, cH + 8, 'quadZ', 8, 16, 1, 0.5, DARK, [1.05, 0.96, 0.82], 0, 1, 0, 0.66, 'add');
+  // The flue bank is the mass. The additive cards read as white slabs in a night still.
+  // Foundry stacks keep them. Particle puffs still mark the flue.
+  if (force) {
+    prop(s, t, H + 18, 'quadZ', 14, 36, 1, 0, DARK, [1.2, 1.08, 0.9], 0, 0, 0, 0.78, 'add');
+    prop(s, t, H + 18, 'quadZ', 14, 36, 1, Math.PI / 2, DARK, [1.2, 1.08, 0.9], 0, 0, 0, 0.78, 'add');
+    prop(s + 8, t - 6, cH + 8, 'quadZ', 8, 16, 1, 0.5, DARK, [1.05, 0.96, 0.82], 0, 1, 0, 0.66, 'add');
+  }
 }
 
 function pipeRack(put: Emit, r: Rng, block: ArtsBlock): void {
