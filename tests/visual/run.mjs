@@ -367,11 +367,13 @@ async function main() {
       ? ['--enable-unsafe-webgpu', '--ignore-gpu-blocklist']
       : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist']),
   ];
+  trace('launching chromium');
   const browser = await chromium.launch({
     executablePath: process.env.CHROME || undefined,
     headless: true,
     args,
   });
+  trace('chromium launched');
 
   const started = Date.now();
   /** @type {Array<Record<string, unknown>>} */
@@ -445,7 +447,9 @@ async function main() {
           page.on('console', (msg) => {
             if (msg.type() === 'error' || msg.text().startsWith('visual ')) trace(`console ${msg.text()}`);
           });
+          trace(`open ${shot.id} ${quality}`);
           await page.goto(`${url}?${queryFor(shot, quality)}`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
+          trace(`opened ${shot.id} ${quality}`);
           for (const view of views) {
             await page.setViewportSize(VIEWS[view]);
             await shoot(page, shot, view, quality);
@@ -463,7 +467,9 @@ async function main() {
             page.on('console', (msg) => {
               if (msg.type() === 'error' || msg.text().startsWith('visual ')) trace(`console ${msg.text()}`);
             });
+            trace(`open ${shot.id} ${view} ${quality}`);
             await page.goto(`${url}?${queryFor(shot, quality)}`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
+            trace(`opened ${shot.id} ${view} ${quality}`);
             await shoot(page, shot, view, quality);
             if (errors.length) console.warn(`${shot.id} ${view} ${quality}: ${errors.slice(0, 3).join(' | ')}`);
             await ctx.close();
