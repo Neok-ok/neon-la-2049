@@ -130,7 +130,7 @@ function shade(lit: boolean): MeshBasicNodeMaterial {
     const shade = mix(float(0.55), float(0.12), launchK.add(stackK).add(barrelK.mul(0.65)));
     const crease = mix(shade, float(1), lumps);
     const hot = smoothstep(float(0.5), float(1.05), extra.x).mul(launch);
-    const core = vec3(1.45, 0.82, 0.32).mul(hot).mul(coreDisc).mul(8.0);
+    const core = vec3(1.45, 0.82, 0.32).mul(hot).mul(coreDisc).mul(2.5);
     const rgb = body.mul(crease).add(ash.mul(crease)).add(lamps).add(heat).add(core);
 
     const dist = length(ctr.xyz.sub(cameraPosition));

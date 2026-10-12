@@ -268,7 +268,7 @@ export class SmokeField {
     const gCount = Math.min(gCap, Math.max(10, Math.floor(gCap * grown * 0.85)));
     for (let n = 0; n < gCount; n++) {
       const puff = groundPuff(drive, grown);
-      const size1 = 18 + smokeRand() * 10;
+      const size1 = 26 + smokeRand() * 16;
       spawnParticle(this.pool, {
         x: puff.x,
         y: puff.y,
@@ -292,19 +292,18 @@ export class SmokeField {
     const len = Math.max(80, drive.headY - drive.y);
     const span = Math.min(len * 0.94, 1500);
     for (let n = 0; n < cCap; n++) {
-      const core = smokeRand() < 0.14;
-      const capHead = !core && smokeRand() < 0.18;
+      // Almost no hot discs. They read as fireballs. The ribbon is the spine.
+      const core = smokeRand() < 0.05;
+      const band = Math.min(span, 240);
       const along = core
-        ? 4 + Math.pow(smokeRand(), 1.1) * Math.min(span, 480)
-        : capHead
-          ? span * (0.7 + smokeRand() * 0.28)
-          : 8 + Math.pow(smokeRand(), 1.4) * (span - 8);
+        ? 6 + smokeRand() * 70
+        : 4 + Math.pow(smokeRand(), 1.15) * band;
       const ang = smokeRand() * Math.PI * 2;
       const t = Math.max(0, Math.min(1, along / len));
       const want = columnRadius(along, 0);
-      const rad = core ? want * (0.02 + smokeRand() * 0.12) : want * (0.78 + smokeRand() * 0.4);
+      const rad = core ? want * (0.02 + smokeRand() * 0.08) : want * (0.55 + smokeRand() * 0.5);
       const lean = plumeLean(along, len, wind.speed);
-      const size = want * (core ? 0.12 : 0.62) + smokeRand() * (core ? 1.5 : 4);
+      const size = want * (core ? 0.1 : 0.85) + smokeRand() * (core ? 1 : 6);
       spawnParticle(this.pool, {
         x: drive.x + Math.cos(wind.dir) * lean + Math.cos(ang) * rad,
         y: drive.y + along,
@@ -449,19 +448,19 @@ export class SmokeField {
       const sp = Math.hypot(wakeX, wakeZ) || 1;
       const bx = -wakeX / sp;
       const bz = -wakeZ / sp;
-      const backs = must ? [0.28, 0.62, 0.98, 1.36, 1.78, 2.25] : [0.35, 0.8, 1.3, 1.85];
+      const backs = must ? [0.35, 0.8, 1.35] : [0.45, 1.05];
       for (const back of backs) {
         spawnParticle(this.pool, {
           x: t.x + bx * back, y: t.y + 0.04 + back * 0.025, z: t.z + bz * back,
           vx: wakeX * 0.94, vy: 0.06, vz: wakeZ * 0.94,
           life: truck ? 2.2 : 1.9,
           age: back * 0.04,
-          size0: (truck ? 0.3 : 0.24) + back * 0.04,
-          size1: (truck ? 0.95 : 0.78) + back * 0.06,
+          size0: (truck ? 0.22 : 0.16) + back * 0.03,
+          size1: (truck ? 0.55 : 0.42) + back * 0.05,
           kind: KIND.exhaust,
           heat: 0.02,
           fade: 40,
-          aspect: 0.95,
+          aspect: 0.42,
           floorY: ground,
           slot: 0,
           slotCap: cap,
