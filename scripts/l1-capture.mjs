@@ -27,7 +27,7 @@ const only = new Set((process.env.ONLY ?? '').split(',').map((s) => s.trim()).fi
 /** Night stills: every district, plus a neon close-up and a wet street, on ultra and medium. */
 const places = [
   ['little-tokyo', () => { window.__nla.marketView('street'); window.__nla.lampShot(12, -8, 6); }],
-  ['historic-core', () => { window.__nla.broadwayView('street'); window.__nla.lampShot(24, -22, 0, 2); }],
+  ['historic-core', () => { window.__nla.broadwayView('street'); window.__nla.lampShot(12, -40, 0, 8); }],
   ['dtla', () => { window.__nla.dtlaView('street'); window.__nla.survey(); }],
   ['financial', () => { window.__nla.megaView('street'); window.__nla.lampShot(20, -6); }],
   ['civic', () => { window.__nla.civicView('plaza'); window.__nla.lampShot(14, -42, -4, 8); }],
