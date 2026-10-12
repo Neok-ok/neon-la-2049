@@ -1094,11 +1094,11 @@ export class App {
         const len = Math.hypot(dx, dz) || 1;
         const x = best.x + (dx / len) * back;
         const z = best.z + (dz / len) * back;
-        const y = best.y - 4.2;
+        const y = best.y - 2.6;
         const heading = Math.atan2(best.x - x, -(best.z - z));
         this.cams.fly.cockpit = true;
         if (this.cams.mode !== 'fly') this.cams.setMode('fly');
-        this.cams.setPose({ position: new Vector3(x, y, z), heading, pitch: -14 * DEG });
+        this.cams.setPose({ position: new Vector3(x, y, z), heading, pitch: -8 * DEG });
         this.cams.fly.cockpit = true;
         this.cams.fly.vel.set(0, 0, 0);
         return true;
