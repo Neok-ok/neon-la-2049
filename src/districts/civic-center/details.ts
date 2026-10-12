@@ -125,11 +125,14 @@ registerDetail('civic-street', ['civic-center'], (ctx) => {
   for (const p of plaza.props) {
     if (!inside(p.x, p.z) || !keepRank(p.rank, scale)) continue;
     props.push(p);
-    // Cool pylon heads were an emissive shell with no practical, so the plaza stayed dark under them.
-    if (p.emissive[2] > 0.8 && p.sy < 1) {
+    // A downward cone from the pylon missed the forecourt. A point practical reaches the plaza.
+    if (p.sy < 0.5 && (p.emissive[0] > 0.5 || p.emissive[2] > 0.45)) {
+      const cool = p.emissive[2] >= p.emissive[0];
       plazaLights.push({
-        preset: 'street-led', x: p.x, y: p.y, z: p.z, dx: 0, dy: -1, dz: 0,
-        candela: 11000, range: 40,
+        preset: cool ? 'beacon-white' : 'street-sodium',
+        x: p.x, y: p.y, z: p.z, dx: 0, dy: -1, dz: 0,
+        candela: cool ? 16000 : 9000,
+        range: cool ? 42 : 24,
       });
     }
   }

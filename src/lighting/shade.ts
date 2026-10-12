@@ -121,7 +121,7 @@ export function practicalInscatter(world: any): any {
     const live = step(float(1), hazeI[i]);
     acc = acc.add(hazeC[i]!.mul(hazeI[i]).mul(attenuation(dist, range)).mul(phase).mul(live));
   }
-  return acc.mul(U.fogDensity).mul(55);
+  return acc.mul(U.fogDensity).mul(18);
 }
 
 export function writeShadeSlots(slots: SlotLight[]): void {

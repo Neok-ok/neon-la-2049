@@ -5,7 +5,7 @@ import * as TSL from 'three/tsl';
 import { registerDetail } from '../../world/detail/registry';
 import { U } from '../../atmosphere/uniforms';
 import { pastSeaWall } from '../coastal-strip/profile';
-import { NITS, LED_RGB, SODIUM_RGB } from '../../lighting/presets.ts';
+import { NITS, LED_RGB } from '../../lighting/presets.ts';
 import { retainChunk } from '../../lighting/registry.ts';
 import { practicalLit } from '../../lighting/shade.ts';
 import { resources as gpu } from '../../core/memory/resources';
@@ -95,7 +95,8 @@ registerDetail('street-lamps', '*', (ctx) => {
   const lights: Array<{ preset: 'street-sodium' | 'street-led'; x: number; y: number; z: number; dx: number; dy: number; dz: number }> = [];
   pts.forEach(([x, y, z], i) => {
     const led = Math.abs(Math.sin(x * 0.17 + z)) * 100 % 7 < 1;
-    const chroma = led ? LED_RGB : SODIUM_RGB;
+    // Shell only. The practical below still uses the preset chromaticity.
+    const chroma = led ? LED_RGB : [1, 0.58, 0.16];
     rgb[i * 3] = chroma[0];
     rgb[i * 3 + 1] = chroma[1];
     rgb[i * 3 + 2] = chroma[2];

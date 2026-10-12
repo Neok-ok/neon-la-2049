@@ -6,6 +6,8 @@ import type { QualitySettings } from '../../core/quality';
 import { buildKitMeshes, type KitInstance } from '../_shared/kit/batch';
 import { makeCross } from '../_shared/kit/templates';
 import { getPoolMaterial, getSteamMaterial } from '../_shared/kit/materials';
+import { retainChunk } from '../../lighting/registry.ts';
+import type { PunctualInput } from '../../lighting/validate.ts';
 import { dressBlock, marketKit, type KBlock, type KPool, type KProp, type KSteam } from './dress';
 
 const CAP: Record<QualitySettings['tier'], { props: number; steam: number; pools: number }> = {
@@ -121,15 +123,27 @@ registerDetail('k-street', ['k-megablock'], (ctx) => {
   const inside = (x: number, z: number) => x >= ctx.x0 && x < x1 && z >= ctx.z0 && z < z1;
   for (const p of hero.props) if (inside(p.x, p.z) && keepRank(p.rank, scale)) props.push(p);
   for (const s of hero.steam) if (inside(s.x, s.z) && keepRank(s.rank, scale)) steam.push(s);
-  for (const p of hero.pools) if (inside(p.x, p.z) && keepRank(p.rank, scale)) pools.push(p);
+  for (const p of hero.pools) {
+    // Sodium rectangles under the poles. The practical below is the pool.
+    if (p.rgb[0] > 0.7) continue;
+    if (inside(p.x, p.z) && keepRank(p.rank, scale)) pools.push(p);
+  }
   if (!props.length && !steam.length && !pools.length) return null;
   props.sort((a, b) => a.rank - b.rank);
+  const keptProps = thin(props, cap.props);
   const group = new Group();
   group.name = 'k-street';
-  for (const mesh of buildKitMeshes(thin(props, cap.props) as unknown as KitInstance[], 'k-kit')) group.add(mesh);
+  for (const mesh of buildKitMeshes(keptProps as unknown as KitInstance[], 'k-kit')) group.add(mesh);
   const steamKept = thin(steam, Math.min(cap.steam, ctx.quality.steam));
   if (steamKept.length) group.add(buildSteam(steamKept));
   const poolKept = thin(pools, cap.pools);
   if (poolKept.length) group.add(buildPools(poolKept));
+  const lights: PunctualInput[] = [];
+  for (const p of keptProps) {
+    if (p.template === 'box' && p.sy < 0.3 && p.sx < 2 && p.sx > 0.8 && p.emissive[0] > 1 && p.emissive[1] > 0.5) {
+      lights.push({ preset: 'street-sodium', x: p.x, y: p.y, z: p.z, dx: 0, dy: -1, dz: 0 });
+    }
+  }
+  if (lights.length) group.userData.releaseLights = retainChunk(`k-market:${ctx.x0}:${ctx.z0}`, lights);
   return group;
 });

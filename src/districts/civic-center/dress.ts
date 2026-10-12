@@ -56,7 +56,7 @@ export interface CivicSteam {
 
 const GREY: [number, number, number] = [0.22, 0.23, 0.26];
 const NONE: [number, number, number] = [0, 0, 0];
-const LAMP: [number, number, number] = [0.62, 0.74, 0.92];
+const LAMP: [number, number, number] = [0.34, 0.4, 0.5];
 
 function world(b: CivicBlock, s: number, t: number): [number, number] {
   return [b.cx + b.ax * s + b.bx * t, b.cz + b.az * s + b.bz * t];

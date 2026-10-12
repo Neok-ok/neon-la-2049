@@ -61,8 +61,9 @@ function discharge(id: PresetId, rgb: RGB, rest: Omit<Preset, 'id' | 'rgb' | 'ke
 export const PRESETS: Record<PresetId, Preset> = {
   'street-sodium': blackbody('street-sodium', 2000, {
     candela: 7500, cdMin: 400, cdMax: 25000, nits: 28, range: 28,
-    // 68° from a 7 m head covered the next lamp. 56° leaves a dark gap on a 32 m spacing.
-    cone: deg(56), inner: deg(32), contact: true, volumetric: true,
+    // 56° from a 7 m head still met across the carriageway. 48° is about 8 m of pool,
+    // so a 32 m spacing goes dark between poles.
+    cone: deg(48), inner: deg(28), contact: true, volumetric: true,
   }),
   'street-led': blackbody('street-led', 4000, {
     candela: 5200, cdMin: 400, cdMax: 25000, nits: 80, range: 26,

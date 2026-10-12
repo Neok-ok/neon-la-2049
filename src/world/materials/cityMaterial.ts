@@ -129,14 +129,14 @@ function compose(m: MeshStandardNodeMaterial, living: boolean): void {
   const avgWindows = mix(coolC, warmC, warmth).mul(litFrac.mul(winW.mul(winH)).mul(0.45));
   // Glow glazing ignores the lit lottery: the whole pane burns, brighter toward the ceiling line.
   const glowC = mix(vec3(1.0, 0.62, 0.3), vec3(0.82, 0.9, 1.0), clamp(tint.sub(1.0), 0, 1));
-  const glowLevel = lit.mul(2.6).mul(U.night.mul(0.45).add(0.55));
+  const glowLevel = lit.mul(1.45).mul(U.night.mul(0.45).add(0.55));
   const glowNear = glowC.mul(winMask.mul(mullion).mul(0.8).add(0.2)).mul(clamp(ly, 0, 1).mul(0.5).add(0.7)).mul(glowLevel);
   const glowFar = glowC.mul(glowLevel).mul(winW.mul(winH).mul(0.8).add(0.2));
   const glow = mix(glowNear, glowFar, farFade);
   const windows = mix(mix(nearWindows, avgWindows, farFade).mul(1.1), glow, isGlow).mul(isWall);
   // A few nits on the wall around a lit pane, so the window is a source and not a sticker.
   const paneSpill = smoothstep(0.62, 0.16, abs(f.x.sub(0.5))).mul(smoothstep(0.7, 0.18, abs(f.y.sub(0.55))));
-  const windowSpill = winColor.mul(paneSpill).mul(float(1).sub(winMask)).mul(isWall).mul(litForWindows).mul(U.night).mul(3.4);
+  const windowSpill = winColor.mul(paneSpill).mul(float(1).sub(winMask)).mul(isWall).mul(litForWindows).mul(U.night).mul(8);
 
   // ---- ground sprawl lights (far LOD: low-rise city rendered as a carpet of lights) ----
   const gcell = floor(wpos.xz.add(100000).div(7.0));

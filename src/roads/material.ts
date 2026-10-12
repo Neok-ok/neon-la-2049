@@ -7,7 +7,7 @@ import * as TSL from 'three/tsl';
 import type { Tier } from '../core/quality';
 import { resources } from '../core/memory';
 import { U } from '../atmosphere/uniforms';
-import { NITS, SODIUM_RGB } from '../lighting/presets.ts';
+import { NITS } from '../lighting/presets.ts';
 import { practicalLit } from '../lighting/shade.ts';
 import { roadMaps, roadTextureMode } from './textures';
 
@@ -38,7 +38,9 @@ function kindAttr(): unknown {
 
 /** Sodium shell of a road lamp head, in nits. The practical that lights the street is registered separately. */
 function lampShell(head: any): any {
-  const sodium = vec3(SODIUM_RGB[0], SODIUM_RGB[1], SODIUM_RGB[2]);
+  // 2000 K is nearly a red primary and reads as a pink block. The practical stays on that
+  // blackbody; the shell is the amber a sodium head actually shows.
+  const sodium = vec3(1.0, 0.58, 0.16);
   return sodium.mul(NITS.lampHead).mul(float(0.18).add(U.night.mul(0.82))).mul(head);
 }
 
