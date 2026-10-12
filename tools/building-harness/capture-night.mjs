@@ -380,11 +380,18 @@ for (const tier of tiers) {
         let lateral = 22;
         let aimF = 0.42;
         if (zig) {
-          // The skyline distance already shows the setbacks. A street-slot camera sits on the neighbour wall.
-          reach = Math.max(460, p.height * 1.25);
-          lateral = reach * 0.08;
-          y = p.ground + Math.min(120, Math.max(70, p.height * 0.4));
-          aimF = 0.58;
+          // Same pose as the skyline. A closer fly sat on the neighbour wall and hid the setbacks.
+          reach = Math.max(480, p.height * 1.35);
+          lateral = reach * 0.06;
+          y = p.ground + Math.max(80, Math.min(240, p.height * 0.42));
+          aimF = 0.62;
+          for (let i = 0; i < 5; i++) {
+            const tx = p.center[0] + p.normal[0] * reach * face + p.bx * lateral;
+            const tz = p.center[1] + p.normal[1] * reach * face + p.bz * lateral;
+            if (!q.insideSolid(tx, y, tz, 14) && !q.insideLandmark(tx, y, tz, 18)) break;
+            reach += 140;
+            y += 45;
+          }
         } else if (cross) {
           // Level with the standing bars. A camera above the roof sees the dark tops.
           reach = 44;
@@ -446,7 +453,7 @@ for (const tier of tiers) {
             }
           }
         }
-        const nudge = p.kind === 'cantilever' || p.kind === 'band-slab' || p.kind === 'res-stack' || p.kind === 'lantern' || p.kind === 'hero-step' || p.kind === 'buttress' || zig || p.kind === 'monolith';
+        const nudge = p.kind === 'cantilever' || p.kind === 'band-slab' || p.kind === 'res-stack' || p.kind === 'lantern' || p.kind === 'hero-step' || p.kind === 'buttress' || p.kind === 'monolith';
         if (nudge) {
           for (let i = 0; i < 6; i++) {
             const tx = p.center[0] + p.normal[0] * reach * face + p.bx * lateral;
