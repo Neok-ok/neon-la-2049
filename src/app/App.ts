@@ -1080,7 +1080,7 @@ export class App {
        * Stand near the nearest street practical so the still is the pool, not the gap.
        * `aside` slides the camera to its right, in metres, when a second lamp crowds the frame.
        */
-      lampShot: (back = 12, pitchDeg = -8, aside = 0) => {
+      lampShot: (back = 12, pitchDeg = -8, aside = 0, lift = 0) => {
         const origin = this.cams.walk.pos;
         let best: { x: number; y: number; z: number } | null = null;
         let bestD = 1e9;
@@ -1100,7 +1100,7 @@ export class App {
         // Camera looks back at the head. Right is cross(forward, up).
         const x = best.x + fx * back + fz * aside;
         const z = best.z + fz * back - fx * aside;
-        const y = best.y - 2.6;
+        const y = best.y - 2.6 + lift;
         const heading = Math.atan2(best.x - x, -(best.z - z));
         this.cams.fly.cockpit = true;
         if (this.cams.mode !== 'fly') this.cams.setMode('fly');
