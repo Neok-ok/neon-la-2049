@@ -160,7 +160,7 @@ function dragK(kind: number): number {
 function turb(kind: number): number {
   if (kind === KIND.column) return 0.7;
   if (kind === KIND.ground) return 2.6;
-  if (kind === KIND.stack) return 1.15;
+  if (kind === KIND.stack) return 1.8;
   if (kind === KIND.barrel) return 0.55;
   return 0.45;
 }
@@ -216,10 +216,11 @@ export function integrate(
     // The launch column leans, it does not leave the engine. Street smoke takes the full wind.
     const windScale = kind === KIND.column ? 0.06
       : kind === KIND.ground ? 0.42
-      : kind === KIND.stack ? 1.35
+      : kind === KIND.stack ? 1.7
       : kind === KIND.exhaust ? 0.12
-      : kind === KIND.stall ? 0.55
-      : kind === KIND.manhole ? 0.7
+      : kind === KIND.stall ? 0.35
+      : kind === KIND.manhole ? 0.85
+      : kind === KIND.vent ? 0.95
       : 0.5;
     let vx = pool.vx[i]! + (wx * shear * push * windScale + c[0] * roll) * dt;
     let vy = pool.vy[i]! + (buoy(kind) * loft + c[1] * roll * 0.35) * dt;

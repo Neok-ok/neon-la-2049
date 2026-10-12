@@ -25,7 +25,7 @@ import {
 /** Share of the street budget. Indexed by KIND. Launch kinds stay on their own slots. */
 const KIND_SHARE = [0.16, 0.12, 0.12, 0.1, 0.14, 0.22, 0.14];
 /** Card opacity. Street steam stays translucent so wisps do not fuse into a bank. */
-const KIND_ALPHA = [0.9, 0.86, 0.92, 0.74, 0.9, 0.86, 0.88, 0.62, 0.8];
+const KIND_ALPHA = [0.92, 0.9, 0.94, 0.82, 0.92, 0.88, 0.9, 0.42, 0.84];
 /** How many aged cards one emitter may seed, so a grate is a wisp and a stack is a column. */
 const SEED_CAP = [4, 4, 5, 6, 8, 18];
 
@@ -431,22 +431,26 @@ export class SmokeField {
         slotCap: cap,
       });
       if (!must) continue;
-      const back = 0.35;
-      spawnParticle(this.pool, {
-        x: t.x + wakeX * back, y: t.y + 0.25, z: t.z + wakeZ * back,
-        vx: wakeX, vy: 0.4, vz: wakeZ,
-        life: truck ? 1.3 : 1.0,
-        age: 0.28,
-        size0: truck ? 0.28 : 0.16,
-        size1: truck ? 0.85 : 0.55,
-        kind: KIND.exhaust,
-        heat: 0.02,
-        fade: 48,
-        aspect: 1.15,
-        floorY: ground,
-        slot: 0,
-        slotCap: cap,
-      });
+      const sp = Math.hypot(wakeX, wakeZ) || 1;
+      const bx = -wakeX / sp;
+      const bz = -wakeZ / sp;
+      for (const back of [0.7, 1.5]) {
+        spawnParticle(this.pool, {
+          x: t.x + bx * back, y: t.y + 0.08, z: t.z + bz * back,
+          vx: wakeX, vy: 0.35, vz: wakeZ,
+          life: truck ? 1.3 : 1.0,
+          age: back * 0.35,
+          size0: truck ? 0.22 : 0.12,
+          size1: truck ? 0.7 : 0.42,
+          kind: KIND.exhaust,
+          heat: 0.02,
+          fade: 48,
+          aspect: 1.15,
+          floorY: ground,
+          slot: 0,
+          slotCap: cap,
+        });
+      }
     }
   }
 
@@ -496,7 +500,7 @@ export class SmokeField {
       // the gantry and over the ribbon. The offset is along the view ray, so
       // the column stays on the flame in screen space.
       if (kind === KIND.column && d > 30) {
-        const pull = 16 / d;
+        const pull = 22 / d;
         px += (camX - px) * pull;
         py += (camY - py) * pull;
         pz += (camZ - pz) * pull;
