@@ -108,10 +108,13 @@ function placeStreet(arg) {
     'res-stack': { camLat: 1.3, out: 13.5, pitch: 0.12, mix: 0 },
   };
   const pose = scaleShot
-    ? { camLat: person && person.lat > 0 ? -1.15 : 1.15, out: 10.5, pitch: 0.02, mix: 0 }
+    ? (p.kind === 'lantern'
+      // Far enough to the side that the wall turns a corner, still on the door.
+      ? { camLat: person && person.lat > 0 ? -3.4 : 3.4, out: 11.6, pitch: 0.04, mix: 0 }
+      : { camLat: person && person.lat > 0 ? -1.15 : 1.15, out: 10.5, pitch: 0.02, mix: 0 })
     : (phase === 'final' ? posed[p.kind] : null);
-  let camLat = lantern ? -4.5 : 0.4;
-  let out = lantern ? 10 : 3.3;
+  let camLat = 0.4;
+  let out = 3.3;
   if (pose) {
     camLat = pose.camLat;
     out = pose.out;
@@ -131,16 +134,10 @@ function placeStreet(arg) {
   let cz = p.door[1] + nz * out + bz * camLat;
   let occlude = null;
   const step = phase === 'final' ? 0.7 : 0.45;
-  const maxStep = lantern ? 2 : 8;
+  const maxStep = 8;
   for (let i = 0; i < maxStep && q.insideSolid(cx, p.ground + 1.2, cz, 0.3); i++) {
     cx += nx * step;
     cz += nz * step;
-  }
-  if (lantern && !scaleShot) {
-    for (let i = 0; i < 8 && q.insideSolid(cx, p.ground + 1.2, cz, 0.3); i++) {
-      cx += nx * 0.6 - bx * 0.8;
-      cz += nz * 0.6 - bz * 0.8;
-    }
   }
   if (person && phase === 'final' && !pose && !lantern) {
     for (let i = 0; i < 6 && Math.hypot(person.x - cx, person.z - cz) < 5.6; i++) {
@@ -168,7 +165,7 @@ function placeStreet(arg) {
       const limit = 5.2;
       if (!near || nearD >= limit) break;
       const sign = latOf(near.x, near.z) > latOf(cx, cz) ? -1 : 1;
-      const slide = lantern ? -0.45 : sign * 1.35;
+      const slide = sign * 1.35;
       cx += bx * slide + nx * 0.5;
       cz += bz * slide + nz * 0.5;
     }
@@ -384,7 +381,7 @@ for (const tier of tiers) {
     if (views.includes('fly') && already(join(OUT, `${tier}-${tower.kind}-fly.png`))) {
       console.log('skip', `${tier}-${tower.kind}-fly.png`);
     } else if (views.includes('fly')) {
-      await page.evaluate((p) => {
+      const fly = await page.evaluate((p) => {
         const nla = window.__nla;
         const q = nla.app.query;
         const holo = p.kind === 'holo-shaft';
@@ -397,6 +394,8 @@ for (const tier of tiers) {
         let reach = Math.max(p.d, p.w) * 0.5 + Math.min(90, Math.max(56, p.height * 0.22));
         let lateral = 22;
         let aimF = 0.42;
+        let ox = p.center[0];
+        let oz = p.center[1];
         if (zig) {
           // Same pose as the skyline. A closer fly sat on the neighbour wall and hid the setbacks.
           reach = Math.max(480, p.height * 1.35);
@@ -411,12 +410,54 @@ for (const tier of tiers) {
             y += 45;
           }
         } else if (cross) {
-          // Level with the standing bars. A camera above the roof sees the dark tops.
-          // Pulled back, the cross disappears into the neighbours. Not placed this round.
-          reach = 44;
-          lateral = 32;
-          y = p.ground + p.height + 2.6;
-          aimF = (p.height + 1.09) / p.height;
+          // The slit sits beside the door. Aim there, not at the footprint centre.
+          // A head-on shot from the centre framed the neighbour.
+          const wingW = Math.min(p.w * 0.92, 34);
+          const barW = Math.min(12.5, wingW * 0.48);
+          const off = barW / 2 - 0.7;
+          ox = p.door[0] - p.bx * off;
+          oz = p.door[1] - p.bz * off;
+          // In front of the street face, on the stone belt. A wider offset
+          // slid past the corner and the frame became the neighbour roof.
+          const options = [
+            [52, -8, 0.46, 0.5],
+            [48, -8, 0.44, 0.5],
+            [44, -6, 0.48, 0.52],
+            [40, 0, 0.46, 0.5],
+          ];
+          reach = 52;
+          lateral = -8;
+          y = p.ground + p.height * 0.46;
+          aimF = 0.5;
+          for (const opt of options) {
+            const r = opt[0];
+            const lat = opt[1];
+            const yy = p.ground + p.height * opt[2];
+            const ay = p.ground + p.height * opt[3];
+            const tx = ox + p.normal[0] * r * face + p.bx * lat;
+            const tz = oz + p.normal[1] * r * face + p.bz * lat;
+            let blocked = q.insideSolid(tx, yy, tz, 6) || q.insideLandmark(tx, yy, tz, 8);
+            if (!blocked) {
+              for (const side of [10, -10]) {
+                if (q.insideSolid(tx + p.bx * side, yy, tz + p.bz * side, 3)) { blocked = true; break; }
+              }
+            }
+            if (!blocked) {
+              for (const u of [0.25, 0.5]) {
+                const sx = tx + (ox - tx) * u;
+                const sz = tz + (oz - tz) * u;
+                const sy = yy + (ay - yy) * u;
+                if (q.insideSolid(sx, sy, sz, 5)) { blocked = true; break; }
+              }
+            }
+            if (!blocked) {
+              reach = r;
+              lateral = lat;
+              y = yy;
+              aimF = opt[3];
+              break;
+            }
+          }
         } else if (p.kind === 'monolith') {
           // This pose keeps the street slit in frame. A wider corner lost the slit on a neighbour.
           reach = Math.max(p.d, p.w) * 1.05 + 40;
@@ -430,9 +471,11 @@ for (const tier of tiers) {
           y = p.ground + p.height * 0.42;
           aimF = 0.55;
         } else if (p.kind === 'buttress') {
-          reach = Math.max(p.d, p.w) * 0.62 + 18;
-          lateral = Math.max(p.w, p.d) * 0.72;
-          y = p.ground + p.height * 0.34;
+          // Spinner distance: both windowed faces and the corner piers, not a wall fill.
+          reach = Math.max(p.d, p.w) * 0.9 + 24;
+          lateral = Math.max(p.w, p.d) * 0.98;
+          y = p.ground + p.height * 0.4;
+          aimF = 0.46;
         } else if (p.kind === 'cantilever') {
           reach = 58;
           lateral = Math.max(p.w, p.d) * 0.95;
@@ -472,33 +515,32 @@ for (const tier of tiers) {
             }
           }
         }
-        const nudge = p.kind === 'cantilever' || p.kind === 'band-slab' || p.kind === 'res-stack' || p.kind === 'lantern' || p.kind === 'hero-step' || p.kind === 'buttress' || p.kind === 'monolith';
+        const nudge = p.kind === 'cantilever' || p.kind === 'band-slab' || p.kind === 'res-stack' || p.kind === 'hero-step' || p.kind === 'buttress' || p.kind === 'monolith';
         if (nudge) {
           for (let i = 0; i < 6; i++) {
-            const tx = p.center[0] + p.normal[0] * reach * face + p.bx * lateral;
-            const tz = p.center[1] + p.normal[1] * reach * face + p.bz * lateral;
+            const tx = ox + p.normal[0] * reach * face + p.bx * lateral;
+            const tz = oz + p.normal[1] * reach * face + p.bz * lateral;
             if (!q.insideSolid(tx, y, tz, 8) && !q.insideLandmark(tx, y, tz, 10)) break;
             lateral *= 0.7;
             reach += 14;
           }
         }
-        const px = p.center[0] + p.normal[0] * reach * face + p.bx * lateral;
-        const pz = p.center[1] + p.normal[1] * reach * face + p.bz * lateral;
-        const ax = p.center[0];
-        const az = p.center[1];
+        const px = ox + p.normal[0] * reach * face + p.bx * lateral;
+        const pz = oz + p.normal[1] * reach * face + p.bz * lateral;
         const ay = p.ground + p.height * aimF;
-        const heading = Math.atan2(ax - px, -(az - pz));
-        const pitch = Math.atan2(ay - y, Math.hypot(ax - px, az - pz));
+        const heading = Math.atan2(ox - px, -(oz - pz));
+        const pitch = Math.atan2(ay - y, Math.hypot(ox - px, oz - pz));
         if (nla.app.cams.mode !== 'fly') nla.setMode('fly');
         nla.setPose(px, y, pz, (heading * 180) / Math.PI, (pitch * 180) / Math.PI);
         if (nla.app.cams.fly?.spinner) nla.app.cams.fly.spinner.visible = true;
+        return { px, y, pz, reach, lateral, aimF };
       }, tower);
       await settle(page, 2800);
       const file = `${tier}-${tower.kind}-fly.png`;
       await shot(page, join(OUT, file));
       const st = await page.evaluate(() => window.__nla.stats());
-      log.push({ file, fps: st.fps, draws: st.drawCalls, tris: st.triangles, idle: st.inFlight });
-      console.log(file, st.drawCalls, st.inFlight);
+      log.push({ file, fps: st.fps, draws: st.drawCalls, tris: st.triangles, idle: st.inFlight, pose: fly });
+      console.log(file, st.drawCalls, st.inFlight, JSON.stringify(fly));
     }
     if (views.includes('sky') && already(join(OUT, `${tier}-${tower.kind}-sky.png`))) {
       console.log('skip', `${tier}-${tower.kind}-sky.png`);
@@ -524,7 +566,7 @@ for (const tier of tiers) {
             { dist: Math.max(p.d, p.w) * 0.62 + 16, y: p.ground + p.height * 0.4, sideM: Math.max(p.w, p.d) * 0.85, aim: 0.46 },
           ],
           lantern: [
-            { dist: 44, y: p.ground + p.height + 2.6, sideM: 32, aim: (p.height + 1.09) / p.height },
+            { dist: 58, y: p.ground + p.height * 0.74, sideM: -6, aim: 0.86 },
           ],
           'hero-step': [
             { dist: Math.max(100, p.height * 0.2), y: p.ground + p.height * 0.3, sideM: Math.max(80, Math.max(p.w, p.d) * 1.2), aim: 0.4 },
@@ -537,7 +579,8 @@ for (const tier of tiers) {
             { dist: Math.max(p.d, p.w) * 1.05 + 40, y: p.ground + p.height * 0.55, sideM: Math.max(p.w, p.d) * 0.38, aim: 0.58 },
           ],
           buttress: [
-            { dist: Math.max(p.d, p.w) * 0.62 + 18, y: p.ground + p.height * 0.34, sideM: Math.max(p.w, p.d) * 0.72, aim: 0.42 },
+            // High enough that the core cage is in frame with the upper window grid.
+            { dist: Math.max(p.d, p.w) * 1.15 + 36, y: p.ground + p.height * 0.74, sideM: Math.max(p.w, p.d) * 0.72, aim: 0.86 },
           ],
           'hero-gate': [
             { dist: 170, y: p.ground + p.height * 0.42, sideM: 40, aim: 0.48, face: -1 },
@@ -546,6 +589,8 @@ for (const tier of tiers) {
         const tries = feature[p.kind];
         let dist;
         let y;
+        let ox = p.center[0];
+        let oz = p.center[1];
         let px = p.center[0];
         let pz = p.center[1];
         let aimF;
@@ -556,6 +601,43 @@ for (const tier of tiers) {
           y = shot.y;
           aimF = shot.aim;
           if (shot.face) face = shot.face;
+          if (p.kind === 'lantern') {
+            const wingW = Math.min(p.w * 0.92, 34);
+            const barW = Math.min(12.5, wingW * 0.48);
+            const off = barW / 2 - 0.7;
+            ox = p.door[0] - p.bx * off;
+            oz = p.door[1] - p.bz * off;
+            const options = [[58, -6, 0.74, 0.86], [52, -8, 0.7, 0.84], [64, -4, 0.76, 0.9], [48, 0, 0.68, 0.82]];
+            for (const opt of options) {
+              const r = opt[0];
+              const lat = opt[1];
+              const yy = p.ground + p.height * opt[2];
+              const ay = p.ground + p.height * opt[3];
+              const tx = ox + p.normal[0] * r * face + p.bx * lat;
+              const tz = oz + p.normal[1] * r * face + p.bz * lat;
+              let blocked = q.insideSolid(tx, yy, tz, 6) || q.insideLandmark(tx, yy, tz, 8);
+              if (!blocked) {
+                for (const side of [10, -10]) {
+                  if (q.insideSolid(tx + p.bx * side, yy, tz + p.bz * side, 3)) { blocked = true; break; }
+                }
+              }
+              if (!blocked) {
+                for (const u of [0.25, 0.5]) {
+                  const sx = tx + (ox - tx) * u;
+                  const sz = tz + (oz - tz) * u;
+                  const sy = yy + (ay - yy) * u;
+                  if (q.insideSolid(sx, sy, sz, 5)) { blocked = true; break; }
+                }
+              }
+              if (!blocked) {
+                dist = r;
+                sideM = lat;
+                y = yy;
+                aimF = opt[3];
+                break;
+              }
+            }
+          }
           if (p.kind === 'hero-gate') {
             const options = [[170, 40], [190, 10], [160, -50], [200, -20], [150, 70], [180, -80], [210, 30]];
             for (const pair of options) {
@@ -571,8 +653,8 @@ for (const tier of tiers) {
             }
           }
           for (let i = 0; i < 6; i++) {
-            px = p.center[0] + p.normal[0] * dist * face + p.bx * sideM;
-            pz = p.center[1] + p.normal[1] * dist * face + p.bz * sideM;
+            px = ox + p.normal[0] * dist * face + p.bx * sideM;
+            pz = oz + p.normal[1] * dist * face + p.bz * sideM;
             if (p.kind === 'hero-obelisk' || p.kind === 'hero-gate' || p.kind === 'holo-shaft' || p.kind === 'lantern') break;
             if (p.kind === 'monolith' || p.kind === 'ziggurat') {
               const blocked = q.insideSolid(px, y, pz, 6) || q.insideLandmark(px, y, pz, 8);
@@ -602,11 +684,9 @@ for (const tier of tiers) {
             y += shot ? 24 : 45;
           }
         }
-        const ax = p.center[0];
-        const az = p.center[1];
         const ay = p.ground + p.height * aimF;
-        const heading = Math.atan2(ax - px, -(az - pz));
-        const pitch = Math.atan2(ay - y, Math.hypot(ax - px, az - pz));
+        const heading = Math.atan2(ox - px, -(oz - pz));
+        const pitch = Math.atan2(ay - y, Math.hypot(ox - px, oz - pz));
         if (nla.app.cams.mode !== 'fly') nla.setMode('fly');
         nla.setPose(px, y, pz, (heading * 180) / Math.PI, (pitch * 180) / Math.PI);
         return { px, y, pz, dist };

@@ -5,6 +5,7 @@
 // Doors are 2.2 m square. A ground flight uses planFlight when the facade has room.
 // Nothing here copies a film building, a logo, or a real brand.
 import { Rng } from '../../core/rng';
+import { planFlight } from '../architecture/scale';
 import { Style } from '../fabric/types';
 import { AD_COLORS } from './lights';
 import {
@@ -191,11 +192,14 @@ function ziggurat(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
 }
 
 function buttress(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolean, variant: number): void {
-  const cw = spec.w * 0.46;
-  const cd = spec.d * 0.46;
+  // The core is the building. Megablock cells are 3.6 m, the same as a storey, so the
+  // street sees punched windows beside the door and the flyover sees a floor grid.
+  // A monolith core read as a blank wall. A tall glow face would tile into a window wall.
+  const cw = spec.w * (variant === 2 ? 0.56 : variant === 1 ? 0.48 : 0.52);
+  const cd = spec.d * (variant === 2 ? 0.56 : variant === 1 ? 0.48 : 0.52);
   skin(d, {
     s: 0, t: 0, lb: cw, la: cd, h: H, base: y0,
-    style: Style.Monolith, lit: 0.08, tint: spec.tint * 0.7, door,
+    style: Style.Megablock, lit: 0.86, tint: Math.min(0.58, spec.tint * 0.8), door,
   });
   const pw = Math.min(spec.w * 0.16, 8);
   const pd = Math.min(spec.d * 0.16, 8);
@@ -208,22 +212,21 @@ function buttress(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
     const t = bt * (spec.w / 2 - pw / 2);
     addBox(d, {
       s, t, lb: pw, la: pd, h: ph, base: y0,
-      style: Style.Slit, lit: spec.lit * 0.45, tint: spec.tint * 0.85, detail: 0, role: 'mass',
+      style: Style.Slit, lit: 0.42, tint: spec.tint * 0.55, detail: 0, role: 'mass',
     });
-    // A lit edge on the street side of each pier, kept inside the 2.2 m footprint allowance.
-    const glowLa = 2.2;
+    // A short cap, not a tall glow column. The column tiled into window slots.
     addBox(d, {
-      s: as * (spec.d / 2 + 0.2), t, lb: 0.5, la: glowLa, h: ph * 0.92, base: y0 + 2,
-      style: Style.Glow, lit: 0.62, tint: 1.12, detail: 0, role: 'mass',
+      s: as * (spec.d / 2 - pd * 0.15), t, lb: pw * 0.92, la: 0.42, h: 1.55, base: y0 + ph - 1.7,
+      style: Style.Glow, lit: 0.66, tint: 1.12, detail: 0, role: 'band',
     });
   }
-  // Thick ties so the corner piers read as part of this tower, not as neighbors.
+  // Thin plates between the piers. A 3 m belt hid the window grid.
   for (const f of [0.32, 0.5]) {
     const y = y0 + H * f;
     if (y > y0 + ph - 2) continue;
     addBox(d, {
-      s: 0, t: 0, lb: spec.w * 0.98, la: spec.d * 0.98, h: 3.2, base: y,
-      style: Style.Solid, lit: 0.14, tint: spec.tint * 0.8, detail: 0, role: 'deck',
+      s: 0, t: 0, lb: spec.w * 0.98, la: spec.d * 0.98, h: 1.45, base: y,
+      style: Style.Solid, lit: 0.08, tint: spec.tint * 0.62, detail: 0, role: 'deck',
     });
   }
   const walks = variant === 2 ? [0.22, 0.4, 0.58] : [0.3, 0.52];
@@ -243,7 +246,62 @@ function buttress(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
     rail(d, 0, 1.05, 0.1, spec.d * 0.7, y + 0.22, spec.tint);
     rail(d, 0, -1.05, 0.1, spec.d * 0.7, y + 0.22, spec.tint);
   }
-  mastTip(d, 0, 0, y0 + H, variant === 0 ? 16 : 10);
+  // Entry brow and side piers. They stay clear of the flight (the run ends near 7.6 m).
+  const faceS = -cd / 2;
+  addBox(d, {
+    s: faceS - 0.7, t: 0, lb: 2.3, la: 1.15, h: 0.28, base: y0 + 2.45,
+    style: Style.Solid, lit: 0.12, tint: 0.9, detail: 0, role: 'mass',
+  });
+  const pierT = cw * 0.42;
+  if (pierT > 8.6 && pierT < cw / 2 - 0.8) {
+    for (const side of [-1, 1]) {
+      addBox(d, {
+        s: faceS - 0.28, t: side * pierT, lb: 0.72, la: 0.55, h: STOREY * 2, base: y0,
+        style: Style.Solid, lit: 0.08, tint: spec.tint * 0.85, detail: 0, role: 'mass',
+      });
+    }
+  }
+  // Cage on the core. Not a glow crown: the monolith already wears that hat.
+  const roof = y0 + H;
+  addBox(d, {
+    s: 0, t: 0, lb: cw * 0.9, la: cd * 0.9, h: 1.05, base: roof,
+    style: Style.Solid, lit: 0.06, tint: spec.tint * 0.5, detail: 0, role: 'mass',
+  });
+  const postH = variant === 1 ? 6.5 : 8.5;
+  const insetT = cw * 0.9 / 2 - 0.85;
+  const insetS = cd * 0.9 / 2 - 0.85;
+  for (const [as, bt] of corners) {
+    addBox(d, {
+      s: as * insetS, t: bt * insetT, lb: 1.5, la: 1.5, h: postH, base: roof + 1.05,
+      style: Style.Solid, lit: 0.05, tint: spec.tint * 0.48, detail: 0, role: 'mass',
+    });
+  }
+  addBox(d, {
+    s: 0, t: 0, lb: cw * 0.9, la: 0.45, h: 0.7, base: roof + 1.05 + postH - 0.7,
+    style: Style.Solid, lit: 0.05, tint: spec.tint * 0.5, detail: 0, role: 'mass',
+  });
+  addBox(d, {
+    s: 0, t: 0, lb: 0.45, la: cd * 0.9, h: 0.7, base: roof + 1.05 + postH - 0.7,
+    style: Style.Solid, lit: 0.05, tint: spec.tint * 0.5, detail: 0, role: 'mass',
+  });
+  const plants: Array<[number, number, number, number, number]> = [
+    [cd * 0.12, cw * 0.16, 3.2, 2.2, 2.6],
+    [-cd * 0.1, -cw * 0.14, 2.4, 3.4, 1.9],
+  ];
+  for (const [s, t, lb, la, h] of plants) {
+    addBox(d, {
+      s, t, lb, la, h, base: roof + 1.05,
+      style: Style.Industrial, lit: 0.03, tint: 0.42, detail: 2, ornament: 2, role: 'mass',
+    });
+  }
+  for (let k = 0; k < 3; k++) {
+    addBox(d, {
+      s: (k - 1) * insetS * 0.55, t: (1 - k) * insetT * 0.4,
+      lb: 0.28, la: 0.28, h: 4.2 + k * 3.1, base: roof + 1.05,
+      style: Style.Industrial, lit: 0, tint: 0.38, detail: 2, ornament: 2, role: 'mass',
+    });
+  }
+  mastTip(d, cw * 0.18, -cd * 0.12, roof + 1.05, variant === 0 ? 12 : 8);
 }
 
 function monolith(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolean, variant: number): void {
@@ -393,51 +451,142 @@ function cantilever(d: Draft, spec: TowerSpec, H: number, y0: number, door: bool
 }
 
 function lantern(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolean, variant: number): void {
-  const barT = spec.w * (variant === 1 ? 0.42 : 0.34);
-  const barS = spec.d * 0.34;
-  const slabW = spec.w * 0.96;
-  // The crossing bar covers the middle of this face. Sit the opening beside it.
-  const clear = barT / 2 + DOOR_W / 2 + 1.2;
-  const doorT = slabW / 2 - clear > 0.5 ? -clear : 0;
+  // The cross is a street-face figure: a full-height 2.4 m slit (one glow column,
+  // the same shaft the monolith uses) crossed by lips shorter than one 4.5 m cell.
+  // A wide glow box taller than that cell tiles into a window wall. The mid bar
+  // is solid stone, the width that still reads past a flyby.
+  // The depth arm sits behind the street face. It does not project into the sidewalk.
+  const wingW = Math.min(spec.w * 0.92, variant === 1 ? 40 : 34);
+  const wingLa = Math.min(spec.d * 0.42, 14);
+  const face = -spec.d / 2 + 0.9;
+  const wingS = face + wingLa / 2;
+  const armW = Math.min(variant === 1 ? 12 : 10, wingW * 0.36);
+  const armFront = face + 0.55;
+  const armBack = Math.min(spec.d / 2 - 0.5, armFront + wingLa + 16);
+  const armD = Math.max(wingLa * 0.8, armBack - armFront);
+  const armS = armFront + armD / 2;
+  // The flight runs to +t. The cross sits on the other side of the door,
+  // close enough that the scale camera still has it in frame.
+  const barW = Math.min(12.5, wingW * 0.48);
+  const flightNeed = 8.4;
+  const crossOff = barW / 2 - 0.7;
+  const doorMin = -wingW / 2 + 0.8 + crossOff + barW / 2;
+  const doorMax = wingW / 2 - 1.3 - flightNeed;
+  const doorT = Math.min(Math.max(doorMin, -wingW * 0.22), doorMax);
+  const slitT = doorT - crossOff;
   skin(d, {
-    s: 0, t: 0, lb: slabW, la: barS, h: H, base: y0,
-    style: Style.Monolith, lit: 0.08, tint: spec.tint * 0.7, door, doorT,
+    s: wingS, t: 0, lb: wingW, la: wingLa, h: H, base: y0,
+    style: Style.Monolith, lit: 0.07, tint: spec.tint * 0.66, door, doorT,
   });
   addBox(d, {
-    s: 0, t: 0, lb: barT, la: spec.d * 0.96, h: H - 0.6, base: y0,
-    style: Style.Monolith, lit: 0.07, tint: spec.tint * 0.65, detail: 0, role: 'mass',
+    s: armS, t: 0, lb: armW, la: armD, h: H - 0.3, base: y0,
+    style: Style.Monolith, lit: 0.06, tint: spec.tint * 0.6, detail: 0, role: 'mass',
   });
-  // One light line on each arm. A square glow column tiles into a window slot.
-  const slitH = H * 0.46;
-  const slitBase = y0 + H * 0.32;
-  const slits: Array<[number, number]> = [
-    [-(barS / 2 + 0.25), slabW / 2 - 1.6],
-    [-(barS / 2 + 0.25), -(slabW / 2 - 1.6)],
-    [-(spec.d * 0.46 + 0.2), 0],
-    [spec.d * 0.46 + 0.2, 0],
+  const limitS = spec.d / 2 + 2.05;
+  const placeS = (s: number, la: number): number => {
+    const front = -(s - la / 2);
+    return front > limitS ? s + (front - limitS) : s;
+  };
+  const lipH = 1.55;
+  const shaftLa = 0.5;
+  const shaftS = placeS(face - 2.05, shaftLa);
+  addBox(d, {
+    s: shaftS, t: slitT, lb: 2.4, la: shaftLa, h: Math.max(STOREY * 4, H * 0.9 - STOREY), base: y0 + STOREY,
+    style: Style.Glow, lit: 0.76, tint: 1.16, detail: 0, role: 'mass',
+  });
+  addBox(d, {
+    s: placeS(face - 1.78, 0.32), t: slitT, lb: barW, la: 0.32, h: lipH, base: y0 + 5.05 - lipH / 2,
+    style: Style.Glow, lit: 0.8, tint: 1.14, detail: 0, role: 'band',
+  });
+  // Stone belt, narrower than the wing so the elevation stays a slab with a bar, not a band-slab.
+  const beltH = 6.2;
+  const beltW = Math.min(18, wingW - 3);
+  const beltLimit = wingW / 2 - beltW / 2 - 0.35;
+  const beltT = Math.max(-beltLimit, Math.min(beltLimit, slitT));
+  const beltLa = 1.6;
+  const beltS = placeS(face - 0.95, beltLa);
+  const beltBase = y0 + H * 0.52 - beltH / 2;
+  addBox(d, {
+    s: beltS, t: beltT, lb: beltW, la: beltLa, h: beltH, base: beltBase,
+    style: Style.Solid, lit: 0.1, tint: 0.94, detail: 0, role: 'band',
+  });
+  addBox(d, {
+    s: placeS(beltS - beltLa / 2 - 0.22, 0.3), t: slitT, lb: Math.min(10, beltW - 1), la: 0.3, h: lipH,
+    base: beltBase + (beltH - lipH) / 2,
+    style: Style.Glow, lit: 0.8, tint: 1.14, detail: 0, role: 'band',
+  });
+  addBox(d, {
+    s: placeS(face - 1.7, 0.32), t: slitT, lb: Math.min(11, beltW - 2), la: 0.32, h: lipH,
+    base: y0 + H * 0.78 - lipH / 2,
+    style: Style.Glow, lit: 0.74, tint: 1.12, detail: 0, role: 'band',
+  });
+  const roof = y0 + H;
+  // Cruciform parapet. The glowing hat belongs to the monolith.
+  addBox(d, {
+    s: face + 0.5, t: 0, lb: wingW * 0.94, la: 0.7, h: 1.35, base: roof,
+    style: Style.Solid, lit: 0.05, tint: spec.tint * 0.72, detail: 0, role: 'mass',
+  });
+  addBox(d, {
+    s: armS, t: 0, lb: 0.75, la: Math.max(2, armD - 1.2), h: 1.35, base: roof,
+    style: Style.Solid, lit: 0.05, tint: spec.tint * 0.68, detail: 0, role: 'mass',
+  });
+  addBox(d, {
+    s: wingS, t: slitT, lb: 2.2, la: Math.min(wingLa * 0.8, 8), h: 2.6, base: roof,
+    style: Style.Solid, lit: 0.06, tint: spec.tint * 0.7, detail: 0, role: 'mass',
+  });
+  const plants: Array<[number, number, number, number, number]> = [
+    [armS + Math.min(armD * 0.12, 2), armW * 0.22, 2.6, 1.6, 2.4],
+    [armS - Math.min(armD * 0.06, 1.2), -armW * 0.18, 1.8, 1.4, 3.2],
+    [wingS + 0.4, Math.min(slitT + 4.2, wingW / 2 - 2), 2.4, 1.5, 1.9],
   ];
-  for (const [cs, ct] of slits) {
+  for (const [s, t, lb, la, h] of plants) {
     addBox(d, {
-      s: cs, t: ct, lb: 2.2, la: 0.5, h: slitH, base: slitBase,
-      style: Style.Glow, lit: 0.72, tint: 1.15, detail: 0, role: 'mass',
+      s, t, lb, la, h, base: roof + 1.4,
+      style: Style.Industrial, lit: 0.03, tint: 0.4, detail: 2, ornament: 2, role: 'mass',
     });
   }
-  // Short standing bars. A tall glow face tiles into a window wall.
-  const roof = y0 + H;
+  for (let k = 0; k < 3; k++) {
+    addBox(d, {
+      s: armS + (k - 1) * 1.4, t: (k === 1 ? 0.6 : -0.8) * (k === 0 ? 1 : 1.4),
+      lb: 0.32, la: 0.32, h: 4.2 + k * 2.2, base: roof + 1.4,
+      style: Style.Industrial, lit: 0, tint: 0.38, detail: 2, ornament: 2, role: 'mass',
+    });
+  }
+  mastTip(d, armS, armW * 0.15, roof + 1.4, 8);
+  // The flight is dark stone on dark stone. A lighter plate behind it lets the risers read.
+  entryFlight(d);
+  const flight = planFlight(STOREY);
+  const run0 = doorT + DOOR_W / 2 + 0.4;
   addBox(d, {
-    s: 0, t: 0, lb: slabW * 0.9, la: 1.6, h: 1.55, base: roof,
-    style: Style.Glow, lit: 0.85, tint: 1.2, detail: 0, role: 'band',
+    s: face - 0.08, t: run0 + flight.run / 2, lb: flight.run + 0.4, la: 0.14, h: STOREY + 0.25, base: y0,
+    style: Style.Solid, lit: 0.18, tint: 1.05, detail: 0, role: 'mass',
   });
   addBox(d, {
-    s: 0, t: 0, lb: 1.6, la: spec.d * 0.84, h: 1.55, base: roof,
-    style: Style.Glow, lit: 0.85, tint: 1.2, detail: 0, role: 'band',
+    s: placeS(face - 0.62, 1.05), t: doorT, lb: 2.4, la: 1.05, h: 0.26, base: y0 + 2.42,
+    style: Style.Solid, lit: 0.14, tint: 1.0, detail: 0, role: 'mass',
   });
-  const fins = variant === 2 ? 5 : 3;
+  const flightEnd = run0 + flight.run;
+  let piers = 0;
+  for (let t = flightEnd + 1.15; t < wingW / 2 - 1.05 && piers < 4; t += 2.7) {
+    addBox(d, {
+      s: placeS(face - 0.55, 1.25), t, lb: 0.85, la: 1.25, h: STOREY * 2, base: y0,
+      style: Style.Solid, lit: 0.08, tint: 0.9, detail: 0, role: 'mass',
+    });
+    piers++;
+  }
+  if (flightEnd + 1.6 < wingW / 2 - 1.2) {
+    addBox(d, {
+      s: placeS(face - 0.2, 0.4), t: (flightEnd + 1.4 + wingW / 2 - 0.8) / 2,
+      lb: Math.max(1.2, wingW / 2 - 0.8 - (flightEnd + 1.4)), la: 0.4, h: 0.45, base: y0 + STOREY * 2,
+      style: Style.Solid, lit: 0.07, tint: spec.tint * 0.8, detail: 0, role: 'band',
+    });
+  }
+  const fins = variant === 2 ? 4 : 3;
   for (let i = 1; i <= fins; i++) {
     const y = y0 + (H * i) / (fins + 1);
     addBox(d, {
-      s: 0, t: 0, lb: spec.w * 0.99, la: spec.d * 0.5, h: 0.45, base: y,
-      style: Style.Solid, lit: 0.08, tint: spec.tint * 0.7, detail: 1, ornament: 1, role: 'band',
+      s: armS, t: armW / 2 + 0.28, lb: 0.32, la: Math.min(armD * 0.5, 10), h: 0.4, base: y,
+      style: Style.Solid, lit: 0.06, tint: spec.tint * 0.7, detail: 1, ornament: 1, role: 'band',
     });
   }
 }
@@ -538,7 +687,7 @@ function heroObelisk(d: Draft, spec: TowerSpec, H: number): void {
 }
 
 function dressRoof(d: Draft, spec: TowerSpec, r: Rng): void {
-  if (spec.kind === 'monolith' || spec.kind === 'hero-step' || spec.kind === 'hero-obelisk') return;
+  if (spec.kind === 'monolith' || spec.kind === 'hero-step' || spec.kind === 'hero-obelisk' || spec.kind === 'lantern') return;
   const n = spec.kind === 'res-stack' ? 2 : 1;
   for (let k = 0; k < n; k++) {
     const bw = r.range(3, Math.min(9, spec.w * 0.22));

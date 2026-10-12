@@ -76,6 +76,8 @@ export interface Draft {
   halfW: number;
   halfD: number;
   kind: TowerKind;
+  /** Kind the lot rolled, before a stand-in. Equals `kind` once the family is placed. */
+  sourceKind: TowerKind;
   variant: number;
   storey: number;
   doorH: number;
@@ -86,7 +88,7 @@ export interface Draft {
 export function emptyDraft(kind: TowerKind, variant: number, w: number, d: number, storey: number): Draft {
   return {
     boxes: [], signs: [], height: 0, halfW: w / 2, halfD: d / 2,
-    kind, variant, storey, doorH: DOOR_H, doorW: DOOR_W, railH: RAIL_H,
+    kind, sourceKind: kind, variant, storey, doorH: DOOR_H, doorW: DOOR_W, railH: RAIL_H,
   };
 }
 
