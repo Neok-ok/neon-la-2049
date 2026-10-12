@@ -760,7 +760,8 @@ function buriedGlow(base: number, h: number): { base: number; h: number } {
 function sidewalkPiers(d: Draft, faceS: number, halfW: number, storey: number, y0: number): void {
   const flight = planFlight(storey);
   const la = 1.2;
-  const places = [-(DOOR_W / 2 + 1.7), DOOR_W / 2 + 0.4 + flight.run + 1.5];
+  // The harness stands a figure at about 2.5 m off the opening. Keep that slot empty.
+  const places = [-(2.5 + 1.8), DOOR_W / 2 + 0.4 + flight.run + 1.5];
   for (const t of places) {
     if (Math.abs(t) > halfW - 1.2) continue;
     addBox(d, {
@@ -850,12 +851,14 @@ function screenWall(d: Draft, spec: TowerSpec, H: number, y0: number, door: bool
       style: Style.Solid, lit: 0.05, tint: spec.tint * 0.68, detail: 0, role: 'mass',
     });
     addBox(d, {
-      s: plateS, t: side * Math.min(spec.w * 0.22, wellW * 0.32), lb: 0.7, la: 0.7, h: 3.2, base: y0 + H,
+      s: plateS, t: side * Math.min(spec.w * 0.22, wellW * 0.32), lb: 0.7, la: 0.7, h: 3.4,
+      base: y0 + H + parapet,
       style: Style.Solid, lit: 0.05, tint: spec.tint * 0.6, detail: 0, role: 'mass',
     });
   }
   addBox(d, {
-    s: plateS, t: 0, lb: Math.min(spec.w * 0.46, wellW * 0.7), la: 0.45, h: 0.7, base: y0 + H + 2.5,
+    s: plateS, t: 0, lb: Math.min(spec.w * 0.46, wellW * 0.7), la: 0.45, h: 0.7,
+    base: y0 + H + parapet + 2.7,
     style: Style.Solid, lit: 0.05, tint: spec.tint * 0.62, detail: 0, role: 'mass',
   });
   addBox(d, {
@@ -883,16 +886,16 @@ function flueBank(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
   const usable = spec.w * 0.9 - gaps * 2;
   const ws = widths.map((f) => usable * (f / (0.22 + 0.28 + 0.2)));
   let cursor = -spec.w * 0.45;
-  const shafts: Array<{ t: number; w: number; h: number }> = [];
+  const shafts: Array<{ t: number; w: number; h: number; s: number }> = [];
   for (let i = 0; i < 3; i++) {
     const w = Math.max(2.4, ws[i]!);
     const t = cursor + w / 2;
     cursor += w + gaps;
     const h = plinthH + (H - plinthH) * order[i]!;
-    shafts.push({ t, w, h });
     const depth = spec.d * (0.42 + (i === 1 ? 0.12 : 0));
     // Stagger the stacks in depth so a three-quarter view does not collapse them into one slab.
     const ss = (i - 1) * Math.min(1.6, spec.d * 0.1);
+    shafts.push({ t, w, h, s: ss });
     addBox(d, {
       s: ss, t, lb: w, la: Math.min(spec.d * 0.78, depth), h: h - plinthH, base: y0 + plinthH,
       style: Style.Monolith, lit: 0.07, tint: spec.tint * (0.62 + i * 0.04),
@@ -922,6 +925,12 @@ function flueBank(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
   // No full-width tie and no shared cage. Different shaft heights are the silhouette.
   const tall = Math.max(...shafts.map((s) => s.h));
   for (const shaft of shafts) {
+    const cowl = shaft.h >= tall - 0.01 ? 3.2 : 2.2;
+    addBox(d, {
+      s: shaft.s, t: shaft.t, lb: Math.min(3.4, shaft.w * 0.62), la: Math.min(3.2, spec.d * 0.24),
+      h: cowl, base: y0 + shaft.h,
+      style: Style.Solid, lit: 0.05, tint: spec.tint * 0.55, detail: 0, role: 'mass',
+    });
     if (shaft.h >= tall - 0.01) continue;
     addBox(d, {
       s: spec.d * 0.12, t: shaft.t, lb: 0.7, la: 0.7, h: 1.6, base: y0 + shaft.h - 4.8,
@@ -952,10 +961,13 @@ function shelfRow(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
       style: Style.Solid, lit: 0.06, tint: spec.tint * 0.74, detail: 0, role: 'balcony',
     });
     const lip = buriedGlow(y + 0.7, 1.15);
-    addBox(d, {
-      s: face - plateD - 0.12, t: 0, lb: bw * 0.84, la: 0.26, h: lip.h, base: lip.base,
-      style: Style.Glow, lit: 0.62, tint: 1.08, detail: 0, role: 'band',
-    });
+    const seg = Math.min(4.2, bw * 0.18);
+    for (const side of [-1, 0, 1]) {
+      addBox(d, {
+        s: face - plateD - 0.12, t: side * seg * 1.7, lb: seg, la: 0.26, h: lip.h, base: lip.base,
+        style: Style.Glow, lit: 0.62, tint: 1.08, detail: 0, role: 'band',
+      });
+    }
     if (firstShelf) {
       rail(d, face - plateD / 2, 0, bw * 0.82, Math.max(0.4, plateD - 0.2), y + 0.85, spec.tint);
       firstShelf = false;
@@ -1025,7 +1037,7 @@ function flareBed(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
   const plinthH = Math.min(STOREY * 3, Math.max(STOREY * 2, H * 0.2));
   skin(d, {
     s: 0, t: 0, lb: spec.w * 0.98, la: spec.d * 0.92, h: plinthH, base: y0,
-    style: Style.Industrial, lit: spec.lit, tint: spec.tint, door,
+    style: Style.Industrial, lit: spec.lit * 0.45, tint: spec.tint, door,
   });
   const drums = variant === 1
     ? [
@@ -1064,15 +1076,16 @@ function flareBed(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
     if (!tallest || top > tallest.top) tallest = { t, w, depth, top, s };
   }
   if (tallest) {
-    const lip = buriedGlow(tallest.top - 2.6, 1.4);
+    const lip = buriedGlow(tallest.top - 1.6, 1.2);
     addBox(d, {
       s: tallest.s - tallest.depth / 2 - 0.16, t: tallest.t,
-      lb: tallest.w * 0.78, la: 0.4, h: lip.h, base: lip.base,
+      lb: Math.min(tallest.w * 0.42, 3.6), la: 0.4, h: lip.h, base: lip.base,
       style: Style.Glow, lit: 0.78, tint: 1.2, detail: 0, role: 'band',
     });
     addBox(d, {
-      s: tallest.s, t: tallest.t, lb: Math.min(tallest.w * 0.55, 4.2), la: Math.min(tallest.depth * 0.46, 3.6),
-      h: 3.6, base: tallest.top,
+      s: tallest.s, t: tallest.t,
+      lb: Math.min(tallest.w * 1.08, 8), la: Math.min(tallest.depth * 0.72, 6),
+      h: 2.4, base: tallest.top,
       style: Style.Solid, lit: 0.05, tint: spec.tint * 0.5, detail: 0, role: 'mass',
     });
   }

@@ -273,7 +273,9 @@ function placeStreet(arg) {
   const lookZ = aimZ - cz;
   const heading = Math.atan2(lookX, -lookZ);
   // Positive pitch looks up in this camera. That drops the horizon and keeps feet in frame.
-  const pitch = phase === 'final' ? (pose ? pose.pitch : (hero ? 0.08 : 0.2)) : 0.02;
+  const pitch = phase === 'final'
+    ? (pose ? pose.pitch : (p.kind === 'flue-bank' ? 0.02 : hero ? 0.08 : 0.2))
+    : 0.02;
   if (fieldKind && phase === 'final') {
     // Walk collision slides the eye into the next wall. A parked fly pose stays on the door.
     if (nla.app.cams.mode !== 'fly') nla.setMode('fly');
@@ -873,10 +875,11 @@ for (const tier of tiers) {
           y = p.ground + p.height * 0.4;
           aimF = 0.46;
         } else if (p.kind === 'screen-wall') {
-          reach = Math.max(78, p.height * 0.9);
-          lateral = Math.max(p.w, p.d) * 0.62;
-          y = p.ground + p.height * 0.4;
-          aimF = 0.48;
+          // High enough that the parapet and the gantry stay in the frame.
+          reach = Math.max(100, p.height * 1.15);
+          lateral = Math.max(p.w, p.d) * 0.42;
+          y = p.ground + p.height * 0.62;
+          aimF = 0.7;
         } else if (p.kind === 'flue-bank') {
           reach = Math.max(84, p.height * 1.05);
           lateral = Math.max(p.w, p.d) * 0.95;
@@ -980,7 +983,7 @@ for (const tier of tiers) {
             { dist: Math.max(100, p.height * 0.2), y: p.ground + p.height * 0.3, sideM: Math.max(80, Math.max(p.w, p.d) * 1.2), aim: 0.4 },
           ],
           'screen-wall': [
-            { dist: Math.max(78, p.height * 0.9), y: p.ground + p.height * 0.4, sideM: Math.max(p.w, p.d) * 0.62, aim: 0.48 },
+            { dist: Math.max(100, p.height * 1.15), y: p.ground + p.height * 0.72, sideM: Math.max(p.w, p.d) * 0.35, aim: 0.86 },
           ],
           'flue-bank': [
             { dist: Math.max(84, p.height * 1.05), y: p.ground + p.height * 0.46, sideM: Math.max(p.w, p.d) * 0.95, aim: 0.52 },

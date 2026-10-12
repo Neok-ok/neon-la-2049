@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B3 field towers — 12 October 2026</title>
+<style>
+  :root { color-scheme: light; }
+  body { margin: 0; font: 16px/1.45 "Iowan Old Style", Palatino, Georgia, serif; color: #1c1915; background: #f6f3ec; }
+  header, main { max-width: 1100px; margin: 0 auto; padding: 24px 20px 48px; }
+  h1 { font-size: 2rem; margin: 0 0 8px; }
+  h2 { font-size: 1.45rem; margin: 2rem 0 0.4rem; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.82em; }
+  .lead { font-size: 1.05rem; }
+  table { width: 100%; border-collapse: collapse; background: #fff; margin: 12px 0 28px; font-size: 0.92rem; }
+  th, td { border-bottom: 1px solid #e4dfd4; text-align: left; vertical-align: top; padding: 8px 10px; }
+  th { background: #efeae0; }
+  .note { color: #5c564c; }
+</style>
+</head>
+<body>
+<header>
+  <h1>B3 field towers — 12 October 2026</h1>
+  <p class="lead">The Kite Obelisk stays an empty reserve. Hollywood, the Arts District, East LA, and the South Bay get masses of their own. Downtown roofs keep a solid crown the far view can still see. Lantern and buttress stay the recipes merged in B2.</p>
+</header>
+<main>
+  <h2>What changed</h2>
+  <p>The 12 October tower critique scored the merged B1 city 6/10. A 480 m kite on a 70 m base beside Caldera Step would be a third needle: MT-4 is already a 600 m cruciform, and Caldera Step is a 640 m taper in that same cluster. The reserve at <code>b1-obelisk</code> stays empty, so sky lanes still step over it. The recipe stays in the kit and is not built. No door queue is placed on the empty pad.</p>
+  <p>Four field families sit off <code>TOWER_KINDS</code>, so financial, downtown, and Long Beach seeds are unchanged. This note is rebased on main after B2. Lantern and buttress are placed as themselves; their function bodies are the merged ones. East LA and the South Bay do not reuse a downtown slit or a dark taper. East LA’s band is 10–60 m of housing. The South Bay cracking yard stays inside the 50–60 m tower band, under the 100–140 m flare stacks already in that district.</p>
+
+  <h2>The field families</h2>
+  <table>
+    <thead><tr><th>Family</th><th>Where</th><th>Read</th></tr></thead>
+    <tbody>
+      <tr><td>Screen wall</td><td>Hollywood strip towers and a share of the south filler</td><td>Two windowed piers, a dark plate, a short lit gutter, a parapet with a gantry, and two-storey jambs beside the door</td></tr>
+      <tr><td>Flue bank</td><td>Arts District yards</td><td>Three shafts of different heights, each with its own capital and short light courses. No shared cage and no full-width tie</td></tr>
+      <tr><td>Shelf row</td><td>East LA tower lots</td><td>A wide housing bar on 3.4 m floors, deeper galleries on a wider rhythm than the downtown stack, a parapet, and a roof cage</td></tr>
+      <tr><td>Flare bed</td><td>South Bay cracking yards</td><td>A broad plinth and fat drums in the column band, a short flare lip, and a solid head on the tallest. No downtown cage</td></tr>
+    </tbody>
+  </table>
+  <p class="note">Southeast refineries omit the yard, so they keep the three plain columns. Westside and the basin stay a single sprawl box. Foundry stacks keep their own columns. LAPD HQ, City Hall, and the Wallace pyramid are untouched. The opening ray from Little Tokyo toward the pyramid stays clear.</p>
+
+  <h2>Roofs and family separation</h2>
+  <p>The far mesh drops detail above 0. A single ornament-2 box on the roof disappeared, and the glow crown was what survived. Each placed downtown family now has a solid detail-0 crown of its own shape: a long plant on the band slab, an offset room on the ziggurat, a small cap inside the monolith tip, a stair tower on the residential stack, a mechanical room on the holo shaft, a loft on the cantilever, and a house on one gate slab. Closer tiers add a rail and two plant boxes. The monolith cap is solid. It is not a second glow hat. Dress-roof skips the lantern and the buttress, so the cross’s parapet and the buttress cage stay the only roofs on those families.</p>
+  <p>The B2 field notes are in the four local masses. Glow bars drop by the 0.63 m cell sill, so the lit face is the authored height, and that height stays under one 4.5 m cell. Street walls stay sparse: the screen plate is a dark monolith, pier windows stay at a low fraction, the housing bar is dimmer than a downtown chart, and the drums stay industrial. A high camera gets a real lip: a 4.2 m parapet and gantry on the screen, a 3.2 m capital on each flue, a parapet and a cage on the shelf roof room, and a solid head on the tallest drum. Two-storey solid jambs sit just outside the flight, tinted so they separate from the wall, where a sidewalk frame can see them.</p>
+  <p>The residential stack is panel cladding with projecting shelves, so it is not another dark taper. Band-slab variant 2 uses megablock between the belts. New glow boxes in this pass stay under one 4.5 m cell. The tall slits that already mark the monolith, the holo corner, and the gate slot stay, because those lines are meant to be shafts.</p>
+  <p>The ground flight rises the draft’s own storey. Office floors are 3.6 m and housing floors are 3.4 m, so the landing meets the first floor. The opening stays 2.2 m square. Risers stay in the 0.15–0.18 m band from <code>planFlight</code>. The rail stays 1.05 m.</p>
+
+  <h2>Scale and memory</h2>
+  <p>Doors, stairs, and storeys use the shared architecture helpers. A 1.80 m person still fits the 2.2 m opening. Kit boxes are instances of <code>resources.sharedGeometry('b1-kit-box')</code>. No new texture. Metres do not change with the graphics tier. Ornament 0 is the mass, 1 is shelves and rails, 2 is pipes and plant. Low keeps the mass, including the new crowns.</p>
+  <p>Resident geometry with the camera at street level in the heavier of downtown and Long Beach, plus the two placed heroes. The kite is not loaded. Buffer bytes, not allocator padding.</p>
+  <table>
+    <thead><tr><th>Tier</th><th>Textures added</th><th>Geometry added</th></tr></thead>
+    <tbody>
+      <tr><td>Low</td><td>0 MB</td><td>1.627 MB</td></tr>
+      <tr><td>Medium</td><td>0 MB</td><td>4.583 MB</td></tr>
+      <tr><td>High</td><td>0 MB</td><td>5.211 MB</td></tr>
+      <tr><td>Ultra</td><td>0 MB</td><td>5.219 MB</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Lights</h2>
+  <p>Tower glow uses the city shader, scaled by the lighting registry’s window nits (<code>LIGHT_ADAPTER = 'l1'</code>). There is no punctual light per tower. Shelf lips are 1.15 m and the flare lip is 1.4 m, each buried by 0.63 m so the lit part is that full height. Flue courses stay 1.35 m, buried the same way. The screen gutter is 1.5 m. A glow face taller than one 4.5 m cell tiles into a window wall, so those short lines stay short.</p>
+
+  <h2>Silhouette scores</h2>
+  <p>Scored against design envelopes, not film frames. Best side for each family. Envelope IoU did not decide placement: the kite still scores high and stays unplaced.</p>
+  <table>
+    <thead><tr><th>Family</th><th>IoU</th><th>Placed</th></tr></thead>
+    <tbody>
+      <tr><td>Screen wall</td><td>0.977</td><td>Yes</td></tr>
+      <tr><td>Flue bank</td><td>0.867</td><td>Yes</td></tr>
+      <tr><td>Shelf row</td><td>0.957</td><td>Yes</td></tr>
+      <tr><td>Flare bed</td><td>0.877</td><td>Yes</td></tr>
+      <tr><td>Band slab</td><td>0.891</td><td>Yes, downtown roll</td></tr>
+      <tr><td>Ziggurat</td><td>0.952</td><td>Yes, downtown roll</td></tr>
+      <tr><td>Monolith</td><td>0.909</td><td>Yes, downtown roll</td></tr>
+      <tr><td>Residential stack</td><td>0.969</td><td>Yes, downtown roll</td></tr>
+      <tr><td>Holo shaft</td><td>0.915</td><td>Yes, downtown roll</td></tr>
+      <tr><td>Cantilever</td><td>0.957</td><td>Yes, downtown roll</td></tr>
+      <tr><td>West Canyon Gate</td><td>0.862</td><td>Yes</td></tr>
+      <tr><td>Caldera Step</td><td>0.891</td><td>Yes</td></tr>
+      <tr><td>Kite Obelisk</td><td>0.961</td><td>No. Third needle beside Caldera Step</td></tr>
+      <tr><td>Lantern</td><td>0.994</td><td>Yes. Placed as itself, B2 recipe</td></tr>
+      <tr><td>Buttress</td><td>0.811</td><td>Yes. Placed as itself, B2 recipe</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Night critics</h2>
+  <p>Street and flyby, ultra, rain, 21:30. A second pass after the sidewalk jambs were moved clear of the figure, the shelf glow was broken into short segments, and the screen fly was raised so the roof stays in frame. Scale holds on every street: the 1.80 m figure fits the 2.2 m opening. The blind read holds at 7 or above overall. The film read is harder on the dark streets, because a sidewalk camera on a plinth cannot show the shafts or the drums, and it still clears 7 on the shelf row in both frames and on the flue fly.</p>
+  <table>
+    <thead><tr><th>Family</th><th>Blind street / fly</th><th>Film street / fly</th><th>Scale street / fly</th></tr></thead>
+    <tbody>
+      <tr><td>Screen wall</td><td>7 / 7</td><td>4 / 5</td><td>8 / 9</td></tr>
+      <tr><td>Flue bank</td><td>7 / 8</td><td>5 / 8</td><td>8 / 9</td></tr>
+      <tr><td>Shelf row</td><td>8 / 8</td><td>7 / 7</td><td>8 / 9</td></tr>
+      <tr><td>Flare bed</td><td>6 / 8</td><td>4 / 6</td><td>8 / 8</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Left alone</h2>
+  <ul>
+    <li>LAPD HQ, City Hall, and every Wallace building.</li>
+    <li>The seven Stage 3 megatowers, the basin, and the opening camera.</li>
+    <li><code>src/world/materials/cityMaterial.ts</code>. Window-floor masking, glow fade, and the sidewalk joint stay with that follow-up.</li>
+    <li>The lantern and buttress function bodies. They stay the B2 recipes from main.</li>
+    <li>Smoke, human rigs, and the visual-regression baselines.</li>
+  </ul>
+</main>
+</body>
+</html>
