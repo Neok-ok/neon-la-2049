@@ -6,7 +6,7 @@ import * as TSL from 'three/tsl';
 import { U } from '../atmosphere/uniforms';
 import { SLOT_COUNT } from './cluster.ts';
 import type { SlotLight } from './cluster.ts';
-import { SODIUM_RGB } from './presets.ts';
+import { NITS, SODIUM_RGB } from './presets.ts';
 
 const T = TSL as any;
 const {
@@ -102,6 +102,24 @@ export function practicalLit(world: any, normal: any, viewDir: any, albedo: any)
   // street a surface. A lantern is still several times brighter, so the pool stays local.
   const sky = vec3(0.45, 0.55, 0.78).mul(up).mul(U.night).mul(0.42);
   return acc.add(bake).add(sheen).add(sky);
+}
+
+/**
+ * Warm disc under a contact practical, in nits. Photometric diffuse on black asphalt
+ * is about a nit and reads as unlit. This is the pool the lantern is supposed to make.
+ * It uses the same shade slots, so a sign without `contact` does not paint the lane.
+ */
+export function lanternPool(world: any): any {
+  const warm = vec3(1, 0.45, 0.12);
+  let acc = vec3(0, 0, 0);
+  for (let i = 0; i < SLOT_COUNT; i++) {
+    const live = step(float(0.5), meta[i]!.x).mul(step(float(0.5), meta[i]!.w));
+    const dx = world.x.sub(pos[i]!.x);
+    const dz = world.z.sub(pos[i]!.z);
+    const fall = exp(dx.mul(dx).add(dz.mul(dz)).mul(-0.05));
+    acc = acc.add(warm.mul(fall).mul(live));
+  }
+  return acc.mul(float(NITS.pool * 2)).mul(U.night);
 }
 
 /** In-scattered nits from the four haze slots. Henyey–Greenstein, g = 0.42, one sample at the surface. */

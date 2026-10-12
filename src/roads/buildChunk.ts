@@ -11,6 +11,8 @@ import {
   CURB_H, ROAD_LIFT, ROAD_LAMPS, freewayProfile, streetProfile,
   type RoadProfile,
 } from './profile';
+import { BAR_THICK, crosswalkBars } from './crosswalk';
+import type { SpanSpec } from './streetSpan';
 
 export const CELL = {
   dash: 0, stop: 1, bar: 2, arrow: 3, arrowL: 4, arrowR: 5, yellow: 6, hole: 7, drain: 8, joint: 9,
@@ -699,30 +701,14 @@ function maybeIntersection(
     }
   }
   if (!budget.marks) return;
-  const bars = budget.arrows ? 6 : 4;
-  for (const sv of [-1, 1]) {
-    const span = Math.max(2.2, curb0 * 2 - 0.5);
-    for (let i = 0; i < bars; i++) {
-      const v = sv * (curb1 - 0.55 - i * 0.72);
-      if (Math.abs(v) < 0.4) continue;
-      const p = at(0, v, yR + 0.006);
-      pushStamp(stamps, {
-        x: p.x, y: p.y, z: p.z, yaw: yawOf(e0.fx, e0.fz),
-        sx: span, sy: 1, sz: 0.48, cell: CELL.bar, vertical: 0,
-      });
-    }
-  }
-  for (const su of [-1, 1]) {
-    const span = Math.max(2.2, curb1 * 2 - 0.5);
-    for (let i = 0; i < bars; i++) {
-      const u = su * (curb0 - 0.55 - i * 0.72);
-      if (Math.abs(u) < 0.4) continue;
-      const p = at(u, 0, yR + 0.006);
-      pushStamp(stamps, {
-        x: p.x, y: p.y, z: p.z, yaw: yawOf(e1.fx, e1.fz),
-        sx: span, sy: 1, sz: 0.48, cell: CELL.bar, vertical: 0,
-      });
-    }
+  const bars = crosswalkBars(curb0, curb1, budget.arrows ? 6 : 4);
+  for (const bar of bars) {
+    const p = bar.axis === 0 ? at(0, bar.at, yR + 0.006) : at(bar.at, 0, yR + 0.006);
+    const edge = bar.axis === 0 ? e0 : e1;
+    pushStamp(stamps, {
+      x: p.x, y: p.y, z: p.z, yaw: yawOf(edge.fx, edge.fz),
+      sx: Math.max(1.6, bar.span), sy: 1, sz: BAR_THICK, cell: CELL.bar, vertical: 0,
+    });
   }
 }
 
@@ -768,6 +754,116 @@ function paveGradeFreeways(
       }
     }
   }
+}
+
+function spanRuns(layout: CityLayout, span: SpanSpec, x0: number, z0: number, x1: number, z1: number, step: number): Station[][] {
+  const len = Math.hypot(span.bx - span.ax, span.bz - span.az);
+  if (len < 4) return [];
+  const clip = clipSegment(span.ax, span.az, span.bx, span.bz, x0, z0, x1, z1);
+  if (!clip || clip[1] - clip[0] < 0.01) return [];
+  const extra = span.lift > 0 ? span.lift - ROAD_LIFT : 0;
+  const n = Math.max(1, Math.ceil(((clip[1] - clip[0]) * len) / step));
+  const runs: Station[][] = [];
+  let run: Station[] = [];
+  const flush = () => {
+    if (run.length >= 2) runs.push(run);
+    run = [];
+  };
+  for (let i = 0; i <= n; i++) {
+    const u = clip[0] + ((clip[1] - clip[0]) * i) / n;
+    const x = span.ax + (span.bx - span.ax) * u;
+    const z = span.az + (span.bz - span.az) * u;
+    if (!layout.inBounds(x, z) || layout.isOcean(x, z)) {
+      flush();
+      continue;
+    }
+    run.push({ x, z, y: layout.heightAt(x, z) + extra, t: u, along: u * len });
+  }
+  flush();
+  return runs;
+}
+
+function spanLines(profile: RoadProfile): MarkLine[] {
+  const lines = lineMarks(profile);
+  const has = lines.some((l) => l.solid && l.cell === CELL.dash);
+  if (!has) {
+    const edge = Math.max(0.35, profile.carriageHalf - 0.3);
+    lines.push({ lat: edge, cell: CELL.dash, step: 0, len: 0, width: 0.14, solid: true });
+    lines.push({ lat: -edge, cell: CELL.dash, step: 0, len: 0, width: 0.14, solid: true });
+  }
+  return lines;
+}
+
+/** Asphalt, paint and replacement lamps for centreline spans the graph does not own. */
+export function paveSpans(layout: CityLayout, spans: SpanSpec[], x0: number, z0: number, size: number, tier: Tier): RoadChunk | null {
+  if (!spans.length) return null;
+  const budget = budgetFor(tier);
+  const acc = new Acc();
+  const stamps: Stamp[] = [];
+  const lamps: RoadLamp[] = [];
+  const x1 = x0 + size - 0.001;
+  const z1 = z0 + size - 0.001;
+  const step = tier === 'low' ? 22 : tier === 'medium' ? 14 : 8;
+  for (const span of spans) {
+    const len = Math.hypot(span.bx - span.ax, span.bz - span.az) || 1;
+    const fx = (span.bx - span.ax) / len;
+    const fz = (span.bz - span.az) / len;
+    const rx = fz;
+    const rz = -fx;
+    const profile = streetProfile(span.street, span.driving, 'street');
+    const yaw = yawOf(fx, fz);
+    for (const run of spanRuns(layout, span, x0, z0, x1, z1, step)) {
+      emitRibbon(acc, run, profile, rx, rz);
+      if (budget.marks) {
+        const markY = (st: Station) => st.y + ROAD_LIFT + 0.008;
+        const lines = spanLines(profile);
+        for (let li = 0; li < lines.length; li++) {
+          const line = lines[li]!;
+          if (line.solid) {
+            for (let i = 0; i < run.length - 1; i++) {
+              const a = run[i]!, b = run[i + 1]!;
+              const piece = Math.hypot(b.x - a.x, b.z - a.z);
+              if (piece < 0.4) continue;
+              pushStamp(stamps, {
+                x: (a.x + b.x) * 0.5 + rx * line.lat,
+                y: markY(a) * 0.5 + markY(b) * 0.5,
+                z: (a.z + b.z) * 0.5 + rz * line.lat,
+                yaw, sx: line.width, sy: 1, sz: piece + 0.04, cell: line.cell, vertical: 0,
+              });
+            }
+            continue;
+          }
+          const phase = (hash2i(span.salt, li, 5) % Math.round(Math.max(1, line.step) * 10)) / 10;
+          placeEvery(run, line.step, phase, (st) => {
+            pushStamp(stamps, {
+              x: st.x + rx * line.lat, y: markY(st), z: st.z + rz * line.lat,
+              yaw, sx: line.width, sy: 1, sz: line.len, cell: line.cell, vertical: 0,
+            });
+          });
+        }
+      }
+      if (span.lamps && budget.lamp) {
+        const side = profile.carriageHalf + profile.curbW + Math.min(0.7, profile.sidewalk * 0.4);
+        placeEvery(run, 32, 10, (st) => {
+          const y = st.y + ROAD_LIFT + CURB_H;
+          addLamp(acc, lamps, st.x + rx * side, y, st.z + rz * side, yaw, -1);
+          addLamp(acc, lamps, st.x - rx * side, y, st.z - rz * side, yaw, 1);
+        });
+      }
+    }
+  }
+  const solid = acc.pack();
+  if (!solid && !stamps.length) return null;
+  const tris = solid ? solid.idx.length / 3 : 0;
+  return {
+    solid,
+    stamps,
+    signs: [],
+    puddles: [],
+    lamps,
+    tris,
+    bytes: (solid ? solid.pos.length * 4 : 0) + stamps.length * 64,
+  };
 }
 
 export function chunkDraws(tier: Tier, chunk: RoadChunk): number {

@@ -46,16 +46,16 @@ export function kCamera(layout: CityLayout, kind: KView): KPose | null {
   });
 
   if (kind === 'street') {
-    // Southeast of the slab, so the long south face and the market base share the frame.
-    const feet = world(36, 0.02, HD + 32);
-    const look = world(-24, 52, 6);
-    return walk(feet, look, 0.4);
+    // On the south-face carriageway, looking east along the paint with the slab in frame.
+    const feet = world(18, 0.02, HD + 15 - 2.6);
+    const look = world(110, 28, HD + 4);
+    return walk(feet, look, 0.14);
   }
   if (kind === 'market') {
-    // Back in the aisle. The stall signs stay readable and the slab stays in frame.
-    const feet = world(-42, 0.02, HD + 22);
-    const look = world(-78, 10, HD + 0.6);
-    return walk(feet, look, 0.32);
+    // South lane of the same street, so the stall row and the yellow line share the frame.
+    const feet = world(-48, 0.02, HD + 15 + 1.8);
+    const look = world(-96, 9, HD + 2);
+    return walk(feet, look, 0.12);
   }
   if (kind === 'lobby') {
     const feet = inRoom(LOBBY.doorX, LOBBY.doorZ, 0, -1.1, 0.16, -6.4);

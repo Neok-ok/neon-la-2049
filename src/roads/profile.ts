@@ -29,7 +29,11 @@ export interface RoadProfile {
   kind: RoadKind;
 }
 
-/** Districts that opted out of the shared sodium pole and have no replacement row. */
+/**
+ * Districts that opted out of the shared sodium pole.
+ * The road builder plants the replacement heads, and only in these districts.
+ * Lakewood and the other grids keep the shared row in streetLamps.ts.
+ */
 export const ROAD_LAMPS = new Set([
   'lax-spaceport',
   'harbor',

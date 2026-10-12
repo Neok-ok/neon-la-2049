@@ -8,7 +8,7 @@ import type { Tier } from '../core/quality';
 import { resources } from '../core/memory';
 import { U } from '../atmosphere/uniforms';
 import { NITS } from '../lighting/presets.ts';
-import { practicalLit } from '../lighting/shade.ts';
+import { lanternPool, practicalLit } from '../lighting/shade.ts';
 import { roadMaps, roadTextureMode } from './textures';
 
 const T = TSL as any;
@@ -75,7 +75,9 @@ function flatSolid(): MeshStandardNodeMaterial {
     const walk = vec3(0.2, 0.19, 0.175);
     const concrete = vec3(0.28, 0.27, 0.25);
     const albedo = mix(asphalt, mix(walk, concrete, step(1.5, k)), step(0.5, k));
-    return lampShell(head).add(roadLit(albedo, head));
+    const wpos = positionWorld;
+    const pool = lanternPool(wpos).mul(step(k, 0.5));
+    return lampShell(head).add(roadLit(albedo, head)).add(pool);
   })();
   flatMat = m;
   return m;
@@ -170,7 +172,11 @@ function richSolid(): MeshStandardNodeMaterial {
     const sheenAmt = puddleAmt().mul(0.9);
     const glow = local.mul(fres).mul(sheenAmt).mul(U.night).mul(U.neonWet)
       .mul(U.signPower).mul(mix(float(1), float(0.28), U.reflMix)).mul(altFade).mul(step(k, 0.5)).mul(18.0);
-    return lampShell(head).add(roadLit(albedo, head)).add(glow);
+    // A thin wet sheen on the whole carriageway. The mirror, when it is on, already carries the streak.
+    const wetFres = vec3(0.45, 0.52, 0.62).mul(fres).mul(U.wetness).mul(U.night)
+      .mul(mix(float(1), float(0.2), U.reflMix)).mul(step(k, 0.5)).mul(6.0);
+    const pool = lanternPool(wpos).mul(step(k, 0.5));
+    return lampShell(head).add(roadLit(albedo, head)).add(glow).add(wetFres).add(pool);
   })();
   richMat = m;
   return m;

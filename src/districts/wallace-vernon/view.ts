@@ -62,10 +62,10 @@ export function wallaceCamera(layout: CityLayout, kind: WallaceView): WallacePos
     return fly(eye, look);
   }
   if (kind === 'plaza') {
-    // North court, through the security gap, so the paving and the stair read with the portal.
-    const feet = world(6, 0.16, -2068);
-    const look = world(0, 10, -1860);
-    return walk(feet, look, 0.05);
+    // On the causeway lane, looking south through the gate. The court paving stays ahead.
+    const feet = world(2.6, 0.2, -2220);
+    const look = world(0.4, 14, -1960);
+    return walk(feet, look, 0.08);
   }
   if (kind === 'face') {
     // On the plinth, east of the pylons, a few dozen metres off the stone.
