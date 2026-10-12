@@ -248,8 +248,8 @@ function monolith(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
   // It belongs on the street face, starting one storey above the door.
   const slitH = Math.min(H * 0.7, Math.max(12, H - 6));
   addBox(d, {
-    s: faceS - 0.2, t: faceW * 0.22, lb: 1.8, la: 0.9, h: slitH, base: y0 + STOREY,
-    style: Style.Slit, lit: 0.62, tint: 1.05, detail: 0, role: 'mass',
+    s: faceS - 0.35, t: faceW * 0.22, lb: 2.4, la: 0.7, h: slitH, base: y0 + STOREY,
+    style: Style.Glow, lit: 0.72, tint: 1.15, detail: 0, role: 'mass',
   });
   glowCrown(d, 0, 0, spec.w * 0.12, spec.d * 0.12, y0 + H, 5);
 }
@@ -303,7 +303,8 @@ function holoShaft(d: Draft, spec: TowerSpec, H: number, y0: number, door: boole
   const ad = LIGHT_ROLES.adFace;
   const adH = Math.min(shaftH * 0.42, variant === 2 ? 48 : 36);
   const adW = Math.min(bw * 0.92, 22);
-  const adS = bd / 2 + 0.22;
+  // Street face (a-), so the ad reads from the door and from the flyby.
+  const adS = -(bd / 2 + 0.22);
   addBox(d, {
     s: adS, t: 0, lb: adW, la: 0.6, h: adH, base: shaftBase + shaftH * 0.28,
     style: ad.style, lit: ad.lit, tint: ad.tint, detail: 0, role: 'mass',

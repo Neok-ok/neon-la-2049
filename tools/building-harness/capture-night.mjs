@@ -85,14 +85,14 @@ function placeStreet(arg) {
     'hero-obelisk': { camLat: -6.2, out: 11.5, pitch: 0.14, mix: 0 },
     'hero-step': { camLat: 3.4, out: 15.5, pitch: 0.3, mix: 0.12 },
     'hero-gate': { camLat: 2.4, out: 12.5, pitch: 0.1, mix: 0.2 },
-    'band-slab': { camLat: -1.4, out: 11.4, pitch: 0.16, mix: 0.12 },
-    monolith: { camLat: 9.5, out: 15.5, pitch: 0.26, mix: 0 },
-    lantern: { camLat: -8.2, out: 23, pitch: 0.12, mix: 0.08 },
+    'band-slab': { camLat: -5.6, out: 15.5, pitch: 0.14, mix: 0.1 },
+    monolith: { camLat: 6.2, out: 10.2, pitch: 0.2, mix: 0 },
+    lantern: { camLat: -3.4, out: 9.4, pitch: 0.18, mix: 0.12 },
     cantilever: { camLat: -4.4, out: 13, pitch: 0.18, mix: 0.12 },
   };
   const pose = phase === 'final' ? posed[p.kind] : null;
-  let camLat = lantern ? -1.1 : 0.4;
-  let out = lantern ? 3.6 : 3.3;
+  let camLat = lantern ? -4.5 : 0.4;
+  let out = lantern ? 10 : 3.3;
   if (pose) {
     camLat = pose.camLat;
     out = pose.out;
@@ -174,11 +174,13 @@ function placeStreet(arg) {
   const mesh = crowd?.mesh;
   if (crowd && mesh) {
     if (!crowd.__b1Orig) crowd.__b1Orig = crowd.update.bind(crowd);
-    const hideKind = p.kind === 'hero-obelisk' || p.kind === 'lantern' || p.kind === 'monolith'
+    const hideKind = p.kind === 'hero-obelisk' || p.kind === 'monolith'
       || p.kind === 'hero-step' || p.kind === 'cantilever' || p.kind === 'band-slab';
     const hide = (x, z) => {
       if (!hideKind || phase !== 'final') return false;
       if (person && Math.hypot(x - person.x, z - person.z) < 0.45) return false;
+      // A coat against the lens becomes a cropped umbrella and hides the door.
+      if (Math.hypot(x - cx, z - cz) < 4.2) return true;
       const lat = latOf(x, z);
       const dep = depOf(x, z);
       const half = p.kind === 'hero-obelisk' ? 2.4 : 1.45;
@@ -309,7 +311,7 @@ for (const tier of tiers) {
         const zig = p.kind === 'ziggurat';
         const gate = p.kind === 'hero-gate';
         const cross = p.kind === 'lantern';
-        const face = holo ? -1 : 1;
+        const face = 1;
         let y = p.ground + Math.min(160, Math.max(42, p.height * (zig || cross ? 0.52 : 0.36)));
         let reach = Math.max(p.d, p.w) * 0.5 + Math.min(90, Math.max(56, p.height * 0.22));
         let lateral = 22;
@@ -320,13 +322,13 @@ for (const tier of tiers) {
           reach = Math.max(p.d, p.w) * 1.35;
           lateral = p.w * 0.95;
         } else if (holo) {
-          reach = Math.max(p.d, p.w) * 0.9 + Math.min(70, p.height * 0.18);
-          lateral = 14;
-          y = p.ground + p.height * 0.4;
+          reach = Math.max(p.d, p.w) * 0.85 + Math.min(80, p.height * 0.2);
+          lateral = 26;
+          y = p.ground + p.height * 0.38;
         } else if (gate) {
-          reach = Math.max(90, p.height * 0.26);
-          lateral = 6;
-          y = p.ground + p.height * 0.4;
+          reach = Math.max(120, p.height * 0.32);
+          lateral = 52;
+          y = p.ground + p.height * 0.3;
         }
         const px = p.center[0] + p.normal[0] * reach * face + p.bx * lateral;
         const pz = p.center[1] + p.normal[1] * reach * face + p.bz * lateral;
@@ -352,8 +354,8 @@ for (const tier of tiers) {
       const sky = await page.evaluate((p) => {
         const nla = window.__nla;
         const q = nla.app.query;
-        const face = p.kind === 'holo-shaft' ? -1 : 1;
-        const side = p.kind === 'hero-gate' ? 0.02 : 0.06;
+        const face = 1;
+        const side = p.kind === 'hero-gate' ? 0.28 : 0.06;
         let dist = Math.max(480, p.height * 1.35);
         let y = p.ground + Math.max(80, Math.min(240, p.height * 0.42));
         let px = p.center[0];
