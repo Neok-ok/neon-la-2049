@@ -88,8 +88,7 @@ function shade(lit: boolean): MeshBasicNodeMaterial {
     const albedo = vec3(0.9, 0.92, 0.95).mul(steam)
       .add(vec3(0.42, 0.36, 0.3).mul(soot))
       .add(vec3(0.55, 0.48, 0.4).mul(launch));
-    const exhaust = smoothstep(5.6, 6.0, kind).mul(float(1).sub(smoothstep(6.2, 6.6, kind)));
-    const body = albedo.mul(authoredLiftU).mul(mix(float(1), float(0.42), exhaust));
+    const body = albedo.mul(authoredLiftU);
 
     const veilW = float(0.28).mul(steam).add(float(0.1).mul(soot)).add(float(0.18).mul(launch));
     const veil = U.fogColor.mul(veilW);
