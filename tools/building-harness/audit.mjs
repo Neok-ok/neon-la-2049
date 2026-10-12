@@ -338,7 +338,7 @@ function heroBytes(cap) {
   let meshes = 0;
   const caps = [];
   for (let c = cap; c >= 0; c--) caps.push(c);
-  for (const id of ['b1-gate', 'b1-step', 'b1-obelisk']) {
+  for (const id of ['b1-gate', 'b1-step']) {
     const lm = layout.landmarkById(id);
     const kind = id === 'b1-gate' ? 'hero-gate' : id === 'b1-step' ? 'hero-step' : 'hero-obelisk';
     const placed = place.placeHero(kind, lm.baseWidth, lm.baseDepth, lm.height, 0.2);

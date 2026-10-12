@@ -3,7 +3,7 @@
 // Each LOD is an instanced copy of the shared kit box, not a unique mesh.
 // Low keeps the mass (the impostor). Medium adds the mid band. High and ultra add the near band.
 // LAPD, City Hall and the Wallace pyramid are not built here.
-import { Mesh, type InstancedMesh, type Object3D } from 'three/webgpu';
+import { Group, Mesh, type InstancedMesh, type Object3D } from 'three/webgpu';
 import { hashString } from '../../core/rng';
 import type { Tier } from '../../core/quality';
 import { resources } from '../../core/memory/resources';
@@ -125,6 +125,13 @@ export function setB1HeroTier(tier: Tier): void {
 }
 
 registerLandmarkType('b1-hero', (l: Landmark, env: LandmarkEnv) => {
+  if (l.id === 'b1-obelisk') {
+    // The taper did not clear 7. The layout reserve stays so lanes still step over the slot.
+    // Follow-up tower agents rebuild the mass. An empty LOD list crashes the switch.
+    const object = new Group();
+    object.name = l.id;
+    return { object, colliders: [] };
+  }
   const kind = KIND_OF[l.id] ?? 'hero-step';
   const w = l.baseWidth;
   const d = l.baseDepth ?? l.baseWidth * 0.7;

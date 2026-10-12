@@ -63,12 +63,20 @@ export function pickKind(r: Rng, narrow: boolean): TowerKind {
 export function placeLot(r: Rng, o: LotPlace): Placed | null {
   if (o.w < 8 || o.d < 8) return null;
   const narrow = Math.min(o.w, o.d) < 26;
-  const kind = o.kind ?? pickKind(r, narrow);
+  const rolled = o.kind ?? pickKind(r, narrow);
+  // Lantern and buttress stayed under 7. The cross only reads from a roof camera, and the
+  // braced core reads as a blank wall from the fly and a warm slab from the street.
+  // Stand in a monolith after the kind roll so later lots keep their seeds. Recipes stay.
+  const kind = rolled === 'lantern' || rolled === 'buttress' ? 'monolith' : rolled;
+  const variant = r.int(0, 2);
+  const seed = r.next();
+  const height = narrow ? r.range(Math.max(o.minH, 64), Math.min(o.maxH, 120)) : r.skew(o.minH, o.maxH, 1.2);
+  if (o.holo == null && rolled === 'lantern') r.chance(0.35);
   const spec: TowerSpec = {
     kind,
-    variant: r.int(0, 2),
-    seed: r.next(),
-    height: narrow ? r.range(Math.max(o.minH, 64), Math.min(o.maxH, 120)) : r.skew(o.minH, o.maxH, 1.2),
+    variant,
+    seed,
+    height,
     w: o.w,
     d: o.d,
     lit: kind === 'monolith' || kind === 'hero-step' ? Math.min(o.lit, 0.12) : o.lit,
@@ -76,7 +84,7 @@ export function placeLot(r: Rng, o: LotPlace): Placed | null {
     plinth: narrow ? 0 : o.plinth,
     decks: o.decks ?? [],
     phrases: o.phrases,
-    holo: o.holo ?? (kind === 'holo-shaft' || kind === 'hero-obelisk' || (kind === 'lantern' && r.chance(0.35))),
+    holo: o.holo ?? (rolled === 'holo-shaft' || rolled === 'hero-obelisk'),
     minH: narrow ? 57.6 : o.minH,
     maxH: o.maxH,
   };

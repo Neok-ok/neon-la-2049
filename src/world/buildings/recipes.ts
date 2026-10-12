@@ -6,7 +6,7 @@
 // Nothing here copies a film building, a logo, or a real brand.
 import { Rng } from '../../core/rng';
 import { Style } from '../fabric/types';
-import { AD_COLORS, LIGHT_ROLES } from './lights';
+import { AD_COLORS } from './lights';
 import {
   DOOR_H, DOOR_W, RES_STOREY, STOREY, addBox, band, emptyDraft, entryFlight, glowCrown, mastTip, rail, skin, snap,
   type Draft, type TowerKind,
@@ -195,7 +195,7 @@ function buttress(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
   const cd = spec.d * 0.46;
   skin(d, {
     s: 0, t: 0, lb: cw, la: cd, h: H, base: y0,
-    style: Style.Megablock, lit: spec.lit, tint: spec.tint, door,
+    style: Style.Monolith, lit: 0.08, tint: spec.tint * 0.7, door,
   });
   const pw = Math.min(spec.w * 0.16, 8);
   const pd = Math.min(spec.d * 0.16, 8);
@@ -345,13 +345,16 @@ function holoShaft(d: Draft, spec: TowerSpec, H: number, y0: number, door: boole
     s: 0, t: 0, lb: bw, la: bd, h: shaftH, base: shaftBase,
     style: Style.Monolith, lit: 0.16, tint: spec.tint * 0.7, detail: 0, role: 'mass',
   });
-  // One edge slit, the same width as the monolith slit. A stack of glow bars blooms into a screen.
-  const adW = 2.2;
-  const adS = -(bd / 2 + 0.22);
-  const adT = bw * 0.5 - adW * 0.5 - 0.3;
+  // Two faces of one corner, each a single light line. A wide glow face tiles into windows.
+  const slitH = shaftH * 0.62;
+  const slitBase = shaftBase + shaftH * 0.16;
   addBox(d, {
-    s: adS, t: adT, lb: adW, la: 0.55, h: shaftH * 0.58, base: shaftBase + shaftH * 0.2,
-    style: Style.Glow, lit: 0.7, tint: 1.15, detail: 0, role: 'mass',
+    s: -(bd / 2 + 0.3), t: bw * 0.06, lb: 2.4, la: 0.55, h: slitH, base: slitBase,
+    style: Style.Glow, lit: 0.74, tint: 1.15, detail: 0, role: 'mass',
+  });
+  addBox(d, {
+    s: bd * 0.08, t: bw / 2 + 0.3, lb: 0.55, la: 2.4, h: slitH, base: slitBase,
+    style: Style.Glow, lit: 0.74, tint: 1.15, detail: 0, role: 'mass',
   });
   addBox(d, {
     s: 0, t: 0, lb: bw * 0.32, la: bd * 0.32, h: 2.2, base: shaftBase + shaftH,
@@ -398,28 +401,28 @@ function lantern(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolean
   const doorT = slabW / 2 - clear > 0.5 ? -clear : 0;
   skin(d, {
     s: 0, t: 0, lb: slabW, la: barS, h: H, base: y0,
-    style: Style.Ribbed, lit: spec.lit, tint: spec.tint, door, doorT,
+    style: Style.Monolith, lit: 0.08, tint: spec.tint * 0.7, door, doorT,
   });
   addBox(d, {
     s: 0, t: 0, lb: barT, la: spec.d * 0.96, h: H - 0.6, base: y0,
-    style: Style.Ribbed, lit: spec.lit * 0.9, tint: spec.tint, detail: 0, role: 'mass',
+    style: Style.Monolith, lit: 0.07, tint: spec.tint * 0.65, detail: 0, role: 'mass',
   });
-  // Caps at the four arm ends. A wide glow sheet tiles into a window wall and hides the cross.
-  const capH = H * 0.72;
-  const capBase = y0 + STOREY * 3;
-  const caps: Array<[number, number]> = [
-    [0, slabW / 2 - 0.9],
-    [0, -(slabW / 2 - 0.9)],
-    [spec.d * 0.46, 0],
-    [-spec.d * 0.46, 0],
+  // One light line on each arm. A square glow column tiles into a window slot.
+  const slitH = H * 0.46;
+  const slitBase = y0 + H * 0.32;
+  const slits: Array<[number, number]> = [
+    [-(barS / 2 + 0.25), slabW / 2 - 1.6],
+    [-(barS / 2 + 0.25), -(slabW / 2 - 1.6)],
+    [-(spec.d * 0.46 + 0.2), 0],
+    [spec.d * 0.46 + 0.2, 0],
   ];
-  for (const [cs, ct] of caps) {
+  for (const [cs, ct] of slits) {
     addBox(d, {
-      s: cs, t: ct, lb: 1.7, la: 1.7, h: capH, base: capBase,
+      s: cs, t: ct, lb: 2.2, la: 0.5, h: slitH, base: slitBase,
       style: Style.Glow, lit: 0.72, tint: 1.15, detail: 0, role: 'mass',
     });
   }
-  // Short standing bars, the same height as a belt lip. A glow crown this size tiles into a window grid.
+  // Short standing bars. A tall glow face tiles into a window wall.
   const roof = y0 + H;
   addBox(d, {
     s: 0, t: 0, lb: slabW * 0.9, la: 1.6, h: 1.55, base: roof,
@@ -516,19 +519,20 @@ function heroObelisk(d: Draft, spec: TowerSpec, H: number): void {
     if (i === 0) {
       skin(d, {
         s: 0, t: 0, lb: spec.w * f, la: spec.d * f, h, base: h * i,
-        style: Style.Office, lit: spec.lit, tint: spec.tint, door: true,
+        style: Style.Monolith, lit: 0.08, tint: spec.tint * 0.7, door: true,
       });
     } else {
       addBox(d, {
         s: 0, t: 0, lb: spec.w * f, la: spec.d * f * 0.72, h, base: h * i,
-        style: Style.Office, lit: spec.lit, tint: spec.tint, detail: 0, role: 'mass',
+        style: Style.Monolith, lit: 0.06, tint: spec.tint * (0.75 - i * 0.04),
+        detail: 0, role: 'mass',
       });
     }
   }
-  const ad = LIGHT_ROLES.adFace;
+  // A narrow seam, the same width as the monolith slit. A wide glow face tiles into windows.
   addBox(d, {
-    s: spec.d * 0.3, t: 0, lb: spec.w * 0.42, la: 0.8, h: H * 0.34, base: H * 0.3,
-    style: ad.style, lit: ad.lit, tint: ad.tint, detail: 0, role: 'mass',
+    s: -(spec.d * 0.5 + 0.3), t: spec.w * 0.12, lb: 2.4, la: 0.55, h: H * 0.55, base: H * 0.22,
+    style: Style.Glow, lit: 0.72, tint: 1.15, detail: 0, role: 'mass',
   });
   mastTip(d, 0, 0, H, 28);
 }

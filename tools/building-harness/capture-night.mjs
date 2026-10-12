@@ -290,6 +290,8 @@ function placeStreet(arg) {
     camLat,
     pitch,
     occlude,
+    cx,
+    cz,
     doorDist: Math.hypot(cx - p.door[0], cz - p.door[1]),
     personDist: person ? Math.hypot(person.x - cx, person.z - cz) : null,
   };
@@ -345,18 +347,34 @@ for (const tier of tiers) {
       }, tower.door, { timeout: 12_000 }).catch(() => {});
       await page.evaluate(placeStreet, { tower, phase: 'final' });
       await settle(page, 700);
-      const info = await page.evaluate(placeStreet, { tower, phase: 'final' });
-      await settle(page, 220);
+      await page.waitForFunction(() => window.__nla.isIdle(), null, { timeout: 12_000 }).catch(() => {});
+      let info = await page.evaluate(placeStreet, { tower, phase: 'final' });
+      await settle(page, 350);
+      // The walk controller can slide off a collider that streams in after the pose.
+      const eye = await page.evaluate(() => {
+        const p = window.__nla.app.cams.pose();
+        return { x: p.position.x, z: p.position.z };
+      });
+      if (Math.hypot(eye.x - info.cx, eye.z - info.cz) > 2.5) {
+        info = await page.evaluate(placeStreet, { tower, phase: 'final' });
+        await settle(page, 120);
+      }
       const file = `${tier}-${tower.kind}-street.png`;
+      const held = await page.evaluate(() => {
+        const p = window.__nla.app.cams.pose();
+        return { x: p.position.x, z: p.position.z };
+      });
       await shot(page, join(OUT, file));
       const st = await page.evaluate(() => window.__nla.stats());
-      log.push({ file, ...info, fps: st.fps, draws: st.drawCalls, tris: st.triangles, idle: st.inFlight, crowd: st.crowd });
+      const eyeDist = Math.hypot(held.x - info.cx, held.z - info.cz);
+      log.push({ file, ...info, eyeDist, fps: st.fps, draws: st.drawCalls, tris: st.triangles, idle: st.inFlight, crowd: st.crowd });
       console.log(file, JSON.stringify({
         person: info.person,
         doorDist: info.doorDist && Number(info.doorDist.toFixed(1)),
         personDist: info.personDist && Number(info.personDist.toFixed(1)),
         camLat: info.camLat && Number(info.camLat.toFixed(2)),
         out: info.out && Number(info.out.toFixed(2)),
+        eyeDist: Number(eyeDist.toFixed(2)),
         occlude: info.occlude,
         crowd: st.crowd,
         draws: st.drawCalls,
@@ -394,6 +412,7 @@ for (const tier of tiers) {
           }
         } else if (cross) {
           // Level with the standing bars. A camera above the roof sees the dark tops.
+          // Pulled back, the cross disappears into the neighbours. Not placed this round.
           reach = 44;
           lateral = 32;
           y = p.ground + p.height + 2.6;
@@ -405,11 +424,11 @@ for (const tier of tiers) {
           y = p.ground + p.height * 0.55;
           aimF = 0.58;
         } else if (holo) {
-          // Same family of pose as the monolith slit: the shaft in frame, the light on the edge.
-          reach = Math.max(p.d, p.w) * 1.05 + 36;
-          lateral = Math.max(p.w, p.d) * 0.42;
-          y = p.ground + p.height * 0.5;
-          aimF = 0.52;
+          // Corner of the shaft. A straight-on shot is a black wall; a long pull-back frames the neighbour.
+          reach = Math.max(p.d, p.w) * 0.95 + 28;
+          lateral = Math.max(p.w, p.d) * 0.9;
+          y = p.ground + p.height * 0.42;
+          aimF = 0.55;
         } else if (p.kind === 'buttress') {
           reach = Math.max(p.d, p.w) * 0.62 + 18;
           lateral = Math.max(p.w, p.d) * 0.72;
@@ -493,7 +512,7 @@ for (const tier of tiers) {
         // before climbing, so a blocked start does not become a roof shot.
         const feature = {
           'holo-shaft': [
-            { dist: Math.max(p.d, p.w) * 1.05 + 36, y: p.ground + p.height * 0.5, sideM: Math.max(p.w, p.d) * 0.42, aim: 0.52 },
+            { dist: Math.max(p.d, p.w) * 0.95 + 28, y: p.ground + p.height * 0.42, sideM: Math.max(p.w, p.d) * 0.9, aim: 0.55 },
           ],
           cantilever: [
             { dist: 58, y: p.ground + p.height * 0.3, sideM: Math.max(p.w, p.d) * 0.95, aim: 0.28 },
@@ -511,6 +530,7 @@ for (const tier of tiers) {
             { dist: Math.max(100, p.height * 0.2), y: p.ground + p.height * 0.3, sideM: Math.max(80, Math.max(p.w, p.d) * 1.2), aim: 0.4 },
           ],
           'hero-obelisk': [
+            // A 220 m pull put a neighbour in the frame and the taper read as a flat slab.
             { dist: Math.max(p.d, p.w) * 0.5 + Math.min(90, Math.max(56, p.height * 0.22)), y: p.ground + Math.min(160, Math.max(42, p.height * 0.36)), sideM: 22, aim: 0.42 },
           ],
           monolith: [
