@@ -53,12 +53,13 @@ function placeStreet(arg) {
   const latOf = (x, z) => (x - p.door[0]) * bx + (z - p.door[1]) * bz;
   const depOf = (x, z) => (x - p.door[0]) * nx + (z - p.door[1]) * nz;
   const lantern = p.kind === 'lantern';
+  const hero = String(p.kind).startsWith('hero');
 
   let person = null;
+  let found = [];
   if (phase === 'final') {
     const mesh = nla.app.crowd?.mesh;
     const e = mesh?.instanceMatrix?.array;
-    const found = [];
     if (e) {
       for (let i = 0; i < mesh.count; i++) {
         const scale = Math.hypot(e[i * 16], e[i * 16 + 1], e[i * 16 + 2]);
@@ -71,42 +72,93 @@ function placeStreet(arg) {
       }
     }
     found.sort((a, b) => a.d - b.d);
-    person = found.find((c) => (lantern ? c.lat < 2.5 : c.d < 7)) ?? found[0] ?? null;
+    person = found.find((c) => c.d < 7) ?? found[0] ?? null;
   }
 
   // Seed stands on the queue so that spot wins the idle budget. The shot then steps back,
   // still inside the same crowd cell, and looks up so the black street does not eat the frame.
-  // Stairs run toward +t. The lantern cross covers +t, so that camera stays on the open arm.
-  let camLat = lantern ? -2.2 : 0.4;
-  let out = lantern ? 4.0 : 3.3;
+  // Stairs run toward +t, except the lantern, whose flight is on the open arm of the cross.
+  let camLat = lantern ? -1.1 : 0.4;
+  let out = lantern ? 3.6 : 3.3;
   if (phase === 'final') {
-    camLat = lantern ? -3.6 : 2.15;
-    out = lantern ? 8.2 : 6.7;
-    if (person && !lantern && person.lat > 3) camLat = -2.15;
-    if (person && person.dep > 0.4) out = Math.max(out, Math.min(lantern ? 11 : 9.0, person.dep + 5.4));
+    if (p.kind === 'hero-obelisk') {
+      // Same side as the medium frame. Coats standing in the opening are hidden below.
+      camLat = -4.6;
+      out = 9.4;
+    } else if (p.kind === 'band-slab') {
+      // The +t side of this door clips a foreground shard. Stand on the queue side.
+      camLat = -5.2;
+      out = 10.5;
+    } else if (hero) {
+      // Far enough that the apron reads as a few coats beside the door, not a cropped wall.
+      camLat = 2.4;
+      out = 12.5;
+    } else if (lantern) {
+      camLat = -2.4;
+      out = 7.8;
+    } else {
+      camLat = 2.15;
+      out = 6.7;
+      if (person && person.lat > 3) camLat = -2.15;
+      if (person && person.dep > 0.4) out = Math.max(out, Math.min(9.0, person.dep + 5.4));
+    }
   }
 
   let cx = p.door[0] + nx * out + bx * camLat;
   let cz = p.door[1] + nz * out + bz * camLat;
+  let occlude = null;
   const step = phase === 'final' ? 0.7 : 0.45;
-  for (let i = 0; i < 8 && q.insideSolid(cx, p.ground + 1.2, cz, 0.3); i++) {
+  const maxStep = lantern ? 2 : 8;
+  for (let i = 0; i < maxStep && q.insideSolid(cx, p.ground + 1.2, cz, 0.3); i++) {
     cx += nx * step;
     cz += nz * step;
   }
-  if (person && phase === 'final') {
+  if (lantern) {
+    for (let i = 0; i < 8 && q.insideSolid(cx, p.ground + 1.2, cz, 0.3); i++) {
+      cx += nx * 0.6 - bx * 0.8;
+      cz += nz * 0.6 - bz * 0.8;
+    }
+  }
+  if (person && phase === 'final' && !lantern && p.kind !== 'hero-obelisk') {
     for (let i = 0; i < 6 && Math.hypot(person.x - cx, person.z - cz) < 5.6; i++) {
       cx += nx * 0.45;
       cz += nz * 0.45;
     }
   }
+  if (phase === 'final' && !hero) {
+    const mesh = nla.app.crowd?.mesh;
+    const e = mesh?.instanceMatrix?.array;
+    for (let n = 0; n < 4; n++) {
+      let near = null;
+      let nearD = 1e9;
+      if (e) {
+        for (let i = 0; i < mesh.count; i++) {
+          const scale = Math.hypot(e[i * 16], e[i * 16 + 1], e[i * 16 + 2]);
+          if (scale < 0.2) continue;
+          const x = e[i * 16 + 12];
+          const z = e[i * 16 + 14];
+          const cd = Math.hypot(x - cx, z - cz);
+          if (cd < nearD) nearD = cd, near = { x, z };
+        }
+      }
+      // A coat inside this radius becomes a cropped umbrella, including one standing at the door.
+      const limit = 5.2;
+      if (!near || nearD >= limit) break;
+      const sign = latOf(near.x, near.z) > latOf(cx, cz) ? -1 : 1;
+      const slide = lantern ? -0.45 : sign * 1.35;
+      cx += bx * slide + nx * 0.5;
+      cz += bz * slide + nz * 0.5;
+    }
+  }
 
-  const aimX = person && phase === 'final' ? p.door[0] * 0.7 + person.x * 0.3 : p.door[0];
-  const aimZ = person && phase === 'final' ? p.door[1] * 0.7 + person.z * 0.3 : p.door[1];
+  const mix = p.kind === 'hero-obelisk' ? 0 : 0.3;
+  const aimX = person && phase === 'final' ? p.door[0] * (1 - mix) + person.x * mix : p.door[0];
+  const aimZ = person && phase === 'final' ? p.door[1] * (1 - mix) + person.z * mix : p.door[1];
   const lookX = aimX - cx;
   const lookZ = aimZ - cz;
   const heading = Math.atan2(lookX, -lookZ);
   // Positive pitch looks up in this camera. That drops the horizon and keeps feet in frame.
-  const pitch = phase === 'final' ? 0.2 : 0.02;
+  const pitch = phase === 'final' ? (hero ? (p.kind === 'hero-obelisk' ? 0.16 : 0.08) : 0.2) : 0.02;
   if (nla.app.cams.mode !== 'walk') nla.setMode('walk');
   nla.setPose(cx, p.ground + 2, cz, (heading * 180) / Math.PI, (pitch * 180) / Math.PI);
   const w = nla.app.cams.walk;
@@ -114,11 +166,55 @@ function placeStreet(arg) {
   w.heading = heading;
   w.pitch = pitch;
   nla.app.cams.fly.spinner.visible = false;
+  const crowd = nla.app.crowd;
+  const mesh = crowd?.mesh;
+  if (crowd && mesh) {
+    if (!crowd.__b1Orig) crowd.__b1Orig = crowd.update.bind(crowd);
+    const hide = (x, z) => {
+      if (p.kind !== 'hero-obelisk') return false;
+      for (const lat of [-1.15, -0.4, 0.4, 1.15]) {
+        const dx = p.door[0] + bx * lat;
+        const dz = p.door[1] + bz * lat;
+        const vx = dx - cx;
+        const vz = dz - cz;
+        const len2 = vx * vx + vz * vz || 1;
+        const u = ((x - cx) * vx + (z - cz) * vz) / len2;
+        if (u < 0.08 || u > 0.92) continue;
+        if (Math.hypot(x - (cx + vx * u), z - (cz + vz * u)) < 1.05) return true;
+      }
+      return false;
+    };
+    const apply = () => {
+      const e = mesh.instanceMatrix.array;
+      let n = 0;
+      for (let i = 0; i < mesh.count; i++) {
+        const x = e[i * 16 + 12];
+        const z = e[i * 16 + 14];
+        if (!hide(x, z)) continue;
+        n++;
+        e[i * 16] = e[i * 16 + 1] = e[i * 16 + 2] = 0;
+        e[i * 16 + 4] = e[i * 16 + 5] = e[i * 16 + 6] = 0;
+        e[i * 16 + 8] = e[i * 16 + 9] = e[i * 16 + 10] = 0;
+      }
+      mesh.instanceMatrix.needsUpdate = true;
+      return n;
+    };
+    if (p.kind === 'hero-obelisk') {
+      crowd.update = function (...args) {
+        crowd.__b1Orig.apply(crowd, args);
+        apply();
+      };
+      occlude = apply();
+    } else {
+      crowd.update = crowd.__b1Orig;
+    }
+  }
   return {
     person: person ? { x: person.x, z: person.z, d: person.d } : null,
     out,
     camLat,
     pitch,
+    occlude,
     doorDist: Math.hypot(cx - p.door[0], cz - p.door[1]),
     personDist: person ? Math.hypot(person.x - cx, person.z - cz) : null,
   };
@@ -148,14 +244,9 @@ page.on('pageerror', (e) => errors.push(String(e)));
 
 let booted = false;
 for (const tier of tiers) {
-  if (!booted) {
-    await boot(page, tier, towers[0]);
-    booted = true;
-  } else {
-    await page.evaluate((t) => window.__nla.app.setQuality(t), tier);
-    await page.waitForTimeout(500);
-    await settle(page, 50_000);
-  }
+  if (booted) await page.goto('about:blank').catch(() => {});
+  await boot(page, tier, towers[0]);
+  booted = true;
   for (const tower of towers) {
     if (views.includes('street') && already(join(OUT, `${tier}-${tower.kind}-street.png`))) {
       console.log('skip', `${tier}-${tower.kind}-street.png`);
@@ -177,8 +268,10 @@ for (const tier of tiers) {
         }
         return best < 6.5;
       }, tower.door, { timeout: 12_000 }).catch(() => {});
+      await page.evaluate(placeStreet, { tower, phase: 'final' });
+      await settle(page, 700);
       const info = await page.evaluate(placeStreet, { tower, phase: 'final' });
-      await settle(page, 900);
+      await settle(page, 220);
       const file = `${tier}-${tower.kind}-street.png`;
       await shot(page, join(OUT, file));
       const st = await page.evaluate(() => window.__nla.stats());
@@ -187,6 +280,9 @@ for (const tier of tiers) {
         person: info.person,
         doorDist: info.doorDist && Number(info.doorDist.toFixed(1)),
         personDist: info.personDist && Number(info.personDist.toFixed(1)),
+        camLat: info.camLat && Number(info.camLat.toFixed(2)),
+        out: info.out && Number(info.out.toFixed(2)),
+        occlude: info.occlude,
         crowd: st.crowd,
         draws: st.drawCalls,
         idle: st.inFlight,

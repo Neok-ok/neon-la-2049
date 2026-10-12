@@ -6,7 +6,7 @@ import type { CityQuery, PackedBlock } from '../../world/CityQuery';
 import { hash2i, hashString } from '../../core/rng';
 import { bearingToDir } from '../../world/geo';
 import { lifeSpot, type CrowdLifeSpot } from '../../world/crowdLife';
-import { doorFace } from '../../world/buildings/parts';
+import { queueSpot } from '../../world/buildings/parts';
 import { placeHero } from '../../world/buildings/place';
 import { registerCrowdSource } from '../little-tokyo-market/crowd';
 import { dressBlock, type DtlaBlock } from './block';
@@ -87,11 +87,11 @@ function heroApron(query: CityQuery, blocks: PackedBlock[]): { extra: Array<Arra
       l.z + az * ds + bz * dt,
     ]));
     const placed = placeHero(kind, w, depth, l.height, (hashString(l.id) % 1000) / 1000);
-    const door = doorFace(placed.draft);
-    if (!door) continue;
+    const spot = queueSpot(placed.draft);
+    if (!spot) continue;
     // Beside the jamb, opposite the flight, so the doorway and the steps stay readable.
-    const ss = door.s - 2.8;
-    const tt = door.t - 2.6;
+    const ss = spot.s - 0.3;
+    const tt = spot.t;
     const x = l.x + ax * ss + bx * tt;
     const z = l.z + az * ss + bz * tt;
     life.push(lifeSpot(x, z, Math.atan2(-ax, -az), 'queue', 3));

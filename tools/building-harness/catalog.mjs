@@ -40,7 +40,13 @@ function clusterTowers(block, dress) {
     if (cheeks.length) {
       faceS = Math.min(...cheeks.map((b) => b.s - b.la / 2));
     }
-    const doorT = cheeks.length ? cheeks.reduce((s, b) => s + b.t, 0) / cheeks.length : body.t;
+    // Jambs mark the opening. Cheek centers sit on the wall when the door is offset.
+    const jambs = near.filter((b) => b.base < 0.2 && b.h > 1.5 && b.h < 2.6 && b.lb < 0.3 && b.la < 0.3);
+    const doorT = jambs.length
+      ? jambs.reduce((s, b) => s + b.t, 0) / jambs.length
+      : cheeks.length
+        ? cheeks.reduce((s, b) => s + b.t, 0) / cheeks.length
+        : body.t;
     const height = near.reduce((m, b) => Math.max(m, b.base + b.h), 0);
     const sidewalkS = -(block.la / 2 + 2.6);
     const gap = faceS - sidewalkS;

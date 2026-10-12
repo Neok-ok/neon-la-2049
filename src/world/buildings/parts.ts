@@ -102,12 +102,41 @@ export function snap(h: number, module: number, min: number, max: number): numbe
   return snapMetres(n * module);
 }
 
-/** Outer face of the ground door, in tower-local metres. a- is negative s. */
+/** Outer face of the ground opening, in tower-local metres. a- is negative s. */
 export function doorFace(d: Draft): { s: number; t: number } | null {
   const cheeks = d.boxes.filter((b) => b.role === 'door-cheek' && b.base < 1);
   if (!cheeks.length) return null;
   const s = cheeks[0]!.s - cheeks[0]!.la / 2;
-  const t = cheeks.reduce((sum, b) => sum + b.t, 0) / cheeks.length;
+  // Jambs sit on the opening. Averaging the cheeks lands on the wall when the door is offset.
+  const jambs = d.boxes.filter((b) => b.role === 'door-jamb' && b.base < 1);
+  const t = jambs.length
+    ? jambs.reduce((sum, b) => sum + b.t, 0) / jambs.length
+    : cheeks.reduce((sum, b) => sum + b.t, 0) / cheeks.length;
+  return { s, t };
+}
+
+/**
+ * Three-person queue: opposite the flight, 2.5 m out.
+ * A crossing mass on that side (the lantern bar) gets the queue in front of the opening instead.
+ */
+export function queueSpot(d: Draft): { s: number; t: number } | null {
+  const door = doorFace(d);
+  if (!door) return null;
+  const stairs = d.boxes.filter((b) => b.role === 'stair' && b.h < 0.4 && b.base < 4);
+  const stairT = stairs.length
+    ? stairs.reduce((sum, b) => sum + b.t, 0) / stairs.length
+    : door.t + 1;
+  const sign = stairT >= door.t ? -1 : 1;
+  const t = door.t + sign * 2.6;
+  const s = door.s - 2.5;
+  const blocked = d.boxes.some((b) => {
+    if (b.role === 'stair' || b.role === 'door-cheek' || b.role === 'door-header' || b.role === 'door-jamb') return false;
+    if (b.h < 2 || b.base > 1.2) return false;
+    const overlapT = Math.abs(b.t - t) * 2 < b.lb + 1.1;
+    const overlapS = Math.abs(b.s - s) * 2 < b.la + 1.1;
+    return overlapT && overlapS;
+  });
+  if (blocked) return { s: door.s - 3.8, t: door.t - sign * 0.4 };
   return { s, t };
 }
 
@@ -208,8 +237,10 @@ export function entryFlight(d: Draft): void {
   if (d.boxes.some((b) => b.role === 'stair')) return;
   const cheeks = d.boxes.filter((b) => b.role === 'door-cheek' && b.base < 1);
   if (cheeks.length < 2) return;
-  const faceS = cheeks[0]!.s - cheeks[0]!.la / 2;
-  const faceT = cheeks.reduce((sum, b) => sum + b.t, 0) / cheeks.length;
+  const face = doorFace(d);
+  if (!face) return;
+  const faceS = face.s;
+  const faceT = face.t;
   const base = cheeks[0]!.base;
   const tint = cheeks[0]!.tint;
   const tMin = Math.min(...cheeks.map((b) => b.t - b.lb / 2));

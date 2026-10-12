@@ -30,7 +30,7 @@
   <h2>What changed</h2>
   <p>The old financial body was a two-box megablock plus a compact kit tower. Downtown and Long Beach used the shared megablock kit. Those masses are gone. Streets, kiosks, crowds, and the Long Beach concourse door stay.</p>
   <p>Field towers are 3.6 m a floor (3.4 m on the residential stack), about 150–300 m tall, so they stay under the 320 m fabric ceiling and under the 430 m sky lanes. The three heroes are landmarks, so lanes step over them: West Canyon Gate (560 m), Caldera Step (640 m), Kite Obelisk (480 m). They sit west of the opening camera, off the ray from Little Tokyo toward the Wallace pyramid. Nothing was added in the basin, and nothing was added on the south-east approach to the pyramid.</p>
-  <p>Doors, stairs, and storeys use the shared architecture helpers. The walk-through is a 2.2 m square, the same leaf LAPD and City Hall use. Rails are 1.05 m. A ground flight beside the door rises one 3.6 m storey in equal risers between 0.15 m and 0.18 m, and runs along the facade. Housing floors are 3.4 m. A 1.80 m person still fits the door. Full detail hangs one open leaf on each hero, on the civic trim sheet. The Long Beach interior door is the old concourse at the south face, not a new cut in the slab.</p>
+  <p>Doors, stairs, and storeys use the shared architecture helpers. The walk-through is a 2.2 m square, the same leaf LAPD and City Hall use. Rails are 1.05 m. A ground flight beside the door rises one 3.6 m storey in equal risers between 0.15 m and 0.18 m, and runs along the facade. Each riser carries a thin glow along its outer edge so the flight reads at night; the line is shorter than the rise, so the step height stays the riser. The lantern opening sits beside the crossing bar. The flight runs along that open arm, because the bar occupies the other side. The door queue stands in front of that opening. Housing floors are 3.4 m. A 1.80 m person still fits the door. Full detail hangs one open leaf on each hero, on the civic trim sheet. The Long Beach interior door is the old concourse at the south face, not a new cut in the slab.</p>
 
   <h2>The eight families</h2>
   <table>
@@ -54,12 +54,12 @@
     <thead><tr><th>Tier</th><th>Boxes kept</th><th>Triangles in that patch</th></tr></thead>
     <tbody>
       <tr><td>Low (masses)</td><td>285</td><td>5,976</td></tr>
-      <tr><td>Medium</td><td>1,088</td><td>14,006</td></tr>
-      <tr><td>High / ultra</td><td>1,260</td><td>15,726</td></tr>
+      <tr><td>Medium</td><td>1,438</td><td>17,506</td></tr>
+      <tr><td>High / ultra</td><td>1,622</td><td>19,346</td></tr>
       <tr><td>Far impostor (LOD2)</td><td>231</td><td>2,610</td></tr>
     </tbody>
   </table>
-  <p class="note">Those triangle counts include the ground under the patch. Medium and high add the ground flight (one box per riser) and, on high, the handrail posts. Tower boxes are instances of one shared kit, so they add one draw per chunk that contains them, not a draw per tower. The three heroes are one instanced mesh per detail level. Window glow is the existing city shader.</p>
+  <p class="note">Those triangle counts include the ground under the patch. Medium and high add the ground flight (one box per riser, plus a 0.06 m edge on that riser) and, on high, the handrail posts. The 0.06 m edge is the smallest box the kit keeps. The lantern flight sits on the open arm of the cross and is included. Tower boxes are instances of one shared kit, so they add one draw per chunk that contains them, not a draw per tower. The three heroes are one instanced mesh per detail level. Window glow is the existing city shader. Remeasured after the rebase onto the road and lens commits.</p>
 
   <h2>Memory</h2>
   <p>The kit box is <code>resources.sharedGeometry('b1-kit-box')</code>. Each chunk and each hero level clones it through <code>resources.geometry</code> with owner <code>towers</code>, so the instance buffers are counted and released on unload. The facade material is <code>resources.material('b1-kit')</code>. The shared template is never disposed. Every tower box, including each tread, is an instance of that 20-vertex box (96 bytes: matrix, facade data, and scale). The chunk streamer releases the clone when the chunk unloads. The three heroes release the previous level when the quality tier changes, and distant hero levels drop their GPU buffers the same way other landmarks do. Distant fabric uses the existing far mesh: detail drops away, and boxes whose tops sit under 22 m disappear. On Low the heroes keep only that mass, and the flight is dropped with the other ornament. Full detail adds one open leaf on each hero, tagged <code>b1-door-leaf</code>. That leaf reuses the civic trim sheet, a single 128² image, not a texture per tower. Signs and windows stay on the atlases the city already compresses to KTX2. The harness roughness map is a local canvas and is not in the game.</p>
@@ -68,14 +68,14 @@
     <thead><tr><th>Tier</th><th>Textures added</th><th>Geometry added</th></tr></thead>
     <tbody>
       <tr><td>Low</td><td>0 MB</td><td>0.86 MB</td></tr>
-      <tr><td>Medium</td><td>0 MB</td><td>2.79 MB</td></tr>
-      <tr><td>High</td><td>0 MB</td><td>3.21 MB</td></tr>
-      <tr><td>Ultra</td><td>0 MB</td><td>3.21 MB</td></tr>
+      <tr><td>Medium</td><td>0 MB</td><td>3.78 MB</td></tr>
+      <tr><td>High</td><td>0 MB</td><td>4.38 MB</td></tr>
+      <tr><td>Ultra</td><td>0 MB</td><td>4.39 MB</td></tr>
     </tbody>
   </table>
 
   <h2>Lights</h2>
-  <p>The lighting registry was still not on main at the last fetch. Every glow on these towers is declared in <code>src/world/buildings/lights.ts</code> (<code>LIGHT_ADAPTER = 'b1-local'</code>): door soffit, door jambs, crown, obstruction tip, ad face. The jambs sit just outside the 2.2 m opening so the doorway reads at night. A later lighting pass can map those roles without searching the recipes.</p>
+  <p>The lighting registry was still not on main after the rebase onto the photo-lens commit. Every glow on these towers is declared in <code>src/world/buildings/lights.ts</code> (<code>LIGHT_ADAPTER = 'b1-local'</code>): door soffit, door jambs, crown, obstruction tip, ad face, and the stair-edge line. The jambs sit just outside the 2.2 m opening so the doorway reads at night. A later lighting pass can map those roles without searching the recipes.</p>
 
   <h2>Silhouette scores</h2>
   <p>Scored against original envelope diagrams (a slab, a step pyramid, a taper, a twin gate, a top-heavy bar). Not against film frames. Best side for each family:</p>

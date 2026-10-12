@@ -9,7 +9,7 @@ import { distToSegment } from '../../world/layout';
 import { SIGN_RGB } from '../../world/materials/signPalette';
 import { PHRASE_DTLA } from '../../world/materials/signPhrases';
 import { placeLot } from '../../world/buildings/place';
-import { doorFace, type TowerKind } from '../../world/buildings/parts';
+import { queueSpot, type TowerKind } from '../../world/buildings/parts';
 import { lineHasHigh, lineWalkY } from '../_shared/megablock/grid';
 
 /** Atlas cells that read as downtown commerce rather than a food stall. */
@@ -253,10 +253,9 @@ function dressLot(
       y: s.y, w: s.w, h: s.h, color: s.color, kind: s.kind, seed: s.seed,
     });
   }
-  const door = doorFace(placed.draft);
-  if (door) {
-    // Clear of the flight, which runs the other way along the facade.
-    const [dx, dz] = world(b, lot.s + door.s - 2.5, lot.t + door.t - 2.6);
+  const spot = queueSpot(placed.draft);
+  if (spot) {
+    const [dx, dz] = world(b, lot.s + spot.s, lot.t + spot.t);
     life.push(lifeSpot(dx, dz, Math.atan2(-b.ax, -b.az), 'queue', 3));
   }
   placeKiosks(b, lot, { baseHalfW: footW / 2, baseHalfD: footD / 2 }, r, busy, props, steam, pools, life);
