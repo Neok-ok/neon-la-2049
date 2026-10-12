@@ -17,7 +17,8 @@ export const LAUNCH_GROUND_CAP: Record<Tier, number> = {
 };
 
 export const LAUNCH_COLUMN_CAP: Record<Tier, number> = {
-  low: 16,
+  // Sixteen cards on a kilometre head read as beads. Low draws the pad cloud.
+  low: 0,
   medium: 40,
   high: 72,
   ultra: 110,

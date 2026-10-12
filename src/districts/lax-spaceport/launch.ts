@@ -12,6 +12,7 @@ import { fogDepth } from '../../atmosphere/SkyFog';
 import type { Tier } from '../../core/quality';
 import type { CityLayout } from '../../world/layout';
 import { syncLaunchPlume } from '../../fx/smoke/launchDrive';
+import { PRESETS } from '../../lighting/presets.ts';
 import { PAD_BLOCKS, STACK_H, blockCenter } from './spec';
 
 const T = TSL as any;
@@ -76,8 +77,10 @@ function material(): MeshBasicNodeMaterial {
     const r = length(k.xy);
     const core = smoothstep(0.15, 0.85, r).oneMinus();
     const hot = vec3(0.9, 0.96, 1);
-    const ice = vec3(0.42, 0.7, 1);
-    const burn = vec3(1, 0.84, 0.58);
+    // 1800 K, the same flare as the spine. An ice ribbon read as a second plume.
+    const flare = PRESETS.flare.rgb;
+    const ice = vec3(flare[0], flare[1], flare[2]);
+    const burn = vec3(1, 0.72, 0.38);
     const body = ice.mul(column).add(hot.mul(head)).add(burn.mul(column.oneMinus().mul(head.oneMinus())));
     const col = body.mul(core.mul(0.65).add(0.45)).add(hot.mul(core).mul(head.add(0.35)));
     const dist = length(c.xyz.sub(cameraPosition));

@@ -8,8 +8,8 @@ import { uniform } from 'three/tsl';
 import * as TSL from 'three/tsl';
 import { U } from '../../atmosphere/uniforms';
 import { resources } from '../../core/memory';
-import { PRESETS, SODIUM_RGB } from '../../lighting/presets.ts';
-import { authoredLiftU, practicalInscatter, practicalLit } from '../../lighting/shade.ts';
+import { PRESETS } from '../../lighting/presets.ts';
+import { practicalInscatter, practicalLit } from '../../lighting/shade.ts';
 import { smokeAtlas } from './atlas';
 
 const T = TSL as any;
@@ -24,7 +24,6 @@ export const smokeSoft = uniform(1);
 export const smokeRain = uniform(0);
 
 const FLAME = PRESETS.flare.rgb;
-const SODIUM = SODIUM_RGB;
 
 function shade(lit: boolean): MeshBasicNodeMaterial {
   const m = new MeshBasicNodeMaterial();
@@ -97,43 +96,38 @@ function shade(lit: boolean): MeshBasicNodeMaterial {
     const barrel = smoothstep(3.55, 4.05, kind).mul(float(1).sub(smoothstep(4.45, 4.95, kind)));
     const stack = smoothstep(4.55, 5.05, kind).mul(float(1).sub(smoothstep(5.45, 5.95, kind)));
     const exhaustK = smoothstep(5.55, 6.05, kind).mul(float(1).sub(launch));
-    // Body is a painted grey lifted like fog, so a puff still reads when the
-    // exposure is stopped down. practicalLit stays in nits and is added, not scaled.
+    // Unlit steam stays on the fog. authoredLift painted that grey at window brightness
+    // in a dark alley. practicalLit is in nits, including the low-tier 34 m bake.
     const albedo = vec3(0.92, 0.93, 0.95).mul(steam)
       .add(vec3(0.36, 0.34, 0.32).mul(barrel))
       .add(vec3(0.3, 0.29, 0.28).mul(stack))
       .add(vec3(0.5, 0.51, 0.52).mul(exhaustK))
-      .add(vec3(0.88, 0.86, 0.82).mul(launch));
-    // The painted body used to swamp the lamps, so a puff stayed flat grey in neon.
-    const body = albedo.mul(authoredLiftU).mul(0.48);
+      .add(vec3(0.78, 0.76, 0.72).mul(launch));
+    const body = U.fogColor.mul(albedo).mul(0.8);
+    // Soot and the pad sheath are a few nits of grey. A window is 18. This is not a lift.
+    const sootK = barrel.add(stack).add(exhaustK);
+    const ash = vec3(0.5, 0.48, 0.45).mul(sootK).mul(7.0).add(vec3(0.72, 0.68, 0.62).mul(launch).mul(8.0));
 
-    const soot = barrel.add(stack).add(exhaustK);
-    const veilW = float(0.06).mul(steam).add(float(0.08).mul(soot)).add(float(0.1).mul(launch));
-    const veil = U.fogColor.mul(veilW);
-    const litScale = float(3.2).mul(steam).add(float(2.2).mul(soot)).add(float(2.4).mul(launch));
-    let lamps = vec3(SODIUM[0], SODIUM[1], SODIUM[2]).mul(authoredLiftU).mul(0.045).mul(steam.add(soot.mul(0.35)));
-    if (lit) {
-      const world = ctr.xyz;
-      lamps = practicalLit(world, N, V, albedo).mul(litScale).add(practicalInscatter(world).mul(3.6));
-    }
-    const heatGain = launch.mul(0.4).add(barrel.mul(1.65)).add(stack.mul(0.55)).add(exhaustK.mul(0.2)).add(steam.mul(0.1));
+    const world = ctr.xyz;
+    const litScale = float(1.6);
+    const scatterK = lit ? 1.4 : 0.4;
+    const lamps = practicalLit(world, N, V, albedo).mul(litScale).add(practicalInscatter(world).mul(scatterK));
+    const heatGain = launch.mul(0.45).add(barrel.mul(1.1)).add(stack.mul(0.4)).add(exhaustK.mul(0.15)).add(steam.mul(0.05));
     const coreDisc = smoothstep(float(0.5), float(0.02), length(corner));
-    // Orange stays in the spine. Tinting the whole card turned the plume brown.
     const heatMask = mix(float(1), coreDisc, launch);
     const heat = vec3(FLAME[0], FLAME[1], FLAME[2])
       .mul(extra.x)
-      .mul(authoredLiftU)
       .mul(heatGain)
       .mul(heatMask)
-      .mul(smoothstep(0.92, 0.04, life));
-    // Steam stays bright. Launch and stack valleys take the shadow.
+      .mul(smoothstep(0.92, 0.04, life))
+      .mul(8.0);
     const stackK = smoothstep(4.55, 5.05, kind).mul(float(1).sub(smoothstep(5.45, 5.95, kind)));
     const barrelK = smoothstep(3.55, 4.05, kind).mul(float(1).sub(smoothstep(4.45, 4.95, kind)));
-    const shade = mix(float(0.62), float(0.08), launchK.add(stackK).add(barrelK.mul(0.7)));
+    const shade = mix(float(0.55), float(0.12), launchK.add(stackK).add(barrelK.mul(0.65)));
     const crease = mix(shade, float(1), lumps);
     const hot = smoothstep(float(0.5), float(1.05), extra.x).mul(launch);
-    const core = vec3(2.1, 1.45, 0.72).mul(authoredLiftU).mul(hot).mul(coreDisc);
-    const rgb = body.mul(crease).add(lamps).add(veil).add(heat).add(core);
+    const core = vec3(1.45, 0.82, 0.32).mul(hot).mul(coreDisc).mul(22.0);
+    const rgb = body.mul(crease).add(ash.mul(crease)).add(lamps).add(heat).add(core);
 
     const dist = length(ctr.xyz.sub(cameraPosition));
     const thin = smoothstep(extra.w, extra.w.mul(0.2), dist);

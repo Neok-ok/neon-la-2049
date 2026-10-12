@@ -135,18 +135,21 @@ export function spawnEmitter(
   }
 }
 
-/** How much of the weather wind a kind keeps. Street vents rise; stacks and roofs lean. */
+/**
+ * Fraction of the weather wind a puff approaches. It does not outrun that wind.
+ * The launch column is left at 0 so `plumeLean` is the only lean on the ribbon.
+ */
 export function smokeWindScale(kind: number): number {
-  if (kind === KIND.column) return 0.08;
-  if (kind === KIND.ground) return 0.32;
-  if (kind === KIND.stack) return 1.35;
-  if (kind === KIND.exhaust) return 0.18;
-  if (kind === KIND.stall) return 0.4;
-  if (kind === KIND.manhole) return 0.38;
-  if (kind === KIND.vent) return 0.2;
-  if (kind === KIND.barrel) return 0.12;
-  if (kind === KIND.roof) return 0.7;
-  return 0.45;
+  if (kind === KIND.column) return 0;
+  if (kind === KIND.stack) return 1;
+  if (kind === KIND.roof) return 0.5;
+  if (kind === KIND.manhole) return 0.45;
+  if (kind === KIND.vent) return 0.35;
+  if (kind === KIND.ground) return 0.35;
+  if (kind === KIND.stall) return 0.3;
+  if (kind === KIND.barrel) return 0.2;
+  if (kind === KIND.exhaust) return 0.15;
+  return 0.35;
 }
 
 function buoy(kind: number): number {
@@ -180,14 +183,15 @@ function turb(kind: number): number {
 }
 
 /**
- * Sheath radius along the plume. Bulbs every few hundred metres, pinched between
- * them, so the column is a stack of billows and the core can show in the gaps.
+ * Sheath radius along the plume. Twice this sits with the 60 m LAX street.
+ * Bulbs stay in that family. A 4–16 m sleeve was a pencil on a kilometre flame.
  */
 export function columnRadius(height: number, time: number): number {
-  const bulb = Math.max(0, Math.sin(height * 0.011 + 0.4));
-  const bulb2 = Math.max(0, Math.sin(height * 0.023 + 2.1));
-  const wiggle = Math.sin(height * 0.041 + time * 0.35);
-  return 5.5 + bulb * 9 + bulb2 * 4.5 + wiggle * 1.1;
+  const climb = Math.min(1, Math.max(0, height / 600));
+  const bulb = Math.max(0, Math.sin(height * 0.0065 + 0.4));
+  const bulb2 = Math.max(0, Math.sin(height * 0.014 + 1.7));
+  const wiggle = Math.sin(height * 0.027 + time * 0.3);
+  return 22 + climb * 8 + bulb * 10 + bulb2 * 5 + wiggle * 1.5;
 }
 
 /** Same lean the flame ribbon uses: 0 at the pad, full lean at the head. */
@@ -241,18 +245,24 @@ export function integrate(
     const shear = 1 + Math.min(2.1, alt / 60);
     const c = curl(x * 0.07 + time * 0.05, y * 0.07, z * 0.07, 0.18);
     const roll = turb(kind);
-    // The launch column leans, it does not leave the engine. Street smoke takes the full wind.
+    // Approach a fraction of the weather wind. Accelerating without a target
+    // sent a stack past 20 m/s in a 5 m/s wind.
     const windScale = smokeWindScale(kind);
-    let vx = pool.vx[i]! + (wx * shear * push * windScale + c[0] * roll) * dt;
+    const targetX = wx * shear * push * windScale;
+    const targetZ = wz * shear * push * windScale;
+    const follow = 1 - Math.exp(-dt * dragK(kind));
+    let vx = pool.vx[i]! + (targetX - pool.vx[i]!) * follow + c[0] * roll * dt;
     let vy = pool.vy[i]! + (buoy(kind) * loft + c[1] * roll * 0.35) * dt;
-    let vz = pool.vz[i]! + (wz * shear * push * windScale + c[2] * roll) * dt;
-    // Rain knocks loft down. Manholes stay low; a launch cloud keeps climbing.
+    let vz = pool.vz[i]! + (targetZ - pool.vz[i]!) * follow + c[2] * roll * dt;
     const sink = kind === KIND.manhole ? 0.85 : kind >= KIND.column ? 0.18 : 0.4;
     vy -= rain * sink * dt;
-    const damp = Math.exp(-dt * dragK(kind));
-    vx *= damp;
-    vy *= damp;
-    vz *= damp;
+    vy *= Math.exp(-dt * dragK(kind));
+    const horiz = Math.hypot(vx, vz);
+    if (wind.speed > 0.05 && horiz > wind.speed) {
+      const clip = wind.speed / horiz;
+      vx *= clip;
+      vz *= clip;
+    }
     x += vx * dt;
     y += vy * dt;
     z += vz * dt;
@@ -299,12 +309,13 @@ export function integrate(
         const nz = oz / dist;
         const heat = pool.heat[i] ?? 0;
         if (heat > 0.85) {
-          // Hot cards sit on the near face so the white core draws in front of the sheath.
-          const camAng = Math.atan2(camZ - az, camX - ax);
-          const tx = ax + Math.cos(camAng) * want * 0.62;
-          const tz = az + Math.sin(camAng) * want * 0.62;
-          x += (tx - x) * pull;
-          z += (tz - z) * pull;
+          // Hot cards stay in the spine, a fraction of the street-width sheath.
+          const spine = want * 0.16;
+          if (dist > spine) {
+            const back = dist - spine;
+            x -= nx * back * pull;
+            z -= nz * back * pull;
+          }
         } else {
           const err = dist - want;
           const grip = pull * (err > 0 ? 1 : 0.45);

@@ -166,7 +166,7 @@ export class SmokeField {
         const kindCap = Math.max(3, Math.floor(cap * share));
         spawnEmitter(this.pool, e, cap, scale, wind, h, kindCap);
       }
-      this.emitLaunch(h, drive, frame.tier, wind, frame.camX, frame.camZ);
+      this.emitLaunch(h, drive, frame.tier, wind);
       this.emitTails(h, frame, wind);
       integrate(this.pool, h, wind, frame.query, frame.time, frame.camX, frame.camZ);
       left -= h;
@@ -242,7 +242,7 @@ export class SmokeField {
       this.columnAcc = 0;
       this.dropSlot(1);
       this.dropSlot(2);
-      this.prefill(drive, wind, camX, camZ);
+      this.prefill(drive, wind);
     }
     if (!drive.burning && !this.lingered && drive.age > 2) {
       this.lingered = true;
@@ -260,15 +260,15 @@ export class SmokeField {
     }
   }
 
-  private prefill(drive: LaunchDrive, wind: Wind, camX: number, camZ: number): void {
+  private prefill(drive: LaunchDrive, wind: Wind): void {
     const tier = drive.tier;
     const gCap = LAUNCH_GROUND_CAP[tier];
     const cCap = LAUNCH_COLUMN_CAP[tier];
     const grown = Math.min(1, Math.max(0.35, drive.age / 10));
     const gCount = Math.min(gCap, Math.max(10, Math.floor(gCap * grown * 0.85)));
     for (let n = 0; n < gCount; n++) {
-      const puff = groundPuff(drive, camX, camZ, grown);
-      const size1 = (tier === 'low' ? 10 : tier === 'medium' ? 14 : 16) + smokeRand() * 6;
+      const puff = groundPuff(drive, grown);
+      const size1 = 18 + smokeRand() * 10;
       spawnParticle(this.pool, {
         x: puff.x,
         y: puff.y,
@@ -304,9 +304,7 @@ export class SmokeField {
       const want = columnRadius(along, 0);
       const rad = core ? want * (0.02 + smokeRand() * 0.12) : want * (0.78 + smokeRand() * 0.4);
       const lean = plumeLean(along, len, wind.speed);
-      const size = core
-        ? (tier === 'low' ? 6 : tier === 'medium' ? 9 : 11) + (1 - t) * 4 + smokeRand() * 2
-        : (tier === 'low' ? 11 : tier === 'medium' ? 15 : 18) + (1 - t) * 8 + smokeRand() * 4;
+      const size = want * (core ? 0.22 : 0.58) + smokeRand() * (core ? 2 : 4);
       spawnParticle(this.pool, {
         x: drive.x + Math.cos(wind.dir) * lean + Math.cos(ang) * rad,
         y: drive.y + along,
@@ -329,7 +327,7 @@ export class SmokeField {
     }
   }
 
-  private emitLaunch(dt: number, drive: LaunchDrive, tier: Tier, wind: Wind, camX: number, camZ: number): void {
+  private emitLaunch(dt: number, drive: LaunchDrive, tier: Tier, wind: Wind): void {
     if (!drive.burning || drive.id <= 0) return;
     const gCap = LAUNCH_GROUND_CAP[tier];
     const cCap = LAUNCH_COLUMN_CAP[tier];
@@ -337,8 +335,8 @@ export class SmokeField {
       this.groundAcc += (tier === 'low' ? 4 : 8) * dt;
       const grown = Math.min(1, drive.age / 10);
       while (this.groundAcc >= 1 && this.pool.slotN[1] < gCap) {
-        const puff = groundPuff(drive, camX, camZ, grown);
-        const size1 = (tier === 'low' ? 10 : 16) + (puff.ring < 22 ? 6 : 2);
+        const puff = groundPuff(drive, grown);
+        const size1 = 18 + (puff.ring < 36 ? 8 : 3);
         const ok = spawnParticle(this.pool, {
           x: puff.x,
           y: puff.y,
@@ -377,9 +375,7 @@ export class SmokeField {
       const want = columnRadius(along, 0);
       const rad = core ? want * (0.03 + smokeRand() * 0.1) : want * (0.8 + smokeRand() * 0.38);
       const lean = plumeLean(along, len, wind.speed);
-      const size = core
-        ? (tier === 'low' ? 6 : 10) + (1 - t) * 3
-        : (tier === 'low' ? 10 : 16) + Math.min(8, want * 0.35);
+      const size = want * (core ? 0.2 : 0.55) + (core ? 1 : 3);
       const ok = spawnParticle(this.pool, {
         x: drive.x + Math.cos(wind.dir) * lean + Math.cos(ang) * rad,
         y: drive.y + along,
@@ -392,7 +388,7 @@ export class SmokeField {
         size0: size * 0.7,
         size1: size,
         kind: KIND.column,
-        heat: core ? 1.3 : 0.04,
+        heat: core ? 1.25 + (1 - t) * 0.2 : 0.04,
         fade: 5200,
         aspect: 1.2,
         floorY: drive.y,
@@ -517,14 +513,6 @@ export class SmokeField {
       if (kind === KIND.exhaust && d < 7) baseA *= Math.max(0.12, (d - 2.5) / 4.5);
       if ((kind === KIND.stall || kind === KIND.vent) && d < 4.2) baseA *= Math.max(0, (d - 2.2) / 2);
       if (kind === KIND.manhole && d < 4) baseA *= Math.max(0, (d - 1.6) / 2.4);
-      // A few metres along the view ray, so the sheath clears the gantry
-      // and stays on the flame. A 48 m pull put the base cloud on the lens.
-      if (kind === KIND.column && d > 40) {
-        const pull = 14 / d;
-        px += (camX - px) * pull;
-        py += (camY - py) * pull;
-        pz += (camZ - pz) * pull;
-      }
       let heat = pool.heat[i]!;
       if (kind === KIND.column && heat > 0.8) baseA *= 1.2;
       if (kind === KIND.barrel || kind === KIND.stack) heat *= Math.max(0, 1 - u * 1.2);
@@ -565,7 +553,7 @@ export class SmokeField {
     }
     const colH = Math.min(1100, Math.max(80, drive.headY - drive.y));
     const height = colH;
-    const halfW = 42;
+    const halfW = 78;
     const wx = Math.cos(drive.windDir) * drive.wind;
     const wz = Math.sin(drive.windDir) * drive.wind;
     const midLean = plumeLean(height * 0.45, height, drive.wind);
@@ -580,7 +568,7 @@ export class SmokeField {
     volWind.value.set(wx, 0, wz);
     volEngine.value.set(drive.x, drive.y + 10, drive.z);
     volHeight.value = colH;
-    volGroundR.value = 58;
+    volGroundR.value = 72;
     const fade = drive.burning ? 1 : Math.max(0, 1 - Math.max(0, drive.age - 36) / 110);
     volDensity.value = fade;
     syncVolumeSteps(tier);
@@ -589,15 +577,14 @@ export class SmokeField {
   private writeLights(drive: LaunchDrive, camX: number, camZ: number): void {
     const lights: PunctualInput[] = [];
     if (drive.burning && drive.id > 0) {
-      lights.push({ preset: 'flare', x: drive.x, y: drive.y + 7, z: drive.z, candela: 42000, range: 200 });
-      const mid = Math.min(120, Math.max(18, (drive.headY - drive.y) * 0.22));
+      lights.push({ preset: 'flare', x: drive.x, y: drive.y + 6, z: drive.z, candela: 8000, range: 64 });
       lights.push({
         preset: 'flare',
-        x: drive.x + Math.cos(drive.windDir) * mid * 0.12,
-        y: drive.y + mid,
-        z: drive.z + Math.sin(drive.windDir) * mid * 0.12,
-        candela: 9000,
-        range: 140,
+        x: drive.x + Math.cos(drive.windDir) * 8,
+        y: drive.y + 18,
+        z: drive.z + Math.sin(drive.windDir) * 8,
+        candela: 2500,
+        range: 48,
       });
     }
     for (const b of barrelLights(this.emitters, camX, camZ, 3)) {
@@ -607,35 +594,15 @@ export class SmokeField {
   }
 }
 
-/** Ground billow around the pad, kept off the lens. */
+/** Ground billow on a ring the width of the LAX street, around the pad. */
 function groundPuff(
-  drive: LaunchDrive, camX: number, camZ: number, grown: number,
+  drive: LaunchDrive, grown: number,
 ): { x: number; y: number; z: number; ring: number; ang: number } {
-  const away = Math.atan2(drive.z - camZ, drive.x - camX);
-  const side = away + Math.PI * 0.5;
-  const pick = smokeRand();
-  let ang: number;
-  let ring: number;
-  if (pick < 0.46) {
-    // Flanking billows. An up-the-tower camera never sees a cloud parked beyond the pad.
-    ang = side + (smokeRand() < 0.5 ? 0 : Math.PI) + (smokeRand() - 0.5) * 0.65;
-    ring = 14 + smokeRand() * 24 * Math.max(0.5, grown);
-  } else if (pick < 0.72) {
-    ang = away + (smokeRand() - 0.5) * 1.1;
-    ring = 16 + smokeRand() * 26 * Math.max(0.5, grown);
-  } else {
-    ang = away + Math.PI + (smokeRand() - 0.5) * 0.5;
-    ring = 12 + smokeRand() * 14;
-  }
-  let x = drive.x + Math.cos(ang) * ring;
-  let z = drive.z + Math.sin(ang) * ring;
-  if (Math.hypot(x - camX, z - camZ) < 46) {
-    ang = side + (smokeRand() - 0.5) * 0.4;
-    ring = Math.max(22, ring);
-    x = drive.x + Math.cos(ang) * ring;
-    z = drive.z + Math.sin(ang) * ring;
-  }
-  const y = drive.y + 3 + smokeRand() * (pick < 0.46 ? 14 : 7);
+  const ang = smokeRand() * Math.PI * 2;
+  const ring = (26 + smokeRand() * 28) * Math.max(0.7, grown);
+  const x = drive.x + Math.cos(ang) * ring;
+  const z = drive.z + Math.sin(ang) * ring;
+  const y = drive.y + 3 + smokeRand() * 12;
   return { x, y, z, ring, ang };
 }
 
