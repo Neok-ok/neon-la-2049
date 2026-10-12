@@ -356,11 +356,11 @@ for (const tier of tiers) {
           lateral = Math.max(p.w, p.d) * 0.72;
           aimF = 0.38;
         } else if (cross) {
-          // Steeply above the roof, slightly off a corner, so the roof cross is in plan.
-          reach = 24;
-          lateral = 28;
-          y = p.ground + p.height + 120;
-          aimF = 0.9;
+          // Just above the roof, off a corner, so both standing arms show their lit sides.
+          reach = 48;
+          lateral = 42;
+          y = p.ground + p.height + 10;
+          aimF = 1.01;
         } else if (p.kind === 'monolith') {
           reach = Math.max(p.d, p.w) * 1.15 + p.height * 0.28;
           lateral = Math.max(p.w, p.d) * 0.48;
@@ -456,7 +456,7 @@ for (const tier of tiers) {
             { dist: Math.max(p.d, p.w) * 0.62 + 16, y: p.ground + p.height * 0.4, sideM: Math.max(p.w, p.d) * 0.85, aim: 0.46 },
           ],
           lantern: [
-            { dist: 24, y: p.ground + p.height + 120, sideM: 28, aim: 0.9 },
+            { dist: 48, y: p.ground + p.height + 10, sideM: 42, aim: 1.01 },
           ],
           'hero-step': [
             { dist: Math.max(100, p.height * 0.2), y: p.ground + p.height * 0.3, sideM: Math.max(80, Math.max(p.w, p.d) * 1.2), aim: 0.4 },

@@ -410,15 +410,15 @@ function lantern(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolean
       style: Style.Glow, lit: 0.72, tint: 1.15, detail: 0, role: 'mass',
     });
   }
-  // On the roof, so a view from above sees the plan. Lips under the slab read as one bent edge.
-  const roof = y0 + H + 0.4;
+  // Vertical plates on the roof. A flat glow only lights its side faces, so the arms have to stand up.
+  const roof = y0 + H;
   addBox(d, {
-    s: 0, t: 0, lb: slabW * 0.98, la: 4.4, h: 1.35, base: roof,
-    style: Style.Glow, lit: 0.78, tint: 1.16, detail: 0, role: 'band',
+    s: 0, t: 0, lb: slabW * 0.96, la: 2.0, h: 4.2, base: roof,
+    style: Style.Glow, lit: 0.8, tint: 1.16, detail: 0, role: 'band',
   });
   addBox(d, {
-    s: 0, t: 0, lb: 4.4, la: spec.d * 0.92, h: 1.35, base: roof,
-    style: Style.Glow, lit: 0.78, tint: 1.16, detail: 0, role: 'band',
+    s: 0, t: 0, lb: 2.0, la: spec.d * 0.9, h: 4.2, base: roof,
+    style: Style.Glow, lit: 0.8, tint: 1.16, detail: 0, role: 'band',
   });
   const fins = variant === 2 ? 5 : 3;
   for (let i = 1; i <= fins; i++) {
