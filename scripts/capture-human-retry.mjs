@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 
 const OUT = '/workspace/docs/humans/after';
 const CHROME = process.env.CHROME || '/usr/bin/google-chrome';
-const ONLY = process.env.ONLY || '';
+const ONLY = new Set((process.env.ONLY || '').split(',').filter(Boolean));
 const TIER = process.env.TIER || 'both';
 const SKIP_DANCER = process.env.SKIP_DANCER === '1';
 const SKIP_DOOR = process.env.SKIP_DOOR === '1';
@@ -145,7 +145,7 @@ async function boot(quality) {
       let nearest = 1e9;
       for (const p of people()) {
         const d = Math.hypot(p.x - w.pos.x, p.z - w.pos.z);
-        if (d < 70) n++;
+        if (d < 220) n++;
         if (d < nearest) nearest = d;
       }
       return { n, nearest: nearest > 1e8 ? null : Math.round(nearest * 10) / 10, count: a.crowd.count };
@@ -215,10 +215,26 @@ async function boot(quality) {
         if (!q) continue;
         const d = Math.hypot(q.x - p.x, q.z - p.z);
         if (d < 0.28 || d > 1.3) continue;
-        moved.push({ ...q, vx: q.x - p.x, vz: q.z - p.z, travel: d });
+        const dist = Math.hypot(q.x - anchor.x, q.z - anchor.z);
+        moved.push({ ...q, vx: q.x - p.x, vz: q.z - p.z, travel: d, dist });
       }
-      moved.sort((a, b) => b.travel - a.travel);
+      moved.sort((a, b) => a.dist - b.dist || b.travel - a.travel);
       return moved.slice(0, 10);
+    };
+    H.nearestTravel = (reach) => {
+      const anchor = app().cams.walk.pos;
+      const before = people().filter((p) => Math.hypot(p.x - anchor.x, p.z - anchor.z) < reach);
+      H.step(0.42);
+      const after = new Map(people().map((p) => [p.i, p]));
+      let best = null;
+      for (const p of before) {
+        const q = after.get(p.i);
+        if (!q) continue;
+        const d = Math.hypot(q.x - p.x, q.z - p.z);
+        const dist = Math.hypot(q.x - anchor.x, q.z - anchor.z);
+        if (!best || d > best.travel) best = { travel: Math.round(d * 100) / 100, dist: Math.round(dist), i: p.i };
+      }
+      return { seen: before.length, best };
     };
     H.place = (p) => {
       const q = app().query;
@@ -272,7 +288,7 @@ async function boot(quality) {
       const box = screenBox(head, feet);
       const centered = Math.abs((head.x + feet.x) * 0.5) < 0.42 && feet.y > -0.92 && head.y < 0.92;
       return {
-        ok: travel >= 0.28 && travel <= 1.35 && span >= 0.42 && span <= 1.25 && centered,
+        ok: travel >= 0.28 && travel <= 1.35 && span >= 0.36 && span <= 1.25 && centered,
         reason: 'framed',
         travel: Math.round(travel * 100) / 100,
         span: Math.round(span * 100) / 100,
@@ -403,7 +419,21 @@ async function boot(quality) {
           }
         }
       }
-      if (!pick) return { ok: false, reason: 'no-pose', door };
+      if (!pick) {
+        let cars = 0;
+        a.scene.traverse((o) => {
+          if (!o.isInstancedMesh || (o.name !== 'ground-car' && o.name !== 'ground-van')) return;
+          const m = o.instanceMatrix.array;
+          for (let i = 0; i < Math.min(o.count, 120); i++) {
+            const x = m[i * 16 + 12];
+            const z = m[i * 16 + 14];
+            if (x > 1e5) continue;
+            const d = Math.hypot(x - door.x, z - door.z);
+            if (d < 30) cars++;
+          }
+        });
+        return { ok: false, reason: 'no-pose', door, cars, people: people().length };
+      }
       cam.position.set(pick.px, pick.gy + 1.55, pick.pz);
       cam.rotation.set(pick.pitch, -pick.yaw, 0, 'YXZ');
       cam.updateMatrixWorld();
@@ -439,11 +469,12 @@ async function go(fn, kind) {
 }
 
 async function shoot(id, tier) {
-  const reach = tier === 'ultra' ? 48 : 26;
+  const reach = 220;
   for (let attempt = 0; attempt < 6; attempt++) {
     const movers = await page.evaluate((r) => window.__retry.movers(r), reach);
     if (!movers.length) {
-      note('no mover', { id, tier, attempt });
+      const info = await page.evaluate((r) => window.__retry.nearestTravel(r), reach);
+      note('no mover', { id, tier, attempt, info });
       continue;
     }
     const who = movers[attempt % movers.length];
@@ -461,6 +492,11 @@ async function shoot(id, tier) {
     await page.screenshot({ path: tmp0, timeout: 180000, animations: 'disabled' });
     const stats = bodyStats(tmp0, locked.box);
     note('body', { id, tier, attempt, std: Math.round((stats.std || 0) * 10) / 10, span: Math.round(stats.span || 0), mean: Math.round(stats.mean || 0) });
+    if ((stats.span || 0) < 14 && attempt < 5) {
+      note('flat', { id, tier, attempt });
+      await page.evaluate(() => window.__retry.release());
+      continue;
+    }
     renameSync(tmp0, `${OUT}/${id}-${tier}-f0.png`);
     for (let f = 1; f < 4; f++) {
       await page.evaluate(() => window.__retry.step(0.42));
@@ -528,7 +564,7 @@ async function runTier(tier) {
   note('boot', tier);
   await boot(tier);
   for (const [id, fn, kinds] of DISTRICTS) {
-    if (ONLY && id !== ONLY) continue;
+    if (ONLY.size && !ONLY.has(id)) continue;
     await district(id, fn, kinds, tier);
   }
   if (!ONLY && !SKIP_DANCER) {
