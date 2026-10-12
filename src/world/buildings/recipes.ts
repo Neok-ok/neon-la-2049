@@ -219,12 +219,18 @@ function buttress(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
 
 function monolith(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolean, variant: number): void {
   const steps = variant === 1 ? 5 : 7;
+  let faceS = -spec.d / 2;
+  let faceW = spec.w;
   for (let i = 0; i < steps; i++) {
     const f0 = 1 - i * (0.72 / steps);
     const f1 = 1 - (i + 1) * (0.72 / steps);
     const h = H / steps;
     const bw = spec.w * (f0 + f1) / 2;
     const bd = spec.d * (f0 + f1) / 2;
+    if (i === 0) {
+      faceS = -bd / 2;
+      faceW = bw;
+    }
     if (i === 0 && door) {
       skin(d, {
         s: 0, t: 0, lb: bw, la: bd, h, base: y0 + h * i,
@@ -238,10 +244,12 @@ function monolith(d: Draft, spec: TowerSpec, H: number, y0: number, door: boolea
       });
     }
   }
-  const slitH = H * 0.72;
+  // The slit used to sit in the middle of the footprint, inside the stone.
+  // It belongs on the street face, starting one storey above the door.
+  const slitH = Math.min(H * 0.7, Math.max(12, H - 6));
   addBox(d, {
-    s: spec.d * 0.08, t: spec.w * 0.42, lb: 1.4, la: 1.1, h: slitH, base: y0 + H * 0.12,
-    style: Style.Slit, lit: 0.35, tint: 0.9, detail: 1, ornament: 1, role: 'mass',
+    s: faceS - 0.2, t: faceW * 0.22, lb: 1.8, la: 0.9, h: slitH, base: y0 + STOREY,
+    style: Style.Slit, lit: 0.62, tint: 1.05, detail: 0, role: 'mass',
   });
   glowCrown(d, 0, 0, spec.w * 0.12, spec.d * 0.12, y0 + H, 5);
 }
@@ -379,6 +387,10 @@ function heroGate(d: Draft, spec: TowerSpec, H: number): void {
       s: 0, t: 0, lb: gap + 2, la: 8, h: 4.2, base: y,
       style: Style.Solid, lit: 0.12, tint: spec.tint * 0.7, detail: 0, role: 'deck',
     });
+    addBox(d, {
+      s: 0, t: 0, lb: gap + 1.6, la: 8.8, h: 1.1, base: y + 2.9,
+      style: Style.Glow, lit: 0.5, tint: 1.15, detail: 0, role: 'band',
+    });
     rail(d, 0, 0, gap, 0.12, y + 4.2, spec.tint);
   }
   glowCrown(d, 0, spec.w * 0.28, slabW * 0.4, slabD * 0.3, H, 8);
@@ -391,9 +403,10 @@ function heroStep(d: Draft, spec: TowerSpec, H: number): void {
   for (let i = 0; i < steps; i++) {
     const f = 1 - i * (0.7 / steps);
     if (i === 0) {
+      // The first setback is nearly 60 m up. A windowless base reads as a void from the street.
       skin(d, {
         s: 0, t: 0, lb: spec.w * f, la: spec.d * f, h: slice, base: slice * i,
-        style: Style.Monolith, lit: 0.07, tint: spec.tint * 0.7, door: true,
+        style: Style.Megablock, lit: Math.max(0.28, spec.lit), tint: spec.tint, door: true,
       });
     } else {
       addBox(d, {

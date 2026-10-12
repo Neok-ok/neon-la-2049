@@ -86,8 +86,8 @@ export function placeLot(r: Rng, o: LotPlace): Placed | null {
 export function placeHero(kind: (typeof HERO_KINDS)[number], w: number, d: number, height: number, seed: number): Placed {
   const spec: TowerSpec = {
     kind, variant: 0, seed, height, w, d,
-    lit: kind === 'hero-step' ? 0.1 : 0.32,
-    tint: kind === 'hero-step' ? 0.48 : 0.62,
+    lit: kind === 'hero-step' ? 0.28 : 0.32,
+    tint: kind === 'hero-step' ? 0.55 : 0.62,
     plinth: 0,
     decks: [],
     phrases: [],
