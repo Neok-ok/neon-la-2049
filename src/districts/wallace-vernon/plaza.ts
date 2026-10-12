@@ -1,14 +1,19 @@
 // North forecourt: stone court, a stair onto the Stage 3 plinth, a walled causeway,
 // and a human door in front of the sealed portal. The Stage 3 pylons and glow stay.
-import { Group, InstancedBufferAttribute, InstancedMesh, Matrix4, Mesh, PlaneGeometry, Quaternion, Vector3 } from 'three/webgpu';
+import { BoxGeometry, Group, InstancedMesh, Matrix4, Mesh, MeshBasicNodeMaterial, Quaternion, Vector3 } from 'three/webgpu';
+import * as TSL from 'three/tsl';
+import { U } from '../../atmosphere/uniforms';
+import { NITS } from '../../lighting/presets.ts';
 import { retainChunk } from '../../lighting/registry.ts';
 import type { PunctualInput } from '../../lighting/validate.ts';
+import { resources } from '../../core/memory/resources';
 import { GeoWriter, type FaceStyle } from '../../world/landmarks/GeoWriter';
 import { getCityMaterial } from '../../world/materials/cityMaterial';
-import { getPoolMaterial } from '../_shared/kit/materials';
 import { Style } from '../../world/fabric/types';
 import type { LandmarkCollider } from '../../world/landmarks/registry';
 import { attachHaulers } from './haulers';
+
+const T = TSL as any;
 import {
   COURT, entranceMetrics, localToWorld, stairNorthZ,
 } from './spec';
@@ -36,37 +41,28 @@ function col(f: PlazaFrame, lx: number, lz: number, hw: number, hd: number, y0: 
   return { x, z, hw, hd, yaw: f.yaw, y0: f.y + y0, top: f.y + top };
 }
 
-function puddles(f: PlazaFrame, parent: Group): void {
-  const spots: Array<[number, number, number, number]> = [
-    [-40, -2048, 14, 7],
-    [10, -2036, 22, 10],
-    [-28, -2016, 16, 8],
-    [55, -2064, 9, 11],
-    [-90, -2010, 8, 5],
-    [18, -1992, 16, 6],
-    [120, -2055, 7, 8],
-    [-150, -2028, 11, 6],
-    [70, -2088, 6, 9],
-  ];
-  const geo = new PlaneGeometry(1, 1);
-  geo.rotateX(-Math.PI / 2);
-  const attr = new Float32Array(spots.length * 4);
-  const mesh = new InstancedMesh(geo, getPoolMaterial(), spots.length);
+/** Amber shells on the court practicals. The old puddle sheets had no lamp. */
+function lampHeads(f: PlazaFrame, parent: Group, spots: Array<[number, number, number]>): void {
+  const geo = resources.sharedGeometry('wallace-lamp-head', () => new BoxGeometry(0.72, 0.16, 0.36));
+  const mat = resources.material('wallace-lamp-head', () => {
+    const m = new MeshBasicNodeMaterial();
+    const sodium = T.vec3(1.0, 0.58, 0.16);
+    m.colorNode = sodium.mul(NITS.lampHead).mul(T.float(0.18).add(U.night.mul(0.82)));
+    return m;
+  });
+  const mesh = new InstancedMesh(geo, mat, spots.length);
   const m = new Matrix4();
   const q = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), f.yaw);
   const p = new Vector3();
-  const s = new Vector3();
+  const s = new Vector3(1, 1, 1);
   for (let i = 0; i < spots.length; i++) {
-    const [lx, lz, bw, bd] = spots[i]!;
+    const [lx, y, lz] = spots[i]!;
     const [x, z] = localToWorld(f.x, f.z, f.yaw, lx, lz);
-    mesh.setMatrixAt(i, m.compose(p.set(x, f.y + 0.16, z), q, s.set(bw, 1, bd)));
-    attr.set([0.85, 0.48, 0.16, 1.4], i * 4);
+    mesh.setMatrixAt(i, m.compose(p.set(x, f.y + y, z), q, s));
   }
-  geo.setAttribute('iLight', new InstancedBufferAttribute(attr, 4));
   mesh.instanceMatrix.needsUpdate = true;
-  mesh.name = 'wallace-puddles';
+  mesh.name = 'wallace-lamp-heads';
   mesh.frustumCulled = false;
-  mesh.renderOrder = 1;
   parent.add(mesh);
 }
 
@@ -178,7 +174,7 @@ export function buildPlaza(f: PlazaFrame, lod0: Mesh): { colliders: LandmarkColl
     return { preset: 'street-sodium', x, y: f.y + y, z, dx: 0, dy: -1, dz: 0 };
   });
   g.userData.releaseLights = retainChunk('wallace-plaza', lights);
-  puddles(f, g);
+  lampHeads(f, g, spots);
   lod0.add(g);
 
   const yRoad = f.y + 0.08;

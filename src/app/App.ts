@@ -1076,8 +1076,11 @@ export class App {
         this.cams.fly.vel.set(0, 0, 0);
         return true;
       },
-      /** Stand near the nearest street practical so the still is the pool, not the gap. */
-      lampShot: (back = 9) => {
+      /**
+       * Stand near the nearest street practical so the still is the pool, not the gap.
+       * `aside` slides the camera to its right, in metres, when a second lamp crowds the frame.
+       */
+      lampShot: (back = 12, pitchDeg = -8, aside = 0) => {
         const origin = this.cams.walk.pos;
         let best: { x: number; y: number; z: number } | null = null;
         let bestD = 1e9;
@@ -1092,13 +1095,16 @@ export class App {
         const dx = origin.x - best.x;
         const dz = origin.z - best.z;
         const len = Math.hypot(dx, dz) || 1;
-        const x = best.x + (dx / len) * back;
-        const z = best.z + (dz / len) * back;
+        const fx = dx / len;
+        const fz = dz / len;
+        // Camera looks back at the head. Right is cross(forward, up).
+        const x = best.x + fx * back + fz * aside;
+        const z = best.z + fz * back - fx * aside;
         const y = best.y - 2.6;
         const heading = Math.atan2(best.x - x, -(best.z - z));
         this.cams.fly.cockpit = true;
         if (this.cams.mode !== 'fly') this.cams.setMode('fly');
-        this.cams.setPose({ position: new Vector3(x, y, z), heading, pitch: -8 * DEG });
+        this.cams.setPose({ position: new Vector3(x, y, z), heading, pitch: pitchDeg * DEG });
         this.cams.fly.cockpit = true;
         this.cams.fly.vel.set(0, 0, 0);
         return true;

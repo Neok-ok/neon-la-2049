@@ -150,11 +150,7 @@ export function planLax(b: LaxBlock): LaxPlan {
     });
     // DEPART, CALDERA and the colony line are world signs beside the glyph board.
     // A fabric sign at this apron landed in the terminal camera and hid the hall.
-    const curb = at(b, HALL_S + HALL_A / 2 + 6, 0);
-    pools.push({
-      x: curb.x, y: b.ground + 0.08, z: curb.z, yaw: 0,
-      wid: 22, len: 8, rgb: [0.72, 0.84, 1], intensity: 0.62, rank: 1,
-    });
+    // No ground decal here: a cyan sheet on the open apron had no lamp.
   } else if (!pad && !open) {
     boxes.push(box(70, 0, 148, 64, HANGAR_H, Style.Industrial, 0.05, 0.66, 0));
     boxes.push(box(-70, 0, 148, 64, HANGAR_H, Style.Industrial, 0.04, 0.62, 0));
