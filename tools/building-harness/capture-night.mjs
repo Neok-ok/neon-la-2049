@@ -385,11 +385,11 @@ for (const tier of tiers) {
           y = p.ground + Math.min(120, Math.max(70, p.height * 0.4));
           aimF = 0.58;
         } else if (cross) {
-          // Just above the roof, off a corner, so both standing arms show their lit sides.
-          reach = 56;
-          lateral = 48;
-          y = p.ground + p.height + 4;
-          aimF = 1.002;
+          // Level with the standing bars. A camera above the roof sees the dark tops.
+          reach = 44;
+          lateral = 32;
+          y = p.ground + p.height + 2.6;
+          aimF = (p.height + 1.09) / p.height;
         } else if (p.kind === 'monolith') {
           // This pose keeps the street slit in frame. A wider corner lost the slit on a neighbour.
           reach = Math.max(p.d, p.w) * 1.05 + 40;
@@ -497,7 +497,7 @@ for (const tier of tiers) {
             { dist: Math.max(p.d, p.w) * 0.62 + 16, y: p.ground + p.height * 0.4, sideM: Math.max(p.w, p.d) * 0.85, aim: 0.46 },
           ],
           lantern: [
-            { dist: 56, y: p.ground + p.height + 4, sideM: 48, aim: 1.002 },
+            { dist: 44, y: p.ground + p.height + 2.6, sideM: 32, aim: (p.height + 1.09) / p.height },
           ],
           'hero-step': [
             { dist: Math.max(100, p.height * 0.2), y: p.ground + p.height * 0.3, sideM: Math.max(80, Math.max(p.w, p.d) * 1.2), aim: 0.4 },
@@ -545,7 +545,7 @@ for (const tier of tiers) {
           for (let i = 0; i < 6; i++) {
             px = p.center[0] + p.normal[0] * dist * face + p.bx * sideM;
             pz = p.center[1] + p.normal[1] * dist * face + p.bz * sideM;
-            if (p.kind === 'hero-obelisk' || p.kind === 'hero-gate' || p.kind === 'holo-shaft') break;
+            if (p.kind === 'hero-obelisk' || p.kind === 'hero-gate' || p.kind === 'holo-shaft' || p.kind === 'lantern') break;
             if (p.kind === 'monolith' || p.kind === 'ziggurat') {
               const blocked = q.insideSolid(px, y, pz, 6) || q.insideLandmark(px, y, pz, 8);
               if (!blocked) break;

@@ -202,7 +202,9 @@ export function skin(d: Draft, o: Skin): void {
     style: soffit.style, lit: soffit.lit, tint: soffit.tint,
     detail: 1, ornament: 1, role: 'door-header',
   });
-  // Lit jambs sit just outside the 2.2 m opening so the doorway reads at night.
+  // A glow pane starts 0.63 m above its own base (4.5 m cell, sill at 0.14).
+  // Bury that dark sill so the lit face runs from the floor to the 2.2 m head.
+  const paneSill = 0.63;
   const outer = ss - thick / 2;
   const glow: Omit<BBox, 's' | 't' | 'lb' | 'la' | 'h' | 'base'> = {
     style: soffit.style, lit: soffit.lit, tint: soffit.tint, detail: 1, ornament: 1,
@@ -211,13 +213,15 @@ export function skin(d: Draft, o: Skin): void {
     addBox(d, {
       ...glow,
       s: outer - 0.04, t: doorAt + side * (DOOR_W / 2 + 0.1),
-      lb: 0.16, la: 0.1, h: DOOR_H, base, role: 'door-jamb',
+      lb: 0.16, la: 0.1, h: DOOR_H + paneSill, base: base - paneSill, role: 'door-jamb',
     });
   }
-  // The mass behind the opening is a window wall. A dark plate keeps the 2.2 m hole readable.
+  // The mass behind the opening is a window wall. Sit the lit plate in the
+  // hole, in front of that mass, so a 1.80 m figure reads against a 2.2 m doorway.
   addBox(d, {
-    s: s - la / 2 + thick + 0.1, t: doorAt, lb: DOOR_W - 0.08, la: 0.12, h: DOOR_H - 0.04, base: base + 0.02,
-    style: Style.Solid, lit: 0.03, tint: tint * 0.35, detail: 0, role: 'mass',
+    s: s - la / 2 + thick - 0.08, t: doorAt, lb: DOOR_W - 0.08, la: 0.12,
+    h: DOOR_H + paneSill, base: base - paneSill,
+    style: Style.Glow, lit: 0.9, tint: 1.02, detail: 0, role: 'mass',
   });
 }
 

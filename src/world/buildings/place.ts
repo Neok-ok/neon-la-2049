@@ -134,7 +134,8 @@ export function emitPlaced(ctx: FabricCtx, placed: Placed): number {
       lit: b.lit,
       tint: b.tint,
       detail: b.detail,
-      base: b.base > 0.05 ? b.base : undefined,
+      // Negative bases bury a glow sill under the floor. Zero still means "on the ground".
+      base: b.base > 0.05 || b.base < -0.02 ? b.base : undefined,
     });
     if (!made) continue;
     made.kit = true;
