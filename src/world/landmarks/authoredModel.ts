@@ -128,6 +128,8 @@ function dressMaterial(src: Material, mesh: Mesh, kind: LandmarkKind, lod: Landm
     if (role === 'glass') {
       m.transparent = true;
       m.opacity = 0.72;
+      m.emissive = new Color(0.42, 0.58, 0.78);
+      m.emissiveIntensity = 0.55;
     }
     // Rain darkens the roughness. The albedo stays the trim sheet.
     m.roughnessNode = T.mix(T.materialRoughness, T.float(wet), U.wetness);

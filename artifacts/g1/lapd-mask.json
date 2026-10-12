@@ -1,0 +1,39 @@
+{
+  "done": true,
+  "error": null,
+  "size": {
+    "x": 132.00157051768,
+    "y": 223.0200037092,
+    "z": 165.00111238032
+  },
+  "tris": 2704,
+  "mode": "silhouette",
+  "tiles": [],
+  "panels": [
+    {
+      "id": "side",
+      "x": 0,
+      "y": 0,
+      "w": 682,
+      "h": 900,
+      "note": "Structural envelope of the landmark, the same boxes the mesh is booleaned from. Film frames are perspective and are not this orthographic trace. They sit beside the turntable. No published building ortho exists."
+    },
+    {
+      "id": "front",
+      "x": 0,
+      "y": 900,
+      "w": 558,
+      "h": 900,
+      "note": "Structural envelope of the landmark, the same boxes the mesh is booleaned from. Film frames are perspective and are not this orthographic trace. They sit beside the turntable. No published building ortho exists."
+    },
+    {
+      "id": "top",
+      "x": 0,
+      "y": 1800,
+      "w": 682,
+      "h": 558,
+      "note": "Structural envelope of the landmark, the same boxes the mesh is booleaned from. Film frames are perspective and are not this orthographic trace. They sit beside the turntable. No published building ortho exists."
+    }
+  ],
+  "scale": null
+}

@@ -40,8 +40,8 @@
     "plinthH": null,
     "tris": {
       "low": 195,
-      "high": 681,
-      "medium": 411
+      "high": 787,
+      "medium": 583
     }
   },
   "hall": {
@@ -84,9 +84,9 @@
     "apex": null,
     "plinthH": null,
     "tris": {
-      "high": 2216,
-      "medium": 1172,
-      "low": 182
+      "high": 2270,
+      "medium": 1196,
+      "low": 206
     }
   },
   "wallace": {
@@ -111,9 +111,9 @@
     "apex": 210.0,
     "plinthH": 3,
     "tris": {
-      "high": 790,
-      "medium": 316,
-      "low": 232
+      "high": 2704,
+      "medium": 318,
+      "low": 234
     }
   }
 }

@@ -199,7 +199,7 @@ def paint_corners(obj, tint):
         poly.use_smooth = False
 
 
-def finish_shell(obj, mat, tint, tile=8.0):
+def finish_shell(obj, mat, tint, tile=16.0):
     obj.data.materials.clear()
     obj.data.materials.append(mat)
     project_uvs(obj, tile)
@@ -233,11 +233,11 @@ def bake_meshes(kind):
             paint_corners(obj, tint)
 
 
-def wire_maps(mat, size):
+def wire_maps(mat, size, kind):
     nt = mat.node_tree
     bsdf = next(n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED')
     bsdf.inputs['Base Color'].default_value = (1, 1, 1, 1)
-    bsdf.inputs['Metallic'].default_value = 0.04
+    bsdf.inputs['Metallic'].default_value = 0.02
     bsdf.inputs['Roughness'].default_value = 1.0
 
     def tex(path, noncolor):
@@ -247,7 +247,7 @@ def wire_maps(mat, size):
         node.image = image
         return node
 
-    alb = tex(os.path.join(MAPS, f'concrete-albedo-{size}.jpg'), False)
+    alb = tex(os.path.join(MAPS, f'{kind}-albedo-{size}.jpg'), False)
     # glTF only keeps a vertex colour that reaches Base Color through a Mix
     # (RGBA, MULTIPLY) or a direct Vertex Color node. A Vector Math node is dropped.
     tint = nt.nodes.new('ShaderNodeVertexColor')
@@ -261,12 +261,13 @@ def wire_maps(mat, size):
     nt.links.new(alb.outputs['Color'], mix.inputs[6])
     nt.links.new(tint.outputs['Color'], mix.inputs[7])
     nt.links.new(mix.outputs[2], bsdf.inputs['Base Color'])
-    nrm = tex(os.path.join(MAPS, f'concrete-normal-{size}.png'), True)
+    nrm = tex(os.path.join(MAPS, f'{kind}-normal-{size}.png'), True)
     nmap = nt.nodes.new('ShaderNodeNormalMap')
-    nmap.inputs['Strength'].default_value = 0.55
+    # Limestone beds stay shallow. Ashlar joints need enough relief to catch the rim.
+    nmap.inputs['Strength'].default_value = {'lapd': 0.9, 'hall': 0.7, 'wallace': 1.2}[kind]
     nt.links.new(nrm.outputs['Color'], nmap.inputs['Color'])
     nt.links.new(nmap.outputs['Normal'], bsdf.inputs['Normal'])
-    rg = tex(os.path.join(MAPS, f'concrete-rough-{size}.jpg'), True)
+    rg = tex(os.path.join(MAPS, f'{kind}-rough-{size}.jpg'), True)
     nt.links.new(rg.outputs['Color'], bsdf.inputs['Roughness'])
 
 
@@ -373,12 +374,12 @@ def glass_box(cx, cz, y, w, d, h, mat):
     return ob
 
 
-def curtain_z(mat, face_z, outward, x0, x1, y0, y1, slot_h, pitch):
+def curtain_z(mat, face_z, outward, x0, x1, y0, y1, slot_h, pitch, sink=0.0):
     """Horizontal slots on a z=constant wall. Each pane straddles the stone."""
     sign = -1 if outward < 0 else 1
     thick = 0.1
-    # 4 cm inside, 6 cm outside, so the pane meets the shell after packing.
-    cz = face_z + sign * 0.01
+    # sink moves the pane into a reveal. The back of the pane still meets the cut.
+    cz = face_z + sign * 0.01 - sign * sink
     y = y0
     guard = 0
     while y + slot_h <= y1 + 0.01 and guard < 40:
@@ -388,10 +389,10 @@ def curtain_z(mat, face_z, outward, x0, x1, y0, y1, slot_h, pitch):
     glass_box((x0 + x1) * 0.5, cz, y0, 0.35, thick, max(0.4, y1 - y0), mat)
 
 
-def curtain_x(mat, face_x, outward, z0, z1, y0, y1, slot_h, pitch):
+def curtain_x(mat, face_x, outward, z0, z1, y0, y1, slot_h, pitch, sink=0.0):
     sign = -1 if outward < 0 else 1
     thick = 0.1
-    cx = face_x + sign * 0.01
+    cx = face_x + sign * 0.01 - sign * sink
     y = y0
     guard = 0
     while y + slot_h <= y1 + 0.01 and guard < 40:
@@ -401,20 +402,18 @@ def curtain_x(mat, face_x, outward, z0, z1, y0, y1, slot_h, pitch):
     glass_box(cx, (z0 + z1) * 0.5, y0, thick, 0.35, max(0.4, y1 - y0), mat)
 
 
-def slits_z(mat, face_z, outward, xs, y0, height, slit_w):
+def slits_z(mat, face_z, outward, xs, y0, height, slit_w, sink=0.0):
     sign = -1 if outward < 0 else 1
-    cz = face_z + sign * 0.01
+    cz = face_z + sign * 0.01 - sign * sink
     for x in xs:
         glass_box(x, cz, y0, slit_w, 0.1, height, mat)
-    glass_box(0, cz, y0 + height * 0.45, max(xs) - min(xs) + slit_w, 0.1, 0.4, mat)
 
 
-def slits_x(mat, face_x, outward, zs, y0, height, slit_w):
+def slits_x(mat, face_x, outward, zs, y0, height, slit_w, sink=0.0):
     sign = -1 if outward < 0 else 1
-    cx = face_x + sign * 0.01
+    cx = face_x + sign * 0.01 - sign * sink
     for z in zs:
         glass_box(cx, z, y0, 0.1, slit_w, height, mat)
-    glass_box(cx, 0, y0 + height * 0.45, 0.1, max(zs) - min(zs) + slit_w, 0.4, mat)
 
 
 # ---------------------------------------------------------------- LAPD
@@ -424,9 +423,82 @@ HQ = dict(height=216, podiumW=86, podiumD=118, podiumH=18, shaftW=72, shaftD=100
 SHAFT_Y = HQ['height'] - HQ['crownH']
 
 
+def _h2(ix, iy):
+    n = (int(ix) * 374761393 + int(iy) * 668265263) & 0xFFFFFFFF
+    n = (n ^ (n >> 13)) * 1274126177 & 0xFFFFFFFF
+    return ((n ^ (n >> 16)) & 255) / 255.0
+
+
+def blot(x, y, scale):
+    fx, fy = x / scale, y / scale
+    x0, y0 = math.floor(fx), math.floor(fy)
+    tx, ty = fx - x0, fy - y0
+    sx, sy = tx * tx * (3 - 2 * tx), ty * ty * (3 - 2 * ty)
+    return (
+        _h2(x0, y0) * (1 - sx) * (1 - sy)
+        + _h2(x0 + 1, y0) * sx * (1 - sy)
+        + _h2(x0, y0 + 1) * (1 - sx) * sy
+        + _h2(x0 + 1, y0 + 1) * sx * sy
+    )
+
+
+def weather(x, y, z):
+    """Large stains in metres, so the 16 m tile does not repeat as a panel."""
+    return 0.90 + 0.10 * blot(x + z * 0.17, y * 0.45, 34.0)
+
+
 def tint_lapd(x, y, z):
-    grime = 0.72 if y < 6 else 0.84 if y < 22 else 1.0
-    return (0.40 * grime, 0.44 * grime, 0.50 * grime)
+    # The sheet is already dark concrete. Tint only stains the base and the crown.
+    if y > SHAFT_Y:
+        tone = 0.78
+    elif y < 8:
+        tone = 0.70
+    else:
+        tone = 0.92
+    tone *= weather(x, y, z)
+    return (tone * 0.94, tone * 0.97, tone)
+
+
+def cut_reveal_z(mass, face_z, inward, x, y, w, h, depth):
+    """inward is +1 when +Z enters the stone. The cut starts just outside the face."""
+    cz = face_z + inward * (depth * 0.5 - 0.04)
+    mass.cut(x, cz, y, w, depth, h)
+
+
+def cut_reveal_x(mass, face_x, inward, z, y, d, h, depth):
+    cx = face_x + inward * (depth * 0.5 - 0.04)
+    mass.cut(cx, z, y, depth, d, h)
+
+
+def lapd_reveals(mass):
+    depth = 1.2
+    y, h, w = 30.0, 114.0, 4.8
+    north, south = -HQ['shaftD'] / 2, HQ['shaftD'] / 2
+    east, west = HQ['shaftW'] / 2, -HQ['shaftW'] / 2
+    for x in (-18, -9, 9, 18):
+        cut_reveal_z(mass, north, 1, x, y, w, h, depth)
+        cut_reveal_z(mass, south, -1, x, y, w, h, depth)
+    for z in (-24, -8, 8, 24):
+        cut_reveal_x(mass, east, -1, z, y, w, h, depth)
+        cut_reveal_x(mass, west, 1, z, y, w, h, depth)
+
+
+def lapd_deck(mass):
+    """Wells in the carrier deck. They stay off the mast and off the four pads."""
+    y, h = HQ['height'] - 2.0, 2.5
+    mass.cut(-31.5, 0, y, 55, 40, h)
+    mass.cut(31.5, 0, y, 55, 40, h)
+    mass.cut(0, -50, y, 28, 40, h)
+    mass.cut(0, 50, y, 28, 40, h)
+
+
+def lapd_courses(mass):
+    """3.6 m-class joints on the entrance face, kept clear of the door leaf."""
+    face = -HQ['podiumD'] / 2
+    depth = 0.32
+    for y in (0.4, 3.5, 9.1, 12.7, 16.15):
+        cz = face + (depth * 0.5 - 0.03)
+        mass.cut(0, cz, y, HQ['podiumW'] - 6, depth, 0.18)
 
 
 def build_lapd(kit, rank):
@@ -441,9 +513,9 @@ def build_lapd(kit, rank):
     mass.frustum(0, 0, SHAFT_Y - 0.08, HQ['shaftW'], HQ['shaftD'], HQ['crownW'], HQ['crownD'], HQ['crownH'] + 0.08)
     for lx, lz in ((-28, -38), (28, -38), (-28, 38), (28, 38)):
         mass.box(lx, lz, HQ['height'] - 0.05, HQ['pad'], HQ['pad'], HQ['padH'] + 0.05)
-    # The mast stands on the crown, not on a gap above it. Tip stays at roof + pad + 6 m.
+    # Beacon housing on the crown. A 1.4 m stick read as a loose fin.
     mast_top = HQ['height'] + HQ['padH'] + 6
-    mass.box(0, 0, HQ['height'] - 0.4, 1.4, 1.4, mast_top - (HQ['height'] - 0.4), record=True)
+    mass.box(0, 0, HQ['height'] - 0.4, 4.2, 4.2, mast_top - (HQ['height'] - 0.4), record=True)
     # Mechanical belts. They sit outside the shaft, so they are in the silhouette.
     if rank >= 1:
         mass.box(0, 0, 58, HQ['shaftW'] + 1.2, HQ['shaftD'] + 1.2, 4.2)
@@ -458,18 +530,24 @@ def build_lapd(kit, rank):
             for lz in (-56.2, -50.4, -45.2):
                 mass.box(lx, lz, HQ['lobbyFloor'], 0.9, 0.9, HQ['lobbyCeil'] - HQ['lobbyFloor'] - 0.15, record=False)
         mass.fuse()
+    if rank >= 1:
+        lapd_reveals(mass)
+        lapd_deck(mass)
+        lapd_courses(mass)
     finish_shell(host, kit.body, tint_lapd)
     face = -HQ['shaftD'] / 2
     podium_face = -HQ['podiumD'] / 2
+    sink = 1.13
     if rank >= 1:
-        slits_z(kit.glass, face, -1, (-18, -9, 9, 18), 32, 108, 3.4)
-        slits_z(kit.glass, -face, 1, (-18, -9, 9, 18), 32, 108, 3.4)
-        slits_x(kit.glass, HQ['shaftW'] / 2, 1, (-24, -8, 8, 24), 32, 108, 3.4)
-        slits_x(kit.glass, -HQ['shaftW'] / 2, -1, (-24, -8, 8, 24), 32, 108, 3.4)
+        slits_z(kit.glass, face, -1, (-18, -9, 9, 18), 32, 108, 3.4, sink)
+        slits_z(kit.glass, -face, 1, (-18, -9, 9, 18), 32, 108, 3.4, sink)
+        slits_x(kit.glass, HQ['shaftW'] / 2, 1, (-24, -8, 8, 24), 32, 108, 3.4, sink)
+        slits_x(kit.glass, -HQ['shaftW'] / 2, -1, (-24, -8, 8, 24), 32, 108, 3.4, sink)
         place_lamp(kit, 'band-door', 0, 9.2, podium_face, (0, 0, -1), 42, 1.6, 'white')
         place_lamp(kit, 'band-shaft', 0, 30, face, (0, 0, -1), 52, 2.4, 'white')
         for lx, lz in ((-28, -38), (28, -38), (-28, 38), (28, 38)):
             place_lamp(kit, f'pad-{lx}-{lz}', lx, HQ['height'] + HQ['padH'], lz - 10.2, (0, 1, 0), 18, 0.45, 'amber')
+        place_lamp(kit, 'mast', 0, HQ['height'] + HQ['padH'] + 6, 0, (0, 1, 0), 2.4, 0.4, 'amber')
     if rank >= 2:
         for i, y in enumerate(range(24, 150, 12)):
             # The mechanical belts sit outside the shaft. A seam under a belt is buried.
@@ -478,8 +556,6 @@ def build_lapd(kit, rank):
             place_seam(kit, f'seam-{i}', 0, y, face, (0, 0, -1), 60)
         place_vent(kit, 'vent-a', -30, 70, face, (0, 0, -1), 6.5, 3.2)
         place_vent(kit, 'vent-b', 30, 124, face, (0, 0, -1), 6.5, 3.2)
-        place_greeble(kit, 'greeble-l', -38, 10, podium_face, (0, 0, -1), 3)
-        place_greeble(kit, 'greeble-r', 38, 10, podium_face, (0, 0, -1), 7)
         place_decal(kit, 'mark', 0, 14.5, podium_face, (0, 0, -1), 8, 14)
     door_clear = gap_at(host, (0, 59.15, HQ['lobbyFloor'] + 1.1))
     tread_clear = gap_at(host, (0, -(-z0 - flight['run'] * 0.5 + flight['run'] / flight['risers'] * 0.5), 0.18 + flight['rise']))
@@ -505,12 +581,37 @@ HALL = dict(height=138, baseW=92, baseD=62, baseH=28, shaft=34, shaftTop=100,
 def tint_hall(x, y, z):
     stone = y >= 27.2 and max(abs(x), abs(z)) <= 22
     if y > 132:
-        return (0.72, 0.58, 0.36)
+        return (0.95, 0.78, 0.48)
     if stone:
-        grime = 0.9 if y < 36 else 1.0
-        return (0.78 * grime, 0.74 * grime, 0.66 * grime)
-    grime = 0.75 if y < 4 else 1.0
-    return (0.26 * grime, 0.28 * grime, 0.30 * grime)
+        # Near-white multiplier. The limestone sheet carries the colour.
+        damp = 0.97 + 0.03 * blot(x + z * 0.2, y * 0.3, 28.0)
+        return (0.98 * damp, 1.0 * damp, 0.97 * damp)
+    grime = 0.84 if y < 6 else 1.0
+    damp = weather(x, y, z)
+    tone = 0.30 * grime * damp
+    return (tone * 0.86, tone * 0.90, tone * 0.96)
+
+
+def hall_courses(mass, face):
+    depth = 0.42
+    for y in (0.55, 8.4, 13.6, 19.2, 24.6):
+        cz = face - (depth * 0.5 - 0.03)
+        mass.cut(0, cz, y, HALL['baseW'] - 8, depth, 0.24)
+
+
+def hall_bays(mass):
+    """Full-height recesses between the piers, so the windows sit in stone."""
+    depth = 0.48
+    half = HALL['shaft'] / 2
+    gaps = ((-10.6, -6.8), (-5.2, -0.8), (0.8, 5.2), (6.8, 10.6))
+    y, h = 31.0, 66.0
+    for a, b in gaps:
+        mid = (a + b) * 0.5
+        span = (b - a) - 0.15
+        cut_reveal_z(mass, half, -1, mid, y, span, h, depth)
+        cut_reveal_z(mass, -half, 1, mid, y, span, h, depth)
+        cut_reveal_x(mass, half, -1, mid, y, span, h, depth)
+        cut_reveal_x(mass, -half, 1, mid, y, span, h, depth)
 
 
 def build_hall(kit, rank):
@@ -525,8 +626,8 @@ def build_hall(kit, rank):
     # Stepped pyramid inside the published 24 m → 4.2 m envelope.
     y0, y1 = HALL['neckTop'], HALL['pyramidTop']
     w_base, w_top = HALL['neck'] - 2, 4.2
-    # Low keeps the same taper. One full-width block sticks out of the high envelope.
-    steps = 5
+    # Same taper on every LOD. Nine courses read as the tower crown; one block does not.
+    steps = 9
     for i in range(steps):
         ya = y0 + (y1 - y0) * i / steps
         yb = y0 + (y1 - y0) * (i + 1) / steps
@@ -556,18 +657,23 @@ def build_hall(kit, rank):
     face = HALL['baseD'] / 2
     mass.cut(0, 28.0, 3.65, 11.6, 4.8, 6.5)
     mass.cut(0, 30.85, 3.6, 2.2, 1.8, DOOR_H)
+    if rank >= 2:
+        hall_courses(mass, face)
+        hall_bays(mass)
     finish_shell(host, kit.body, tint_hall)
     if rank >= 1:
         pitch = STOREY if rank >= 2 else STOREY * 2
+        slot_h = 2.85 if rank >= 2 else 2.4
         half = HALL['shaft'] / 2
         # Piers cover x/z = -12,-6,0,6,12. A pane whose samples land on a pier
         # never sees the shaft face. The gaps between the piers are the glass.
         gaps = ((-10.6, -6.8), (-5.2, -0.8), (0.8, 5.2), (6.8, 10.6))
+        sink = 0.41 if rank >= 2 else 0.0
         for a, b in gaps:
-            curtain_z(kit.glass, half, 1, a, b, 32, 96, 2.2, pitch)
-            curtain_z(kit.glass, -half, -1, a, b, 32, 96, 2.2, pitch)
-            curtain_x(kit.glass, half, 1, a, b, 32, 96, 2.2, pitch)
-            curtain_x(kit.glass, -half, -1, a, b, 32, 96, 2.2, pitch)
+            curtain_z(kit.glass, half, 1, a, b, 32, 96, slot_h, pitch, sink)
+            curtain_z(kit.glass, -half, -1, a, b, 32, 96, slot_h, pitch, sink)
+            curtain_x(kit.glass, half, 1, a, b, 32, 96, slot_h, pitch, sink)
+            curtain_x(kit.glass, -half, -1, a, b, 32, 96, slot_h, pitch, sink)
         place_lamp(kit, 'hall-door', 0, 8.6, face, (0, 0, 1), 16, 0.7, 'amber')
         place_lamp(kit, 'hall-neck', 0, HALL['neckTop'] - 2.2, HALL['neck'] / 2, (0, 0, 1), HALL['neck'] - 4, 0.7, 'amber')
     if rank >= 2:
@@ -612,9 +718,48 @@ def step_profile(i):
 
 
 def tint_wallace(x, y, z):
-    grime = 0.82 if y < 40 else 1.0
-    warm = max(0.0, min(1.0, (y - 3100) / 400))
-    return ((0.07 + 0.06 * warm) * grime, (0.07 + 0.04 * warm) * grime, 0.075 * grime)
+    # Sheet is blue-grey ashlar. Large stains sit in the vertex colour so a 256 m
+    # tile does not repeat as one tone across a 3 km face.
+    stain = 0.84 + 0.16 * blot(x * 0.05 + z * 0.02, y * 0.012, 48.0)
+    if y < 140:
+        stain *= 0.86
+    elif y > 3300:
+        stain = min(1.0, stain * 1.06)
+    tone = min(1.0, 0.98 * stain)
+    return (tone * 0.96, tone * 0.99, tone)
+
+
+def _joint_boxes(face, offset):
+    """One channel, one box per riser, so the slots line up along the batter."""
+    boxes = []
+    for step in range(1, PY_N - 1):
+        y0, y1, wb, wt = step_profile(step)
+        t = 0.5
+        half_w = (wb + (wt - wb) * t) * 0.5
+        along = offset * half_w
+        slot = max(42.0, half_w * 0.085)
+        depth = max(16.0, half_w * 0.02)
+        y = y0 + (y1 - y0) * 0.05
+        h = (y1 - y0) * 0.90
+        if face == 'n':
+            boxes.append(make_box('j', along, -half_w + depth * 0.5 - 0.4, y, slot, depth, h))
+        elif face == 's':
+            boxes.append(make_box('j', along, half_w - depth * 0.5 + 0.4, y, slot, depth, h))
+        elif face == 'e':
+            boxes.append(make_box('j', half_w - depth * 0.5 + 0.4, along, y, depth, slot, h))
+        else:
+            boxes.append(make_box('j', -half_w + depth * 0.5 - 0.4, along, y, depth, slot, h))
+    return boxes
+
+
+def wallace_joints(mass):
+    """Vertical channels on every face. A 28 m nick did not read on a 3 km pyramid."""
+    host = mass.solids[0]
+    for face in ('n', 's', 'e', 'w'):
+        for offset in (-0.56, -0.18, 0.18, 0.56):
+            cutter = unite(_joint_boxes(face, offset))
+            print('joint', face, offset, flush=True)
+            bool_op(host, cutter, 'DIFFERENCE')
 
 
 def build_wallace(kit, rank):
@@ -635,7 +780,10 @@ def build_wallace(kit, rank):
     mass.box(0, 0, cap_y - 0.2, PY_TOP * 1.02, PY_TOP * 1.02, cap_h + 0.2)
     mass.box(0, 0, crown_y - 0.15, PY_TOP * 0.62, PY_TOP * 0.62, crown_h + 0.15)
     mass.box(0, 0, roof_y - 0.1, PY_TOP * 0.3, PY_TOP * 0.3, roof_h + 0.1)
-    mass.frustum(0, 0, mast_y - 0.2, 12, 12, 3, 3, 110.2)
+    # Beacon mast. A 3 m tip read as a loose spike. This obelisk is the same 110 m
+    # and still sits on the roof. The strobe in the district code lands on the tip.
+    mass.box(0, 0, mast_y - 6, 36, 36, 18)
+    mass.frustum(0, 0, mast_y + 10, 18, 18, 10, 10, 100)
     # The lantern bay is a gap. Posts carry the cap so the apex is one shell.
     post = 48
     arm = PY_TOP * 0.42
@@ -649,9 +797,13 @@ def build_wallace(kit, rank):
     for s in (-1, 1):
         mass.box(s * (portal_w / 2 + 30), -(half + 40), 0, 60, 80, portal_h * 1.55)
     mass.box(0, -(half + 40), portal_h, portal_w + 120, 80, 36)
-    mass.box(0, -(half + 200), 0, portal_w * 2.2, 320, 3)
+    # The 3 m plinth stays on the plaza mesh. A copy in this shell sat 40 m off
+    # the face and read as a loose plate.
     host = mass.fuse()
-    finish_shell(host, kit.body, tint_wallace, tile=48.0)
+    if rank >= 2:
+        wallace_joints(mass)
+    # 256 m tile: the ashlar blocks stay large enough to read beside the still.
+    finish_shell(host, kit.body, tint_wallace, tile=256.0)
     # Bright portal. Light material, so the stray silhouette ignores it.
     # It is deep enough to read as a mouth and it intersects the stone.
     portal = make_box('portal', 0, -(half + 6), 0, portal_w * 0.92, 18, portal_h * 0.92)
@@ -660,6 +812,8 @@ def build_wallace(kit, rank):
     # A box buried through the bay has no sample on either face.
     lantern = make_box('lantern', 0, 0, y_a, PY_TOP * 0.5, PY_TOP * 0.5, cap_y - y_a)
     lantern.data.materials.append(kit.lights['amber'])
+    beacon = make_box('beacon', 0, 0, mast_y + 94, 8, 8, 16)
+    beacon.data.materials.append(kit.lights['amber'])
     if rank >= 1:
         # Warm lip on the battered face, not on the mathematical top width.
         # The face leans in about 0.18 m per metre; a vertical box at the
@@ -679,25 +833,6 @@ def build_wallace(kit, rank):
                 place_lamp(kit, f'tier-{tier}-w', -half_w, y, 0, (-1, shrink, 0), length, 6, 'amber')
     if rank >= 2:
         place_decal(kit, 'diamond', 0, portal_h + 18, -(half + 40 + 40), (0, 0, -1), 40, 80, z_scale=100, lift=-0.25)
-        # Vertical channels, the joints on the film miniature. They follow the batter.
-        for step in (4, 10, 16):
-            y0, y1, wb, wt = step_profile(step)
-            y = (y0 + y1) * 0.5
-            half_w = (wb + (wt - wb) * 0.5) * 0.5
-            shrink = (wb - wt) * 0.5 / max(1e-6, y1 - y0)
-            for face_i, (normal, axis) in enumerate((
-                ((0, shrink, -1), 'x'),
-                ((0, shrink, 1), 'x'),
-                ((1, shrink, 0), 'z'),
-                ((-1, shrink, 0), 'z'),
-            )):
-                for k, offset in enumerate((-0.28, 0.0, 0.28)):
-                    if axis == 'x':
-                        point = (offset * half_w, y, -half_w if normal[2] < 0 else half_w)
-                    else:
-                        point = (-half_w if normal[0] < 0 else half_w, y, offset * half_w)
-                    part = kit.seam(f'groove-{step}-{face_i}-{k}', 18, width=36, depth=0.2)
-                    kit.place(part, bl_point(*point), normal=bl_normal(*normal), lift=-0.1)
     return {
         'parts': mass.parts,
         'flight': None,
@@ -898,13 +1033,25 @@ def count_tris():
     return total
 
 
+def tune_glass(mat):
+    """Cool office glass. The kit default is a black spinner canopy."""
+    bsdf = next(n for n in mat.node_tree.nodes if n.type == 'BSDF_PRINCIPLED')
+    bsdf.inputs['Base Color'].default_value = (0.22, 0.28, 0.34, 1.0)
+    bsdf.inputs['Roughness'].default_value = 0.14
+    bsdf.inputs['Metallic'].default_value = 0.38
+    bsdf.inputs['Emission Color'].default_value = (0.55, 0.72, 0.92, 1.0)
+    bsdf.inputs['Emission Strength'].default_value = 0.85
+
+
 def build_one(kind, lod):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     size = MAP_SIZE[lod]
-    if not os.path.isfile(os.path.join(MAPS, f'concrete-albedo-{size}.jpg')):
-        subprocess.check_call(['python3', os.path.join(HERE, 'paint_landmark_maps.py'), str(size)])
+    albedo = os.path.join(MAPS, f'{kind}-albedo-{size}.jpg')
+    if not os.path.isfile(albedo):
+        subprocess.check_call(['python3', os.path.join(HERE, 'paint_landmark_maps.py'), str(size), kind])
     kit = Kit()
-    wire_maps(kit.body, size)
+    tune_glass(kit.glass)
+    wire_maps(kit.body, size, kind)
     wire_decal(kit.livery, os.path.join(MAPS, f'decal-{kind}.png'))
     report = BUILDERS[kind](kit, RANK[lod])
     if report.get('doorClearM') is not None and report['doorClearM'] < 0.6:

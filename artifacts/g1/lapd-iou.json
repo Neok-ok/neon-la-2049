@@ -1,0 +1,42 @@
+{
+  "views": {
+    "side": {
+      "iou": 0.9992774503319941,
+      "intersection": 342981,
+      "union": 343229,
+      "onlyRef": 109,
+      "onlyModel": 139,
+      "source": "Structural envelope of the landmark, the same boxes the mesh is booleaned from. Film frames are perspective and are not this orthographic trace. They sit beside the turntable. No published building ortho exists.",
+      "photo": false,
+      "note": "Structural envelope of the landmark, the same boxes the mesh is booleaned from. Film frames are perspective and are not this orthographic trace. They sit beside the turntable. No published building ortho exists."
+    },
+    "front": {
+      "iou": 0.99907520481842,
+      "intersection": 252795,
+      "union": 253029,
+      "onlyRef": 78,
+      "onlyModel": 156,
+      "source": "Structural envelope of the landmark, the same boxes the mesh is booleaned from. Film frames are perspective and are not this orthographic trace. They sit beside the turntable. No published building ortho exists.",
+      "photo": false,
+      "note": "Structural envelope of the landmark, the same boxes the mesh is booleaned from. Film frames are perspective and are not this orthographic trace. They sit beside the turntable. No published building ortho exists."
+    },
+    "top": {
+      "iou": 0.999635329768386,
+      "intersection": 309756,
+      "union": 309869,
+      "onlyRef": 0,
+      "onlyModel": 113,
+      "source": "Structural envelope of the landmark, the same boxes the mesh is booleaned from. Film frames are perspective and are not this orthographic trace. They sit beside the turntable. No published building ortho exists.",
+      "photo": false,
+      "note": "Structural envelope of the landmark, the same boxes the mesh is booleaned from. Film frames are perspective and are not this orthographic trace. They sit beside the turntable. No published building ortho exists."
+    }
+  },
+  "targets": {
+    "side": 0.85,
+    "front": 0.8,
+    "top": 0.8
+  },
+  "legend": "White is overlap. Red is reference only. Cyan is model only.",
+  "alignment": "Structural envelope of the landmark, the same boxes the mesh is booleaned from. Film frames are perspective and are not this orthographic trace. They sit beside the turntable. No published building ortho exists.",
+  "topIsReconstructed": true
+}
