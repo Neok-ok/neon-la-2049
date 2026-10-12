@@ -127,12 +127,12 @@ export function gatherEmitters(layout: CityLayout, query: CityQuery, x: number, 
         const list = manhole ? holes : vents;
         const kind: SmokeKind = manhole ? KIND.manhole : KIND.vent;
         list.push(make({
-          x: p.x, y: p.y + (manhole ? 0.05 : 0.15), z: p.z,
+          x: p.x, y: p.y + (manhole ? 0.7 : 1.05), z: p.z,
           kind,
           rate: manhole ? 3.4 : 5.2,
           life: manhole ? 6.2 : 4.4,
           size0: manhole ? 0.7 : 0.28,
-          size1: manhole ? 2.8 : 1.35,
+          size1: manhole ? 2.4 : 1.55,
           heat: 0,
           radius: manhole ? 0.45 : 0.22,
           spread: manhole ? 0.55 : 0.25,
@@ -148,7 +148,7 @@ export function gatherEmitters(layout: CityLayout, query: CityQuery, x: number, 
       const p = curb(b, side, 0.7, along * 0.5);
       if (open(query, p.x, p.y, p.z)) {
         barrels.push(make({
-          x: p.x, y: p.y + 0.55, z: p.z,
+          x: p.x, y: p.y + 1.15, z: p.z,
           kind: KIND.barrel,
           rate: 3.6,
           life: 7.5,
@@ -213,9 +213,13 @@ export function gatherEmitters(layout: CityLayout, query: CityQuery, x: number, 
   for (const shop of [spots.noodle, spots.bibi]) {
     if (!shop) continue;
     const c = shop.cook;
+    const s = shop.street;
     if ((c.x - x) ** 2 + (c.z - z) ** 2 > 90 * 90) continue;
+    const dx = s.x - c.x;
+    const dz = s.z - c.z;
+    const len = Math.hypot(dx, dz) || 1;
     food.push(make({
-      x: c.x, y: c.y + 1.15, z: c.z,
+      x: c.x + (dx / len) * 0.7, y: c.y + 1.5, z: c.z + (dz / len) * 0.7,
       kind: KIND.stall,
       rate: 6,
       life: 2.8,
@@ -229,9 +233,8 @@ export function gatherEmitters(layout: CityLayout, query: CityQuery, x: number, 
       aspect: 1.45,
       floorY: c.y,
     }));
-    const s = shop.street;
     food.push(make({
-      x: s.x, y: s.y + 0.08, z: s.z,
+      x: s.x, y: s.y + 0.65, z: s.z,
       kind: KIND.manhole,
       rate: 1.4,
       life: 5.5,

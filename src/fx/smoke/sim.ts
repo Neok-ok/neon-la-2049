@@ -205,9 +205,11 @@ export function integrate(
     const shear = 1 + Math.min(2.1, alt / 60);
     const c = curl(x * 0.07 + time * 0.05, y * 0.07, z * 0.07, 0.18);
     const roll = turb(kind);
-    let vx = pool.vx[i]! + (wx * shear * push + c[0] * roll) * dt;
+    // The launch column leans, it does not leave the engine. Street smoke takes the full wind.
+    const windScale = kind === KIND.column ? 0.16 : kind === KIND.ground ? 0.42 : 1;
+    let vx = pool.vx[i]! + (wx * shear * push * windScale + c[0] * roll) * dt;
     let vy = pool.vy[i]! + (buoy(kind) * loft + c[1] * roll * 0.35) * dt;
-    let vz = pool.vz[i]! + (wz * shear * push + c[2] * roll) * dt;
+    let vz = pool.vz[i]! + (wz * shear * push * windScale + c[2] * roll) * dt;
     // Rain knocks the loft down and adds a little downward drift.
     vy -= rain * 1.4 * dt;
     const damp = Math.exp(-dt * dragK(kind));

@@ -252,7 +252,7 @@ export class SmokeField {
         size0: 14,
         size1,
         kind: KIND.ground,
-        heat: 0.45 * Math.max(0, 1 - age / 18),
+        heat: 0.85 * Math.max(0, 1 - age / 22),
         fade: 4500,
         aspect: 0.7,
         floorY: drive.y,
@@ -264,7 +264,7 @@ export class SmokeField {
     for (let n = 0; n < cCap; n++) {
       const along = Math.pow(smokeRand(), 0.65) * h;
       const ang = smokeRand() * Math.PI * 2;
-      const rad = (3 + smokeRand() * 12) * (0.55 + along / Math.max(h, 1));
+      const rad = (1.2 + smokeRand() * 5) * (0.45 + along / Math.max(h, 1));
       const lean = along * 0.1;
       spawnParticle(this.pool, {
         x: drive.x + wx * lean * 0.15 + Math.cos(ang) * rad,
@@ -310,7 +310,7 @@ export class SmokeField {
           size0: 10,
           size1: tier === 'low' ? 32 : 68,
           kind: KIND.ground,
-          heat: 0.55,
+          heat: 0.9,
           fade: 4500,
           aspect: 0.68,
           floorY: drive.y,
@@ -331,7 +331,7 @@ export class SmokeField {
     while (this.columnAcc >= 1 && this.pool.slotN[2] < cCap) {
       const along = smokeRand() * h * 0.35;
       const ang = smokeRand() * Math.PI * 2;
-      const rad = 2 + smokeRand() * 8;
+      const rad = 1.2 + smokeRand() * 4;
       const ok = spawnParticle(this.pool, {
         x: drive.x + Math.cos(ang) * rad + wx * 0.2,
         y: drive.y + 4 + along,
@@ -425,8 +425,9 @@ export class SmokeField {
       const size = pool.size0[i]! + (pool.size1[i]! - pool.size0[i]!) * Math.pow(u, 0.55);
       const fadeIn = Math.min(1, u / 0.06);
       const fadeOut = Math.min(1, (1 - u) / 0.28);
-      const alpha = fadeIn * fadeOut * (pool.kind[i]! >= KIND.column ? 0.86 : 0.62);
-      const soft = Math.max(0.35, size * 0.42);
+      const alpha = fadeIn * fadeOut * (pool.kind[i]! >= KIND.column ? 0.58 : 0.78);
+      // A fat fade against the street deletes a 1 m puff whose card touches the ground.
+      const soft = Math.max(0.15, Math.min(4.5, size * 0.08));
       for (let k = 0; k < 4; k++) {
         const v = (s * 4 + k) * 4;
         ca[v] = pool.x[i]!;
