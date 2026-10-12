@@ -493,9 +493,6 @@ export function dressBlock(b: MarketBlock, layout: CityLayout): Dressing {
           [0.42, 0.05, 0.07], [0.4, 0.05, 0.06], 0.02, 0);
       }
       prop('box', mx, gy + 2.12, mz, outYaw, 0.26, 0.34, 0.26, [0.95, 0.4, 0.1], [1.7, 0.5, 0.1], 0.05, 0);
-
-      // warm pool inside and a neon pool out front
-      pools.push({ x: mx, y: gy + 0.04, z: mz, yaw: alongYaw, len: 3.2, wid: 2.2, rgb: [1, 0.45, 0.15], intensity: 1.3, rank: 0 });
     } else if (!sl.open) {
       addBox(sl.s, sl.t, alongA ? sl.w : sl.depth, alongA ? sl.depth : sl.w, sl.H, 0, Style.Market, 0, lit * 0.7, tint);
       prop('quadZ', fx + nx * 0.06, b.ground + 1.35, fz + nz * 0.06, outYaw, sl.w * 0.78, 2.2, 1, [0.1, 0.07, 0.06], [0, 0, 0], 0.2, 1);
@@ -546,11 +543,6 @@ export function dressBlock(b: MarketBlock, layout: CityLayout): Dressing {
       kind: 0,
       seed: sl.special === 'noodle' ? phraseSeed(1) : sl.special === 'bibi' ? phraseSeed(3) : undefined,
     });
-    pools.push({
-      x: fx + nx * (awn * 0.45), y: b.ground + 0.05, z: fz + nz * (awn * 0.45),
-      yaw: alongYaw, len: 4.5 + hw, wid: 1.5, rgb: rgb(sl.special === 'bibi' ? SignColor.Pink : col),
-      intensity: sl.special ? 1.15 : 0.75, rank: 0,
-    });
 
     // blade
     if (rng.chance(sl.special ? 1 : 0.72)) {
@@ -563,10 +555,6 @@ export function dressBlock(b: MarketBlock, layout: CityLayout): Dressing {
         face: sl.face, along, y: 3.4 + bh * 0.45, w: 0.72, h: bh,
         color: col2, kind: 1,
         seed: sl.special === 'noodle' ? phraseSeed(8) : undefined,
-      });
-      pools.push({
-        x: fx + nx * 1.1 + lx * along, y: b.ground + 0.05, z: fz + nz * 1.1 + lz * along,
-        yaw: alongYaw, len: bh * 1.3, wid: 1.15, rgb: rgb(col2), intensity: 0.55, rank: 1,
       });
     }
 
@@ -698,7 +686,6 @@ export function dressBlock(b: MarketBlock, layout: CityLayout): Dressing {
       prop('cyl', x, b.ground + 2.05, z, 0, 0.09, 4.1, 0.09, [0.07, 0.07, 0.08], [0, 0, 0], 0.7, 1);
       const head = rgb(rng.chance(0.5) ? SignColor.Amber : SignColor.Cyan);
       prop('box', x + nx * 0.45, b.ground + 4.05, z + nz * 0.45, yaw, 0.55, 0.12, 0.28, [0.1, 0.1, 0.1], head.map((v) => v * 1.6) as [number, number, number], 0.3, 1);
-      pools.push({ x: x + nx * 0.8, y: b.ground + 0.04, z: z + nz * 0.8, yaw, len: 7, wid: 2.2, rgb: head, intensity: 0.45, rank: 1 });
     }
   }
 

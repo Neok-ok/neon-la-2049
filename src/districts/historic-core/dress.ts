@@ -59,9 +59,7 @@ export interface CanyonSteam {
 const CONCRETE: [number, number, number] = [0.16, 0.15, 0.17];
 const NONE: [number, number, number] = [0, 0, 0];
 const PINK: [number, number, number] = [1.4, 0.25, 0.55];
-const VIOLET: [number, number, number] = [0.55, 0.22, 1.15];
 const AMBER: [number, number, number] = [1.2, 0.62, 0.18];
-const POOL_COLORS: Array<[number, number, number]> = [PINK, VIOLET, AMBER, PINK];
 
 function world(b: CanyonBlock, s: number, t: number): [number, number] {
   return [b.cx + b.ax * s + b.bx * t, b.cz + b.az * s + b.bz * t];
@@ -116,13 +114,9 @@ export function dressBlock(b: CanyonBlock, layout: CityLayout): {
             color: CONCRETE, emissive: NONE, metal: 0.2, rank: 0,
           });
         }
-        if (broadway && i % 2 === 1) {
-          const rgb = r.pick(POOL_COLORS);
-          pools.push({
-            x, y: b.ground + 0.04, z, yaw: edge.yaw,
-            wid: 3.2, len: 7.5, rgb, intensity: 0.85, rank: 0,
-          });
-        } else if (!broadway && i % 4 === 1 && r.chance(0.5)) {
+        // Broadway used to drop a pink or violet quad on the lane. The signs are the
+        // source; the sheet read as a magenta band with no lamp.
+        if (!broadway && i % 4 === 1 && r.chance(0.5)) {
           pools.push({
             x, y: b.ground + 0.04, z, yaw: edge.yaw,
             wid: 2.4, len: 5, rgb: AMBER, intensity: 0.4, rank: 1,
