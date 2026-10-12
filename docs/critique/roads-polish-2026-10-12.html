@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>D7 roads polish — film check, 12 October 2026</title>
+<style>
+  :root { color-scheme: light; }
+  body { margin: 0; font: 17px/1.5 "Iowan Old Style", Palatino, Georgia, serif; color: #1c1915; background: #f4f0e8; }
+  header, main { max-width: 980px; margin: 0 auto; padding: 28px 20px 64px; }
+  h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 8px; }
+  h2 { font-size: 1.4rem; margin: 2.2rem 0 0.4rem; }
+  h3 { font-size: 1.05rem; margin: 1.4rem 0 0.3rem; }
+  p { margin: 0.5rem 0 0.8rem; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.84em; }
+  nav { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 14px 0; }
+  nav a { color: #134e4a; }
+  table { width: 100%; border-collapse: collapse; background: #fff; margin: 10px 0 22px; font-size: 0.92rem; }
+  th, td { border-bottom: 1px solid #e4dfd4; text-align: left; vertical-align: top; padding: 8px 10px; }
+  th { background: #efeae0; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  figure { margin: 14px 0 22px; }
+  img { width: 100%; height: auto; background: #111; }
+  figcaption { color: #5c564c; font-size: 0.9rem; margin-top: 6px; }
+  .lead { font-size: 1.08rem; }
+  .score { background: #fff; border-left: 4px solid #9a3412; padding: 10px 14px; margin: 12px 0 18px; }
+  .keep { background: #e7f2ea; padding: 10px 14px; }
+  ol.passes li { margin: 0.7rem 0 1rem; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 720px) { .pair { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>D7 roads polish, against the wet street</h1>
+  <p class="lead">12 October 2026. Night rain on <code>main</code> at <code>8cc5530</code>. The roads polish is <code>#64</code> at <code>5868937</code>. Docs only. No film frames in the repo.</p>
+  <nav>
+    <a href="#scores">Scores</a>
+    <a href="#look">How it was looked at</a>
+    <a href="#paint">Paint</a>
+    <a href="#wet">Wet</a>
+    <a href="#hero">Hero ground</a>
+    <a href="#sources">Sources</a>
+    <a href="#pass">Follow-up</a>
+    <a href="#r5">L2 and R5</a>
+  </nav>
+</header>
+<main>
+
+<p class="score"><strong>Fail.</strong> Crosswalks and the three named hero grounds clear 7. Wet asphalt does not, and the street under the signs still does not read as dark water. L2 still owns the neon bleed. R5 does not have to wait.</p>
+<p>The same text is in <a href="roads-polish-2026-10-12.md">roads-polish-2026-10-12.md</a>. The earlier roads note is <a href="roads-spinner-2026-10-12.html">roads-spinner-2026-10-12.html</a>. The lighting note that read this polish from the source, without a new shoot, is <a href="lighting-l1-2026-10-12.html">lighting-l1-2026-10-12.html</a>. Nothing under <code>src/roads</code>, <code>src/atmosphere/WetReflector.ts</code>, or <code>src/lighting/shade.ts</code> has changed since <code>#64</code>.</p>
+
+<h2 id="scores">Scores</h2>
+<p>The four gates are the ones the October roads note asked for. A row under 7 fails the polish. Sodium is the lamp half of that same note, scored so the pool can be checked, and it is outside the gate.</p>
+<table>
+  <thead>
+    <tr><th>Check</th><th>Was</th><th>Now</th><th>What the frames show</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Crosswalk and lane paint</td><td class="num">5</td><td class="num">7</td><td>One ladder per mouth. Broadway, South LA, and the Lakewood chart read as paint. At your feet the white is frayed. Low drops it.</td></tr>
+    <tr><td>Wet asphalt, no rainbow streaks</td><td class="num">4</td><td class="num">5</td><td>Broadway's forced mirror is a dark comb. The lane stays near (21, 22, 30). Hollywood's lane, mirror off, is a magenta sheet, (92, 51, 72) in the foreground.</td></tr>
+    <tr><td>Hero ground</td><td class="num">4</td><td class="num">7</td><td>K, the sea-wall blocks, and the Wallace causeway are carriageways. The market frame is still the stall floor.</td></tr>
+    <tr><td>Reads as a wet neon LA street</td><td class="num">5</td><td class="num">6</td><td>Broadway is a rainy canyon. The ground under the signs is black, or pink.</td></tr>
+    <tr><td>Sodium pool (not a gate)</td><td class="num">3</td><td class="num">7</td><td>K, the coast, Wallace, and Lakewood show a short orange disc. It dies before the next pole.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="look">How this was looked at</h2>
+<p>Headless Chrome, WebGL2 on SwiftShader. This machine has no real GPU, so the planar mirror stays off unless <code>?refl=1</code>. Night rain, time 22.5, frozen weather, UI hidden. Desktop 1280×720. Phone 390×844 at device scale 1, with the touch sticks. Tiers are the query <code>quality</code>.</p>
+<p>Stills are from <a href="capture-roads-polish.mjs"><code>capture-roads-polish.mjs</code></a>. <code>OUT</code> was <code>/tmp/roads-polish</code>, outside <code>tests/visual</code>. S3's baselines were not touched. A patch average is one downscaled block of the jpeg, so a thin line can miss the sample. The numbers below are the blocks that landed on road.</p>
+<p>Reference stills were read in the browser and left out of git.</p>
+
+<h2>What a stranger sees</h2>
+<p>Night rain. On the neon canyon the near corner is a set of pale bars, side by side, on black asphalt. A white dash sits in the right of the frame. The signs stay on the walls. Rain is a stroke in the air. Force the mirror and the same corner grows thin vertical lines of pink, blue, and yellow. The asphalt between them stays black.</p>
+<p>On the residential road a double yellow runs down the middle. White marks the edges. An orange disc sits under a lamp and stops. From high above, the crossing is four separate ladders around an empty centre.</p>
+<p>At the foot of the dark slab, between the sea-wall blocks, and on the causeway to the gate, the ground has that same yellow and a curb. In the night market the lens is a stall row and a tan floor. On the entertainment street the ground is pink, and a pale ladder sits in that pink.</p>
+
+<h2 id="paint">Paint</h2>
+<figure>
+  <img src="captures/paint-sheet.jpg" alt="Contact sheet: Broadway street, South LA, a close dash, and Lakewood from above">
+  <figcaption>Paint. Broadway at eye height, South LA, the same South LA corner from 2 m, Lakewood from about 120 m.</figcaption>
+</figure>
+<p>Broadway, high, <code>broadwayView('street')</code>, camera <code>[-373, 1.7, 121]</code>. 220 draws, 675 k triangles, 37 cars, crowd 245, mirror off. The near left is a zebra. The bars run one way. The box where the other direction would have crossed is empty asphalt. Ultra is the same street with a heavier crowd (234 draws, 801 k triangles, 59 cars, crowd 490).</p>
+<figure>
+  <img src="captures/broadway-street.jpg" alt="Broadway at night with a zebra crossing on the left">
+  <figcaption>Broadway, high. The ladder reads. The signs stay on the wall.</figcaption>
+</figure>
+<p>South LA spine, high, camera <code>[-4083, 1.7, 4422]</code>. 179 draws, 421 k triangles, 7 cars. An arrow, a dash, a double yellow, and a ladder on the right all read. The arrow's edges are chewed. From 2 m the same paint is a worn dash and a worn arrow on asphalt that samples (15, 19, 28). The middle of a dash is a stripe. The rim breaks up.</p>
+<figure>
+  <img src="captures/southla-close.jpg" alt="Worn white dash and arrow on dark asphalt">
+  <figcaption>South LA from 2 m. The dash is a stripe. The rim is frayed.</figcaption>
+</figure>
+<p>Lakewood from about 120 m, high, camera y 121. 142 draws. The intersection is four mouths. Each mouth has its own bars. The centre of the box is empty. The double yellow and the white dashes survive at that height. Headlight pairs sit in the lanes.</p>
+<figure>
+  <img src="captures/lakewood-chart.jpg" alt="Overhead view of a crossing with four separate crosswalks">
+  <figcaption>Lakewood chart. Four ladders, empty centre.</figcaption>
+</figure>
+<p>Low, same Broadway camera, 459 draws, 470 k triangles, 0 cars, crowd 40. The foreground is a brown sheet, about (49, 35, 39). The canyon signs remain. The paint is gone. That is the low material, and it is the same drop the earlier note recorded.</p>
+<figure>
+  <img src="captures/broadway-low.jpg" alt="Broadway on the low tier, with a bare brown foreground">
+  <figcaption>Broadway, low. The ladder is gone.</figcaption>
+</figure>
+<p>Phone, 390×844, medium, 129 draws. The sticks cover the lower third, which is where the Broadway ladder sits, so the crossing leaves the frame. K's yellow, on the same phone size, still reads above the sticks. 65 draws.</p>
+<div class="pair">
+  <figure>
+    <img src="captures/broadway-phone.jpg" alt="Broadway on a phone, with touch sticks covering the near ground">
+    <figcaption>Broadway, phone. The sticks take the ladder.</figcaption>
+  </figure>
+  <figure>
+    <img src="captures/k-phone.jpg" alt="K's street on a phone, with a double yellow above the touch sticks">
+    <figcaption>K, phone. The yellow clears the sticks.</figcaption>
+  </figure>
+</div>
+
+<h2 id="wet">Wet</h2>
+<figure>
+  <img src="captures/wet-sheet.jpg" alt="Contact sheet of Broadway and Hollywood with the wet mirror off and on">
+  <figcaption>Wet. Top: Broadway, mirror off, then forced. Bottom: Hollywood, mirror off, then forced.</figcaption>
+</figure>
+<p>Unforced high and ultra leave <code>refl</code> false. Broadway's lane samples (22, 24, 31). Sign colour stays on the signs. Vehicle lights sit on the asphalt as short smears. K, the coast, and Wallace are the same black, with the yellow on top.</p>
+<p><code>?refl=1</code> on Broadway: 408 draws, 1.25 M triangles, mirror on. The near road becomes a comb of thin vertical lines, pink and blue and yellow, with black between them. A foreground block still averages (21, 22, 30), against (18, 22, 31) with the mirror off. The copy of the signs is broken, and it is dim. It is also a regular barcode. A wet street in the references carries a few long reflections of the brightest lamps. This carries a line for every sign.</p>
+<figure>
+  <img src="captures/broadway-mirror.jpg" alt="Broadway with thin vertical colored streaks on dark asphalt">
+  <figcaption>Broadway, mirror forced. 408 draws. The lane average stays near (21, 22, 30).</figcaption>
+</figure>
+<p class="keep">K with the mirror forced is the frame to keep. 246 draws. The yellow stays a yellow pair. The asphalt samples (16, 19, 26). A few small coloured dashes sit in the near left, inside the orange pool. The gaps are road.</p>
+<figure>
+  <img src="captures/k-mirror.jpg" alt="K's street with a dark wet mirror and a double yellow line">
+  <figcaption>K, mirror forced. Dark asphalt, the yellow left alone.</figcaption>
+</figure>
+<p>Hollywood, high, mirror off, <code>hollywoodView('street')</code>, camera <code>[-10816, 6.8, -5286]</code>. 223 draws, 574 k triangles, 17 cars. The foreground lane samples (92, 51, 72). A pale ladder sits in that pink further down the street. The eye height matches the old street camera. The ground under it is the new failure. Forcing the mirror (533 draws, 1.48 M triangles) keeps the sheet and adds the comb. A near block goes to (102, 61, 68).</p>
+<div class="pair">
+  <figure>
+    <img src="captures/hollywood-street.jpg" alt="Hollywood street with a magenta road">
+    <figcaption>Hollywood, mirror off. Foreground (92, 51, 72).</figcaption>
+  </figure>
+  <figure>
+    <img src="captures/hollywood-mirror.jpg" alt="Hollywood street with neon streaks on a magenta road">
+    <figcaption>Hollywood, mirror forced. The sheet stays, and the comb arrives.</figcaption>
+  </figure>
+</div>
+<p>DTLA, same pose both ways, camera <code>[-913, 1.7, -843]</code>. Unforced: 218 draws, the street runs through to the pink panel, a purple disc sits under that panel, the near road samples (71, 52, 42). Forced: 462 draws. The near lane grows the comb and samples (24, 21, 25), and a black bar closes across the canyon where the unforced frame shows the people and the sign. The bar arrives with the mirror.</p>
+<div class="pair">
+  <figure>
+    <img src="captures/dtla-street.jpg" alt="DTLA street looking toward a pink sign">
+    <figcaption>DTLA, mirror off.</figcaption>
+  </figure>
+  <figure>
+    <img src="captures/dtla-mirror.jpg" alt="DTLA street with a black bar across the canyon">
+    <figcaption>DTLA, mirror forced. The bar is new.</figcaption>
+  </figure>
+</div>
+<p>The little-tokyo mirror, 456 draws, lays the same comb on the tan stall floor. It does not find a black carriageway to lie on.</p>
+
+<h2 id="hero">Hero ground</h2>
+<figure>
+  <img src="captures/hero-sheet.jpg" alt="Contact sheet of K's street, the sea wall, Wallace, and the market">
+  <figcaption>Hero ground. K, the sea-wall blocks, the Wallace causeway, the market camera.</figcaption>
+</figure>
+<table>
+  <thead>
+    <tr><th>Place</th><th>Ground</th><th>High, night rain</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>K's street</td><td>Double yellow, a curb, one orange pool, the dark gap past it</td><td>139 draws, 328 k, camera <code>[11080, 1.7, 21474]</code></td></tr>
+    <tr><td>K's market side</td><td>The same yellow, the stall row beside it</td><td>193 draws, 375 k</td></tr>
+    <tr><td>Sea-wall blocks</td><td>Centre line, white edges, a lamp disc at each pole</td><td>155 draws, 319 k, camera <code>[-18891, 1.7, 10661]</code></td></tr>
+    <tr><td>Wallace causeway</td><td>Two yellows, white edges, pools along the curb, a car in the lane</td><td>121 draws, 262 k, 8 cars, camera <code>[4033, 1.8, 2999]</code></td></tr>
+    <tr><td>Little Tokyo street camera</td><td>Tan floor, about (65, 49, 44), stalls across the lens</td><td>231 draws, 801 k, crowd 340</td></tr>
+    <tr><td>Hollywood street camera</td><td>The pink sheet above</td><td>223 draws, eye at y 6.8</td></tr>
+  </tbody>
+</table>
+<figure>
+  <img src="captures/k-street.jpg" alt="K's street with a double yellow line and a sidewalk">
+  <figcaption>K's street. The dark gap past the pool is the residential night.</figcaption>
+</figure>
+<figure>
+  <img src="captures/coast-blocks.jpg" alt="A street between sea-wall blocks with a centre line">
+  <figcaption>Sea-wall blocks. Centre line, edges, a disc at each lamp.</figcaption>
+</figure>
+<figure>
+  <img src="captures/wallace-plaza.jpg" alt="Wallace causeway with lane paint and sodium pools">
+  <figcaption>Wallace causeway. Paint, pools, a car in the lane.</figcaption>
+</figure>
+<figure>
+  <img src="captures/market-street.jpg" alt="Little Tokyo market aisle with stalls and a tan floor">
+  <figcaption>Market camera. The feet are on a carriage. The lens is the stall row.</figcaption>
+</figure>
+<p>K, the sea wall, and Wallace were the three a viewer would name. They are streets. The market camera stands on a carriage and looks into the stalls, so the frame is still the aisle. Hollywood's paint exists as a faint ladder, and the colour of that ground is scored with the wet row.</p>
+
+<h2 id="sources">What the references ask the street to do</h2>
+<p>No frames from these pages are in the repo.</p>
+<ul>
+  <li><a href="https://britishcinematographer.co.uk/roger-deakins-cbe-bsc-asc-blade-runner-2049/">Roger Deakins, British Cinematographer</a> — the city night was built as mist on the stage, with rain put on top of that mist. The picture is grey, thick, and shot in camera.</li>
+  <li><a href="https://seblagarde.wordpress.com/2012/12/10/observe-rainy-world/">Sébastien Lagarde, observing rain</a> and <a href="https://seblagarde.wordpress.com/2013/04/14/water-drop-3b-physically-based-wet-surfaces/">wet surfaces</a> — a porous wet surface goes darker and a little smoother. Open water reflects about 2% straight on, so a dark body disappears, and a bright lamp survives as a stretched glint. Standing water is a broken mirror of those lamps, with the dry-dark pavement still showing between the glints.</li>
+  <li><a href="https://vfxblog.com/2018/01/04/blade-runner-2049-vfx-breakdown-joi-los-angeles/">Paul Lambert, DNEG, on the Los Angeles shots</a> — the vista was meant to die in the murk, black included. Rain had to be lit by the ads and the spinners that were actually near the camera.</li>
+</ul>
+<p>The residential frames are close to that: black lane, one warm pool, rain in the air. The neon frames split. Broadway keeps the black and, with the mirror forced, replaces the few glints with a comb. Hollywood replaces the black with a pink floor.</p>
+
+<h2 id="pass">Follow-up</h2>
+<p>One short pass. It is not started here. It stays off the open drafts: K1 (<code>App.ts</code>, vehicle traffic), B3 (tower families), G1 (LAPD, City Hall, Wallace meshes), H1 (people), S3 (<code>tests/visual</code>, and the weather files those drafts already hold).</p>
+<h3>The pink sheet, and the comb</h3>
+<p>The pink is in the road shader with the mirror off. <code>src/roads/material.ts</code>, the puddle <code>glow</code> inside <code>emissiveNode</code>. Where <code>sheen</code> is 0 the colour is still an authored magenta, times <code>neonWet</code>, times a grazing fresnel, times 18. Hollywood's <code>neonWet</code> is 0.40 and its <code>sheen</code> is 0 (<code>src/atmosphere/looks.ts</code>). The puddle mask is a broad noise, so one cell of it fills the foreground. Broadway's camera is standing off that cell, which is why the same shader stays near (22, 24, 31) there.</p>
+<p>Leave <code>neonWet</code> where it is. An empty shade slot stays black. A slot that is actually a sign may tint the puddle it touches. The gaps stay asphalt. Bloom, haze, and the night exposure stay with L2. This pass does not raise them.</p>
+<p><code>src/atmosphere/WetReflector.ts</code> is the comb. The mask is a sine across the view, thresholded high, on a 64 m quad. Broadway shows the sine. On <code>dtlaView('street')</code> the far end of that quad closes into the black bar. Widen the gaps. Keep <code>resolutionScale</code> at 0.18. K's forced frame is the one to match: dark asphalt, the yellow left alone, a few small dashes.</p>
+<p>Judge again on <code>hollywoodView('street')</code> with the mirror off, and on Broadway and DTLA with <code>?refl=1</code>. Hollywood's foreground wants to fall back toward the Broadway asphalt numbers. The DTLA bar wants to be gone, with the people and the pink panel visible as they are in the unforced frame.</p>
+<h3>The market aim</h3>
+<p><code>src/districts/little-tokyo-market/view.ts</code>, the street camera. The feet are already on a carriage. The heading turns toward the noodle stall, so the picture is the aisle. Aim down the lane that already has paint. Leave the crowd mesh alone.</p>
+<p>The ladders in <code>src/roads/crosswalk.ts</code> are doing the job the chart shows. Leave them. Low dropping the paint is the low material. Leave that too.</p>
+
+<h2 id="r5">L2, and R5</h2>
+<p>L2 should still own the wet-road neon bleed. The sheet is on screen with the mirror off, so it is the puddle term and the missing sign-to-ground path, which is the lighting refine L1 already named. The comb's regularity is the roads remainder inside that same pass. Brightening the Broadway mirror would move the canyon away from the dark lane the residential frames just earned.</p>
+<p>More roads work is still needed before the street is finished. It does not have to land before R5. R5 is the pyramid face, the sea-wall crest, and three interiors. The Wallace causeway and the sea-wall street, which those cameras stand on, now read as roads.</p>
+
+</main>
+</body>
+</html>
