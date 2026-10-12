@@ -55,7 +55,8 @@ function placeStreet(arg) {
   const lantern = p.kind === 'lantern';
   const hero = String(p.kind).startsWith('hero');
 
-  const keepStreet = p.kind === 'ziggurat' || p.kind === 'holo-shaft' || p.kind === 'hero-gate';
+  // Every street uses one planted figure. A crowd with umbrellas stands closer than the door and reads taller than the 2.2 m opening.
+  const keepStreet = false;
   const scaleShot = phase === 'final' && !keepStreet;
   let person = null;
   let planted = null;
