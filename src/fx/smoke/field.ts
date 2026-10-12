@@ -25,7 +25,7 @@ import {
 /** Share of the street budget. Indexed by KIND. Launch kinds stay on their own slots. */
 const KIND_SHARE = [0.16, 0.12, 0.12, 0.1, 0.14, 0.22, 0.14];
 /** Card opacity. Street steam stays translucent so wisps do not fuse into a bank. */
-const KIND_ALPHA = [0.78, 0.66, 0.74, 0.82, 0.86, 0.58, 0.8, 0.58, 0.64];
+const KIND_ALPHA = [0.78, 0.68, 0.74, 0.84, 0.86, 0.58, 0.82, 0.5, 0.56];
 /** How many aged cards one emitter may seed, so a grate is a wisp and a stack is a column. */
 const SEED_CAP = [4, 4, 5, 6, 8, 18];
 
@@ -144,14 +144,14 @@ export class SmokeField {
     smokeRain.value = frame.rain;
     const wind: Wind = { dir: frame.windDir, speed: frame.wind, rain: frame.rain };
     if (Math.hypot(frame.camX - this.anchorX, frame.camZ - this.anchorZ) > 26 || frame.time - this.gatherAt > 2.4) {
-      this.emitters = gatherEmitters(frame.query.layout, frame.query, frame.camX, frame.camZ, frame.tier);
+      this.emitters = gatherEmitters(frame.query.layout, frame.query, frame.camX, frame.camY, frame.camZ, frame.tier);
       this.anchorX = frame.camX;
       this.anchorZ = frame.camZ;
       this.gatherAt = frame.time;
       this.seedEmitters(wind, frame.tier);
     }
     const drive = launchDrive();
-    this.noteLaunch(drive, wind);
+    this.noteLaunch(drive, wind, frame.camX, frame.camZ);
     let left = dt;
     while (left > 1e-4) {
       const h = Math.min(0.034, left);
@@ -162,7 +162,7 @@ export class SmokeField {
         const kindCap = Math.max(3, Math.floor(cap * share));
         spawnEmitter(this.pool, e, cap, scale, wind, h, kindCap);
       }
-      this.emitLaunch(h, drive, frame.tier, wind);
+      this.emitLaunch(h, drive, frame.tier, wind, frame.camX, frame.camZ);
       this.emitTails(h, frame, wind);
       integrate(this.pool, h, wind, frame.query, frame.time, frame.camX, frame.camZ);
       left -= h;
@@ -228,7 +228,7 @@ export class SmokeField {
     this.launchId = 0;
   }
 
-  private noteLaunch(drive: LaunchDrive, wind: Wind): void {
+  private noteLaunch(drive: LaunchDrive, wind: Wind, camX: number, camZ: number): void {
     if (drive.id <= 0) return;
     if (drive.id !== this.launchId) {
       this.launchId = drive.id;
@@ -237,7 +237,7 @@ export class SmokeField {
       this.columnAcc = 0;
       this.dropSlot(1);
       this.dropSlot(2);
-      this.prefill(drive, wind);
+      this.prefill(drive, wind, camX, camZ);
     }
     if (!drive.burning && !this.lingered && drive.age > 2) {
       this.lingered = true;
@@ -255,7 +255,7 @@ export class SmokeField {
     }
   }
 
-  private prefill(drive: LaunchDrive, wind: Wind): void {
+  private prefill(drive: LaunchDrive, wind: Wind, camX: number, camZ: number): void {
     const tier = drive.tier;
     const gCap = LAUNCH_GROUND_CAP[tier];
     const cCap = LAUNCH_COLUMN_CAP[tier];
@@ -271,7 +271,7 @@ export class SmokeField {
         ? (12 + grown * 78) * Math.pow(smokeRand(), 0.8)
         : (8 + grown * 28) * Math.pow(smokeRand(), 1.15);
       const yLift = climb < 0.42 ? 8 + smokeRand() * 26 + age * 0.28 : 22 + smokeRand() * 64;
-      const size1 = tier === 'low' ? 36 : tier === 'medium' ? 56 : 70;
+      const size1 = tier === 'low' ? 28 : tier === 'medium' ? 40 : 48;
       const heat = Math.exp(-ring / 46) * Math.exp(-Math.max(0, yLift - 10) / 55);
       spawnParticle(this.pool, {
         x: drive.x + Math.cos(ang) * ring + wx * age * 0.2,
@@ -294,14 +294,16 @@ export class SmokeField {
       });
     }
     const h = Math.min(280, Math.max(40, drive.headY - drive.y));
+    const front = Math.atan2(camZ - drive.z, camX - drive.x);
     for (let n = 0; n < cCap; n++) {
       const along = smokeRand() * h;
-      const ang = smokeRand() * Math.PI * 2;
-      const rad = (4 + smokeRand() * 7) * (0.6 + along / Math.max(h, 1) * 0.85);
+      const nearSide = smokeRand() < 0.72;
+      const ang = nearSide ? front + (smokeRand() - 0.5) * 1.7 : smokeRand() * Math.PI * 2;
+      const rad = (nearSide ? 2.2 + smokeRand() * 4.2 : 5 + smokeRand() * 7) * (0.75 + along / Math.max(h, 1) * 0.45);
       const len = Math.max(24, drive.headY - drive.y);
       const lift = Math.max(0, Math.min(1, (along - 0.14 * len) / Math.max(1, 0.72 * len)));
       const lean = (10 + Math.min(12, wind.speed) * 1.4) * lift;
-      const size1 = tier === 'low' ? 28 : tier === 'medium' ? 50 : 60;
+      const size1 = tier === 'low' ? 20 : tier === 'medium' ? 32 : 40;
       spawnParticle(this.pool, {
         x: drive.x + Math.cos(wind.dir) * lean + Math.cos(ang) * rad,
         y: drive.y + along,
@@ -324,7 +326,7 @@ export class SmokeField {
     }
   }
 
-  private emitLaunch(dt: number, drive: LaunchDrive, tier: Tier, wind: Wind): void {
+  private emitLaunch(dt: number, drive: LaunchDrive, tier: Tier, wind: Wind, camX: number, camZ: number): void {
     if (!drive.burning || drive.id <= 0) return;
     const gCap = LAUNCH_GROUND_CAP[tier];
     const cCap = LAUNCH_COLUMN_CAP[tier];
@@ -365,10 +367,12 @@ export class SmokeField {
     const h = Math.min(240, Math.max(20, drive.headY - drive.y));
     const wx = Math.cos(wind.dir) * wind.speed;
     const wz = Math.sin(wind.dir) * wind.speed;
+    const front = Math.atan2(camZ - drive.z, camX - drive.x);
     while (this.columnAcc >= 1 && this.pool.slotN[2] < cCap) {
       const along = smokeRand() * h * 0.45;
-      const ang = smokeRand() * Math.PI * 2;
-      const rad = 3.5 + smokeRand() * 6;
+      const nearSide = smokeRand() < 0.72;
+      const ang = nearSide ? front + (smokeRand() - 0.5) * 1.7 : smokeRand() * Math.PI * 2;
+      const rad = nearSide ? 2.4 + smokeRand() * 4 : 5 + smokeRand() * 6;
       const ok = spawnParticle(this.pool, {
         x: drive.x + Math.cos(ang) * rad + wx * 0.15,
         y: drive.y + 4 + along,

@@ -15,9 +15,9 @@ function density(u: number, v: number, frame: number): number {
   const wobble = fbm(u * 2.2 + frame * 0.41, v * 3.4 - frame * 0.19, frame * 0.17);
   const r = Math.hypot(u * (1.12 + tear * 0.3), v * (0.8 + tear * 0.1));
   const body = Math.max(0, 1 - r * (0.98 + tear * 0.28));
-  const edge = Math.pow(body, 0.65);
-  const filaments = Math.pow(Math.max(0, 0.5 + 0.5 * wobble), 1.05);
-  return edge * (0.55 + 0.45 * filaments) * (1 - tear * 0.1);
+  const edge = Math.pow(body, 0.8);
+  const filaments = Math.pow(Math.max(0, 0.42 + 0.58 * wobble), 1.12);
+  return edge * (0.42 + 0.58 * filaments) * (1 - tear * 0.12);
 }
 
 function bake(): Uint8Array {
