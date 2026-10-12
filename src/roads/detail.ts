@@ -4,9 +4,11 @@ import {
   BufferAttribute, BufferGeometry, Group, InstancedBufferAttribute, InstancedMesh, Matrix4, Mesh, PlaneGeometry,
   Quaternion, Vector3,
 } from 'three/webgpu';
+import type { Tier } from '../core/quality';
 import { resources } from '../core/memory';
 import { registerDetail } from '../world/detail/registry';
-import { buildRoadChunk, chunkDraws, type Stamp } from './buildChunk';
+import { buildRoadChunk, chunkDraws, paveSpans, type RoadChunk, type Stamp } from './buildChunk';
+import { heroSpans } from './heroSpans';
 import { roadFancy, roadMarkMaterial, roadPuddleMaterial, roadSignMaterial, roadSurfaceMaterial } from './material';
 import { retainChunk } from '../lighting/registry.ts';
 
@@ -65,14 +67,7 @@ function stampMesh(items: Stamp[], vertical: boolean, material: NonNullable<Retu
   return mesh;
 }
 
-registerDetail('roads', '*', (ctx) => {
-  const tier = ctx.quality.tier;
-  roadFancy.value = tier === 'high' || tier === 'ultra' ? 1 : 0;
-  const chunk = buildRoadChunk(ctx.layout, ctx.x0, ctx.z0, ctx.size, tier);
-  if (!chunk) return null;
-  const group = new Group();
-  group.name = 'roads';
-  let bytes = chunk.bytes;
+function mountChunk(group: Group, chunk: RoadChunk, tier: Tier, lampKey: string): () => void {
   if (chunk.solid) {
     const g = resources.geometry(() => {
       const geo = new BufferGeometry();
@@ -90,15 +85,11 @@ registerDetail('roads', '*', (ctx) => {
     group.add(mesh);
   }
   const marks = roadMarkMaterial(tier);
-  if (marks && chunk.stamps.length) {
-    group.add(stampMesh(chunk.stamps, false, marks, 'road-marks'));
-    bytes += chunk.stamps.length * 64;
-  }
+  if (marks && chunk.stamps.length) group.add(stampMesh(chunk.stamps, false, marks, 'road-marks'));
   const signs = roadSignMaterial(tier);
   if (signs && chunk.signs.length) {
     const boards = chunk.signs.map((s) => ({ ...s, vertical: 1 }));
     group.add(stampMesh(boards, true, signs, 'road-signs'));
-    bytes += chunk.signs.length * 64;
   }
   if (chunk.puddles.length && (tier === 'high' || tier === 'ultra')) {
     const geo = groundTemplate();
@@ -115,16 +106,43 @@ registerDetail('roads', '*', (ctx) => {
     mesh.instanceMatrix.needsUpdate = true;
     mesh.computeBoundingSphere();
     group.add(mesh);
-    bytes += chunk.puddles.length * 64;
   }
-  group.userData.tris = chunk.tris;
+  if (!chunk.lamps.length) return () => {};
+  return retainChunk(
+    lampKey,
+    chunk.lamps.map((p) => ({ preset: 'street-sodium' as const, x: p.x, y: p.y, z: p.z, dx: 0, dy: -1, dz: 0 })),
+  );
+}
+
+registerDetail('roads', '*', (ctx) => {
+  const tier = ctx.quality.tier;
+  roadFancy.value = tier === 'high' || tier === 'ultra' ? 1 : 0;
+  const chunk = buildRoadChunk(ctx.layout, ctx.x0, ctx.z0, ctx.size, tier);
+  const extra = paveSpans(ctx.layout, heroSpans(ctx.layout, ctx.x0, ctx.z0, ctx.size), ctx.x0, ctx.z0, ctx.size, tier);
+  if (!chunk && !extra) return null;
+  const group = new Group();
+  group.name = 'roads';
+  const releases: Array<() => void> = [];
+  let bytes = 0;
+  let tris = 0;
+  let draws = 0;
+  if (chunk) {
+    releases.push(mountChunk(group, chunk, tier, `road:${ctx.x0}:${ctx.z0}`));
+    bytes += chunk.bytes;
+    tris += chunk.tris;
+    draws += chunkDraws(tier, chunk);
+  }
+  if (extra) {
+    releases.push(mountChunk(group, extra, tier, `road-span:${ctx.x0}:${ctx.z0}`));
+    bytes += extra.bytes;
+    tris += extra.tris;
+    draws += chunkDraws(tier, extra);
+  }
+  group.userData.tris = tris;
   group.userData.bytes = bytes;
-  group.userData.draws = chunkDraws(tier, chunk);
-  if (chunk.lamps.length) {
-    group.userData.releaseLights = retainChunk(
-      `road:${ctx.x0}:${ctx.z0}`,
-      chunk.lamps.map((p) => ({ preset: 'street-sodium' as const, x: p.x, y: p.y, z: p.z, dx: 0, dy: -1, dz: 0 })),
-    );
-  }
+  group.userData.draws = draws;
+  group.userData.releaseLights = () => {
+    for (const release of releases) release();
+  };
   return group;
 });

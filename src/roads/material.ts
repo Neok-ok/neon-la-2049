@@ -8,7 +8,7 @@ import type { Tier } from '../core/quality';
 import { resources } from '../core/memory';
 import { U } from '../atmosphere/uniforms';
 import { NITS } from '../lighting/presets.ts';
-import { practicalLit } from '../lighting/shade.ts';
+import { lanternPool, practicalLit } from '../lighting/shade.ts';
 import { roadMaps, roadTextureMode } from './textures';
 
 const T = TSL as any;
@@ -75,7 +75,9 @@ function flatSolid(): MeshStandardNodeMaterial {
     const walk = vec3(0.2, 0.19, 0.175);
     const concrete = vec3(0.28, 0.27, 0.25);
     const albedo = mix(asphalt, mix(walk, concrete, step(1.5, k)), step(0.5, k));
-    return lampShell(head).add(roadLit(albedo, head));
+    const wpos = positionWorld;
+    const pool = lanternPool(wpos).mul(step(k, 0.5));
+    return lampShell(head).add(roadLit(albedo, head)).add(pool);
   })();
   flatMat = m;
   return m;
@@ -170,7 +172,13 @@ function richSolid(): MeshStandardNodeMaterial {
     const sheenAmt = puddleAmt().mul(0.9);
     const glow = local.mul(fres).mul(sheenAmt).mul(U.night).mul(U.neonWet)
       .mul(U.signPower).mul(mix(float(1), float(0.28), U.reflMix)).mul(altFade).mul(step(k, 0.5)).mul(18.0);
-    return lampShell(head).add(roadLit(albedo, head)).add(glow);
+    // Grazing fresnel on the whole sheet washed the lane pale. A broken sheen stays
+    // dark between the streaks, and drops out while the mirror is already drawing them.
+    const sheen = smoothstep(0.42, 0.8, mx_noise_float(vec3(wpos.x.mul(0.07), wpos.z.mul(0.22), float(5))));
+    const wetFres = vec3(0.42, 0.48, 0.58).mul(fres).mul(sheen).mul(U.wetness).mul(U.night)
+      .mul(mix(float(1), float(0.12), U.reflMix)).mul(step(k, 0.5)).mul(1.1);
+    const pool = lanternPool(wpos).mul(step(k, 0.5));
+    return lampShell(head).add(roadLit(albedo, head)).add(glow).add(wetFres).add(pool);
   })();
   richMat = m;
   return m;

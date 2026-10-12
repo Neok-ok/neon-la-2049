@@ -1,5 +1,6 @@
 // Debug / screenshot cameras. Not imported by the archetype (that would cycle through the generator).
 import type { CityLayout } from '../../world/layout';
+import { carriageNear } from '../../roads/streetSpan';
 import { marketSpots } from './spots';
 
 export type MarketView = 'street' | 'interior' | 'crowd' | 'roof' | 'bibi';
@@ -73,17 +74,30 @@ export function marketCamera(layout: CityLayout, kind: MarketView): MarketPose |
   }
   if (noodle) {
     const s = noodle.street;
+    const lane = carriageNear(layout, s.x, s.z, 'little-tokyo-market');
+    if (lane) {
+      const along = Math.atan2(lane.fx, -lane.fz);
+      const shop = Math.atan2(noodle.entrance.x - lane.x, -(noodle.entrance.z - lane.z));
+      let turn = shop - along;
+      while (turn > Math.PI) turn -= Math.PI * 2;
+      while (turn < -Math.PI) turn += Math.PI * 2;
+      return {
+        x: lane.x,
+        y: lane.y + 1.7,
+        z: lane.z,
+        heading: along + Math.max(-0.45, Math.min(0.45, turn * 0.55)),
+        pitch: 0.08,
+        mode: 'walk',
+      };
+    }
     const toward = towardShop(s, noodle.entrance);
     const ax = Math.sin(s.heading), az = -Math.cos(s.heading);
-    // Off the facade, turned toward the street, so the near wall is at the edge of the
-    // frame and the lanes run beside the look direction instead of through the lens.
     const lx = ax * 0.6 - toward.x * 0.4;
     const lz = az * 0.6 - toward.z * 0.4;
     return {
       x: s.x + toward.x * 1.15,
       y: ground + 1.7,
       z: s.z + toward.z * 1.15,
-      // A little toward the walked lane, so a 390-wide frame still holds the figures.
       heading: Math.atan2(lx, -lz) - 0.18,
       pitch: 0.09,
       mode: 'walk',

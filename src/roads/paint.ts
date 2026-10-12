@@ -145,14 +145,28 @@ export function normalBytes(): Uint8Array {
   return buf;
 }
 
+/** Solid through the middle. Wear stays on the rim, so a stripe still reads as a stripe. */
+function stripe(buf: Uint8Array, index: number, r: number, g: number, b: number, a: number): void {
+  const col = index % 4;
+  const row = Math.floor(index / 4);
+  const ox = col * 64;
+  const oy = row * 64;
+  for (let y = 0; y < 64; y++) {
+    for (let x = 0; x < 64; x++) {
+      const rim = Math.min(x, y, 63 - x, 63 - y);
+      if (rim >= 8) put(buf, MARK, ox + x, oy + y, r, g, b, a);
+      else blot(buf, MARK, ox + x, oy + y, r, g, b, a);
+    }
+  }
+}
+
 /** 4×4 symbol sheet. Each symbol fills its cell, so the quad size is the world size. */
 export function markBytes(): Uint8Array {
   const buf = new Uint8Array(MARK * MARK * 4);
   const paint = 232;
-  const white = () => rect(buf, 0, 0, 0, 64, 64, paint, 228, 210, 235);
-  white();
-  rect(buf, 1, 0, 0, 64, 64, 238, 234, 220, 245);
-  rect(buf, 2, 0, 0, 64, 64, 236, 232, 218, 240);
+  stripe(buf, 0, paint, 228, 210, 235);
+  stripe(buf, 1, 238, 234, 220, 245);
+  stripe(buf, 2, 236, 232, 218, 240);
   const arrow = (index: number, turn: -1 | 0 | 1) => {
     rect(buf, index, 26, 16, 38, 62, paint, 228, 210, 235);
     for (let i = 0; i < 16; i++) {
