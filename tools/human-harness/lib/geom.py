@@ -92,7 +92,7 @@ def _call(v, y):
     return v(y) if callable(v) else v
 
 
-def loft(mesh, polygon, z_at, segs, part, bone_at, color, region, y_extra=()):
+def loft(mesh, polygon, z_at, segs, part, bone_at, color, region, y_extra=(), both_sides=False):
     """Extrude `polygon` (x, y) along Z. `z_at(y) -> (z0, z1)`, `bone_at(y) -> int`.
     `part` and `color` may be constants or callables of y."""
     ys = sorted(set([round(p[1], 5) for p in polygon] + [round(y, 5) for y in y_extra]))
@@ -129,6 +129,8 @@ def loft(mesh, polygon, z_at, segs, part, bone_at, color, region, y_extra=()):
         for i in range(nseg):
             j = (i + 1) % nseg
             mesh.quad(a[i], a[j], b[j], b[i])
+            if both_sides:
+                mesh.quad(a[i], b[i], b[j], a[j])
     # Caps. Fan from a centre so the top and bottom read as closed cloth / skin.
     for ring, (cx, y, cz, bone, part_y, color_y), sign in (
         (rings[0], meta[0], True), (rings[-1], meta[-1], False),
@@ -138,8 +140,12 @@ def loft(mesh, polygon, z_at, segs, part, bone_at, color, region, y_extra=()):
             j = (i + 1) % nseg
             if sign:
                 mesh.tri(c, ring[j], ring[i])
+                if both_sides:
+                    mesh.tri(c, ring[i], ring[j])
             else:
                 mesh.tri(c, ring[i], ring[j])
+                if both_sides:
+                    mesh.tri(c, ring[j], ring[i])
 
 
 def box(mesh, cx, cy, cz, w, h, d, part, bone, color, region):
@@ -155,6 +161,53 @@ def box(mesh, cx, cy, cz, w, h, d, part, bone, color, region):
     )
     for a, b, c, d_ in faces:
         mesh.quad(v[a], v[b], v[c], v[d_])
+
+
+def ball(mesh, cx, cy, cz, radius, part, bone, color, region):
+    """Icosahedron. A flat disk vanishes edge-on; this keeps a knee in every view."""
+    t = (1.0 + math.sqrt(5.0)) / 2.0
+    raw = (
+        (-1, t, 0), (1, t, 0), (-1, -t, 0), (1, -t, 0),
+        (0, -1, t), (0, 1, t), (0, -1, -t), (0, 1, -t),
+        (t, 0, -1), (t, 0, 1), (-t, 0, -1), (-t, 0, 1),
+    )
+    uv = _region_uv(region, 0.5, 0.5)
+    ids = []
+    for x, y, z in raw:
+        length = math.sqrt(x * x + y * y + z * z)
+        ids.append(mesh.add(
+            (cx + x / length * radius, cy + y / length * radius, cz + z / length * radius),
+            uv, part, bone, color,
+        ))
+    faces = (
+        (0, 11, 5), (0, 5, 1), (0, 1, 7), (0, 7, 10), (0, 10, 11),
+        (1, 5, 9), (5, 11, 4), (11, 10, 2), (10, 7, 6), (7, 1, 8),
+        (3, 9, 4), (3, 4, 2), (3, 2, 6), (3, 6, 8), (3, 8, 9),
+        (4, 9, 5), (2, 4, 11), (6, 2, 10), (8, 6, 7), (9, 8, 1),
+    )
+    for a, b, c in faces:
+        mesh.tri(ids[a], ids[b], ids[c])
+
+
+def wafer(mesh, cx, y, cz, rx, rz, segs, part, bone, color, region):
+    """Elliptical limb cross-section, facing ±Y.
+
+    A tube's walls are edge-on when the bone points at the camera, so the
+    coat hem and the shin read as two separate pieces. These disks sit inside
+    the plate and face the lens in that pose. Front and side views see them
+    edge-on, so the silhouette does not grow.
+    """
+    angs = _angles(segs)
+    n = len(angs)
+    ring = []
+    for i, a in enumerate(angs):
+        p = (cx + rx * math.cos(a), y, cz + rz * math.sin(a))
+        uv = _region_uv(region, i / max(1, n), 0.5)
+        ring.append(mesh.add(p, uv, part, bone, color))
+    center = mesh.add((cx, y, cz), _region_uv(region, 0.5, 0.5), part, bone, color)
+    for i in range(n):
+        j = (i + 1) % n
+        mesh.tri(center, ring[i], ring[j])
 
 
 def disc(mesh, cx, cy, cz, radius, segs, part, bone, color, region, y_lift=0.0):

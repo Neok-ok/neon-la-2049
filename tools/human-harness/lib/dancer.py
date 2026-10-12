@@ -110,26 +110,25 @@ def build_dancer(lod='high'):
 
 
 def sway_offsets(time):
-    """Lateral metres on the 60 m figure. Head leads, skirts lag, veil lags further.
-    The lean stays a sway: no steps. Four times the first pass, which moved the
-    head about a metre and disappeared into the rain at street distance.
+    """Lateral metres on the 60 m figure. One bend, skirts a fifth of a radian behind.
+    Neighboring bones stay within about 0.7 m so the loft does not split into
+    shards at the neck or the veil. The crown still travels about 5 m, which
+    reads from the street. No steps.
     """
     lead = math.sin(time * 1.2)
-    hip = math.sin(time * 1.55)
-    skirt = math.sin(time * 1.2 - 0.36)
-    veil = math.sin(time * 1.2 - 0.72)
+    skirt = math.sin(time * 1.2 - 0.22)
     return {
-        'root': lead * 0.9,
-        'hip': hip * 3.2,
-        'waist': lead * 2.0 + hip * 1.1,
-        'chest': lead * 5.0,
-        'head': lead * 6.4,
-        'armUp': lead * 5.6,
-        'armOut': hip * 1.4,
-        'skirtL': skirt * 1.2,
-        'skirtM': skirt * 2.1,
+        'root': lead * 0.5,
+        'hip': lead * 3.2,
+        'waist': lead * 3.9,
+        'chest': lead * 4.6,
+        'head': lead * 5.1,
+        'armUp': lead * 4.8,
+        'armOut': lead * 2.4,
+        'skirtL': skirt * 0.9,
+        'skirtM': skirt * 1.8,
         'skirtU': skirt * 2.6,
-        'veil': veil * 7.6,
+        'veil': skirt * 2.4,
     }
 
 

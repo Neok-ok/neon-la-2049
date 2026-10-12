@@ -3,7 +3,7 @@
 // is not wearing. Scale stays uniform so a 1.55 m person and a 1.91 m person
 // keep the same proportions.
 import {
-  BufferGeometry, DataTexture, LinearFilter, MeshStandardNodeMaterial, NearestFilter,
+  BufferGeometry, DataTexture, DoubleSide, LinearFilter, MeshStandardNodeMaterial, NearestFilter,
   NoColorSpace, RGBAFormat, SRGBColorSpace, TextureLoader, UnsignedByteType,
   type Texture, type WebGPURenderer,
 } from 'three/webgpu';
@@ -13,7 +13,7 @@ import { resources } from '../../core/memory';
 import { U } from '../../atmosphere/uniforms';
 import { loadHumanGeometry } from './gltfGeom';
 import { disposeHumanKtx, preferHumanKtx2, textureGpuBytes, transcodeKtx2 } from './ktx';
-import { paletteSkin } from './paletteSkin';
+import { paletteSkinWeighted } from './paletteSkin';
 
 const T = TSL as any;
 
@@ -109,6 +109,9 @@ function crowdMaterial(palette: Texture, atlas: Texture): MeshStandardNodeMateri
   const m = resources.material(key, () => new MeshStandardNodeMaterial());
   m.name = 'CrowdRig';
   m.fog = true;
+  // A blended knee can flip a thigh face. Drawing both sides keeps the leg
+  // visible without holding the pose on a single palette frame.
+  m.side = DoubleSide;
   const part = T.uv(1).x;
   const bone = T.int(T.round(T.uv(1).y));
   const motion = T.attribute('iMotion', 'vec4');
@@ -139,9 +142,38 @@ function crowdMaterial(palette: Texture, atlas: Texture): MeshStandardNodeMateri
   const skinId = T.mod(packed, T.float(4));
   const maskOn = T.step(3.5, packed);
 
-  const skin = paletteSkin(
-    palette, PAL_LO, PAL_HI, FRAMES, bone, extra.w, motion.x,
-    T.positionGeometry, T.normalGeometry,
+  // Two-bone blend. A hard bone cut at the knee, or a hem locked to the thigh
+  // under a chest-skinned coat, twists the quad between them open while the
+  // frames mix. Legs fade foot → shin → thigh. The long coat fades from the
+  // coat bone at the chest onto the thigh on that side, and the centre front
+  // stays on the coat so the placket does not split.
+  const rest = T.positionGeometry;
+  const stored = T.float(bone);
+  const y = rest.y;
+  const left = T.step(part, T.float(2.5));
+  const thighId = T.mix(T.float(7), T.float(4), left);
+  const shinId = T.mix(T.float(8), T.float(5), left);
+  const footId = T.mix(T.float(9), T.float(6), left);
+  const upper = T.step(T.float(0.22), y);
+  const legBone = T.mix(footId, thighId, upper);
+  const legW = T.mix(
+    T.float(1).sub(T.smoothstep(0.04, 0.16, y)),
+    T.smoothstep(0.28, 0.64, y),
+    upper,
+  );
+  // The whole hem, front and back included, follows the thigh on that side.
+  // A profile shot looks at the front and back of the cloth. Leaving those on
+  // the chest while the pants swing forward is the gap under the coat.
+  const hem = T.float(1).sub(T.smoothstep(0.74, 1.08, y));
+  const coatW = hem;
+  const hemThigh = T.mix(T.float(4), T.float(7), T.step(T.float(0), rest.x));
+  const bone1 = T.mix(T.mix(stored, shinId, isLeg), T.float(16), isLong);
+  const bone2 = T.mix(T.mix(stored, legBone, isLeg), hemThigh, isLong);
+  const weight = T.mix(T.mix(T.float(0), legW, isLeg), coatW, isLong);
+  const skin = paletteSkinWeighted(
+    palette, PAL_LO, PAL_HI, FRAMES,
+    T.int(T.round(bone1)), T.int(T.round(bone2)), weight,
+    extra.w, motion.x, rest, T.normalGeometry,
   );
   const show = (flag: any, mask: any) => T.mix(T.float(1), flag, mask);
   let pos = skin.position;
@@ -180,7 +212,10 @@ function crowdMaterial(palette: Texture, atlas: Texture): MeshStandardNodeMateri
   const shaftCol = T.vec3(1.0, 0.74, 0.38);
   let albedo = coat.mul(vcol).mul(detail);
   albedo = T.mix(albedo, skinTone.mul(vcol).mul(detail), isSkin);
-  albedo = T.mix(albedo, coat.mul(0.62).mul(vcol).mul(detail), isLeg.mul(T.float(1).sub(isShoe)));
+  // Pants stay a light gray in rain. A dark coat multiply dropped the thigh
+  // to the same black as the night ground, so the shin read as a severed leg.
+  const pants = T.vec3(0.74, 0.72, 0.76).mul(detail);
+  albedo = T.mix(albedo, pants, isLeg.mul(T.float(1).sub(isShoe)));
   albedo = T.mix(albedo, vcol.mul(detail), isShoe);
   albedo = T.mix(albedo, coat.mul(0.55).mul(vcol).mul(detail), isBag);
   albedo = T.mix(albedo, can.mul(detail), isCan);
@@ -203,6 +238,8 @@ function crowdMaterial(palette: Texture, atlas: Texture): MeshStandardNodeMateri
   let emissive = albedo.mul(glow).add(sss).add(T.vec3(0.95, 0.22, 0.55).mul(rim));
   emissive = T.mix(emissive, shaftCol.mul(T.float(1.4).add(U.night.mul(0.55))), isShaft);
   emissive = emissive.add(can.mul(isCan).mul(0.18));
+  // Shadowed cloth was falling to ~rgb 40, the same as the night pavement.
+  emissive = emissive.add(T.vec3(0.5, 0.48, 0.52).mul(isLeg).mul(T.float(1).sub(isShoe)));
 
   m.colorNode = T.vec4(albedo, 1);
   m.emissiveNode = emissive;

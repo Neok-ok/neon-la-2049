@@ -1,7 +1,7 @@
 {
   "tier": "medium",
-  "crowdGeomBytes": 18128,
-  "crowdTriangles": 856,
+  "crowdGeomBytes": 33520,
+  "crowdTriangles": 1424,
   "dancerGeomBytes": 33344,
   "dancerTriangles": 1656,
   "crowdPaletteBytes": 69120,
@@ -11,5 +11,5 @@
   "maskBytes": 524288,
   "maskKind": "png",
   "instanceBytes": 97920,
-  "totalBytes": 1799824
+  "totalBytes": 1815216
 }

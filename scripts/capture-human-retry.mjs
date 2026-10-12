@@ -29,7 +29,7 @@ const DISTRICTS = [
   ['arts-district', 'artsView', ['street', 'foundry']],
   ['southeast-industrial', 'southeastView', ['street', 'tanks', 'pipes']],
   ['south-bay-refineries', 'southBayView', ['street']],
-  ['harbor', 'harborView', ['stacks', 'street', 'wall']],
+  ['harbor', 'harborView', ['street', 'stacks', 'wall']],
 ];
 
 function note(msg, extra) {
@@ -71,10 +71,82 @@ async function boot(quality) {
   const url = `http://127.0.0.1:5173/?mode=walk&at=noodle-bar&time=22.5&weather=rain&freeze=1&ui=0&quality=${quality}&webgl=1`;
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 90000 });
   await page.waitForFunction(() => window.__nla && window.__nla.stats, { timeout: 90000 });
-  await page.evaluate(() => {
+  await page.evaluate((side) => { window.__side = side; }, Number(process.env.SIDE || '1.45'));
+  await page.evaluate((d) => { window.__minDist = d; }, Number(process.env.MIN_DIST || '0'));
+  await page.evaluate((d) => { window.__lead = d; }, Number(process.env.LEAD || '0.15'));
+  await page.evaluate(async () => {
     document.getElementById('loading')?.remove();
+    const sg = await import('/src/vehicles/streetGraph.ts');
+    const pr = await import('/src/roads/profile.ts');
     const H = {};
     const app = () => window.__nla.app;
+    function edgeHits(x, z) {
+      const g = sg.streetGraph(app().query.layout);
+      const found = [];
+      const max2 = 28 * 28;
+      sg.visitBins(x, z, 28 + 130, (key) => {
+        const list = g.bins.get(key);
+        if (!list) return;
+        for (const idx of list) {
+          const e = g.edges[idx];
+          if (!e || e.kind === 'freeway') continue;
+          const a = g.nodes[e.a], b = g.nodes[e.b];
+          const along = (x - a.x) * e.fx + (z - a.z) * e.fz;
+          if (along < -1.2 || along > e.length + 1.2) continue;
+          const dx = b.x - a.x, dz = b.z - a.z;
+          const L2 = dx * dx + dz * dz || 1;
+          let t = ((x - a.x) * dx + (z - a.z) * dz) / L2;
+          t = Math.max(0, Math.min(1, t));
+          const px = a.x + dx * t, pz = a.z + dz * t;
+          const d2 = (px - x) ** 2 + (pz - z) ** 2;
+          if (d2 > max2) continue;
+          found.push({ edge: idx, t, dist: Math.sqrt(d2) });
+        }
+      });
+      found.sort((p, q) => p.dist - q.dist);
+      const out = [];
+      const seen = new Set();
+      for (const h of found) {
+        if (seen.has(h.edge)) continue;
+        seen.add(h.edge);
+        out.push(h);
+        if (out.length === 4) break;
+      }
+      return { g, hits: out };
+    }
+    function classify(x, z, yaw) {
+      const { g, hits } = edgeHits(x, z);
+      if (!hits.length) return null;
+      const tx = Math.sin(yaw), tz = Math.cos(yaw);
+      let hit = hits[0];
+      let best = 1e9;
+      for (const h of hits) {
+        const e = g.edges[h.edge];
+        const align = Math.abs(e.fx * tx + e.fz * tz);
+        const score = h.dist + (1 - align) * 6;
+        if (score < best) { best = score; hit = h; }
+      }
+      const e = g.edges[hit.edge];
+      const a = g.nodes[e.a], b = g.nodes[e.b];
+      const ex = a.x + (b.x - a.x) * hit.t;
+      const ez = a.z + (b.z - a.z) * hit.t;
+      const rx = e.fz, rz = -e.fx;
+      const side = (x - ex) * rx + (z - ez) * rz;
+      const absSide = Math.abs(side);
+      const street = app().query.layout.districtAt(ex, ez).grid.street;
+      const profile = pr.streetProfile(street, e.lane, e.kind === 'canyon' ? 'canyon' : 'street');
+      const curbOuter = profile.carriageHalf + pr.CURB_W;
+      const outer = curbOuter + profile.sidewalk;
+      let band = 'outside';
+      if (absSide <= profile.carriageHalf) band = 'road';
+      else if (absSide <= curbOuter + 0.04) band = 'curb';
+      else if (absSide <= outer + 0.15) band = 'walk';
+      return {
+        band, absSide, sign: Math.sign(side) || 1,
+        curbOuter, outer, carriage: profile.carriageHalf,
+        ex, ez, rx, rz, efx: e.fx, efz: e.fz,
+      };
+    }
     const rain = () => app().atmosphere?.weather?.params?.rain ?? 0.8;
     function people() {
       const mesh = app().crowd.mesh;
@@ -211,17 +283,109 @@ async function boot(quality) {
       H.step(0.42);
       const after = new Map(people().map((p) => [p.i, p]));
       const moved = [];
+      const arr = app().crowd.mesh.instanceMatrix.array;
       for (const p of before) {
         const q = after.get(p.i);
         if (!q) continue;
         const d = Math.hypot(q.x - p.x, q.z - p.z);
         if (d < 0.28 || d > 1.3) continue;
         const dist = Math.hypot(q.x - anchor.x, q.z - anchor.z);
-        moved.push({ ...q, vx: q.x - p.x, vz: q.z - p.z, travel: d, dist, wall: nearestWall(q) });
+        const base = q.i * 16;
+        const sc = Math.hypot(arr[base], arr[base + 1], arr[base + 2]) || 1;
+        const faceX = arr[base + 8] / sc;
+        const faceZ = arr[base + 10] / sc;
+        const dispX = (q.x - p.x) / d;
+        const dispZ = (q.z - p.z) / d;
+        const faceDot = dispX * faceX + dispZ * faceZ;
+        const useFace = Math.abs(faceDot) > 0.65 && Math.hypot(faceX, faceZ) > 0.2;
+        const fx = useFace ? faceX * Math.sign(faceDot) : dispX;
+        const fz = useFace ? faceZ * Math.sign(faceDot) : dispZ;
+        moved.push({ ...q, vx: fx, vz: fz, faceDot, travel: d, dist, wall: nearestWall(q), stackGap: stackGap(q) });
       }
-      moved.sort((a, b) => a.wall - b.wall || a.dist - b.dist || b.travel - a.travel);
+      const stackRank = (g) => (g < 1.5 ? 40 + g : g < 16 ? g : 20 + g);
+      moved.sort((a, b) => {
+        if (a.stackGap < 40 || b.stackGap < 40) return stackRank(a.stackGap) - stackRank(b.stackGap);
+        return a.wall - b.wall || a.dist - b.dist || b.travel - a.travel;
+      });
       return moved.slice(0, 16);
     };
+    function stackBoxes() {
+      if (H._stacks) return H._stacks;
+      const out = [];
+      app().scene.traverse((o) => {
+        if (!o.isInstancedMesh || o.name !== 'harbor-stacks') return;
+        const m = o.instanceMatrix.array;
+        for (let i = 0; i < o.count; i++) {
+          const b = i * 16;
+          const x = m[b + 12];
+          const y = m[b + 13];
+          const z = m[b + 14];
+          if (x > 1e5) continue;
+          const sx = Math.hypot(m[b], m[b + 1], m[b + 2]);
+          const sy = Math.hypot(m[b + 4], m[b + 5], m[b + 6]);
+          const sz = Math.hypot(m[b + 8], m[b + 9], m[b + 10]);
+          if (sy < 1 || sx < 0.2) continue;
+          const longX = sx >= sz;
+          const ax = longX ? m[b] / sx : m[b + 8] / sz;
+          const az = longX ? m[b + 2] / sx : m[b + 10] / sz;
+          out.push({ x, y, z, sx, sy, sz, ax, az });
+        }
+      });
+      if (out.length) H._stacks = out;
+      return out;
+    }
+    function insideStack(x, y, z) {
+      for (const s of stackBoxes()) {
+        const dx = x - s.x;
+        const dz = z - s.z;
+        const along = dx * s.ax + dz * s.az;
+        const side = dx * -s.az + dz * s.ax;
+        const halfL = Math.max(s.sx, s.sz) * 0.5 + 0.8;
+        const halfS = Math.min(s.sx, s.sz) * 0.5 + 0.8;
+        if (Math.abs(along) < halfL && Math.abs(side) < halfS && y > s.y - s.sy * 0.5 - 0.4 && y < s.y + s.sy * 0.5 + 1.5) return true;
+      }
+      return false;
+    }
+    function stackGap(p) {
+      const boxes = stackBoxes();
+      if (!boxes.length) return 999;
+      let best = 999;
+      for (const s of boxes) {
+        const d = Math.hypot(s.x - p.x, s.z - p.z) - Math.max(s.sx, s.sz) * 0.5;
+        if (d < best) best = d;
+      }
+      return best;
+    }
+    function stackWall(p) {
+      const boxes = stackBoxes().filter((s) => Math.hypot(s.x - p.x, s.z - p.z) < 42 && s.y < p.y + 24);
+      if (!boxes.length) return null;
+      boxes.sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z));
+      const seed = boxes[0];
+      const cluster = boxes.filter((s) => Math.hypot(s.x - seed.x, s.z - seed.z) < 16);
+      let cx = 0;
+      let cz = 0;
+      let top = 0;
+      for (const s of cluster) {
+        cx += s.x;
+        cz += s.z;
+        top = Math.max(top, s.y + s.sy * 0.5);
+      }
+      cx /= cluster.length;
+      cz /= cluster.length;
+      const wide = cluster.slice().sort((a, b) => Math.max(b.sx, b.sz) - Math.max(a.sx, a.sz))[0];
+      let lx = wide.ax;
+      let lz = wide.az;
+      const llen = Math.hypot(lx, lz) || 1;
+      lx /= llen;
+      lz /= llen;
+      let nx = -lz;
+      let nz = lx;
+      if ((p.x - cx) * nx + (p.z - cz) * nz < 0) {
+        nx = -nx;
+        nz = -nz;
+      }
+      return { cx, cz, nx, nz, lx, lz, top, n: cluster.length };
+    }
     function nearestWall(p) {
       const q = app().query;
       let best = 40;
@@ -250,44 +414,211 @@ async function boot(quality) {
       }
       return { seen: before.length, best };
     };
+    function facadeBeyond(px, pz, ux, uz, y) {
+      const q = app().query;
+      for (let s = 1.5; s <= 10; s += 1.15) {
+        const chest = q.insideSolid(px + ux * s, y + 1.35, pz + uz * s, 0.28, true);
+        const tall = q.insideSolid(px + ux * s, y + 3.1, pz + uz * s, 0.28, true);
+        if (chest) return tall ? 2 : 1;
+      }
+      return 0;
+    }
     H.place = (p) => {
       const q = app().query;
       const sp = Math.hypot(p.vx, p.vz) || 1;
       const fx = p.vx / sp;
       const fz = p.vz / sp;
+      const yaw = Math.atan2(fx, fz);
+      const info = classify(p.x, p.z, yaw);
+      if (info && (info.band === 'road' || info.band === 'curb')) {
+        return { ok: false, reason: 'offwalk', band: info.band };
+      }
       let best = null;
-      for (const side of [1, -1]) {
-        const rx = -fz * side;
-        const rz = fx * side;
-        for (const dist of [3.6, 4.0, 4.6]) {
-          const px = p.x + rx * dist - fx * 0.15;
-          const pz = p.z + rz * dist - fz * 0.15;
-          const gy = q.groundHeight(px, pz);
-          if (Math.abs(gy - p.y) > 1.8) continue;
-          if (!clear(px, pz, gy)) continue;
-          if (!line(px, pz, p.x, p.z, gy)) continue;
-          let facade = 0;
-          for (let s = 1.6; s <= 8; s += 1.05) {
-            const bx = p.x - rx * s;
-            const bz = p.z - rz * s;
-            const chest = q.insideSolid(bx, p.y + 1.35, bz, 0.25, true);
-            const tall = q.insideSolid(bx, p.y + 3.0, bz, 0.25, true);
-            if (chest) { facade = tall ? 2 : 1; break; }
+      const consider = (px, pz, allowRoad, loose) => {
+        const gy = q.groundHeight(px, pz);
+        if (Math.abs(gy - p.y) > 1.8) return;
+        if (insideStack(px, gy + 1.4, pz)) return;
+        if (!clear(px, pz, gy)) return;
+        if (!line(px, pz, p.x, p.z, gy)) return;
+        const dist = Math.hypot(px - p.x, pz - p.z);
+        const minD = Math.max(2.15, window.__minDist || 0);
+        if (dist < minD || dist > Math.max(4.4, minD + 0.8)) return;
+        const ox = px - p.x, oz = pz - p.z;
+        const along = Math.abs(ox * fx + oz * fz);
+        const lat = Math.hypot(ox - fx * (ox * fx + oz * fz), oz - fz * (ox * fx + oz * fz));
+        if (!loose && lat < Math.abs(along) * 3) return;
+        const cam = classify(px, pz, yaw);
+        const band = cam?.band || 'none';
+        const deepRoad = band === 'road' && cam && cam.absSide < cam.carriage - 0.85;
+        if (band === 'curb' || deepRoad) return;
+        if (!allowRoad && band === 'road') return;
+        if (info && info.band === 'walk' && cam && cam.band !== 'walk' && cam.absSide > info.absSide + 0.45) return;
+        const ux = (p.x - px) / dist, uz = (p.z - pz) / dist;
+        const facade = facadeBeyond(p.x, p.z, ux, uz, p.y);
+        const onWalk = band === 'walk';
+        const want = Math.max(3.15, window.__minDist || 0);
+        const score = (onWalk ? 0 : 1.4) + (facade ? 0 : 2.2) + Math.abs(dist - want) + (lat < along ? 1.5 : 0);
+        if (!best || score < best.score) best = { px, pz, gy, score, facade, dist, fx, fz, band };
+      };
+      if (info && info.band === 'walk') {
+        const rx = -fz, rz = fx;
+        let street = null;
+        for (const s of [1, -1]) {
+          const c = classify(p.x + rx * s * 1.5, p.z + rz * s * 1.5, yaw);
+          if (!c) continue;
+          if (!street || c.absSide < street.abs) street = { s, abs: c.absSide };
+        }
+        const sx = rx * (street ? street.s : 1);
+        const sz = rz * (street ? street.s : 1);
+        for (const lat of [1.15, 1.7, 2.2, 2.7]) {
+          for (const along of [0, -0.22, 0.22, -0.4, 0.4]) {
+            consider(p.x + sx * lat + fx * along, p.z + sz * lat + fz * along, false);
+            consider(p.x - sx * lat + fx * along, p.z - sz * lat + fz * along, false);
           }
-          const score = (facade ? 0 : 8) + (facade === 2 ? 0 : 0.4) + Math.abs(dist - 3.8);
-          if (!best || score < best.score) best = { px, pz, gy, score, facade, dist, fx, fz };
         }
       }
-      if (!best) return { ok: false };
-      const aimX = p.x + best.fx * 1.05;
-      const aimZ = p.z + best.fz * 1.05;
-      const aimY = p.y + 1.02 * p.s;
-      const eyeY = best.gy + 1.35;
-      const yaw = Math.atan2(aimX - best.px, -(aimZ - best.pz));
+      if (!best) {
+        for (const side of [1, -1]) {
+          const rx = -fz * side;
+          const rz = fx * side;
+          for (const dist of [2.4, 3.0, 3.6]) {
+            for (const along of [0, -0.3, 0.3]) {
+              consider(p.x + rx * dist + fx * along, p.z + rz * dist + fz * along, false);
+            }
+          }
+        }
+      }
+      if (!best) {
+        const wall = stackWall(p);
+        if (wall) {
+          const saved = [];
+          const relX = p.x - wall.cx;
+          const relZ = p.z - wall.cz;
+          const personAlong = relX * wall.lx + relZ * wall.lz;
+          const personSide = relX * wall.nx + relZ * wall.nz;
+          const sideSign = Math.sign(personSide) || 1;
+          for (const out of [3.2, 4.4, 5.8]) {
+            for (const along of [-1.6, 0.8, 2.4, -3.2]) {
+              const px = wall.cx + wall.lx * (personAlong + along) + wall.nx * sideSign * out;
+              const pz = wall.cz + wall.lz * (personAlong + along) + wall.nz * sideSign * out;
+              const gy = q.groundHeight(px, pz);
+              if (Math.abs(gy - p.y) > 1.8) continue;
+              if (insideStack(px, gy + 1.4, pz)) continue;
+              if (!clear(px, pz, gy) || !line(px, pz, p.x, p.z, gy)) continue;
+              const dist = Math.hypot(px - p.x, pz - p.z);
+              if (dist < 2.3 || dist > 10) continue;
+              saved.push({ px, pz, gy, dist, facade: 2, fx, fz, band: 'stack' });
+            }
+          }
+          for (const cand of saved) {
+            const aimX = p.x + fx * 0.15;
+            const aimZ = p.z + fz * 0.15;
+            const aimY = p.y + 1.28 * p.s;
+            const eyeY = cand.gy + 1.42;
+            const aimYaw = Math.atan2(aimX - cand.px, -(aimZ - cand.pz));
+            const horiz = Math.hypot(aimX - cand.px, aimZ - cand.pz) || 1;
+            const pitch = Math.atan2(aimY - eyeY, horiz);
+            apply(cand.px, cand.pz, cand.gy, aimYaw, pitch);
+            let hits = 0;
+            let y0 = 1;
+            let y1 = -1;
+            let xSide = 0;
+            for (const s of [-6, -2, 2, 6]) {
+              for (const yy of [p.y + 1.4, p.y + 6, Math.min(wall.top - 0.4, p.y + 16)]) {
+                const n = ndc(wall.cx + wall.lx * (personAlong + s), yy, wall.cz + wall.lz * (personAlong + s));
+                if (!n || Math.abs(n.x) > 1.05 || n.y < -0.95 || n.y > 1.05) continue;
+                hits++;
+                y0 = Math.min(y0, n.y);
+                y1 = Math.max(y1, n.y);
+                xSide += n.x;
+              }
+            }
+            const head = ndc(p.x, p.y + 1.7 * p.s, p.z);
+            const feetN = ndc(p.x, p.y + 0.06, p.z);
+            const wallX = xSide / Math.max(1, hits);
+            const beside = head && Math.abs(wallX - head.x) > 0.18;
+            const centered = head && feetN && Math.abs(head.x) < 0.4 && Math.abs(head.y - feetN.y) > 0.4 && feetN.y > -0.95;
+            if (hits >= 3 && y1 - y0 > 0.5 && centered && beside) {
+              const score = Math.abs(cand.dist - 5.2) + Math.abs(Math.abs(wallX) - 0.55);
+              if (!best || score < best.score) best = { ...cand, score, pitch };
+            }
+          }
+        }
+      }
+      if (!best && !info && !stackBoxes().length) {
+        let edge = null;
+        const q2 = app().query;
+        for (let k = 0; k < 24; k++) {
+          const ang = (k / 24) * Math.PI * 2;
+          const dx = Math.sin(ang), dz = Math.cos(ang);
+          const near = q2.insideSolid(p.x + dx * 2.4, p.y + 1.6, p.z + dz * 2.4, 0.35, true);
+          const far = q2.insideSolid(p.x + dx * 6.5, p.y + 2.2, p.z + dz * 6.5, 0.35, true);
+          if (near && !far) { edge = { dx, dz }; break; }
+          if (!near && far) { edge = { dx: -dx, dz: -dz }; break; }
+        }
+        if (edge) {
+          const sx = -edge.dz, sz = edge.dx;
+          for (const lat of [-2.2, 2.2, -3.2, 3.2]) {
+            for (const back of [1.4, 2.4]) {
+              consider(p.x - edge.dx * back + sx * lat, p.z - edge.dz * back + sz * lat, true, true);
+            }
+          }
+        }
+      }
+      if (!best) {
+        for (const side of [1, -1]) {
+          const rx = -fz * side;
+          const rz = fx * side;
+          for (const dist of [2.6, 3.2]) {
+            const px = p.x + rx * dist;
+            const pz = p.z + rz * dist;
+            const gy = q.groundHeight(px, pz);
+            if (Math.abs(gy - p.y) > 1.8) continue;
+            if (!clear(px, pz, gy) || !line(px, pz, p.x, p.z, gy)) continue;
+            const facade = facadeBeyond(p.x, p.z, -rx, -rz, p.y);
+            if (!facade) continue;
+            const d = dist;
+            const score = 6 + Math.abs(d - 2.9);
+            if (!best || score < best.score) best = { px, pz, gy, score, facade, dist: d, fx, fz, band: 'close' };
+          }
+        }
+      }
+      if (!best) return { ok: false, reason: 'no-stand', band: info?.band || 'none', stacks: stackBoxes().length, gap: Math.round(stackGap(p)) };
+      const aimLead = window.__lead || 0.15;
+      const aimX = p.x + best.fx * aimLead;
+      const aimZ = p.z + best.fz * aimLead;
+      const aimY = p.y + 1.28 * p.s;
+      const eyeY = best.gy + 1.42;
+      const aimYaw = Math.atan2(aimX - best.px, -(aimZ - best.pz));
       const horiz = Math.hypot(aimX - best.px, aimZ - best.pz) || 1;
       const pitch = Math.atan2(aimY - eyeY, horiz);
-      apply(best.px, best.pz, best.gy, yaw, pitch);
-      return { ok: true, facade: best.facade, dist: Math.round(best.dist * 10) / 10, pitch: Math.round(pitch * 100) / 100 };
+      apply(best.px, best.pz, best.gy, aimYaw, pitch);
+      return {
+        ok: true,
+        facade: best.facade,
+        dist: Math.round(best.dist * 10) / 10,
+        pitch: Math.round(pitch * 100) / 100,
+        band: best.band,
+        feet: info?.band || 'none',
+        face: Math.round((p.faceDot || 0) * 100) / 100,
+      };
+    };
+    H.ahead = (who) => {
+      const p = people().find((q) => q.i === who.i);
+      if (!p || !who.vx) return { ok: false, reason: 'lost' };
+      const step = (who.travel || 0.6) * 3;
+      const spots = [
+        [p.x, p.y + 1.72 * p.s, p.z],
+        [p.x + who.vx * step, p.y + 1.72 * p.s, p.z + who.vz * step],
+        [p.x + who.vx * step, p.y + 0.04, p.z + who.vz * step],
+      ];
+      for (const [x, y, z] of spots) {
+        const n = ndc(x, y, z);
+        if (!n || Math.abs(n.x) > 0.86 || n.y < -0.92 || n.y > 0.9) {
+          return { ok: false, reason: 'leaves', x: n ? Math.round(n.x * 100) / 100 : null, y: n ? Math.round(n.y * 100) / 100 : null };
+        }
+      }
+      return { ok: true };
     };
     H.lock = (index) => {
       const a = app();
@@ -309,12 +640,14 @@ async function boot(quality) {
       const vz = after.z - before.z;
       const across = Math.abs(vx * ce[0] + vz * ce[2]);
       const depth = Math.abs(vx * -ce[8] + vz * -ce[10]);
-      const profile = across > depth * 0.8;
+      const profile = across > depth * (window.__side || 1.45);
       return {
         ok: travel >= 0.28 && travel <= 1.35 && span >= 0.5 && span <= 1.35 && centered && profile,
         reason: 'framed',
         travel: Math.round(travel * 100) / 100,
         span: Math.round(span * 100) / 100,
+        across: Math.round(across * 100) / 100,
+        depth: Math.round(depth * 100) / 100,
         head, feet, box,
       };
     };
@@ -385,7 +718,7 @@ async function boot(quality) {
     };
     H.advanceDancer = () => {
       const a = app();
-      const phase = ((a.__dancerPhase ?? 0.75) + 0.25) % 1;
+      const phase = ((a.__dancerPhase ?? 0.75) + 0.5) % 1;
       a.__dancerPhase = phase;
       return lockDancerTime(phase);
     };
@@ -510,7 +843,8 @@ async function go(fn, kind) {
 
 async function shoot(id, tier, allowOpen) {
   const reach = 220;
-  for (let attempt = 0; attempt < 8; attempt++) {
+  const attempts = Number(process.env.ATTEMPTS || '8');
+  for (let attempt = 0; attempt < attempts; attempt++) {
     const movers = await page.evaluate((r) => window.__retry.movers(r), reach);
     if (!movers.length) {
       const info = await page.evaluate((r) => window.__retry.nearestTravel(r), reach);
@@ -519,10 +853,20 @@ async function shoot(id, tier, allowOpen) {
     }
     const who = movers[attempt % movers.length];
     const placed = await page.evaluate((p) => window.__retry.place(p), who);
-    if (!placed?.ok) continue;
+    if (!placed?.ok) {
+      note('no place', { id, tier, attempt, reason: placed?.reason, band: placed?.band, stacks: placed?.stacks, gap: placed?.gap });
+      continue;
+    }
     const locked = await page.evaluate((index) => window.__retry.lock(index), who.i);
-    note('try', { id, tier, attempt, placed, locked });
-    if (!locked?.ok || (!placed.facade && !allowOpen)) {
+    const ahead = await page.evaluate((who) => window.__retry.ahead(who), who);
+    note('try', { id, tier, attempt, placed, locked, ahead });
+    if (ahead && ahead.ok === false) {
+      note('leaves', { id, tier, attempt, ahead });
+      await page.evaluate(() => window.__retry.release());
+      continue;
+    }
+    const onWalk = placed.band === 'walk' || placed.band === 'outside';
+    if (!locked?.ok || (!placed.facade && !allowOpen && !onWalk)) {
       await page.evaluate(() => window.__retry.release());
       continue;
     }
@@ -531,9 +875,125 @@ async function shoot(id, tier, allowOpen) {
     const tmp0 = `${OUT}/.tmp-${id}-${tier}-f0.png`;
     await page.screenshot({ path: tmp0, timeout: 180000, animations: 'disabled' });
     const stats = bodyStats(tmp0, locked.box);
-    note('body', { id, tier, attempt, std: Math.round((stats.std || 0) * 10) / 10, span: Math.round(stats.span || 0), mean: Math.round(stats.mean || 0) });
-    if ((stats.span || 0) < 14 && attempt < 5) {
+    const legBox = {
+      x0: locked.box.x0,
+      x1: locked.box.x1,
+      y0: locked.box.y0 + (locked.box.y1 - locked.box.y0) * 0.55,
+      y1: locked.box.y1,
+    };
+    const legs = bodyStats(tmp0, legBox);
+    note('body', { id, tier, attempt, std: Math.round((stats.std || 0) * 10) / 10, span: Math.round(stats.span || 0), mean: Math.round(stats.mean || 0), legs: Math.round(legs.span || 0) });
+    if (((stats.span || 0) < 14 || (legs.span || 0) < 18) && attempt < 6) {
       note('flat', { id, tier, attempt });
+      await page.evaluate(() => window.__retry.release());
+      continue;
+    }
+    const paint = bodyStats(tmp0, {
+      x0: Math.max(0, locked.box.x0 - 0.04),
+      x1: Math.min(1, locked.box.x1 + 0.04),
+      y0: locked.box.y0 + (locked.box.y1 - locked.box.y0) * 0.72,
+      y1: Math.min(1, locked.box.y1 + 0.04),
+    });
+    const above = bodyStats(tmp0, {
+      x0: Math.max(0, locked.box.x0 - 0.08),
+      x1: Math.min(1, locked.box.x1 + 0.08),
+      y0: Math.max(0, locked.box.y0 - 0.22),
+      y1: Math.max(0.02, locked.box.y0 - 0.02),
+    });
+    const py = spawnSync('python3', ['-c', `
+import json, sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert('RGB')
+w, h = im.size
+x0, y0, x1, y1 = [float(v) for v in sys.argv[2:6]]
+box = (max(0, int(x0*w)), max(0, int(y0*h)), min(w, int(x1*w)), min(h, int(y1*h)))
+crop = im.crop(box)
+cw, ch = crop.size
+px = crop.load()
+def thin_rows(test):
+    rows = 0
+    for y in range(ch):
+        xs = [x for x in range(cw) if test(*px[x, y])]
+        if len(xs) < 6:
+            continue
+        span = xs[-1] - xs[0] + 1
+        if span > cw * 0.62 and len(xs) < span * 0.45:
+            rows += 1
+    return rows
+yellow = thin_rows(lambda r, g, b: r > 155 and g > 125 and b < 95 and r > b + 40)
+white = thin_rows(lambda r, g, b: r > 200 and g > 200 and b > 185)
+print(json.dumps({"yellow": yellow, "white": white, "lit": 0, "n": cw * ch}))
+`, tmp0,
+      String(Math.max(0, locked.box.x0 - 0.2)),
+      String(locked.box.y0 + (locked.box.y1 - locked.box.y0) * 0.45),
+      String(Math.min(1, locked.box.x1 + 0.2)),
+      String(Math.min(1, locked.box.y1 + 0.03)),
+    ], { encoding: 'utf8' });
+    let marks = { yellow: 0, white: 0, lit: 0 };
+    if (py.status === 0) marks = JSON.parse(py.stdout);
+    const litBox = bodyStats(tmp0, { x0: 0.02, x1: 0.98, y0: 0.04, y1: 0.46 });
+    note('ground', {
+      id, tier, attempt, feet: placed.feet, cam: placed.band,
+      yellow: marks.yellow, white: marks.white, lit: marks.lit,
+      above: Math.round(above.mean || 0), near: Math.round(litBox.mean || 0),
+    });
+    if ((marks.yellow > 0 || marks.white > 0) && attempt < 6) {
+      note('lanes', { id, tier, attempt });
+      await page.evaluate(() => window.__retry.release());
+      continue;
+    }
+    if (process.env.NO_LANE === '1') {
+      const wide = spawnSync('python3', ['-c', `
+import json, sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert('RGB')
+w, h = im.size
+y0 = int(h * 0.55)
+rows = 0
+px = im.load()
+for y in range(y0, h, 2):
+    xs = [x for x in range(0, w, 2) if (px[x, y][0] > 200 and px[x, y][1] > 200 and px[x, y][2] > 185) or (px[x, y][0] > 160 and px[x, y][1] > 130 and px[x, y][2] < 90 and px[x, y][0] > px[x, y][2] + 40)]
+    if len(xs) < 8:
+        continue
+    span = xs[-1] - xs[0]
+    if span > w * 0.28 and len(xs) < span * 0.25:
+        rows += 1
+print(json.dumps({"rows": rows}))
+`, tmp0], { encoding: 'utf8' });
+      const rows = wide.status === 0 ? JSON.parse(wide.stdout).rows : 0;
+      if (rows > 0) {
+        note('lanes-wide', { id, tier, attempt, rows });
+        await page.evaluate(() => window.__retry.release());
+        continue;
+      }
+    }
+    if (process.env.WANT_WALL === '1') {
+      const wall = spawnSync('python3', ['-c', `
+import json, sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert('RGB')
+w, h = im.size
+px = im.load()
+def side(x0, x1):
+    s = n = 0
+    for y in range(int(h * 0.08), int(h * 0.58), 4):
+        for x in range(x0, x1, 6):
+            r, g, b = px[x, y]
+            s += (r + g + b) / 3.0
+            n += 1
+    return s / max(1, n)
+left, right = side(0, int(w * 0.28)), side(int(w * 0.72), w)
+print(json.dumps({"diff": round(abs(left - right), 2), "left": round(left, 1), "right": round(right, 1)}))
+`, tmp0], { encoding: 'utf8' });
+      const diff = wall.status === 0 ? JSON.parse(wall.stdout).diff : 0;
+      if (diff < 14) {
+        note('no-wall', { id, tier, attempt, diff, detail: wall.stdout.trim() });
+        await page.evaluate(() => window.__retry.release());
+        continue;
+      }
+    }
+    if (process.env.WANT_LIT === '1' && (litBox.mean || 0) < 12 && attempt < 7) {
+      note('dark', { id, tier, attempt });
       await page.evaluate(() => window.__retry.release());
       continue;
     }
@@ -572,7 +1032,7 @@ async function district(id, fn, kinds, tier) {
 
 async function dancerStrip(name, id) {
   let framed = null;
-  for (const dist of [26, 30, 34]) {
+  for (const dist of [32, 36, 42]) {
     framed = await page.evaluate(({ id, dist }) => window.__retry.frameDancer(id, dist), { id, dist });
     note('dancer frame', { name, framed });
     if (framed?.ok && framed.shown) break;
@@ -620,11 +1080,11 @@ async function runTier(tier) {
     if (ONLY.size && !ONLY.has(id)) continue;
     await district(id, fn, kinds, tier);
   }
-  if (!ONLY && !SKIP_DANCER) {
+  if (!ONLY.size && !SKIP_DANCER) {
     await dancerStrip(`dancer-broadway-${tier}`, 'joi-bridge-dancer');
     await dancerStrip(`dancer-hollywood-${tier}`, 'hollywood-dancer');
   }
-  if (!ONLY && !SKIP_DOOR) await doorShot(tier);
+  if (!ONLY.size && !SKIP_DOOR) await doorShot(tier);
 }
 
 try {

@@ -1,12 +1,12 @@
 {
   "crowd": {
     "low": {
-      "triangles": 388,
+      "triangles": 852,
       "iou": {
-        "stand": 0.9875,
-        "short": 0.8512,
-        "rain": 0.9853,
-        "side": 0.9599
+        "stand": 0.9826,
+        "short": 0.8513,
+        "rain": 0.9811,
+        "side": 0.9556
       },
       "anthro": {
         "stature_m": 1.8,
@@ -42,12 +42,12 @@
       }
     },
     "medium": {
-      "triangles": 856,
+      "triangles": 1424,
       "iou": {
-        "stand": 0.9851,
-        "short": 0.8507,
-        "rain": 0.9799,
-        "side": 0.9599
+        "stand": 0.9832,
+        "short": 0.8522,
+        "rain": 0.9783,
+        "side": 0.9576
       },
       "anthro": {
         "stature_m": 1.8,
@@ -83,12 +83,12 @@
       }
     },
     "high": {
-      "triangles": 1096,
+      "triangles": 1664,
       "iou": {
-        "stand": 0.9851,
-        "short": 0.8507,
-        "rain": 0.9712,
-        "side": 0.9601
+        "stand": 0.9832,
+        "short": 0.8522,
+        "rain": 0.9696,
+        "side": 0.9568
       },
       "anthro": {
         "stature_m": 1.8,

@@ -1,7 +1,7 @@
 # One parametric pedestrian. Every outfit is this body with parts shown or hidden.
 # Front outline is the overlap plate. Depth is the side plate. Bones match lib.gait.
 from .gait import BONE_INDEX as BI
-from .geom import Mesh, box, disc, loft, x_span
+from .geom import Mesh, ball, box, disc, loft, wafer, x_span
 from .plates import CANOPY, RAIN_ARM, SHAFT, SHORT, SIDE, STAND
 
 SKIN = (0.02, 0.52, 0.48, 0.98)
@@ -65,6 +65,55 @@ def _shaft_z(_y):
     return (0.06, 0.10)
 
 
+def _one_leg_wafer(mesh, poly, y, segs, part, side, which):
+    span = x_span(poly, y) or x_span(poly, y + 1e-4) or x_span(poly, y - 1e-4)
+    if span is None:
+        return
+    z0, z1 = _leg_z(y)
+    cx = (span[0] + span[1]) * 0.5
+    rx = max(1e-4, (span[1] - span[0]) * 0.5)
+    cz = (z0 + z1) * 0.5
+    rz = max(1e-4, (z1 - z0) * 0.5)
+    wafer(mesh, cx, y, cz, rx, rz, segs, part, BI[f'{which}{side}'], CLOTH_DARK, WOOL)
+
+
+def _knee_ball(mesh, poly, part, side):
+    """Knee volume inside the leg plate. The shader blends it across both bones."""
+    y = 0.45
+    span = x_span(poly, y) or x_span(poly, y + 1e-4)
+    if span is None:
+        return
+    z0, z1 = _leg_z(y)
+    cx = (span[0] + span[1]) * 0.5
+    rx = max(1e-4, (span[1] - span[0]) * 0.5)
+    cz = (z0 + z1) * 0.5
+    rz = max(1e-4, (z1 - z0) * 0.5)
+    ball(mesh, cx, y, cz, min(rx, rz), part, BI[f'thigh{side}'], CLOTH_DARK, WOOL)
+
+
+def _leg_wafers(mesh, poly, segs, part, side):
+    """Disks every 5 cm for the end-on stride, plus one knee volume."""
+    ring = 8 if segs < 8 else segs
+    for i in range(13):
+        y = round(0.10 + i * 0.05, 5)
+        _one_leg_wafer(mesh, poly, y, ring, part, side, 'shin' if y < 0.45 else 'thigh')
+    _one_leg_wafer(mesh, poly, 0.45, ring, part, side, 'shin')
+    _knee_ball(mesh, poly, part, side)
+
+
+def _bind_coat_hem(mesh):
+    """Long-coat hem rides the thigh on that side.
+
+    The harness skins one bone. The game shader fades this hem from the coat
+    bone onto that thigh, so the single-bone bind is the fully weighted end
+    of the same blend.
+    """
+    for i, (part, _bone) in enumerate(mesh.uv1):
+        if part == 6 and mesh.pos[i][1] <= 0.82:
+            side = 'thighL' if mesh.pos[i][0] <= 0 else 'thighR'
+            mesh.uv1[i] = (part, BI[side])
+
+
 def build_crowd(lod='high'):
     # Medium keeps the four silhouette extrema and two extra stations so a
     # head is a volume, not a square tube, when the camera is on the sidewalk.
@@ -73,6 +122,7 @@ def build_crowd(lod='high'):
     _body(mesh, segs, lod)
     _clothes(mesh, segs, lod)
     _rain(mesh, segs, lod)
+    _bind_coat_hem(mesh)
     return mesh.finish()
 
 
@@ -114,9 +164,14 @@ def _body(mesh, segs, lod):
                 return BI[f'shin{side}']
             return BI[f'thigh{side}']
 
-        extra = (0.28,) if lod == 'low' else (0.08, 0.30, 0.42, 0.48)
+        # Short rings so a frame blend cannot twist one long quad open.
+        extra = tuple(round(0.08 + i * 0.06, 5) for i in range(11))
         loft(mesh, poly, _leg_z, segs, part, bone, CLOTH_DARK, WOOL, y_extra=extra)
         loft(mesh, STAND[f'foot{side}'], _foot_z, segs, part, lambda _y: BI[f'foot{side}'], SHOE, LEATHER)
+        # Facing disks along the limb. Walls vanish when the thigh points at
+        # the camera; the disks stay inside the plate and keep hem, knee, and
+        # shin one surface. The knee station is skinned to both bones.
+        _leg_wafers(mesh, poly, segs, part, side)
 
     leg('L', STAND['legL'])
     leg('R', STAND['legR'])
@@ -129,7 +184,10 @@ def _clothes(mesh, segs, lod):
             return CLOTH_DARK
         return CLOTH
 
-    loft(mesh, STAND['coat'], _coat_z, segs, 6, lambda _y: BI['coat'], coat_color, WOOL, y_extra=(0.9, 1.2))
+    # Stations through the hem so the coat/thigh blend has cloth to bend,
+    # instead of one quad sheared between the chest and the knee.
+    coat_ys = (0.78, 0.86, 0.94, 1.02, 1.10, 1.20, 1.32)
+    loft(mesh, STAND['coat'], _coat_z, segs, 6, lambda _y: BI['coat'], coat_color, WOOL, y_extra=coat_ys)
     loft(mesh, SHORT['coat'], _coat_z, segs, 12, lambda _y: BI['coat'], CLOTH, WOOL)
 
     # Hood, 0.30 m across, over the blank head. No face inside it.
