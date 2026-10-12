@@ -12,13 +12,16 @@ registerArchetype('megablock-downtown', (ctx) => {
   };
   const d = dressBlock(block, ctx.layout);
   for (const box of d.boxes) {
-    ctx.box(box.s, box.t, box.lb, box.la, box.h, {
+    const made = ctx.box(box.s, box.t, box.lb, box.la, box.h, {
       style: box.style as StyleId,
       detail: box.detail,
       lit: box.lit,
       tint: box.tint,
       base: box.base,
     });
+    if (!made) continue;
+    if (box.kit) made.kit = true;
+    if (box.ornament !== undefined) made.ornament = box.ornament;
   }
   for (const s of d.signs) {
     ctx.sign(s.s, s.t, s.hb, s.ha, s.face, s.along, s.y, s.w, s.h, s.color, s.kind, s.seed);

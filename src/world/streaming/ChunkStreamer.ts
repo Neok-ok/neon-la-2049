@@ -23,6 +23,9 @@ import { hologramsFromSignBuffer } from '../holograms/fromSigns';
 import type { HologramSpec } from '../holograms/types';
 import { SIGN_RGB } from '../materials/signPalette';
 import type { GlowMark } from '../../atmosphere/AirField';
+import { buildKitMesh } from '../buildings/kitMesh';
+import { KIT_STRIDE } from '../buildings/kitBudget';
+import { buildingDetailCap, type BuildingCap } from '../buildings/tiers';
 
 export const CHUNK = 500;
 export const SUPER = 2000;
@@ -81,6 +84,7 @@ interface Super {
 interface Job {
   slot: Slot;
   lod: number;
+  cap: BuildingCap;
 }
 
 function dist3ToBox(p: Vector3, x0: number, z0: number, size: number): number {
@@ -108,6 +112,8 @@ export class ChunkStreamer {
   private nextId = 1;
   private ready: Array<{ job: Job; res: ChunkWorkerResponse }> = [];
   private layout = getLayout();
+  /** Ornament kept on B1 towers. Masses omit the field, so a cap change does not rescale the city. */
+  private buildingCap: BuildingCap;
   stats = {
     supersFar: 0, chunksNear: 0, lod0: 0, inFlight: 0, readyQueue: 0, lastGenMs: 0, boxes: 0,
     /** Meshes built on the main thread this frame. */
@@ -126,6 +132,7 @@ export class ChunkStreamer {
 
   constructor(scene: Scene, public quality: QualitySettings) {
     this.root.name = 'city-fabric';
+    this.buildingCap = buildingDetailCap(quality.tier);
     scene.add(this.root);
     this.root.add(this.hlod.root);
     this.spawnWorkers(quality.workers);
@@ -140,8 +147,8 @@ export class ChunkStreamer {
         this.jobs.delete(e.data.id);
         if (!job) return;
         this.stats.lastGenMs = e.data.ms;
-        if (job.slot.want === job.lod) this.enqueueReady(job, e.data);
-        else if (job.slot.pendingLod === job.lod) job.slot.pendingLod = -1;
+        if (job.slot.want === job.lod && job.cap === this.buildingCap) this.enqueueReady(job, e.data);
+        else if (job.slot.pendingLod === job.lod && job.cap === this.buildingCap) job.slot.pendingLod = -1;
       };
       w.onerror = (e) => console.error('chunk worker error', e);
       this.workers.push(w);
@@ -150,7 +157,24 @@ export class ChunkStreamer {
   }
 
   setQuality(q: QualitySettings): void {
+    const cap = buildingDetailCap(q.tier);
+    const changed = cap !== this.buildingCap;
     this.quality = q;
+    if (!changed) return;
+    this.buildingCap = cap;
+    this.ready.length = 0;
+    this.detailHeld.length = 0;
+    for (const s of this.supers.values()) {
+      this.markRebuild(s.far);
+      if (s.children) for (const c of s.children) this.markRebuild(c);
+    }
+  }
+
+  /** Drop the shown LOD so the next update rebuilds the mesh at the new ornament cap. */
+  private markRebuild(slot: Slot): void {
+    if (slot.want < 0 && slot.shownLod < 0) return;
+    slot.shownLod = -1;
+    slot.pendingLod = -1;
   }
 
   /** Called every frame from the governor. A wide budget leaves the tier radii alone. */
@@ -411,11 +435,13 @@ export class ChunkStreamer {
       const wi = this.freeWorker();
       if (wi < 0) break;
       const id = this.nextId++;
-      const job: Job = { slot, lod: slot.want };
+      const job: Job = { slot, lod: slot.want, cap: this.buildingCap };
       this.jobs.set(id, job);
       slot.pendingLod = slot.want;
       this.busy[wi]++;
-      const req: ChunkWorkerRequest = { id, x0: slot.x0, z0: slot.z0, size: slot.size, lod: slot.want };
+      const req: ChunkWorkerRequest = {
+        id, x0: slot.x0, z0: slot.z0, size: slot.size, lod: slot.want, detailCap: this.buildingCap,
+      };
       this.workers[wi].postMessage(req);
     }
     this.stats.inFlight = this.jobs.size;
@@ -448,6 +474,10 @@ export class ChunkStreamer {
         continue;
       }
       const slot = job.slot;
+      if (job.cap !== this.buildingCap) {
+        uploadMs += performance.now() - t0;
+        continue;
+      }
       if (slot.pendingLod === job.lod) slot.pendingLod = -1;
       if (slot.want !== job.lod) {
         uploadMs += performance.now() - t0;
@@ -607,6 +637,11 @@ export class ChunkStreamer {
       mesh.matrixAutoUpdate = false;
       g.add(mesh);
       this.stats.boxes = r.boxCount;
+    }
+    const kitRec = r.kit;
+    if (kitRec && kitRec.length >= KIT_STRIDE) {
+      const kit = buildKitMesh(kitRec, 'b1-kit');
+      if (kit) g.add(kit);
     }
     const n = r.signs.length / SIGN_STRIDE;
     if (n > 0) g.add(this.buildSigns(r.signs, n));

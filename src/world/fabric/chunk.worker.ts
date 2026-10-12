@@ -12,6 +12,8 @@ export interface ChunkWorkerRequest {
   z0: number;
   size: number;
   lod: number;
+  /** B1 ornament cap. 0 masses, 1 balconies and fins, 2 pipes and antennas. Defaults to full. */
+  detailCap?: number;
 }
 
 export interface ChunkWorkerResponse {
@@ -23,6 +25,7 @@ export interface ChunkWorkerResponse {
   index: Uint32Array;
   signs: Float32Array;
   blocks: Float32Array;
+  kit: Float32Array;
   maxY: number;
   boxCount: number;
   ms: number;
@@ -34,9 +37,9 @@ function build(req: ChunkWorkerRequest): void {
   const t0 = performance.now();
   const { id, x0, z0, size, lod } = req;
   const fab = generateFabric(layout, x0, z0, size);
-  const a = buildChunkArrays(layout, fab, x0, z0, size, lod);
+  const a = buildChunkArrays(layout, fab, x0, z0, size, lod, req.detailCap ?? 2);
   const res: ChunkWorkerResponse = { id, ...a, ms: performance.now() - t0 };
-  (self as unknown as DedicatedWorkerGlobalScope).postMessage(res, [
+  const transfer = [
     a.position.buffer,
     a.normal.buffer,
     a.facade.buffer,
@@ -44,7 +47,9 @@ function build(req: ChunkWorkerRequest): void {
     a.index.buffer,
     a.signs.buffer,
     a.blocks.buffer,
-  ]);
+  ];
+  if (a.kit.byteLength > 0) transfer.push(a.kit.buffer);
+  (self as unknown as DedicatedWorkerGlobalScope).postMessage(res, transfer);
 }
 
 const enqueue = createJobQueue<ChunkWorkerRequest>(

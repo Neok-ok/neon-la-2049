@@ -13,3 +13,5 @@ tools/model-harness/.refs/
 tools/model-harness/.rounds/
 public/models/traffic/*.raw.glb
 tools/model-harness/reference/
+tools/building-harness/refs/*
+!tools/building-harness/refs/README.md

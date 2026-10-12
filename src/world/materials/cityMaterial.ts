@@ -25,29 +25,76 @@ const ALBEDO = [0.06, 0.2, 0.15, 0.2, 0.24, 0.3, 0.22, 0.3, 0.25, 0.17, 0.14, 0.
 const WARMTH = [0, 0.55, 0.25, 0.7, 0.9, 0.12, 0.75, 0.3, 0.8, 0.6, 0.45, 0.35, 0.6, 0.9, 0.95, 0.62, 0.48, 0.4, 0.58, 0.22];
 
 let shared: MeshStandardNodeMaterial | null = null;
+let kitShared: MeshStandardNodeMaterial | null = null;
 let detail = false;
 
 /** Compile or swap the facade graph. Meshes already hold this material, so the object stays. */
 export function setCityWindowDetail(living: boolean): void {
   detail = living;
   markWindowDetail(living);
-  if (!shared) return;
-  compose(shared, living);
-  shared.needsUpdate = true;
+  if (shared) {
+    compose(shared, living, false);
+    shared.needsUpdate = true;
+  }
+  if (kitShared) {
+    compose(kitShared, living, true);
+    kitShared.needsUpdate = true;
+  }
 }
 
 export function getCityMaterial(): MeshStandardNodeMaterial {
   if (shared) return shared;
   const m = resources.material('city-fabric', () => new MeshStandardNodeMaterial());
   m.name = 'CityFabric';
-  compose(m, detail);
+  compose(m, detail, false);
   shared = m;
   return m;
 }
 
-function compose(m: MeshStandardNodeMaterial, living: boolean): void {
-  const facade = attribute('facade', 'vec2');
+/**
+ * Same facade graph as the chunk material, for instanced kit boxes.
+ * The unit box stores 0..1 face coordinates. This expands them to metres so the window grid matches.
+ * No texture of its own: it samples nothing the chunk material does not already sample.
+ */
+export function getKitMaterial(): MeshStandardNodeMaterial {
+  if (kitShared) return kitShared;
+  const m = resources.material('b1-kit', () => new MeshStandardNodeMaterial());
+  m.name = 'CityKit';
+  compose(m, detail, true);
+  kitShared = m;
+  return m;
+}
+
+/**
+ * Wall faces 0..3 and roof face 4. Must match kitFacadeUV in src/world/buildings/kitBudget.ts.
+ * `kit` is (width, depth, height, unused) per instance. `bdata` is the usual seed/style/lit/tint.
+ */
+function kitFacade(bdata: any): any {
+  const local = attribute('facade', 'vec2');
+  const faceId = attribute('kitFace', 'float');
+  const kit = attribute('kit', 'vec4');
+  const seed = bdata.x;
+  const w = kit.x;
+  const d = kit.y;
+  const h = kit.z;
+  const u0 = seed.mul(1000.0).add(100.0);
+  const is0 = step(faceId, 0.5);
+  const is1 = step(0.5, faceId).mul(step(faceId, 1.5));
+  const is2 = step(1.5, faceId).mul(step(faceId, 2.5));
+  const is3 = step(2.5, faceId).mul(step(faceId, 3.5));
+  const roofFace = step(3.5, faceId);
+  const wallOffset = w.mul(is1.add(is2).add(is3.mul(2.0))).add(d.mul(is2.add(is3)));
+  const wallScale = w.mul(is0.add(is2)).add(d.mul(is1.add(is3)));
+  const wallU = u0.add(wallOffset).add(local.x.mul(wallScale));
+  const wallV = local.y.mul(h);
+  const roofU = float(500).sub(w.mul(0.5)).add(local.x.mul(w));
+  const roofV = float(500).sub(d.mul(0.5)).add(local.y.mul(d));
+  return vec2(mix(wallU, roofU, roofFace), mix(wallV, roofV, roofFace));
+}
+
+function compose(m: MeshStandardNodeMaterial, living: boolean, kit: boolean): void {
   const bdata = attribute('bdata', 'vec4');
+  const facade = kit ? kitFacade(bdata) : attribute('facade', 'vec2');
   const seed = bdata.x;
   const styleF = bdata.y;
   const lit = bdata.z;

@@ -430,6 +430,33 @@
       "bearingDeg": 0, "height": 52, "baseWidth": 64, "baseDepth": 8,
       "reserveRadius": 34,
       "confidence": "invented. Original five-panel wordmark on the northwest slope inside the Hollywood polygon. Atlas copy only (KASAI, MIDORI, OPEN LATE, NIGHT MARKET, 2049). No famous hillside sign. Reserve 34 m keeps hills-sparse boxes out of the pylons and stays off the street centre lines."
+    },
+    {
+      "id": "b1-gate",
+      "name": "West Canyon Gate",
+      "type": "b1-hero",
+      "lat": 34.051473, "lon": -118.262440,
+      "bearingDeg": 38, "height": 560, "baseWidth": 70, "baseDepth": 48,
+      "reserveRadius": 96,
+      "confidence": "invented. Twin banded slabs and three bridges in the west financial cluster. Original mass, no film building. Reserve 96 m keeps fabric out of the footprint and off I-110. LAPD, City Hall and Wallace are separate landmarks."
+    },
+    {
+      "id": "b1-step",
+      "name": "Caldera Step",
+      "type": "b1-hero",
+      "lat": 34.049316, "lon": -118.262740,
+      "bearingDeg": 38, "height": 640, "baseWidth": 70, "baseDepth": 48,
+      "reserveRadius": 96,
+      "confidence": "invented. Stepped megastructure south of West Canyon Gate. Stays west of the Little Tokyo opening ray toward the Wallace pyramid, and well under the pyramid's height."
+    },
+    {
+      "id": "b1-obelisk",
+      "name": "Kite Obelisk",
+      "type": "b1-hero",
+      "lat": 34.050011, "lon": -118.263808,
+      "bearingDeg": 38, "height": 480, "baseWidth": 70, "baseDepth": 48,
+      "reserveRadius": 96,
+      "confidence": "invented. Tapered shaft with one ad face, west of Caldera Step. Reserve stays off the I-110 corridor (centreline is about 185 m east)."
     }
   ],
   "pois": [
