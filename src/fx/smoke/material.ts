@@ -14,8 +14,8 @@ import { smokeAtlas } from './atlas';
 
 const T = TSL as any;
 const {
-  Fn, abs, attribute, cameraPosition, cameraNear, cameraFar, cross, float, length, max, mix, normalize,
-  perspectiveDepthToViewZ, positionView, screenUV, select, smoothstep, texture,
+  Fn, abs, attribute, cameraPosition, cameraNear, cameraFar, cross, float, length, max, mix, mx_noise_float,
+  normalize, perspectiveDepthToViewZ, positionView, screenUV, select, smoothstep, texture,
   vec2, vec3, vec4, viewportDepthTexture,
 } = T;
 
@@ -70,8 +70,22 @@ function shade(lit: boolean): MeshBasicNodeMaterial {
     const cell = corner.mul(0.5).add(0.5).mul(0.9).add(0.05);
     const uv = vec2(col.add(cell.x).div(4.0), row.add(cell.y).div(2.0));
     const stamp = texture(atlas, uv);
-    // Soft lobe alpha. A hard threshold turned every card into a cotton ball.
-    const shape = stamp.a.mul(smoothstep(1.2, 0.8, length(corner)));
+    // One noise sample per card. Overlapping filled ovals were summing into a
+    // smooth shaft. The floor keeps a night vent from disappearing.
+    const n = mx_noise_float(vec3(
+      ctr.x.mul(0.55).add(corner.x.mul(2.8)).add(seed.mul(4.1)),
+      ctr.y.mul(0.62).add(corner.y.mul(3.4)).add(life.mul(0.4)),
+      ctr.z.mul(0.55).add(seed.mul(2.2)),
+    ));
+    const lumps = smoothstep(float(-0.2), float(0.7), n);
+    const launchK = smoothstep(6.15, 6.85, kind);
+    // Barrel and stack only. Exhaust stays filled so a short wake still reads.
+    const deep = launchK.add(
+      smoothstep(3.55, 4.05, kind).mul(float(1).sub(smoothstep(5.45, 5.95, kind))),
+    );
+    const floor = mix(float(0.62), float(0.22), deep);
+    const grain = mix(floor, float(1), lumps);
+    const shape = stamp.a.mul(grain).mul(smoothstep(1.15, 0.7, length(corner)));
 
     const toCam = normalize(cameraPosition.sub(ctr.xyz));
     const ref = select(abs(toCam.y).greaterThan(0.92), vec3(1, 0, 0), vec3(0, 1, 0));
@@ -106,14 +120,20 @@ function shade(lit: boolean): MeshBasicNodeMaterial {
       const world = ctr.xyz;
       lamps = practicalLit(world, N, V, albedo).mul(litScale).add(practicalInscatter(world).mul(3.6));
     }
-    const heatGain = launch.mul(0.9).add(barrel.mul(1.65)).add(stack.mul(0.55)).add(exhaustK.mul(0.2)).add(steam.mul(0.1));
+    const heatGain = launch.mul(0.72).add(barrel.mul(1.65)).add(stack.mul(0.55)).add(exhaustK.mul(0.2)).add(steam.mul(0.1));
     const heat = vec3(FLAME[0], FLAME[1], FLAME[2])
       .mul(extra.x)
       .mul(authoredLiftU)
       .mul(heatGain)
       .mul(smoothstep(0.92, 0.04, life));
-    const crease = mix(float(0.42), float(1), stamp.b);
-    const rgb = body.mul(crease).add(lamps).add(veil).add(heat);
+    // Valleys of the lump field are the internal shadow. The baked normal only
+    // darkened the rim, so the body stayed a flat gradient.
+    const shade = mix(float(0.42), float(0.12), deep);
+    const crease = mix(shade, float(1), lumps).mul(mix(float(0.75), float(1), stamp.b));
+    const hot = smoothstep(float(0.55), float(1.15), extra.x).mul(launch);
+    const coreDisc = smoothstep(float(0.58), float(0.04), length(corner));
+    const core = vec3(1.45, 0.86, 0.42).mul(authoredLiftU).mul(hot).mul(coreDisc).mul(0.8);
+    const rgb = body.mul(crease).add(lamps).add(veil).add(heat).add(core);
 
     const dist = length(ctr.xyz.sub(cameraPosition));
     const thin = smoothstep(extra.w, extra.w.mul(0.2), dist);

@@ -17,17 +17,18 @@ const ROWS = 2;
 function density(u: number, v: number, frame: number): number {
   const tear = frame / (FRAMES - 1);
   const warp = fbm(u * 1.6 + frame * 0.27, v * 1.9, frame * 0.13);
-  const uu = u + warp * 0.22;
-  const vv = v * (0.86 + tear * 0.2) + warp * 0.14;
-  const n = fbm(uu * 2.6 + frame * 0.2, vv * 3.1, 0.6);
-  const n2 = fbm(uu * 5.2 + 4, vv * 6, 1.4);
-  const r2 = uu * uu * 0.9 + vv * vv * 0.72;
+  const uu = u + warp * 0.16;
+  const vv = v * (0.88 + tear * 0.16) + warp * 0.1;
+  const n = fbm(uu * 3.4 + frame * 0.17, vv * 3.8, 0.55);
+  const n2 = fbm(uu * 6.5 + 4.2, vv * 7.1, 1.3);
+  const r2 = uu * uu * 0.82 + vv * vv * 0.68;
   const body = Math.max(0, 1 - r2);
-  const rim = Math.min(1, r2 * 1.35);
-  const eat = Math.max(0, -n) * rim * 1.2;
-  const grain = 0.78 + 0.22 * n2;
-  const d = Math.max(0, body - eat) * Math.max(0.45, grain);
-  return Math.min(1, d) * (1 - tear * 0.1);
+  // Grooves cross the body, so a card is a lump with a dark crease, not a disc.
+  // The floor stays high enough that a street-sized card still reads at night.
+  const groove = Math.max(0, -n) * Math.min(1, body * 1.6) * 0.62;
+  const grain = 0.7 + 0.3 * n2;
+  const d = Math.max(0.0, body * Math.max(0.5, grain) - groove);
+  return Math.min(1, d) * (1 - tear * 0.08);
 }
 
 function bake(): Uint8Array {

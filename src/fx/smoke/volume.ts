@@ -83,20 +83,24 @@ function volumeMaterial(): MeshBasicNodeMaterial {
       const shear = volWind.mul(height.mul(0.08));
       const radial = length(rel.xz.sub(shear.xz));
       const t = clamp(height.div(max(volHeight, 1.0)), 0, 1);
-      const n1 = mx_noise_float(pos.mul(0.05).add(vec3(U.time.mul(0.04), U.time.mul(0.015), 0))).mul(0.5).add(0.5);
-      const clumps = smoothstep(0.34, 0.72, n1);
-      const pinch = mix(float(0.55), float(1.45), n1);
-      const radius = mix(float(8), float(16), t).mul(pinch);
-      const column = smoothstep(radius, radius.mul(0.25), radial)
+      const n1 = mx_noise_float(pos.mul(0.018).add(vec3(U.time.mul(0.03), U.time.mul(0.012), 0))).mul(0.5).add(0.5);
+      const clumps = smoothstep(0.4, 0.82, n1);
+      const pinch = mix(float(0.42), float(1.65), n1);
+      const radius = mix(float(7), float(18), t).mul(pinch);
+      const column = smoothstep(radius, radius.mul(0.22), radial)
         .mul(smoothstep(0.0, 8.0, height))
         .mul(smoothstep(volHeight, volHeight.mul(0.72), height))
         .mul(clumps);
+      // Thin bright spine. The billboards carry the billows; this is the engine core.
+      const core = smoothstep(float(6.5), float(0.6), radial)
+        .mul(smoothstep(1.5, 12.0, height))
+        .mul(smoothstep(volHeight.mul(0.48), volHeight.mul(0.06), height));
       const gRad = length(rel.xz);
-      const ground = smoothstep(volGroundR, volGroundR.mul(0.35), gRad)
-        .mul(smoothstep(18.0, 2.0, height))
+      const ground = smoothstep(volGroundR, volGroundR.mul(0.3), gRad)
+        .mul(smoothstep(22.0, 2.0, height))
         .mul(smoothstep(-2.0, 1.5, height))
-        .mul(smoothstep(0.28, 0.66, n1));
-      const density = column.mul(0.08).add(ground.mul(0.22)).mul(volDensity);
+        .mul(smoothstep(0.22, 0.7, n1));
+      const density = column.mul(0.26).add(ground.mul(0.38)).mul(volDensity);
 
       const toEng = volEngine.sub(pos);
       const dE = max(length(toEng), 1.0);
@@ -107,10 +111,11 @@ function volumeMaterial(): MeshBasicNodeMaterial {
       const g = 0.42;
       const phase = float(1 - g * g).div(pow(max(float(1 + g * g).sub(cos.mul(2 * g)), 0.05), 1.5));
       const flame = vec3(FLAME[0], FLAME[1], FLAME[2]).mul(att).mul(phase).mul(0.14).mul(authoredLiftU);
-      const albedo = mix(vec3(0.72, 0.7, 0.66), vec3(0.95, 0.78, 0.48), att);
-      const glow = flame.add(scatter).add(U.fogColor.mul(0.16)).mul(albedo);
-      const absorb = density.mul(stepLen).mul(0.018);
-      acc.addAssign(tr.mul(glow).mul(density).mul(stepLen).mul(0.07).mul(live));
+      const albedo = mix(vec3(0.62, 0.6, 0.56), vec3(0.95, 0.72, 0.4), att);
+      const coreGlow = vec3(1.35, 0.78, 0.36).mul(authoredLiftU).mul(core).mul(0.5);
+      const glow = flame.add(scatter).add(U.fogColor.mul(0.16)).mul(albedo).add(coreGlow);
+      const absorb = density.mul(stepLen).mul(0.02);
+      acc.addAssign(tr.mul(glow).mul(density.add(core.mul(0.4))).mul(stepLen).mul(0.065).mul(live));
       tr.mulAssign(mix(float(1), exp(absorb.negate()), live));
     });
 

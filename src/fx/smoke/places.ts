@@ -153,40 +153,40 @@ function addMarket(
       const az = lane ? lane.fz : fz;
       const lx = -az;
       const lz = ax;
-      const vent = laneSpot(query, x, s.y, z, ax, az, lx, lz, 8.4, 0.9, 0.25);
+      const vent = laneSpot(query, x, s.y, z, ax, az, lx, lz, 8.2, 0.85, 0.18);
       vents.push(make({
         x: vent.x,
         y: vent.y,
         z: vent.z,
         kind: KIND.vent,
-        rate: 12,
-        life: 2.2,
-        size0: 0.3,
-        size1: 0.72,
+        rate: 14,
+        life: 2.05,
+        size0: 0.2,
+        size1: 0.52,
         heat: 0,
-        radius: 0.07,
-        spread: 0.05,
-        rise: 1.5,
-        fade: 24,
-        aspect: 2.05,
+        radius: 0.09,
+        spread: 0.07,
+        rise: 1.15,
+        fade: 22,
+        aspect: 2.45,
         floorY: s.y,
       }));
-      const hole = laneSpot(query, x, s.y, z, ax, az, lx, lz, 13.5, -2.1, 0.22);
+      const hole = laneSpot(query, x, s.y, z, ax, az, lx, lz, 18.5, -2.5, 0.12);
       holes.push(make({
         x: hole.x,
         y: hole.y,
         z: hole.z,
         kind: KIND.manhole,
         rate: 12,
-        life: 2.2,
-        size0: 0.7,
-        size1: 1.85,
+        life: 2.4,
+        size0: 0.85,
+        size1: 2.05,
         heat: 0,
-        radius: 0.22,
-        spread: 0.08,
-        rise: 0.22,
-        fade: 22,
-        aspect: 0.45,
+        radius: 0.26,
+        spread: 0.16,
+        rise: 0.14,
+        fade: 20,
+        aspect: 0.34,
         floorY: s.y,
       }));
     }
@@ -203,12 +203,12 @@ function addMarket(
           const roofY = query.floorBelow(px, y + 4, pz, true);
           if (!(roofY > s.y + 6) || roofY > y - 1.2) continue;
           const dist = Math.hypot(px - x, pz - z) || 1;
-          if (dist < 6 || dist > 22) continue;
+          if (dist < 7 || dist > 18) continue;
           const sy = roofY + 2.8;
           const pitch = Math.atan2(sy - y, dist);
-          if (pitch > -0.45 || pitch < -1.25) continue;
+          if (pitch > -0.22 || pitch < -1.35) continue;
           if (query.insideSolid(px, sy, pz, 0.5, true)) continue;
-          const score = dist * 0.08 + Math.abs(pitch + 0.9) * 4;
+          const score = Math.abs(dist - 12) * 0.25 + Math.abs(pitch + 0.7) * 2;
           if (!best || score < best.score) best = { x: px, z: pz, roof: roofY, score };
         }
       }
@@ -216,16 +216,16 @@ function addMarket(
       roofs.push(make({
         x: spot.x, y: spot.roof + 0.8, z: spot.z,
         kind: KIND.roof,
-        rate: 8,
-        life: 3.4,
-        size0: 0.75,
-        size1: 1.7,
+        rate: 11,
+        life: 4.1,
+        size0: 0.9,
+        size1: 2.25,
         heat: 0,
-        radius: 0.12,
-        spread: 0.08,
-        rise: 1.45,
-        fade: 36,
-        aspect: 1.65,
+        radius: 0.14,
+        spread: 0.1,
+        rise: 1.65,
+        fade: 40,
+        aspect: 1.7,
         floorY: spot.roof,
       }));
     }
@@ -242,18 +242,18 @@ function addMarket(
     const rx = hz;
     const rz = -hx;
     food.push(make({
-      x: s.x + hx * 4.2 + rx * 2.15, y: s.y + 1.0, z: s.z + hz * 4.2 + rz * 2.15,
+      x: s.x + hx * 3.8 + rx * 1.7, y: s.y + 0.9, z: s.z + hz * 3.8 + rz * 1.7,
       kind: KIND.stall,
-      rate: 14,
-      life: 1.05,
+      rate: 16,
+      life: 1.35,
       size0: 0.12,
-      size1: 0.32,
-      heat: 0.1,
-      radius: 0.05,
-      spread: 0.04,
-      rise: 0.42,
-      fade: 8,
-      aspect: 2.15,
+      size1: 0.36,
+      heat: 0.12,
+      radius: 0.08,
+      spread: 0.14,
+      rise: 0.72,
+      fade: 10,
+      aspect: 2.55,
       floorY: s.y,
     }));
   }
@@ -358,16 +358,16 @@ export function gatherEmitters(
     stacks.push(make({
       x: f.x, y: f.y + 0.2, z: f.z,
       kind: KIND.stack,
-      rate: 16,
-      life: 12,
-      size0: 4.6,
-      size1: 11.5,
-      heat: 0.45,
-      radius: 0.55,
-      spread: 0.16,
-      rise: 2.3,
+      rate: 14,
+      life: 13,
+      size0: 3.4,
+      size1: 12,
+      heat: 0.5,
+      radius: 0.7,
+      spread: 0.32,
+      rise: 1.85,
       fade: 1100,
-      aspect: 1.05,
+      aspect: 1.2,
       floorY: f.y,
     }));
   };
@@ -382,16 +382,16 @@ export function gatherEmitters(
       barrels.push(make({
         x: bx, y: door.y + 0.65, z: bz,
         kind: KIND.barrel,
-        rate: 14,
-        life: 3.6,
-        size0: 0.22,
-        size1: 0.58,
+        rate: 16,
+        life: 3.1,
+        size0: 0.16,
+        size1: 0.5,
         heat: 1,
-        radius: 0.12,
-        spread: 0.05,
-        rise: 0.65,
-        fade: 24,
-        aspect: 1.15,
+        radius: 0.1,
+        spread: 0.08,
+        rise: 0.5,
+        fade: 22,
+        aspect: 1.5,
         floorY: door.y,
       }));
     }

@@ -174,8 +174,8 @@ function dragK(kind: number): number {
 function turb(kind: number): number {
   if (kind === KIND.column) return 2.4;
   if (kind === KIND.ground) return 1.8;
-  if (kind === KIND.stack) return 0.55;
-  if (kind === KIND.barrel) return 0.7;
+  if (kind === KIND.stack) return 0.95;
+  if (kind === KIND.barrel) return 0.85;
   return 0.4;
 }
 
@@ -184,9 +184,10 @@ function turb(kind: number): number {
  * them, so the column is a stack of billows and the core can show in the gaps.
  */
 export function columnRadius(height: number, time: number): number {
-  const bulb = Math.max(0, Math.sin(height * 0.018 + 0.6));
+  const bulb = Math.max(0, Math.sin(height * 0.011 + 0.4));
+  const bulb2 = Math.max(0, Math.sin(height * 0.023 + 2.1));
   const wiggle = Math.sin(height * 0.041 + time * 0.35);
-  return 7 + bulb * 6 + wiggle * 1.4;
+  return 5.5 + bulb * 9 + bulb2 * 4.5 + wiggle * 1.1;
 }
 
 /** Same lean the flame ribbon uses: 0 at the pad, full lean at the head. */
@@ -293,16 +294,26 @@ export function integrate(
         const oz = z - az;
         const dist = Math.hypot(ox, oz) || 0.001;
         const want = columnRadius(height, time);
-        const err = dist - want;
         const pull = 1 - Math.exp(-dt * 0.55);
         const nx = ox / dist;
         const nz = oz / dist;
-        const grip = pull * (err > 0 ? 1 : 0.45);
-        x -= nx * err * grip;
-        z -= nz * err * grip;
-        const swirl = dt * 0.35;
-        x += -nz * swirl;
-        z += nx * swirl;
+        const heat = pool.heat[i] ?? 0;
+        if (heat > 0.85) {
+          // Hot cards stay on the spine. The sheath spring was emptying the core.
+          if (dist > want * 0.45) {
+            const back = dist - want * 0.16;
+            x -= nx * back * pull;
+            z -= nz * back * pull;
+          }
+        } else {
+          const err = dist - want;
+          const grip = pull * (err > 0 ? 1 : 0.45);
+          x -= nx * err * grip;
+          z -= nz * err * grip;
+          const swirl = dt * 0.35;
+          x += -nz * swirl;
+          z += nx * swirl;
+        }
       }
     }
 
