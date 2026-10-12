@@ -13,11 +13,11 @@ const ROWS = 2;
 function density(u: number, v: number, frame: number): number {
   const tear = frame / (FRAMES - 1);
   const wobble = fbm(u * 2.2 + frame * 0.41, v * 3.4 - frame * 0.19, frame * 0.17);
-  const r = Math.hypot(u * (1.45 + tear * 0.55), v * (0.62 + tear * 0.2));
-  const body = Math.max(0, 1 - r * (1.2 + tear * 0.5));
-  const edge = Math.pow(body, 1.25);
-  const filaments = Math.pow(Math.max(0, wobble), 1.7);
-  return edge * (0.08 + 0.92 * filaments) * (1 - tear * 0.28);
+  const r = Math.hypot(u * (1.12 + tear * 0.3), v * (0.8 + tear * 0.1));
+  const body = Math.max(0, 1 - r * (0.98 + tear * 0.28));
+  const edge = Math.pow(body, 0.65);
+  const filaments = Math.pow(Math.max(0, 0.5 + 0.5 * wobble), 1.05);
+  return edge * (0.55 + 0.45 * filaments) * (1 - tear * 0.1);
 }
 
 function bake(): Uint8Array {

@@ -25,7 +25,7 @@ import {
 /** Share of the street budget. Indexed by KIND. Launch kinds stay on their own slots. */
 const KIND_SHARE = [0.16, 0.12, 0.12, 0.1, 0.14, 0.22, 0.14];
 /** Card opacity. Street steam stays translucent so wisps do not fuse into a bank. */
-const KIND_ALPHA = [0.62, 0.48, 0.58, 0.7, 0.8, 0.4, 0.74, 0.34, 0.42];
+const KIND_ALPHA = [0.78, 0.66, 0.74, 0.82, 0.86, 0.58, 0.8, 0.58, 0.64];
 /** How many aged cards one emitter may seed, so a grate is a wisp and a stack is a column. */
 const SEED_CAP = [4, 4, 5, 6, 8, 18];
 
@@ -271,7 +271,7 @@ export class SmokeField {
         ? (12 + grown * 78) * Math.pow(smokeRand(), 0.8)
         : (8 + grown * 28) * Math.pow(smokeRand(), 1.15);
       const yLift = climb < 0.42 ? 8 + smokeRand() * 26 + age * 0.28 : 22 + smokeRand() * 64;
-      const size1 = tier === 'low' ? 30 : tier === 'medium' ? 46 : 58;
+      const size1 = tier === 'low' ? 36 : tier === 'medium' ? 56 : 70;
       const heat = Math.exp(-ring / 46) * Math.exp(-Math.max(0, yLift - 10) / 55);
       spawnParticle(this.pool, {
         x: drive.x + Math.cos(ang) * ring + wx * age * 0.2,
@@ -298,8 +298,10 @@ export class SmokeField {
       const along = smokeRand() * h;
       const ang = smokeRand() * Math.PI * 2;
       const rad = (4 + smokeRand() * 7) * (0.6 + along / Math.max(h, 1) * 0.85);
-      const lean = (10 + Math.min(12, wind.speed) * 1.4) * Math.min(1, along / 640);
-      const size1 = tier === 'low' ? 22 : tier === 'medium' ? 30 : 36;
+      const len = Math.max(24, drive.headY - drive.y);
+      const lift = Math.max(0, Math.min(1, (along - 0.14 * len) / Math.max(1, 0.72 * len)));
+      const lean = (10 + Math.min(12, wind.speed) * 1.4) * lift;
+      const size1 = tier === 'low' ? 28 : tier === 'medium' ? 50 : 60;
       spawnParticle(this.pool, {
         x: drive.x + Math.cos(wind.dir) * lean + Math.cos(ang) * rad,
         y: drive.y + along,
@@ -343,7 +345,7 @@ export class SmokeField {
           life: 110 + smokeRand() * 30,
           age: 0,
           size0: 10,
-          size1: tier === 'low' ? 28 : 48,
+          size1: tier === 'low' ? 32 : 54,
           kind: KIND.ground,
           heat: Math.exp(-ring / 40) * Math.exp(-yLift / 50),
           fade: 4500,
@@ -377,7 +379,7 @@ export class SmokeField {
         life: 24 + smokeRand() * 10,
         age: 0,
         size0: 7,
-        size1: tier === 'low' ? 20 : 32,
+        size1: tier === 'low' ? 24 : 42,
         kind: KIND.column,
         heat: Math.max(0.25, 1 - rad / 12),
         fade: 5200,

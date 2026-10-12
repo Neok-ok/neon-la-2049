@@ -251,7 +251,11 @@ export function integrate(
         // column so the sheath stays on the core instead of sliding off it.
         const height = Math.max(0, y - drive.y);
         const leanMag = 10 + Math.min(12, wind.speed) * 1.4;
-        const lean = leanMag * Math.min(1, height / 640);
+        const len = Math.max(24, drive.headY - drive.y);
+        const y0 = 0.14 * len;
+        const y1 = 0.86 * len;
+        const lift = Math.max(0, Math.min(1, (height - y0) / Math.max(1, y1 - y0)));
+        const lean = leanMag * lift;
         const ax = drive.x + Math.cos(wind.dir) * lean;
         const az = drive.z + Math.sin(wind.dir) * lean;
         const ox = x - ax;
