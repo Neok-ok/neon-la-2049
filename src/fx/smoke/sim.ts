@@ -182,7 +182,10 @@ function turb(kind: number): number {
 /** Same lean the flame ribbon uses: 0 at the pad, full lean at the head. */
 export function plumeLean(height: number, length: number, windSpeed: number): number {
   const t = Math.max(0, Math.min(1, height / Math.max(24, length)));
-  return (10 + Math.min(12, Math.max(0, windSpeed)) * 1.4) * t;
+  const mag = 10 + Math.min(12, Math.max(0, windSpeed)) * 1.4;
+  // The wide flame ribbon applies its full lean at its own top, near mid-plume.
+  const cover = Math.min(1, t / 0.5);
+  return mag * Math.max(t, cover * 0.9);
 }
 
 /**

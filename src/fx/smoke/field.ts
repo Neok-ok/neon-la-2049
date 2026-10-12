@@ -25,7 +25,7 @@ import {
 /** Share of the street budget. Indexed by KIND. Launch kinds stay on their own slots. */
 const KIND_SHARE = [0.16, 0.12, 0.12, 0.1, 0.14, 0.22, 0.14];
 /** Card opacity. Stack cards overlap into one column, so each stamp stays lighter. */
-const KIND_ALPHA = [0.96, 0.96, 0.94, 0.9, 0.94, 0.58, 0.94, 0.26, 0.86];
+const KIND_ALPHA = [0.96, 0.96, 0.94, 0.9, 0.94, 0.58, 0.8, 0.26, 0.9];
 /** How many aged cards one emitter may seed, so a still shows the plume and not the first puff. */
 const SEED_CAP = [12, 10, 14, 12, 14, 36];
 
@@ -411,22 +411,22 @@ export class SmokeField {
       const rate = (1.1 + t.drive * (t.heavy === 2 ? 2.2 : 4.2)) * scale;
       const exhaustCap = Math.max(4, Math.floor(cap * (KIND_SHARE[KIND.exhaust] ?? 0.1)));
       if ((this.pool.kindN[KIND.exhaust] ?? 0) >= exhaustCap) break;
-      const must = forced < 2 && t.heavy !== 2;
+      const must = forced < 1 && t.heavy !== 2 && smokeRand() < dt * 8;
       if (must) forced += 1;
       if (!must && smokeRand() > rate * dt) continue;
       const spin = t.heavy === 2;
       const truck = t.heavy === 1;
-      const wakeX = (t.wx ?? Math.cos(wind.dir) * wind.speed * 0.15) * 0.62;
-      const wakeZ = (t.wz ?? Math.sin(wind.dir) * wind.speed * 0.15) * 0.62;
+      const wakeX = (t.wx ?? Math.cos(wind.dir) * wind.speed * 0.15) * 0.9;
+      const wakeZ = (t.wz ?? Math.sin(wind.dir) * wind.speed * 0.15) * 0.9;
       spawnParticle(this.pool, {
         x: t.x, y: t.y, z: t.z,
         vx: wakeX,
-        vy: spin ? 0.4 : 0.45,
+        vy: spin ? 0.4 : 0.35,
         vz: wakeZ,
-        life: spin ? 2.4 : truck ? 1.8 : 1.55,
+        life: spin ? 2.4 : truck ? 1.5 : 1.2,
         age: 0,
-        size0: spin ? 0.55 : truck ? 0.45 : 0.34,
-        size1: spin ? 1.7 : truck ? 1.5 : 1.25,
+        size0: spin ? 0.45 : truck ? 0.28 : 0.16,
+        size1: spin ? 1.3 : truck ? 0.85 : 0.5,
         kind: KIND.exhaust,
         heat: truck ? 0.08 : 0.02,
         fade: spin ? 90 : 55,
@@ -439,14 +439,14 @@ export class SmokeField {
       const sp = Math.hypot(wakeX, wakeZ) || 1;
       const bx = -wakeX / sp;
       const bz = -wakeZ / sp;
-      for (const back of [0.55, 1.3, 2.3, 3.5]) {
+      for (const back of [0.45, 1.05, 1.8]) {
         spawnParticle(this.pool, {
-          x: t.x + bx * back, y: t.y + 0.12 + back * 0.06, z: t.z + bz * back,
-          vx: wakeX * 0.85, vy: 0.3, vz: wakeZ * 0.85,
-          life: truck ? 1.7 : 1.4,
-          age: back * 0.22,
-          size0: (truck ? 0.38 : 0.26) + back * 0.06,
-          size1: (truck ? 1.15 : 0.8) + back * 0.12,
+          x: t.x + bx * back, y: t.y + 0.08 + back * 0.04, z: t.z + bz * back,
+          vx: wakeX * 0.92, vy: 0.22, vz: wakeZ * 0.92,
+          life: truck ? 1.4 : 1.1,
+          age: back * 0.28,
+          size0: (truck ? 0.24 : 0.14) + back * 0.04,
+          size1: (truck ? 0.7 : 0.42) + back * 0.08,
           kind: KIND.exhaust,
           heat: 0.02,
           fade: 55,
