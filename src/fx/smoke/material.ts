@@ -70,7 +70,8 @@ function shade(lit: boolean): MeshBasicNodeMaterial {
     const cell = corner.mul(0.5).add(0.5).mul(0.9).add(0.05);
     const uv = vec2(col.add(cell.x).div(4.0), row.add(cell.y).div(2.0));
     const stamp = texture(atlas, uv);
-    const shape = stamp.a.mul(smoothstep(1.05, 0.2, length(corner)));
+    // The atlas lobes are the silhouette. The corner mask only kills the quad tips.
+    const shape = smoothstep(0.02, 0.4, stamp.a).mul(smoothstep(1.42, 1.02, length(corner)));
 
     const toCam = normalize(cameraPosition.sub(ctr.xyz));
     const ref = select(abs(toCam.y).greaterThan(0.92), vec3(1, 0, 0), vec3(0, 1, 0));
@@ -97,7 +98,7 @@ function shade(lit: boolean): MeshBasicNodeMaterial {
     const body = albedo.mul(authoredLiftU);
 
     const soot = barrel.add(stack).add(exhaustK);
-    const veilW = float(0.22).mul(steam).add(float(0.08).mul(soot)).add(float(0.12).mul(launch));
+    const veilW = float(0.06).mul(steam).add(float(0.08).mul(soot)).add(float(0.1).mul(launch));
     const veil = U.fogColor.mul(veilW);
     const litScale = float(1.35).mul(steam).add(float(0.7).mul(soot)).add(float(1.05).mul(launch));
     let lamps = vec3(SODIUM[0], SODIUM[1], SODIUM[2]).mul(authoredLiftU).mul(0.045).mul(steam.add(soot.mul(0.35)));

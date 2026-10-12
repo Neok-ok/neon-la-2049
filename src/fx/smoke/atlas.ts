@@ -10,14 +10,31 @@ const CELL = 64;
 const COLS = 4;
 const ROWS = 2;
 
+function ball(u: number, v: number, cx: number, cy: number, rx: number, ry: number): number {
+  const r = Math.hypot((u - cx) / rx, (v - cy) / ry);
+  return Math.pow(Math.max(0, 1 - r), 1.45);
+}
+
+/** A few offset lobes, not a disc. The body stays filled so a small street card still reads. */
 function density(u: number, v: number, frame: number): number {
   const tear = frame / (FRAMES - 1);
-  const wobble = fbm(u * 2.2 + frame * 0.41, v * 3.4 - frame * 0.19, frame * 0.17);
-  const r = Math.hypot(u * (1.12 + tear * 0.3), v * (0.8 + tear * 0.1));
-  const body = Math.max(0, 1 - r * (0.98 + tear * 0.28));
-  const edge = Math.pow(body, 0.8);
-  const filaments = Math.pow(Math.max(0, 0.42 + 0.58 * wobble), 1.12);
-  return edge * (0.28 + 0.72 * filaments) * (1 - tear * 0.18);
+  const spin = tear * 0.85;
+  const c = Math.cos(spin);
+  const s = Math.sin(spin);
+  const ru = u * c - v * s;
+  const rv = u * s + v * c;
+  const lobes =
+    ball(ru, rv, -0.1, 0.04, 0.58, 0.66) * 1.05 +
+    ball(ru, rv, 0.3, -0.18, 0.38, 0.42) * 0.82 +
+    ball(ru, rv, -0.26, 0.28, 0.34, 0.38) * 0.78 +
+    ball(ru, rv, 0.06, -0.36, 0.28, 0.32) * 0.6 +
+    ball(ru, rv, 0.2, 0.26, 0.24, 0.26) * 0.5;
+  const pits =
+    ball(ru, rv, 0.02, 0.06, 0.16, 0.18) * 0.42 +
+    ball(ru, rv, -0.18, -0.1, 0.12, 0.14) * 0.32;
+  const fine = fbm(u * 2.6 + frame * 0.33, v * 2.8 - frame * 0.17, frame * 0.11);
+  const body = Math.max(0, lobes - pits);
+  return Math.min(1, body * (0.82 + 0.18 * Math.max(0, fine))) * (1 - tear * 0.1);
 }
 
 function bake(): Uint8Array {

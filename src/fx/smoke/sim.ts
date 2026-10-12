@@ -179,6 +179,16 @@ function turb(kind: number): number {
   return 0.4;
 }
 
+/**
+ * Sheath radius along the plume. Bulbs every few hundred metres, pinched between
+ * them, so the column is a stack of billows and the core can show in the gaps.
+ */
+export function columnRadius(height: number, time: number): number {
+  const bulb = Math.max(0, Math.sin(height * 0.02 + 0.6));
+  const wiggle = Math.sin(height * 0.047 + time * 0.35);
+  return 6.5 + bulb * 13 + wiggle * 2.5;
+}
+
 /** Same lean the flame ribbon uses: 0 at the pad, full lean at the head. */
 export function plumeLean(height: number, length: number, windSpeed: number): number {
   const t = Math.max(0, Math.min(1, height / Math.max(24, length)));
@@ -282,8 +292,7 @@ export function integrate(
         const ox = x - ax;
         const oz = z - az;
         const dist = Math.hypot(ox, oz) || 0.001;
-        const bulge = 2.2 * Math.sin(height * 0.011 + time * 0.32);
-        const want = 3.6 + Math.min(6, height * 0.0035) + bulge;
+        const want = columnRadius(height, time);
         const err = dist - want;
         const pull = 1 - Math.exp(-dt * 0.55);
         const nx = ox / dist;
