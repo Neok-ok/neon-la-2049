@@ -168,11 +168,9 @@ function weathering() {
   const n = T.normalLocal;
   const flank = T.smoothstep(0.4, 0.82, T.abs(n.x));
   const up = T.smoothstep(0.5, 0.88, n.y);
-  // Broad patches. A tight band of one axis followed the loft and read as a machined swirl.
-  const n1 = T.sin(p.x.mul(1.1).add(p.y.mul(0.7)).add(p.z.mul(0.45)));
-  const n2 = T.sin(p.x.mul(0.55).sub(p.z.mul(0.85)).add(p.y.mul(1.2)).add(1.7));
-  const streak = T.smoothstep(0.62, 0.92, n1).mul(flank).mul(0.5);
-  const dust = T.smoothstep(0.25, 0.8, n2).mul(flank).mul(0.35);
+  // The paint map carries the wear. A sine of position followed the loft and read as a shader.
+  const streak = T.float(0);
+  const dust = T.float(0);
   const low = T.smoothstep(0.48, 0.04, p.y);
   const frontDrum = T.smoothstep(0.72, 0.16, T.abs(p.z.add(1.45)));
   const rearDrum = T.smoothstep(0.68, 0.14, T.abs(p.z.sub(1.85)));
@@ -224,7 +222,7 @@ function dressMaterial(src: Material): Material {
     if (kind === 'body') {
       // The baked roughness follows the AO and turns into wood grain under the rim.
       // Paint is a flat gunmetal; the coat, the streaks, and the real panel gaps carry the detail.
-      m.roughness = 0.46;
+      m.roughness = 0.54;
       m.metalness = 0.4;
       m.normalMap = null;
     }
@@ -251,13 +249,13 @@ function dressMaterial(src: Material): Material {
     const m = new MeshPhysicalNodeMaterial({
       color: 0x141618,
       metalness: 0.78,
-      roughness: 0.2,
+      roughness: 0.34,
       name: src.name,
       transparent: true,
       opacity: 0.96,
     });
     m.clearcoat = 0.35;
-    m.clearcoatRoughness = 0.22;
+    m.clearcoatRoughness = 0.48;
     m.ior = 1.5;
     m.thickness = 0.04;
     m.transmission = 0.02;

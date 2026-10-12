@@ -777,21 +777,28 @@ def flat_normal_image(size):
 
 
 def _surface_tone(co, normal):
-    """Broad panels, belly grime, a few chips. Repeating tracks read as wood grain."""
+    """Panel steps along the length, belly dirt, a few chips. A Z contour reads as a swirl."""
     z = co.z
     x = abs(co.x)
     y = co.y
-    panel = 0.74 + 0.28 * _hash(int(math.floor(y * 0.5)), int(math.floor(z * 1.1 + x)))
-    mul = panel
-    if z < 0.36:
-        mul *= 0.70 + 0.30 * max(0.0, z) / 0.36
-    cell = _hash(
+    iy = int(math.floor(y * 0.55))
+    panel = 0.56 + 0.48 * _hash(iy, int(math.floor(x * 0.8 + 2)))
+    # Breaks across the car, not around the loft.
+    seam = min((y * 0.55) - iy, 1.0 - ((y * 0.55) - iy))
+    if seam < 0.045:
+        panel *= 0.58
+    if z < 0.42:
+        panel *= 0.60 + 0.40 * max(0.0, z) / 0.42
+    stain = _hash(int(math.floor(y * 1.25 + 4)), int(math.floor(x * 1.7)))
+    if stain > 0.62 and z < 0.95:
+        panel *= 0.74 + 0.18 * (1.0 - stain)
+    chip = _hash(
         int(math.floor(x * 3.2)),
         int(math.floor(y * 3.2)) + int(math.floor(z * 3.2)),
     )
-    if cell > 0.982 and z > 0.58 and abs(normal.z) < 0.75:
-        return 2.05
-    return mul
+    if chip > 0.986 and z > 0.55 and abs(normal.z) < 0.75:
+        return min(1.45, panel * 1.7)
+    return panel
 
 
 def stamp_surface(obj, img):
@@ -1081,23 +1088,25 @@ def ray_hit(target, guess, normal):
 
 
 def lay_gullwing(kit, hull, sign):
-    """Diagonal flank cut, in short pieces sat on the hull. One long plate hung off the rear quarter."""
+    """One diagonal shadow. Short overlapping pieces stay on the skin; a lip on each piece read as a stack of blocks."""
     y0, y1 = -0.88, 0.98
     z0, z1 = 0.36, 0.84
-    steps = 4
+    steps = 7
     for i in range(steps):
-        t0 = i / steps
-        t1 = (i + 1) / steps
+        pad = 0.22 / steps
+        t0 = max(0.0, i / steps - pad)
+        t1 = min(1.0, (i + 1) / steps + pad)
         ya = y0 + (y1 - y0) * t0
         yb = y0 + (y1 - y0) * t1
         za = z0 + (z1 - z0) * t0
         zb = z0 + (z1 - z0) * t1
         part = kit.panel_slash(
             f'door-{sign:+d}-{i}',
-            abs(yb - ya) * 0.94,
-            (zb - za) * 0.94,
-            0.11,
-            depth=0.02,
+            abs(yb - ya),
+            zb - za,
+            0.042,
+            depth=0.012,
+            lip=False,
         )
         y = (ya + yb) * 0.5
         z = (za + zb) * 0.5
@@ -1106,7 +1115,8 @@ def lay_gullwing(kit, hull, sign):
             print('MISS door', sign, i)
             discard(part)
             continue
-        frame(part, (loc.x, y, z), (0, 1, 0), (0, 0, 1), (sign, 0, 0))
+        # Sit the dark gap in the skin. A proud bar on every piece was the stack.
+        frame(part, (loc.x - sign * 0.004, y, z), (0, 1, 0), (0, 0, 1), (sign, 0, 0))
 
 
 def lay_belt(kit, hull, sign):
@@ -1202,9 +1212,10 @@ def build(round_n, lod, out_path):
     if filled:
         # Same rake and peak, narrower in plan, so the roof around the glass stays body.
         # The outline stays. Round 10 only changes the glass colour, so the cabin stops reading as a cyan dome.
-        canopy_rows = tuple((y, hw * 0.78, base, top) for y, hw, base, top in CANOPY)
+        # Same peak. Narrower in plan so the glass is a windshield, not a diamond cabin.
+        canopy_rows = tuple((y, hw * 0.64, base, top) for y, hw, base, top in CANOPY)
     canopy = loft(
-        [canopy_section(*row, shallow=False) for row in canopy_rows],
+        [canopy_section(*row, shallow=filled) for row in canopy_rows],
         'canopy', kit.glass, set(), 0.0, math.radians(35),
     )
     solid = canopy.modifiers.new('Solidify', 'SOLIDIFY')
