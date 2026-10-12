@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>L1 lighting — film critique, 12 October 2026</title>
+<style>
+  :root { color-scheme: light; }
+  body { margin: 0; font: 17px/1.5 "Iowan Old Style", Palatino, Georgia, serif; color: #1c1915; background: #f4f0e8; }
+  header, main { max-width: 980px; margin: 0 auto; padding: 28px 20px 64px; }
+  h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 8px; }
+  h2 { font-size: 1.4rem; margin: 2.2rem 0 0.4rem; }
+  h3 { font-size: 1.05rem; margin: 1.4rem 0 0.3rem; }
+  p { margin: 0.5rem 0 0.8rem; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.84em; }
+  nav { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 14px 0; }
+  nav a { color: #134e4a; }
+  table { width: 100%; border-collapse: collapse; background: #fff; margin: 10px 0 22px; font-size: 0.92rem; }
+  th, td { border-bottom: 1px solid #e4dfd4; text-align: left; vertical-align: top; padding: 8px 10px; }
+  th { background: #efeae0; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  figure { margin: 14px 0 22px; }
+  img { width: 100%; height: auto; background: #111; }
+  figcaption { color: #5c564c; font-size: 0.9rem; margin-top: 6px; }
+  .lead { font-size: 1.08rem; }
+  .score { background: #fff; border-left: 4px solid #9a3412; padding: 10px 14px; margin: 12px 0 18px; }
+  .keep { background: #e7f2ea; padding: 10px 14px; }
+  ol.passes li { margin: 0.7rem 0 1rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1>L1 lighting, against the 2049 night</h1>
+  <p class="lead">12 October 2026. <code>main</code> at <code>5868937</code>. L1 physical lighting is in, and so is the roads polish. Docs only. No film frames in the repo.</p>
+  <nav>
+    <a href="#scores">Scores</a>
+    <a href="#look">How it was looked at</a>
+    <a href="#works">What works</a>
+    <a href="#fails">What fails</a>
+    <a href="#harbor">Harbor</a>
+    <a href="#passes">Passes</a>
+    <a href="#closed">Leave closed</a>
+  </nav>
+</header>
+<main>
+
+<p class="score"><strong>Overall 6 / 10.</strong> The night is dark, and a sodium lamp paints a pool that dies before the next pole. That is the Blade Runner 2049 street. The color of a tube still dies on the tube: the air stays grey, and the wet lane does not carry it.</p>
+<p>The same text, without the stills, is in <a href="lighting-l1-2026-10-12.md">lighting-l1-2026-10-12.md</a>. Game code was not edited.</p>
+<p>The contact sheet's own green 7s and 8s are a defect check. Every row says "ok". Those numbers are not the scores below.</p>
+
+<h2 id="scores">Scores</h2>
+<table>
+  <thead>
+    <tr><th>Check</th><th>Score</th><th>Read</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Practical registry, one exposure</td>
+      <td class="num">8</td>
+      <td>Candela, nits, AgX, a guard, eight slots with half kept for contact lamps. Harbor, the sea wall, weather, and vehicles are still outside it.</td>
+    </tr>
+    <tr>
+      <td>Sodium pools</td>
+      <td class="num">7</td>
+      <td>K's street, South LA, the coast, and the avenue show one orange ellipse and a dark gap. The disc color is a constant, and it ignores lamp height.</td>
+    </tr>
+    <tr>
+      <td>Neon bleed</td>
+      <td class="num">4</td>
+      <td>A full glyph sits just over a 32-nit bloom threshold, and bloom strength is 0.04. Neon and holograms are excluded from haze. The lane under a pink tube stays dark.</td>
+    </tr>
+    <tr>
+      <td>Wet roads after the #64 polish</td>
+      <td class="num">5</td>
+      <td>The unforced lane is black asphalt plus the pool. The forced mirror is now broken ribbons on a blurrier copy. Those ribbons are still pulled toward steel.</td>
+    </tr>
+    <tr>
+      <td>Day, night, haze</td>
+      <td class="num">6</td>
+      <td>Clear noon is steel, smog and dusk stay orange, day signs drop to 0.14. Canyon rain stays grey because haze in-scatter is sodium only. Day was not re-shot.</td>
+    </tr>
+    <tr>
+      <td>Harbor readiness</td>
+      <td class="num">5</td>
+      <td>The quay still is already a sodium port in fog. <code>harborMast()</code> is never called. The crane sprites are a white-hot add. Wiring the preset as it stands would stamp a ground disc under a mast the range barely reaches.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="look">How this was looked at</h2>
+<p>Stills are the ultra "after" column of <a href="../lighting/compare.png"><code>docs/lighting/compare.png</code></a>, shot by <code>scripts/l1-capture.mjs</code> during L1. Night rain, time 22.5, frozen, UI hidden, desktop, WebGL2 on SwiftShader. The planar mirror stays off on that path. The crops below are the same pixels.</p>
+<p>#64 merged after that sheet. The wet-streak and short-pool behavior was read in <code>src/lighting/shade.ts</code>, <code>src/roads/material.ts</code>, and <code>src/atmosphere/WetReflector.ts</code>. It was not re-shot. A later capture belongs on an <code>OUT</code> directory outside <code>tests/visual</code>. S3 owns the baselines.</p>
+<p>The full sheet is the before/after pair. The "before" column is a pale market floor, a purple DTLA canyon, and a magenta Hollywood street. The frames on this page are only the after column.</p>
+
+<h2 id="works">What works</h2>
+<p class="keep">Keep these. A later pass that lifts the night sky, paints the lane magenta, or adds bloom on medium will move the picture away from the film.</p>
+<ul>
+  <li><strong>One camera.</strong> Night is f/2, 1/48 s, ISO 1000 (about EV 4.26, exposure about 0.044). Day is f/5.6, 1/125 s, ISO 100. Districts change which practicals are in the slots. They do not get their own exposure.</li>
+  <li><strong>Darkness.</strong> K's slab with one lamp and a crowd of umbrellas is the residential frame to protect. South LA, the coast, civic plaza, and the avenue are the same idea: one pool, then black.</li>
+  <li><strong>Sodium as a cutoff lantern.</strong> 2000 K, 7 500 cd, 48° cone, about 8 m of pool from a 7 m head, so a 32 m spacing goes dark between poles. The 589 nm line is available and is not the street default. The head shell is 16 nits of amber, under the bloom threshold, so the head stays orange.</li>
+  <li><strong>The registry.</strong> <code>retainChunk</code> and <code>setEphemeral</code> run through <code>checkPunctual</code>. Bands reject bad candela, nits, kelvin, and range. <code>npm run lighting:check</code> is part of the build. Half of each depth slice stays with contact lights, so a close sign cannot take every slot.</li>
+  <li><strong>Day signs dim.</strong> <code>signPower</code> is 0.14 at noon and windows follow <code>windowLit</code> down to 0.12. Clear-day sky is steel <code>(0.22, 0.31, 0.42)</code>. Orange remains on dusk and on the smog weather. Night sky and fog are held to 0.42 of the exposure lift. Rain in these stills is still a visible stroke.</li>
+  <li><strong>Neon weight is local.</strong> <code>neonWet</code> is high on Little Tokyo (0.42), the historic core (0.36), and Hollywood (0.40). Harbor, the coast, the basin, Wallace, and the industrial belts sit at 0.02.</li>
+</ul>
+
+<figure>
+  <img src="img/l1-k-megablock.jpg" alt="K's street at night in the rain: one sodium lamp, a pool on the pavement, umbrellas, a dark slab.">
+  <figcaption>K's street, ultra, night rain. One head, one pool, the slab stays black. This is the frame the sodium numbers are for. #64 shortens the disc to a few metres; this still is the L1 sheet, so the ellipse on current main is tighter than the one in the picture.</figcaption>
+</figure>
+
+<figure>
+  <img src="img/l1-historic-core.jpg" alt="Historic-core canyon at night: vertical colored signs, sodium pools on the street, dark walls, rain.">
+  <figcaption>Historic core, the Broadway street camera. Signs read as faces. Pools sit under the lamps. The pavement between them is dark. The tubes have hard edges.</figcaption>
+</figure>
+
+<h2 id="fails">What fails</h2>
+
+<h3>Neon does not travel</h3>
+<p>A full glyph is about 1.65 times the 20-nit face, near 34 nits. Bloom starts at 32 nits. On the AgX path the bloom strength is 0.04, so the halo added beside that face is a nit of excess times 0.04. In the canyon stills the tubes are sharp rectangles. Rain in front of them stays grey.</p>
+<p><code>neon-sign</code> and <code>hologram</code> are <code>volumetric: false</code> because a haze slot at sign candela painted a sourceless shaft down the lane. That shaft had to go. The air next to the tube went with it. A sign that wins a shade slot still fails to color the asphalt: a large blade at the 2 200 cd cap, 12 m away, leaves about a tenth of a nit on 0.045 asphalt. The 2-nit ground card (<code>NITS.neonReflection</code>) times the night exposure is a trace.</p>
+<p>Hollywood keeps a faint tint on the lane (<code>sheen</code> 0, <code>neonWet</code> 0.40). That tint is noise in the road shader, not the tube above the camera. DTLA's after frame still carries a purple disc under the overhead panel. The canyon around the disc is dark, which is the gain. The disc itself is a card.</p>
+<p>Medium and low do not bloom. The phone picture has to come from the faces and one pool. The bloom chain stays off medium. That target is already the one the memory rules refuse to grow.</p>
+
+<figure>
+  <img src="img/l1-hollywood.jpg" alt="Hollywood street at night: tall colored blades along a dark wet lane, rain, no halo around the signs.">
+  <figcaption>Hollywood street. The blades are the light. The lane under them is almost black, with a faint authored tint. Rain does not take the pink.</figcaption>
+</figure>
+
+<figure>
+  <img src="img/l1-neon-closeup.jpg" alt="Close night view of stacked buildings, warm windows, and a few small hard-edged signs in the rain.">
+  <figcaption>Neon close-up. Windows are the warm practical. The signs at the left edge are small hard rectangles. Nothing blooms into the rain.</figcaption>
+</figure>
+
+<figure>
+  <img src="img/l1-dtla.jpg" alt="DTLA street at night: a purple disc on the lane under a tall panel, sodium at the right edge, rain.">
+  <figcaption>DTLA street. The overhead panel leaves a purple disc on the lane. The rest of the street has gone dark, with one warm pool at the right edge.</figcaption>
+</figure>
+
+<h3>The wet lane is black in the right way</h3>
+<p>On this sheet the mirror is off. Broadway, the wet-street shot, and the harbor quay show dark pavement, an orange pool, and sign color stuck on the signs. The gap after the pool is the film's gap.</p>
+<p>#64, after these stills, did two things:</p>
+<ul>
+  <li>The full-sheet grazing fresnel, which lifted a wet lane toward a pale floor, is broken into streaks. <code>lanternPool</code> paints an explicit disc: <code>exp(-0.11 × horizontal²)</code> times 14 nits. At 3 m that is about 5 nits. At 6 m it is under a third of a nit. The ellipse on current main is shorter than the broad orange foreground in the wet-street still.</li>
+  <li>The forced mirror dropped from a 0.32-scale plane at 38% opacity to a 0.18-scale plane shown only inside view-aligned ribbons. Gaps stay the road. The night multiply is still toward <code>(0.55, 0.64, 0.78)</code>, so a pink sign inside a ribbon is pulled toward steel. The ribbon mask answers the old complaint that the forced mirror was a sharp picture of the wall. The steel tint spends that answer.</li>
+</ul>
+<p>Puddle glow on the road mesh is an authored magenta/cyan or sodium mix, times <code>neonWet</code>, and only inside puddle cells. On Broadway that product is about a nit at full fresnel. A blade sign will not read in it.</p>
+
+<figure>
+  <img src="img/l1-wet-street.jpg" alt="Wet downtown street at night: orange pool across the near lane, hard-edged signs, cars as dark blocks with white lamps.">
+  <figcaption>Wet-street camera, L1 sheet, mirror off. The orange field here is the pre-#64 grazing wash. Current main replaces it with the shorter disc and, when a real GPU forces the mirror, with dark ribbons. Sign color in this frame stays on the blades. Headlights are still the legacy shells, bright marks on the body, with no throw down the lane. The headlight preset waits in <code>src/vehicles/</code>, which K1 has open.</figcaption>
+</figure>
+
+<figure>
+  <img src="img/l1-little-tokyo.jpg" alt="Little Tokyo lane at night: dark pavement, a small red pool by the stalls, warm windows, rain.">
+  <figcaption>Little Tokyo street. The pale floor from the October 10 critique is gone. A small red pool sits by the stalls. The lane in the foreground is black.</figcaption>
+</figure>
+
+<h3>The pool is one orange, at any height</h3>
+<p><code>lanternPool</code> uses <code>(1, 0.45, 0.12)</code> for every contact practical. A 4000 K street LED and a future harbor mast paint the same disc. The falloff uses horizontal distance only. A practical 25 m up stamps the same 14-nit disc as a head at 7 m, as long as it occupies a contact slot.</p>
+
+<h2 id="harbor">Harbor readiness</h2>
+<p>The quay on the sheet is already a port: rain, a sodium pool, a dark hull, a cool block in the fog. <code>neonWet</code> is 0.02 and <code>streetFog</code> is 0.46. Leave the weight there. A neon pass on this ground is a mast and a few discharges at the control door, not a canyon.</p>
+
+<figure>
+  <img src="img/l1-harbor.jpg" alt="Harbor street at night: sodium pool, dark hulls, a cool lit block in the fog, rain.">
+  <figcaption>Harbor street, ultra, night rain, mirror off. Sodium and fog. The cool block is its own light. The lane does not become a second Broadway.</figcaption>
+</figure>
+
+<p><code>harborMast()</code> returns a 2000 K practical, 4 200 cd, 58° cone, range 34 m, contact and volumetric, 60-nit shell. Nothing calls it. The live lights are one additive billboard in <code>src/districts/harbor/lights.ts</code>: white-hot core <code>(1, 0.96, 0.86)</code>, amber body, gain 1.35, and 28% of that sprite survives at noon. Three sprites per berth:</p>
+<table>
+  <thead>
+    <tr><th>Point</th><th>Height above ground</th><th>At a 34 m range</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Mast</td>
+      <td class="num">25 m</td>
+      <td>The range includes the ground. The cone is wide. Photometric lux on the quay is a few lux. <code>lanternPool</code> would still paint a full disc, because it ignores height.</td>
+    </tr>
+    <tr>
+      <td>Boom tip</td>
+      <td class="num">72 m</td>
+      <td>The range ends in the air. The sprite is the whole light.</td>
+    </tr>
+    <tr>
+      <td>House</td>
+      <td class="num">81 m</td>
+      <td>Same as the boom. Sprite only.</td>
+    </tr>
+  </tbody>
+</table>
+<p>The ocean stays matte (<code>roughness</code> 0.78, <code>envMapIntensity</code> 0). The wet reflector is a 64 m quad under the camera, not clipped to the quay. Beside a slip it can lay streaks onto the basin. The switch is in <code>App.ts</code>, which the open drafts already edit, so that clip waits.</p>
+<p>Clear noon, dusk, and smog were not re-shot for this note. In the uniforms, clear day is the steel sky above, dusk and the smog weather stay orange, and day signs sit at 0.14 of the night face. Haze in-scatter runs on four slots, one of them held for a contact lantern, and neon is not a source. That is why canyon rain in these stills is a grey stroke. Residential rain being grey is the right read. Broadway rain being grey is the miss in the neon score.</p>
+
+<h2 id="passes">Refinement passes</h2>
+<p>Small, and off the files the open drafts already own: K1 (smoke, <code>App.ts</code>, vehicle traffic), B1 (towers, <code>cityMaterial.ts</code>), G1 (LAPD, City Hall, Wallace), H1 (people), and S3 (<code>Atmosphere.ts</code>, <code>Precipitation.ts</code>, <code>Weather.ts</code>, <code>tests/visual</code>).</p>
+<ol class="passes">
+  <li>
+    <strong>Short neon air, and a halo that clears the face.</strong>
+    <code>src/lighting/runtime.ts</code>, <code>src/lighting/presets.ts</code>, <code>src/lighting/shade.ts</code>.
+    Keep the bloom threshold at 32 nits so an 18-nit window and a 16-nit lamp head stay clean. Raise the AgX bloom strength from 0.04 to about 0.22. Leave medium and low unbloomed.
+    Leave <code>neon-sign.volumetric</code> false at the current range. Add a haze-only reach of about 7 m and a haze candela cap around 80, used only by <code>practicalInscatter</code>. Keep one of the four haze slots for a contact lantern.
+    Leave <code>NITS.neonReflection</code> at 2. A brighter ground card is a carpet.
+  </li>
+  <li>
+    <strong>Pool color, and height.</strong>
+    <code>lanternPool</code> in <code>src/lighting/shade.ts</code>.
+    Multiply by the slot rgb, so a 2000 K lantern stays the orange in the K still and a 4000 K head does not wear it.
+    Include vertical distance. A practical whose range misses the ground paints nothing. A mast at 25 m paints a dim pool. Street heads near 7 m stay at today's few metres.
+  </li>
+  <li>
+    <strong>Wet ribbons keep the sign's hue.</strong>
+    <code>src/atmosphere/WetReflector.ts</code> and <code>src/roads/material.ts</code>.
+    On the night mirror, darken with a scalar around 0.5 and drop the mix toward steel. Keep <code>resolutionScale</code> 0.18 and the streak mask.
+    Where <code>sheen</code> is 0, tint the puddle term from the nearest non-contact shade slot. An empty slot stays black. Do not raise <code>neonWet</code>.
+  </li>
+  <li>
+    <strong>Harbor, after the pool learns height.</strong>
+    Its own change, in <code>src/districts/harbor/lights.ts</code> and the berth list in <code>sites.ts</code>. Not this critique.
+    Register <code>harborMast()</code> at the mast only. Leave the boom tip and the house as sprites.
+    Retint the sprite body to the 2000 K chromaticity, drop the white-hot core, and put the quad on the 60-nit shell times the night factor.
+    Leave <code>neonWet</code> at 0.02 and leave the ocean matte.
+    Clipping the 64 m reflector off the slips waits until <code>App.ts</code> is free.
+  </li>
+</ol>
+<p>Spinner headlights are the same kind of waiting preset: 28 000 cd, a 16° cone, 90 m, volumetric. The chase frame wants that beam on the wet lane. The call site is <code>src/vehicles/</code>, and K1 has those traffic files open, so it is not one of the passes above.</p>
+
+<h2 id="closed">Leave closed</h2>
+<ul>
+  <li>No second exposure, no brighter night hemisphere, no cluster texture, no per-light shadow map.</li>
+  <li>No bloom targets on medium. No MSAA half-float scene color.</li>
+  <li>No magenta sheet on Hollywood, the megatower apron, or the harbor quay.</li>
+  <li>No edit to smoke, tower families, the LAPD, City Hall, or Wallace meshes, pedestrians, or <code>tests/visual</code>.</li>
+</ul>
+</main>
+</body>
+</html>
