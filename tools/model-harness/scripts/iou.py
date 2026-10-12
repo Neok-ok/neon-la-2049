@@ -113,6 +113,88 @@ def overlay(ref, model):
     return out
 
 
+def landmark_frame(bounds, ppm):
+    w = max(1, round((bounds['x1'] - bounds['x0']) * ppm))
+    h = max(1, round((bounds['y1'] - bounds['y0']) * ppm))
+    return {**bounds, 'w': w, 'h': h, 'ppm': ppm}
+
+
+def landmark_frames(trace):
+    b = trace['bounds']
+    pad = trace.get('pad', 8)
+    ppm = trace['ppm']
+    side = landmark_frame({
+        'x0': -(b['maxZ'] + pad), 'x1': -(b['minZ'] - pad),
+        'y0': b['minY'] - pad, 'y1': b['maxY'] + pad,
+    }, ppm)
+    front = landmark_frame({
+        'x0': b['minX'] - pad, 'x1': b['maxX'] + pad,
+        'y0': b['minY'] - pad, 'y1': b['maxY'] + pad,
+    }, ppm)
+    top = landmark_frame({
+        'x0': -(b['maxZ'] + pad), 'x1': -(b['minZ'] - pad),
+        'y0': -(b['maxX'] + pad), 'y1': -(b['minX'] - pad),
+    }, ppm)
+    return {'side': side, 'front': front, 'top': top}
+
+
+def to_pix(frame, u, v):
+    return ((u - frame['x0']) * frame['ppm'], (frame['y1'] - v) * frame['ppm'])
+
+
+def paint_part(draw, frame, part, view):
+    if part['type'] == 'frustum':
+        rings = (
+            (part['w0'], part['d0'], part['y']),
+            (part['w1'], part['d1'], part['y'] + part['h']),
+        )
+    else:
+        rings = (
+            (part['w'], part['d'], part['y']),
+            (part['w'], part['d'], part['y'] + part['h']),
+        )
+    if view == 'top':
+        for w, d, _y in rings:
+            corners = []
+            for sx in (-1, 1):
+                for sz in (-1, 1):
+                    x = part['cx'] + sx * w * 0.5
+                    z = part['cz'] + sz * d * 0.5
+                    corners.append(to_pix(frame, -z, -x))
+            # rectangle order
+            ordered = [corners[0], corners[1], corners[3], corners[2]]
+            draw.polygon(ordered, fill=255)
+        return
+    if view == 'side':
+        (w0, d0, y0), (w1, d1, y1) = rings
+        pts = [
+            to_pix(frame, -(part['cz'] - d0 * 0.5), y0),
+            to_pix(frame, -(part['cz'] + d0 * 0.5), y0),
+            to_pix(frame, -(part['cz'] + d1 * 0.5), y1),
+            to_pix(frame, -(part['cz'] - d1 * 0.5), y1),
+        ]
+    else:
+        (w0, d0, y0), (w1, d1, y1) = rings
+        pts = [
+            to_pix(frame, part['cx'] - w0 * 0.5, y0),
+            to_pix(frame, part['cx'] + w0 * 0.5, y0),
+            to_pix(frame, part['cx'] + w1 * 0.5, y1),
+            to_pix(frame, part['cx'] - w1 * 0.5, y1),
+        ]
+    draw.polygon(pts, fill=255)
+
+
+def raster_landmark(trace, view, size):
+    frame = landmark_frames(trace)[view]
+    if (frame['w'], frame['h']) != size:
+        raise SystemExit(f'{view} panel {size} != silhouette frame {(frame["w"], frame["h"])}')
+    img = Image.new('L', size, 0)
+    draw = ImageDraw.Draw(img)
+    for part in trace['parts']:
+        paint_part(draw, frame, part, view)
+    return img
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--render', required=True)
@@ -120,10 +202,12 @@ def main():
     parser.add_argument('--out', required=True)
     parser.add_argument('--overlay', required=True)
     parser.add_argument('--thresh', type=int, default=40)
+    parser.add_argument('--trace', default=TRACE)
+    parser.add_argument('--frustum', default=FRUSTUM)
     args = parser.parse_args()
 
-    trace = load_json(TRACE)
-    frustum = load_json(FRUSTUM)
+    trace = load_json(args.trace)
+    frustum = load_json(args.frustum) if not trace.get('parts') else None
     meta = load_json(args.meta)
     render = Image.open(args.render).convert('RGB')
     panels = {panel['id']: panel for panel in meta['panels']}
@@ -142,12 +226,19 @@ def main():
         crop = render.crop((panel['x'], panel['y'], panel['x'] + panel['w'], panel['y'] + panel['h']))
         if crop.size != size:
             raise SystemExit(f'{name} crop {crop.size} != panel {size}. The mask screenshot is not the canvas.')
-        ref = raster(trace['views'][name]['points'], projector(frustum[bounds_key], size), size)
+        if trace.get('parts'):
+            ref = raster_landmark(trace, name, size)
+            note = trace.get('source', '')
+            photo = False
+        else:
+            ref = raster(trace['views'][name]['points'], projector(frustum[bounds_key], size), size)
+            note = trace['views'][name].get('orthographic') or trace['views'][name].get('note') or ''
+            photo = bool(trace['views'][name].get('photo'))
         model = model_mask(crop, args.thresh)
         score = iou(ref, model)
-        score['source'] = trace['views'][name].get('source')
-        score['photo'] = bool(trace['views'][name].get('photo'))
-        score['note'] = trace['views'][name].get('orthographic') or trace['views'][name].get('note') or ''
+        score['source'] = trace.get('source') if trace.get('parts') else trace['views'][name].get('source')
+        score['photo'] = photo
+        score['note'] = note
         views[name] = score
         strips.append(overlay(ref, model))
         print(f"{name:5} IoU {score['iou']:.3f}  ref-only {score['onlyRef']}  model-only {score['onlyModel']}")
@@ -166,8 +257,8 @@ def main():
         'views': views,
         'targets': {'side': 0.85, 'front': 0.80, 'top': 0.80},
         'legend': 'White is overlap. Red is reference only. Cyan is model only.',
-        'alignment': trace['alignment'],
-        'topIsReconstructed': False,
+        'alignment': trace.get('alignment') or trace.get('source') or '',
+        'topIsReconstructed': bool(trace.get('parts')),
     }
     os.makedirs(os.path.dirname(os.path.abspath(args.out)) or '.', exist_ok=True)
     with open(args.out, 'w', encoding='utf-8') as f:

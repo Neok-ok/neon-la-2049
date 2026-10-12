@@ -5,6 +5,7 @@
 import { Mesh } from 'three/webgpu';
 import { bearingToYaw } from '../../world/geo';
 import { GeoWriter } from '../../world/landmarks/GeoWriter';
+import { createLandmarkLevels, landmarkLevel } from '../../world/landmarks/authoredModel';
 import { getCityMaterial } from '../../world/materials/cityMaterial';
 import { makeSignMesh } from '../../world/materials/signMesh';
 import { Style, SignColor, type Sign } from '../../world/fabric/types';
@@ -12,11 +13,10 @@ import { CELL, phraseSeed } from '../../world/materials/signPhrases';
 import { registerLandmarkType, type LandmarkEnv } from '../../world/landmarks/registry';
 import { LightKind } from '../../world/landmarks/Beacons';
 import type { Landmark } from '../../world/layout';
-import { levelGroup } from '../_shared/megatower/place';
 import { openDoorLeaf } from '../../world/architecture/trim';
 import { retainChunk } from '../../lighting/registry.ts';
 import type { PunctualInput } from '../../lighting/validate.ts';
-import { Mass, type Detail } from './mass';
+import { Mass } from './mass';
 import { HQ, PADS, SHAFT_Y, STAIR, localToWorld } from './spec';
 
 export const HQ_LOD_DIST = [520, 1900];
@@ -311,17 +311,18 @@ function beacons(l: Landmark, env: LandmarkEnv, yaw: number): void {
 export function buildLapdHq(l: Landmark, env: LandmarkEnv) {
   const yaw = bearingToYaw(l.bearingDeg);
   const hall = env.layout.landmarkById('city-hall');
-  const levels: { mesh: Mesh; tris: number; cols: Mass['cols'] }[] = [];
-  for (const d of [2, 1, 0] as Detail[]) {
-    const w = new GeoWriter();
-    const m = new Mass(w, l.x, l.z, yaw, d);
-    writeHq(m, hall);
-    const mesh = new Mesh(w.build(), getCityMaterial());
-    mesh.name = `${l.id}-d${d}`;
-    levels.push({ mesh, tris: (mesh.geometry.index?.count ?? 0) / 3, cols: m.cols });
-  }
-  hqTris.splice(0, hqTris.length, ...levels.map((lv) => lv.tris));
-  const full = levels[0]!;
+  // Colliders, including the forecourt mall, stay on the published boxes.
+  // L1's step lights still read STAIR and the door at z = -podiumD/2 - 1.2.
+  const collider = new Mass(new GeoWriter(), l.x, l.z, yaw, 2, { draw: false });
+  writeHq(collider, hall);
+  const groundWriter = new GeoWriter();
+  const groundMass = new Mass(groundWriter, l.x, l.z, yaw, 2, { collide: false });
+  forecourt(groundMass, hall);
+  const ground = new Mesh(groundWriter.build(), getCityMaterial());
+  ground.name = `${l.id}-forecourt`;
+  ground.userData.sharedGeometry = true;
+  const [near, mid, far] = createLandmarkLevels('lapd', l.x, 0, l.z, yaw);
+  hqTris.splice(0, hqTris.length, 0, 0, 0);
   const signs = makeSignMesh(signsFor(l, yaw));
   signs.name = `${l.id}-signs`;
   const leaf = openDoorLeaf('full', HQ.doorHalf * 2, HQ.doorHead);
@@ -330,12 +331,13 @@ export function buildLapdHq(l: Landmark, env: LandmarkEnv) {
     leaf.position.set(hx, HQ.lobbyFloor, hz);
     leaf.rotation.y = yaw + 1.15;
   }
-  const lod0 = levelGroup(full.mesh, signs, leaf);
+  const lod0 = landmarkLevel(near!, signs, leaf);
   const r = Math.hypot(HQ.crownW, HQ.crownD) / 2;
-  const object = env.lods.add(l.id, [lod0, levels[1]!.mesh, levels[2]!.mesh], HQ_LOD_DIST, l.x, l.z, 0, HQ.height + 8, r);
+  const object = env.lods.add(l.id, [lod0, mid!, far!], HQ_LOD_DIST, l.x, l.z, 0, HQ.height + 8, r);
+  object.add(ground);
   beacons(l, env, yaw);
   retainStepLights(l, yaw, env.layout.heightAt(l.x, l.z));
-  return { object, colliders: full.cols };
+  return { object, colliders: collider.cols };
 }
 
 registerLandmarkType('lapd-hq', buildLapdHq);

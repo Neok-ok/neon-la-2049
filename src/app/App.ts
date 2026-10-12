@@ -20,6 +20,7 @@ import {
 import { setB1HeroTier } from '../world/buildings/landmark';
 import { CityQuery } from '../world/CityQuery';
 import { Landmarks } from '../world/landmarks/Landmarks';
+import { setLandmarkTier } from '../world/landmarks/authoredModel';
 import { localToGeo, geoToLocal } from '../world/geo';
 import { LaneTraffic } from '../vehicles/LaneTraffic';
 import { GroundTraffic } from '../vehicles/groundTraffic';
@@ -253,6 +254,7 @@ export class App {
 
     this.streamer = new ChunkStreamer(this.scene, this.quality);
     setB1HeroTier(this.quality.tier);
+    setLandmarkTier(this.quality.tier);
     this.landmarks = new Landmarks(this.query);
     this.scene.add(this.landmarks.root);
     installCoast(this.scene, this.query, this.quality.tier);
@@ -437,6 +439,7 @@ export class App {
     this.photoMod?.retier();
     this.playLens?.dispose();
     this.playLens = null;
+    setLandmarkTier(tier);
     this.cams.fly.setSpinnerTier(tier);
     this.slowMs = 0;
     this.ui.setAppliedTier(tier);

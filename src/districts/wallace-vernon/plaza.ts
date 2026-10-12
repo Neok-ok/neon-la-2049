@@ -1,6 +1,6 @@
 // North forecourt: stone court, a stair onto the Stage 3 plinth, a walled causeway,
 // and a human door in front of the sealed portal. The Stage 3 pylons and glow stay.
-import { BoxGeometry, Group, InstancedMesh, Matrix4, Mesh, MeshBasicNodeMaterial, Quaternion, Vector3 } from 'three/webgpu';
+import { BoxGeometry, Group, InstancedMesh, Matrix4, Mesh, MeshBasicNodeMaterial, Quaternion, Vector3, type Object3D } from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import { U } from '../../atmosphere/uniforms';
 import { NITS } from '../../lighting/presets.ts';
@@ -78,7 +78,7 @@ function lampHeads(f: PlazaFrame, parent: Group, spots: Array<[number, number, n
 }
 
 /** Adds the plaza to `lod0` (it hides with the far pyramid) and returns walk colliders. */
-export function buildPlaza(f: PlazaFrame, lod0: Mesh): { colliders: LandmarkCollider[] } {
+export function buildPlaza(f: PlazaFrame, lod0: Object3D): { colliders: LandmarkCollider[] } {
   const w = new GeoWriter();
   const cols: LandmarkCollider[] = [];
   const e = entranceMetrics();

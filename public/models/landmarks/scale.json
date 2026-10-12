@@ -1,0 +1,119 @@
+{
+  "lapd": {
+    "personM": 1.8,
+    "doorH": 2.2,
+    "railH": 1.05,
+    "storeyM": 3.6,
+    "heightRoof": 216,
+    "heightTip": 222.9,
+    "door": {
+      "min": [
+        -1.0,
+        5.35,
+        -59.35
+      ],
+      "max": [
+        1.0,
+        7.25,
+        -58.85
+      ]
+    },
+    "stair": {
+      "z0": -68.15,
+      "z1": -59.15,
+      "y0": 0.18,
+      "y1": 5.2,
+      "risers": 30,
+      "rise": 0.16733333333333336,
+      "tread": 0.3,
+      "run": 9.0,
+      "rail": 1.05,
+      "width": 30
+    },
+    "rise": 0.16733333333333336,
+    "tread": 0.3,
+    "risers": 30,
+    "doorClearM": 0.886001532122749,
+    "portal": null,
+    "stepH": null,
+    "apex": null,
+    "plinthH": null,
+    "tris": {
+      "low": 195,
+      "high": 681,
+      "medium": 411
+    }
+  },
+  "hall": {
+    "personM": 1.8,
+    "doorH": 2.2,
+    "railH": 1.05,
+    "storeyM": 3.6,
+    "heightRoof": 132,
+    "heightTip": 138,
+    "door": {
+      "min": [
+        -1.0,
+        3.75,
+        30.7
+      ],
+      "max": [
+        1.0,
+        5.65,
+        31.35
+      ]
+    },
+    "stair": {
+      "z0": 42.199999999999996,
+      "z1": 36.4,
+      "y0": 0.16,
+      "y1": 3.6,
+      "risers": 20,
+      "rise": 0.172,
+      "tread": 0.29,
+      "run": 5.8,
+      "rail": 1.05,
+      "width": 22
+    },
+    "rise": 0.172,
+    "tread": 0.29,
+    "risers": 20,
+    "doorClearM": 1.0999999089678612,
+    "portal": null,
+    "stepH": null,
+    "apex": null,
+    "plinthH": null,
+    "tris": {
+      "high": 2216,
+      "medium": 1172,
+      "low": 182
+    }
+  },
+  "wallace": {
+    "personM": 1.8,
+    "doorH": 2.2,
+    "railH": 1.05,
+    "storeyM": 3.6,
+    "heightRoof": 3500,
+    "heightTip": 3610.0,
+    "door": null,
+    "stair": null,
+    "rise": null,
+    "tread": null,
+    "risers": null,
+    "doorClearM": null,
+    "portal": {
+      "w": 288.0,
+      "h": 195.83333333333331,
+      "z": -1601.5
+    },
+    "stepH": 156.66666666666666,
+    "apex": 210.0,
+    "plinthH": 3,
+    "tris": {
+      "high": 790,
+      "medium": 316,
+      "low": 232
+    }
+  }
+}

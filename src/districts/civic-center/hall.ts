@@ -4,6 +4,7 @@
 import { Mesh } from 'three/webgpu';
 import { bearingToYaw } from '../../world/geo';
 import { GeoWriter } from '../../world/landmarks/GeoWriter';
+import { createLandmarkLevels, landmarkLevel } from '../../world/landmarks/authoredModel';
 import { getCityMaterial } from '../../world/materials/cityMaterial';
 import { makeSignMesh } from '../../world/materials/signMesh';
 import { Style, SignColor, type Sign } from '../../world/fabric/types';
@@ -11,9 +12,8 @@ import { phraseSeed } from '../../world/materials/signPhrases';
 import { registerLandmarkType, type LandmarkEnv } from '../../world/landmarks/registry';
 import { LightKind } from '../../world/landmarks/Beacons';
 import type { Landmark } from '../../world/layout';
-import { levelGroup } from '../_shared/megatower/place';
 import { openDoorLeaf } from '../../world/architecture/trim';
-import { Mass, type Detail } from './mass';
+import { Mass } from './mass';
 import { HALL, HALL_STAIR, localToWorld } from './spec';
 
 export const HALL_LOD_DIST = [420, 1500];
@@ -171,17 +171,16 @@ function beacons(l: Landmark, env: LandmarkEnv, yaw: number): void {
 
 export function buildCityHall(l: Landmark, env: LandmarkEnv) {
   const yaw = bearingToYaw(l.bearingDeg);
-  const levels: Array<{ mesh: Mesh; tris: number; cols: Mass['cols'] }> = [];
-  for (const d of [2, 1, 0] as Detail[]) {
-    const w = new GeoWriter();
-    const m = new Mass(w, l.x, l.z, yaw, d);
-    writeHall(m);
-    const mesh = new Mesh(w.build(), getCityMaterial());
-    mesh.name = `${l.id}-d${d}`;
-    levels.push({ mesh, tris: (mesh.geometry.index?.count ?? 0) / 3, cols: m.cols });
-  }
-  hallTris.splice(0, hallTris.length, ...levels.map((lv) => lv.tris));
-  const full = levels[0]!;
+  const collider = new Mass(new GeoWriter(), l.x, l.z, yaw, 2, { draw: false });
+  writeHall(collider);
+  const groundWriter = new GeoWriter();
+  const groundMass = new Mass(groundWriter, l.x, l.z, yaw, 2, { collide: false });
+  court(groundMass);
+  const ground = new Mesh(groundWriter.build(), getCityMaterial());
+  ground.name = `${l.id}-court`;
+  ground.userData.sharedGeometry = true;
+  const [near, mid, far] = createLandmarkLevels('hall', l.x, 0, l.z, yaw);
+  hallTris.splice(0, hallTris.length, 0, 0, 0);
   const signs = makeSignMesh(signsFor(l, yaw));
   signs.name = `${l.id}-signs`;
   const leaf = openDoorLeaf('full', 2.2, 2.2);
@@ -193,11 +192,12 @@ export function buildCityHall(l: Landmark, env: LandmarkEnv) {
   const r = Math.hypot(HALL.baseW, HALL.baseD) / 2 + 8;
   const object = env.lods.add(
     l.id,
-    [levelGroup(full.mesh, signs, leaf), levels[1]!.mesh, levels[2]!.mesh],
+    [landmarkLevel(near!, signs, leaf), mid!, far!],
     HALL_LOD_DIST, l.x, l.z, 0, HALL.height + 2, r,
   );
+  object.add(ground);
   beacons(l, env, yaw);
-  return { object, colliders: full.cols };
+  return { object, colliders: collider.cols };
 }
 
 registerLandmarkType('heritage-tower', buildCityHall);
