@@ -53,13 +53,13 @@
   <table>
     <thead><tr><th>Tier</th><th>Boxes kept</th><th>Triangles in that patch</th></tr></thead>
     <tbody>
-      <tr><td>Low (masses)</td><td>285</td><td>5,976</td></tr>
-      <tr><td>Medium</td><td>1,438</td><td>17,506</td></tr>
-      <tr><td>High / ultra</td><td>1,622</td><td>19,346</td></tr>
-      <tr><td>Far impostor (LOD2)</td><td>231</td><td>2,610</td></tr>
+      <tr><td>Low (masses)</td><td>558</td><td>8,706</td></tr>
+      <tr><td>Medium</td><td>1,555</td><td>18,676</td></tr>
+      <tr><td>High / ultra</td><td>1,739</td><td>20,516</td></tr>
+      <tr><td>Far impostor (LOD2)</td><td>469</td><td>4,990</td></tr>
     </tbody>
   </table>
-  <p class="note">Those triangle counts include the ground under the patch. Medium and high add the ground flight (one box per riser, plus a 0.06 m edge on that riser) and, on high, the handrail posts. The 0.06 m edge is the smallest box the kit keeps. The lantern flight sits on the open arm of the cross and is included. Tower boxes are instances of one shared kit, so they add one draw per chunk that contains them, not a draw per tower. The three heroes are one instanced mesh per detail level. Window glow is the existing city shader. Remeasured after the rebase onto the road and lens commits.</p>
+  <p class="note">Those triangle counts include the ground under the patch. Medium and high add the ground flight (one box per riser, plus a 0.06 m edge on that riser) and, on high, the handrail posts. The 0.06 m edge is the smallest box the kit keeps. The lantern flight sits on the open arm of the cross and is included. Tower boxes are instances of one shared kit, so they add one draw per chunk that contains them, not a draw per tower. The three heroes are one instanced mesh per detail level. Window glow is the existing city shader, scaled by the lighting registry. Remeasured after the rebase onto the lighting commit.</p>
 
   <h2>Memory</h2>
   <p>The kit box is <code>resources.sharedGeometry('b1-kit-box')</code>. Each chunk and each hero level clones it through <code>resources.geometry</code> with owner <code>towers</code>, so the instance buffers are counted and released on unload. The facade material is <code>resources.material('b1-kit')</code>. The shared template is never disposed. Every tower box, including each tread, is an instance of that 20-vertex box (96 bytes: matrix, facade data, and scale). The chunk streamer releases the clone when the chunk unloads. The three heroes release the previous level when the quality tier changes, and distant hero levels drop their GPU buffers the same way other landmarks do. Distant fabric uses the existing far mesh: detail drops away, and boxes whose tops sit under 22 m disappear. On Low the heroes keep only that mass, and the flight is dropped with the other ornament. Full detail adds one open leaf on each hero, tagged <code>b1-door-leaf</code>. That leaf reuses the civic trim sheet, a single 128² image, not a texture per tower. Signs and windows stay on the atlases the city already compresses to KTX2. The harness roughness map is a local canvas and is not in the game.</p>
@@ -67,15 +67,15 @@
   <table>
     <thead><tr><th>Tier</th><th>Textures added</th><th>Geometry added</th></tr></thead>
     <tbody>
-      <tr><td>Low</td><td>0 MB</td><td>0.86 MB</td></tr>
-      <tr><td>Medium</td><td>0 MB</td><td>3.78 MB</td></tr>
-      <tr><td>High</td><td>0 MB</td><td>4.38 MB</td></tr>
-      <tr><td>Ultra</td><td>0 MB</td><td>4.39 MB</td></tr>
+      <tr><td>Low</td><td>0 MB</td><td>1.43 MB</td></tr>
+      <tr><td>Medium</td><td>0 MB</td><td>4.29 MB</td></tr>
+      <tr><td>High</td><td>0 MB</td><td>4.89 MB</td></tr>
+      <tr><td>Ultra</td><td>0 MB</td><td>4.90 MB</td></tr>
     </tbody>
   </table>
 
   <h2>Lights</h2>
-  <p>The lighting registry is still not on main after the rebase onto the ground-vehicle commit. Every glow on these towers is declared in <code>src/world/buildings/lights.ts</code> (<code>LIGHT_ADAPTER = 'b1-local'</code>): door soffit, door jambs, crown, obstruction tip, ad face, the gate-bridge edge, and the stair-edge line. The monolith slit sits on the street face, one storey above the door and in from the opening, so the dark taper reads at night. The holo shaft’s ad face is on that same street side. Band-slab belts are a storey and a half of dark stone with a short light lip on the street face and one side. Residential plates are shelves with a short light lip, kept inside the lot. The cantilever stem is under half the lot width and the wider top stays inside the footprint allowance; a short lip marks the joint. The lantern keeps a cruciform plan: light caps at the four arm ends and a roof cross of short standing bars, the same height as a belt lip. There is no glow crown on that roof. The holo shaft is dark stone with one edge slit, the same width as the monolith slit. Residential shelves sit on dark stone so the plate lips, not a window grid, carry the stack. The gate slabs are darker than the light column on each inner face of the slot. Each Caldera Step terrace has a short lip on the street face and the flyby side. The Caldera Step base uses the same megablock grid as the setbacks above it. The jambs sit just outside the 2.2 m opening so the doorway reads at night. A later lighting pass can map those roles without searching the recipes.</p>
+  <p>Tower glow uses the city shader, and that shader scales the glow family by the lighting registry's window nits (<code>LIGHT_ADAPTER = 'l1'</code> in <code>src/world/buildings/lights.ts</code>). There is no punctual light per tower. The roles are the door soffit, door jambs, crown, obstruction tip, ad face, the gate-bridge edge, and the stair-edge line. The monolith slit sits on the street face, one storey above the door and in from the opening, so the dark taper reads at night. The holo shaft’s ad face is on that same street side. Band-slab belts are a storey and a half of dark stone with a short light lip on the street face and one side. Residential plates are shelves with a short light lip, kept inside the lot. The cantilever stem is under half the lot width and the wider top stays inside the footprint allowance; a short lip marks the joint. The lantern keeps a cruciform plan: light caps at the four arm ends and a roof cross of short standing bars, the same height as a belt lip. There is no glow crown on that roof. The holo shaft is dark stone with one edge slit, the same width as the monolith slit. Residential shelves sit on dark stone so the plate lips, not a window grid, carry the stack. The gate slabs are darker than the light column on each inner face of the slot. Each Caldera Step terrace has a short lip on the street face and the flyby side. The Caldera Step base uses the same megablock grid as the setbacks above it. The jambs sit just outside the 2.2 m opening so the doorway reads at night. A later lighting pass can map those roles without searching the recipes.</p>
 
   <h2>Silhouette scores</h2>
   <p>Scored against original envelope diagrams (a slab, a step pyramid, a taper, a twin gate, a top-heavy bar). Not against film frames. Best side for each family:</p>

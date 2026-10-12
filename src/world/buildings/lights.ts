@@ -1,10 +1,13 @@
 // Emissive roles for the B1 towers.
-// L1's light registry (src/lighting, docs/lighting/RULES.md) was not on main when this
-// landed. Every glow on these buildings is declared here so a later pass can map the
-// roles onto that registry without hunting through the recipes.
+// Glow faces are Style.Glow on the shared city shader. That shader scales the family
+// by NITS.window, so these are not a second exposure and not a punctual light per tower.
+import { NITS } from '../../lighting/presets.ts';
 import { Style, SignColor, type StyleId } from '../fabric/types';
 
-export const LIGHT_ADAPTER = 'b1-local';
+export const LIGHT_ADAPTER = 'l1';
+
+/** Nit scale the city material applies to every glow face, including these roles. */
+export const TOWER_GLOW_NITS = NITS.window;
 
 /** Window lottery, crown lanterns, door soffits, obstruction tips, ad faces. */
 export const LIGHT_ROLES = {
