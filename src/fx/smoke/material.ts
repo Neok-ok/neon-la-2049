@@ -80,8 +80,10 @@ function shade(lit: boolean): MeshBasicNodeMaterial {
     const N = normalize(vec3(0, 0.72, 0).add(toCam.mul(0.45)).add(side.mul(nxy.x.mul(0.85))).add(up.mul(nxy.y.mul(0.85))));
     const V = toCam;
 
-    const steam = smoothstep(4.2, 3.2, kind);
-    const launch = smoothstep(6.2, 7.2, kind);
+    // 0–3 steam, 4–6 soot (barrel, stack, exhaust), 7–8 launch.
+    // The old edge sat on kind 4, so a burning barrel was painted white.
+    const steam = float(1).sub(smoothstep(3.15, 3.85, kind));
+    const launch = smoothstep(6.15, 6.85, kind);
     const soot = float(1).sub(steam).mul(float(1).sub(launch));
     // Body is a painted grey lifted like fog, so a puff still reads when the
     // exposure is stopped down. practicalLit stays in nits and is added, not scaled.

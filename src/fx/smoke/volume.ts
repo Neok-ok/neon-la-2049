@@ -14,7 +14,7 @@ import { U } from '../../atmosphere/uniforms';
 import type { Tier } from '../../core/quality';
 import { resources } from '../../core/memory';
 import { PRESETS } from '../../lighting/presets.ts';
-import { authoredLiftU } from '../../lighting/shade.ts';
+import { authoredLiftU, practicalInscatter } from '../../lighting/shade.ts';
 import { VOLUME_STEPS } from './tiers';
 
 const T = TSL as any;
@@ -70,11 +70,10 @@ function volumeMaterial(): MeshBasicNodeMaterial {
     const acc = vec3(0, 0, 0).toVar();
     const tr = float(1).toVar();
     const pos = origin.add(dir.mul(tStart)).toVar();
-    // One in-scatter sample per ray. The march still integrates emission and
-    // extinction; repeating the cluster loop per step blows the WebGL2 compile.
-    // Street in-scatter stays on the billboards. Sampling the cluster here
-    // made the march fail to finish a frame. Fog colour carries the ambient.
-    const scatter = U.fogColor.mul(0.35);
+    // One in-scatter sample per ray. Repeating the cluster loop per step
+    // blows the WebGL2 compile, so the march only integrates emission.
+    const mid = origin.add(dir.mul(tStart.add(span.mul(0.45))));
+    const scatter = practicalInscatter(mid).mul(1.2).add(U.fogColor.mul(0.2));
 
     T.Loop(6, ({ i }: { i: unknown }) => {
       const live = step(float(i).add(0.5), volSteps);

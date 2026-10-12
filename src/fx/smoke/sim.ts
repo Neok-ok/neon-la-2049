@@ -210,7 +210,7 @@ export function integrate(
     // The launch column leans, it does not leave the engine. Street smoke takes the full wind.
     const windScale = kind === KIND.column ? 0.16
       : kind === KIND.ground ? 0.28
-      : kind === KIND.stack ? 0.55
+      : kind === KIND.stack ? 0.9
       : kind === KIND.exhaust ? 0.22
       : 0.4;
     let vx = pool.vx[i]! + (wx * shear * push * windScale + c[0] * roll) * dt;
@@ -267,9 +267,9 @@ export function integrate(
         const ox = x - ax;
         const oz = z - az;
         const dist = Math.hypot(ox, oz) || 0.001;
-        const want = 5 + Math.min(16, height * 0.022);
+        const want = 3.5 + Math.min(8, height * 0.012);
         const err = dist - want;
-        const pull = 1 - Math.exp(-dt * 1.5);
+        const pull = 1 - Math.exp(-dt * 3.2);
         const nx = ox / dist;
         const nz = oz / dist;
         if (err > 0) {

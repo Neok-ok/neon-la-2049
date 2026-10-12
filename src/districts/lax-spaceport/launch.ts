@@ -68,7 +68,7 @@ function material(): MeshBasicNodeMaterial {
     return center
       .add(side.mul(k.x.mul(s)))
       .add(up.mul(k.y.mul(s).mul(k.z)))
-      .add(vec3(launchWindX, 0, launchWindZ).mul(lift).mul(column));
+      .add(vec3(launchWindX, 0, launchWindZ).mul(lift).mul(column.add(head.mul(0.65))));
   })();
   m.colorNode = Fn(() => {
     const head = smoothstep(1.5, 1.7, k.w);

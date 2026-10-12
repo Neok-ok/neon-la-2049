@@ -301,9 +301,9 @@ export class SmokeField {
     const front = Math.atan2(camZ - drive.z, camX - drive.x);
     for (let n = 0; n < cCap; n++) {
       const along = smokeRand() * h;
-      const nearSide = smokeRand() < 0.72;
-      const ang = nearSide ? front + (smokeRand() - 0.5) * 1.7 : smokeRand() * Math.PI * 2;
-      const rad = (nearSide ? 2.2 + smokeRand() * 4.2 : 5 + smokeRand() * 7) * (0.75 + along / Math.max(h, 1) * 0.45);
+      const nearSide = smokeRand() < 0.8;
+      const ang = nearSide ? front + (smokeRand() - 0.5) * 2.2 : smokeRand() * Math.PI * 2;
+      const rad = (nearSide ? 1.6 + smokeRand() * 3.2 : 3 + smokeRand() * 4) * (0.8 + along / Math.max(h, 1) * 0.35);
       const len = Math.max(24, drive.headY - drive.y);
       const lift = Math.max(0, Math.min(1, (along - 0.14 * len) / Math.max(1, 0.72 * len)));
       const lean = (10 + Math.min(12, wind.speed) * 1.4) * lift;
@@ -374,9 +374,9 @@ export class SmokeField {
     const front = Math.atan2(camZ - drive.z, camX - drive.x);
     while (this.columnAcc >= 1 && this.pool.slotN[2] < cCap) {
       const along = smokeRand() * h * 0.45;
-      const nearSide = smokeRand() < 0.72;
-      const ang = nearSide ? front + (smokeRand() - 0.5) * 1.7 : smokeRand() * Math.PI * 2;
-      const rad = nearSide ? 2.4 + smokeRand() * 4 : 5 + smokeRand() * 6;
+      const nearSide = smokeRand() < 0.8;
+      const ang = nearSide ? front + (smokeRand() - 0.5) * 2.2 : smokeRand() * Math.PI * 2;
+      const rad = nearSide ? 1.8 + smokeRand() * 3 : 3.2 + smokeRand() * 4;
       const ok = spawnParticle(this.pool, {
         x: drive.x + Math.cos(ang) * rad + wx * 0.15,
         y: drive.y + 4 + along,
@@ -434,7 +434,7 @@ export class SmokeField {
         size1: spin ? 2.6 : truck ? 1.8 : 1.15,
         kind: KIND.exhaust,
         heat: truck ? 0.08 : 0.02,
-        fade: spin ? 90 : 22,
+        fade: spin ? 90 : 48,
         aspect: spin ? 0.85 : 1.55,
         floorY: spin ? t.y - 2 : ground,
         slot: 0,
