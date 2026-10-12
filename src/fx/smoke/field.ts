@@ -25,7 +25,7 @@ import {
 /** Share of the street budget. Indexed by KIND. Launch kinds stay on their own slots. */
 const KIND_SHARE = [0.16, 0.12, 0.12, 0.1, 0.14, 0.22, 0.14];
 /** Card opacity. Stack cards overlap into one column, so each stamp stays lighter. */
-const KIND_ALPHA = [0.62, 0.72, 0.8, 0.7, 0.86, 0.46, 0.95, 0.28, 0.8];
+const KIND_ALPHA = [0.92, 0.86, 0.86, 0.8, 0.88, 0.7, 0.95, 0.44, 0.8];
 /** How many aged cards one emitter may seed, so a still shows the plume and not the first puff. */
 const SEED_CAP = [12, 10, 14, 12, 14, 36];
 
