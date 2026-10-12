@@ -522,6 +522,9 @@ export class App {
 
   /** Drop far detail, then mips, then resolution, before the tab is killed. */
   private govern(frameMs: number): void {
+    // A pinned seed must not let the memory governor shrink and regrow the
+    // loaded set, or isIdle never stays true.
+    if (params.seed !== undefined) return;
     const heap = (performance as { memory?: { usedJSHeapSize?: number } }).memory?.usedJSHeapSize ?? 0;
     const gpu = (this.renderer.info.memory?.total ?? 0) + this.rtBytes();
     const jsRatio = this.budget.jsHeapBytes > 0 ? heap / this.budget.jsHeapBytes : 0;
@@ -1099,6 +1102,7 @@ export class App {
     return {
       app: this,
       isIdle: () => this.frames > 10 && this.streamer.isIdle(),
+      idleReport: () => ({ ...this.streamer.idleReport(), pressure: this.pressure.level }),
       memory: () => this.overlaySample(),
       budget: () => this.budget,
       pressure: () => this.pressure,

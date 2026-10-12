@@ -91,10 +91,14 @@ async function keepFrames(context) {
         else if (window.__grabFrame) {
           const canvas = window.__nla?.app?.canvas ?? document.querySelector('canvas');
           const gl = canvas?.getContext?.('webgl2');
+          const tFin = performance.now();
           if (gl && gl.drawingBufferWidth > 0) {
             gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4));
           }
+          window.__finishMs = performance.now() - tFin;
+          const tEnc = performance.now();
           window.__lastPng = canvas ? canvas.toDataURL('image/png') : '';
+          window.__encodeMs = performance.now() - tEnc;
           window.__grabFrame = false;
           window.__visualFrames = false;
           window.__visualDraw = false;
@@ -193,7 +197,7 @@ async function settle(page) {
     window.__camStill = 0;
     window.__cam = null;
   });
-  const settleDeadline = Date.now() + 2_400_000;
+  const settleDeadline = Date.now() + 720_000;
   let ready = false;
   let polls = 0;
   let last = '';
@@ -229,6 +233,7 @@ async function settle(page) {
         frames: nla.app?.frames,
         far: !!nla.app?.farApplied,
         err: window.__grabErr || '',
+        block: nla.idleReport?.() ?? null,
       };
     });
     if (s.ready) {
@@ -236,7 +241,11 @@ async function settle(page) {
       trace(`settled lod0=${s.lod0} draws=${s.draws} frame=${s.frame}ms frames=${s.frames}`);
       break;
     }
-    last = `idle=${s.idleN} cam=${s.camStill} far=${s.far ? 1 : 0} lod0=${s.lod0} q=${s.queue} fly=${s.inflight} pend=${s.pending} draws=${s.draws} frame=${s.frame}ms frames=${s.frames}`;
+    const b = s.block;
+    const why = b
+      ? ` mis=${b.mismatch} stuck=${b.stuck} held=${b.held} sse=${b.sse ? 1 : 0} p=${b.pressure} cap=${Number.isFinite(b.farCap) ? Math.round(b.farCap) : 'inf'} ${b.sample || ''}`
+      : '';
+    last = `idle=${s.idleN} cam=${s.camStill} far=${s.far ? 1 : 0} lod0=${s.lod0} q=${s.queue} fly=${s.inflight} pend=${s.pending} draws=${s.draws} frame=${s.frame}ms frames=${s.frames}${why}`;
     if (polls % 8 === 0) trace(`wait ${last} ${s.err}`);
     polls++;
     await sleep(400);
@@ -320,6 +329,11 @@ async function grabCanvas(page, dest) {
     if (window.__grabErr) throw new Error(window.__grabErr);
     return window.__lastPng;
   });
+  const timing = await page.evaluate(() => ({
+    finish: Math.round(window.__finishMs || 0),
+    encode: Math.round(window.__encodeMs || 0),
+  }));
+  trace(`readback finish ${timing.finish}ms encode ${timing.encode}ms`);
   writeDataUrl(dest, dataUrl);
 }
 

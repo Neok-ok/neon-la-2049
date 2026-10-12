@@ -6,6 +6,7 @@ import {
   BufferAttribute, BufferGeometry, Box3, Group, InstancedBufferAttribute, InstancedMesh, Matrix4, Mesh, PlaneGeometry,
   Quaternion, Sphere, Vector3, type Object3D, type Scene,
 } from 'three/webgpu';
+import { params } from '../../core/params';
 import type { QualitySettings } from '../../core/quality';
 import { geometryBytes } from '../../core/memory/estimate';
 import { estimateStreamingBytes, fitRadii } from '../../core/memory/residency';
@@ -210,12 +211,57 @@ export class ChunkStreamer {
 
   /** True when nothing is queued or in flight (used by screenshot automation). */
   isIdle(): boolean {
-    if (this.jobs.size > 0 || this.ready.length > 0 || this.detailHeld.length > 0) return false;
+    return this.idleReport().idle;
+  }
+
+  /**
+   * Why a capture is still waiting. `stuck` slots want a LOD that nothing is
+   * fetching: the pending flag matches the want, but no job and no queued result.
+   */
+  idleReport(): {
+    idle: boolean;
+    jobs: number;
+    ready: number;
+    held: number;
+    mismatch: number;
+    stuck: number;
+    farCap: number;
+    sse: boolean;
+    sample: string;
+  } {
+    const pending = new Set<Slot>();
+    for (const job of this.jobs.values()) pending.add(job.slot);
+    const queued = new Set<Slot>();
+    for (const item of this.ready) queued.add(item.job.slot);
+    for (const item of this.detailHeld) queued.add(item.job.slot);
+    let mismatch = 0;
+    let stuck = 0;
+    let sample = '';
+    const note = (slot: Slot) => {
+      if (slot.want < 0 || slot.shownLod === slot.want) return;
+      mismatch++;
+      const owned = pending.has(slot) || queued.has(slot);
+      if (!owned && slot.pendingLod === slot.want) stuck++;
+      if (!sample) {
+        sample = `${slot.key} want ${slot.want} shown ${slot.shownLod} pend ${slot.pendingLod}${owned ? ' owned' : ''}`;
+      }
+    };
     for (const s of this.supers.values()) {
-      if (s.far.want >= 0 && s.far.shownLod !== s.far.want) return false;
-      if (s.children) for (const c of s.children) if (c.want >= 0 && c.shownLod !== c.want) return false;
+      note(s.far);
+      if (s.children) for (const c of s.children) note(c);
     }
-    return true;
+    const idle = this.jobs.size === 0 && this.ready.length === 0 && this.detailHeld.length === 0 && mismatch === 0;
+    return {
+      idle,
+      jobs: this.jobs.size,
+      ready: this.ready.length,
+      held: this.detailHeld.length,
+      mismatch,
+      stuck,
+      farCap: this.farCap,
+      sse: this.memory.sse,
+      sample,
+    };
   }
 
   private mkSlot(key: string, x0: number, z0: number, size: number): Slot {
@@ -506,14 +552,28 @@ export class ChunkStreamer {
     const p = this.policy;
     const estimate = estimateStreamingBytes(q.farRadius, q.nearRadius, q.lod0Radius);
     const tight = estimate > p.maxGeometryBytes || p.farScale < 0.999 || p.sseScale > 1.001 || this.farCap < q.farRadius;
-    if (!tight) return { far: q.farRadius, near: q.nearRadius, lod0: q.lod0Radius, sse: false };
     const farWant = Math.min(q.farRadius * p.farScale, this.farCap);
-    const fit = fitRadii(
-      { far: farWant, near: Math.min(q.nearRadius, farWant), lod0: Math.min(q.lod0Radius, q.nearRadius, farWant) },
-      p.maxGeometryBytes,
-      Math.min(q.lod0Radius, p.floorLod0),
-    );
-    return { ...fit, sse: true };
+    const open = !tight
+      ? { far: q.farRadius, near: q.nearRadius, lod0: q.lod0Radius, sse: false }
+      : {
+        ...fitRadii(
+          { far: farWant, near: Math.min(q.nearRadius, farWant), lod0: Math.min(q.lod0Radius, q.nearRadius, farWant) },
+          p.maxGeometryBytes,
+          Math.min(q.lod0Radius, p.floorLod0),
+        ),
+        sse: true,
+      };
+    if (params.seed === undefined) return open;
+    // isIdle waits until every wanted chunk is showing. A night-rain capture
+    // cannot see the far basin, and that 14 km ring is what kept Financial
+    // Ultra from going idle. Full detail stays inside 1.5 km; silhouettes stop
+    // at 6 km. Unseeded play keeps the tier radii.
+    return {
+      ...open,
+      far: Math.min(open.far, 6000),
+      near: Math.min(open.near, 1500),
+      lod0: Math.min(open.lod0, 1500),
+    };
   }
 
   private suspendExterior(): void {
