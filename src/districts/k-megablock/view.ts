@@ -46,10 +46,11 @@ export function kCamera(layout: CityLayout, kind: KView): KPose | null {
   });
 
   if (kind === 'street') {
-    // On the south-face carriageway, looking east along the paint with the slab in frame.
-    const feet = world(18, 0.02, HD + 15 - 2.6);
-    const look = world(110, 28, HD + 4);
-    return walk(feet, look, 0.14);
+    // Just past a pole, in the dark gap, so the pool stays a disc under the next lamp
+    // and the yellow paint is the foreground. Poles sit every 32 m from local x = -129.
+    const feet = world(40, 0.02, HD + 15 - 1.4);
+    const look = world(148, 20, HD + 6);
+    return walk(feet, look, 0.1);
   }
   if (kind === 'market') {
     // South lane of the same street, so the stall row and the yellow line share the frame.

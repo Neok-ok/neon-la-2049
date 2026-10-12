@@ -7,7 +7,7 @@ import type { Scene } from 'three/webgpu';
 import { U } from './uniforms';
 
 const T = TSL as any;
-const { reflector, vec4, vec3, float, mix, positionWorld, smoothstep, mx_noise_float, sin } = T;
+const { reflector, vec4, vec3, float, mix, positionWorld, smoothstep, mx_noise_float, sin, max } = T;
 
 export class WetReflector {
   readonly mesh: Mesh;
@@ -21,15 +21,17 @@ export class WetReflector {
     mat.polygonOffset = true;
     mat.polygonOffsetFactor = -2;
     mat.polygonOffsetUnits = -2;
-    const mirror = reflector({ resolutionScale: 0.22, bounces: false, generateMipmaps: false });
-    // Broken dark streaks. The asphalt between them stays the road, not a copy of the signs.
+    // Quarter-res so a streak is a smear, not a readable sign. Gaps stay the road.
+    const mirror = reflector({ resolutionScale: 0.18, bounces: false, generateMipmaps: false });
     const w = positionWorld;
-    const grain = mx_noise_float(vec3(w.x.mul(0.09), w.z.mul(0.31), float(3)));
-    const cross = mx_noise_float(vec3(w.x.mul(0.37), w.z.mul(0.07), float(8)));
-    const rib = sin(w.x.mul(0.42).add(w.z.mul(0.16)));
-    const streak = smoothstep(0.38, 0.7, grain.mul(0.62).add(cross.mul(0.38)).add(rib.mul(0.07)));
-    const dark = mirror.rgb.mul(float(0.3)).mul(mix(vec3(1, 1, 1), vec3(0.62, 0.72, 0.86), U.night));
-    mat.colorNode = vec4(dark, streak.mul(float(0.6)).mul(U.wetness));
+    const warp = mx_noise_float(vec3(w.x.mul(0.05), w.z.mul(0.05), float(2)));
+    const alongX = mx_noise_float(vec3(w.x.mul(0.03), w.z.mul(0.55), float(4)));
+    const alongZ = mx_noise_float(vec3(w.x.mul(0.55), w.z.mul(0.03), float(9)));
+    const rib = sin(w.x.mul(0.85).add(w.z.mul(0.22)).add(warp.mul(3.2)));
+    const ribbons = max(alongX, alongZ);
+    const streak = smoothstep(float(0.58), float(0.82), ribbons.mul(0.7).add(rib.mul(0.5).add(0.5).mul(0.3)));
+    const dark = mirror.rgb.mul(float(0.8)).mul(mix(vec3(1, 1, 1), vec3(0.5, 0.6, 0.76), U.night));
+    mat.colorNode = vec4(dark, streak.mul(float(0.88)).mul(U.wetness));
     this.mesh = new Mesh(geo, mat);
     this.mesh.name = 'wet-reflector';
     this.mesh.rotation.x = -Math.PI / 2;

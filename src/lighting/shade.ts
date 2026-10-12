@@ -115,7 +115,9 @@ export function lanternPool(world: any): any {
   for (let i = 0; i < SLOT_COUNT; i++) {
     const live = step(float(0.5), meta[i]!.x).mul(step(float(0.5), meta[i]!.w));
     const delta = pos[i]!.xyz.sub(world);
-    const fall = exp(delta.x.mul(delta.x).add(delta.z.mul(delta.z)).mul(-0.07));
+    // 0.07 still read as a carpet at a grazing phone camera (~7 m of warm tail).
+    // 0.11 is a few metres: the lane beside the pole stays warm, the far lane does not.
+    const fall = exp(delta.x.mul(delta.x).add(delta.z.mul(delta.z)).mul(-0.11));
     acc = acc.add(warm.mul(fall).mul(live));
   }
   return acc.mul(float(NITS.pool * 2)).mul(U.night);
