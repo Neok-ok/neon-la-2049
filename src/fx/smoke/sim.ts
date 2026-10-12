@@ -135,34 +135,47 @@ export function spawnEmitter(
   }
 }
 
+/** How much of the weather wind a kind keeps. Street vents rise; stacks and roofs lean. */
+export function smokeWindScale(kind: number): number {
+  if (kind === KIND.column) return 0.08;
+  if (kind === KIND.ground) return 0.32;
+  if (kind === KIND.stack) return 1.2;
+  if (kind === KIND.exhaust) return 0.18;
+  if (kind === KIND.stall) return 0.22;
+  if (kind === KIND.manhole) return 0.48;
+  if (kind === KIND.vent) return 0.16;
+  if (kind === KIND.roof) return 0.72;
+  return 0.45;
+}
+
 function buoy(kind: number): number {
   switch (kind) {
-    case KIND.vent: return 0.85;
-    case KIND.manhole: return 0.22;
-    case KIND.roof: return 1.05;
-    case KIND.stall: return 0.38;
-    case KIND.barrel: return 0.7;
-    case KIND.stack: return 2.05;
-    case KIND.exhaust: return 0.28;
+    case KIND.vent: return 1.45;
+    case KIND.manhole: return 0.42;
+    case KIND.roof: return 1.55;
+    case KIND.stall: return 0.72;
+    case KIND.barrel: return 0.95;
+    case KIND.stack: return 0.8;
+    case KIND.exhaust: return 0.32;
     case KIND.column: return 0.45;
-    case KIND.ground: return 0.55;
+    case KIND.ground: return 0.4;
     default: return 1;
   }
 }
 
 function dragK(kind: number): number {
   if (kind === KIND.column) return 0.42;
-  if (kind === KIND.ground) return 0.28;
-  if (kind === KIND.stack) return 0.16;
+  if (kind === KIND.ground) return 0.34;
+  if (kind === KIND.stack) return 0.4;
   return 0.45;
 }
 
 function turb(kind: number): number {
-  if (kind === KIND.column) return 0.7;
-  if (kind === KIND.ground) return 2.6;
-  if (kind === KIND.stack) return 1.8;
-  if (kind === KIND.barrel) return 0.55;
-  return 0.45;
+  if (kind === KIND.column) return 1.5;
+  if (kind === KIND.ground) return 1.8;
+  if (kind === KIND.stack) return 0.55;
+  if (kind === KIND.barrel) return 0.7;
+  return 0.4;
 }
 
 /** Same lean the flame ribbon uses: 0 at the pad, full lean at the head. */
@@ -214,14 +227,7 @@ export function integrate(
     const c = curl(x * 0.07 + time * 0.05, y * 0.07, z * 0.07, 0.18);
     const roll = turb(kind);
     // The launch column leans, it does not leave the engine. Street smoke takes the full wind.
-    const windScale = kind === KIND.column ? 0.06
-      : kind === KIND.ground ? 0.42
-      : kind === KIND.stack ? 1.7
-      : kind === KIND.exhaust ? 0.12
-      : kind === KIND.stall ? 0.35
-      : kind === KIND.manhole ? 0.85
-      : kind === KIND.vent ? 0.95
-      : 0.5;
+    const windScale = smokeWindScale(kind);
     let vx = pool.vx[i]! + (wx * shear * push * windScale + c[0] * roll) * dt;
     let vy = pool.vy[i]! + (buoy(kind) * loft + c[1] * roll * 0.35) * dt;
     let vz = pool.vz[i]! + (wz * shear * push * windScale + c[2] * roll) * dt;
@@ -272,12 +278,15 @@ export function integrate(
         const ox = x - ax;
         const oz = z - az;
         const dist = Math.hypot(ox, oz) || 0.001;
-        const want = 2.8 + Math.min(4, height * 0.003);
+        const bulge = 2.2 * Math.sin(height * 0.011 + time * 0.32);
+        const want = 3.6 + Math.min(6, height * 0.0035) + bulge;
         const err = dist - want;
-        const pull = 1 - Math.exp(-dt * 2.6);
+        const pull = 1 - Math.exp(-dt * 1.1);
         const nx = ox / dist;
         const nz = oz / dist;
-        x -= nx * err * pull * (err > 0 ? 1 : 0.45);
+        const grip = pull * (err > 0 ? 1 : 0.45);
+        x -= nx * err * grip;
+        z -= nz * err * grip;
         const swirl = dt * 0.35;
         x += -nz * swirl;
         z += nx * swirl;

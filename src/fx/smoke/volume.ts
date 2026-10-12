@@ -83,16 +83,17 @@ function volumeMaterial(): MeshBasicNodeMaterial {
       const shear = volWind.mul(height.mul(0.08));
       const radial = length(rel.xz.sub(shear.xz));
       const t = clamp(height.div(max(volHeight, 1.0)), 0, 1);
-      const radius = mix(float(12), float(26), t);
-      const column = smoothstep(radius, radius.mul(0.25), radial)
+      const n1 = mx_noise_float(pos.mul(0.045).add(vec3(U.time.mul(0.05), U.time.mul(0.02), 0))).mul(0.5).add(0.5);
+      const pinch = mix(float(0.58), float(1.28), n1);
+      const radius = mix(float(11), float(24), t).mul(pinch);
+      const column = smoothstep(radius, radius.mul(0.22), radial)
         .mul(smoothstep(0.0, 8.0, height))
         .mul(smoothstep(volHeight, volHeight.mul(0.7), height));
       const gRad = length(rel.xz);
-      const ground = smoothstep(volGroundR, volGroundR.mul(0.25), gRad)
-        .mul(smoothstep(55.0, 6.0, height))
-        .mul(smoothstep(-2.0, 3.0, height));
-      const n1 = mx_noise_float(pos.mul(0.02).add(vec3(U.time.mul(0.08), U.time.mul(0.03), 0))).mul(0.5).add(0.5);
-      const density = column.mul(0.85).add(ground.mul(1.15)).mul(n1).mul(volDensity);
+      const ground = smoothstep(volGroundR, volGroundR.mul(0.28), gRad)
+        .mul(smoothstep(22.0, 3.0, height))
+        .mul(smoothstep(-2.0, 2.0, height));
+      const density = column.mul(0.48).add(ground.mul(1.35)).mul(mix(float(0.7), float(1.2), n1)).mul(volDensity);
 
       const toEng = volEngine.sub(pos);
       const dE = max(length(toEng), 1.0);
