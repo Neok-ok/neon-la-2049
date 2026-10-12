@@ -25,7 +25,7 @@ import {
 /** Share of the street budget. Indexed by KIND. Launch kinds stay on their own slots. */
 const KIND_SHARE = [0.16, 0.12, 0.12, 0.1, 0.14, 0.22, 0.14];
 /** Card opacity. Stack cards overlap into one column, so each stamp stays lighter. */
-const KIND_ALPHA = [0.96, 0.96, 0.94, 0.9, 0.94, 0.58, 0.8, 0.26, 0.9];
+const KIND_ALPHA = [0.94, 0.9, 0.92, 0.78, 0.92, 0.72, 0.86, 0.48, 0.92];
 /** How many aged cards one emitter may seed, so a still shows the plume and not the first puff. */
 const SEED_CAP = [12, 10, 14, 12, 14, 36];
 
@@ -297,7 +297,7 @@ export class SmokeField {
       const t = Math.max(0, Math.min(1, along / len));
       const rad = 5 + smokeRand() * 7;
       const lean = plumeLean(along, len, wind.speed);
-      const size = (tier === 'low' ? 16 : tier === 'medium' ? 26 : 34) + t * (tier === 'low' ? 12 : 28);
+      const size = (tier === 'low' ? 12 : tier === 'medium' ? 16 : 18) + t * (tier === 'low' ? 8 : 16) + smokeRand() * 8;
       spawnParticle(this.pool, {
         x: drive.x + Math.cos(wind.dir) * lean + Math.cos(ang) * rad,
         y: drive.y + along,
@@ -416,8 +416,8 @@ export class SmokeField {
       if (!must && smokeRand() > rate * dt) continue;
       const spin = t.heavy === 2;
       const truck = t.heavy === 1;
-      const wakeX = (t.wx ?? Math.cos(wind.dir) * wind.speed * 0.15) * 0.9;
-      const wakeZ = (t.wz ?? Math.sin(wind.dir) * wind.speed * 0.15) * 0.9;
+      const wakeX = (t.wx ?? Math.cos(wind.dir) * wind.speed * 0.15) * 0.55;
+      const wakeZ = (t.wz ?? Math.sin(wind.dir) * wind.speed * 0.15) * 0.55;
       spawnParticle(this.pool, {
         x: t.x, y: t.y, z: t.z,
         vx: wakeX,
@@ -425,8 +425,8 @@ export class SmokeField {
         vz: wakeZ,
         life: spin ? 2.4 : truck ? 1.5 : 1.2,
         age: 0,
-        size0: spin ? 0.45 : truck ? 0.28 : 0.16,
-        size1: spin ? 1.3 : truck ? 0.85 : 0.5,
+        size0: spin ? 0.4 : truck ? 0.22 : 0.14,
+        size1: spin ? 1.2 : truck ? 0.7 : 0.48,
         kind: KIND.exhaust,
         heat: truck ? 0.08 : 0.02,
         fade: spin ? 90 : 55,
@@ -439,7 +439,7 @@ export class SmokeField {
       const sp = Math.hypot(wakeX, wakeZ) || 1;
       const bx = -wakeX / sp;
       const bz = -wakeZ / sp;
-      for (const back of [0.45, 1.05, 1.8]) {
+      for (const back of [0.7, 1.6, 2.8, 4.2]) {
         spawnParticle(this.pool, {
           x: t.x + bx * back, y: t.y + 0.08 + back * 0.04, z: t.z + bz * back,
           vx: wakeX * 0.92, vy: 0.22, vz: wakeZ * 0.92,
@@ -511,7 +511,7 @@ export class SmokeField {
         pz += (camZ - pz) * pull;
       }
       let heat = pool.heat[i]!;
-      if (kind === KIND.barrel) heat *= Math.max(0, 1 - u * 1.35);
+      if (kind === KIND.barrel || kind === KIND.stack) heat *= Math.max(0, 1 - u * 1.2);
       const alpha = fadeIn * fadeOut * baseA;
       // A fat fade against the street deletes a knee-high wisp whose card meets the asphalt.
       let soft = Math.max(0.12, Math.min(4.5, size * 0.08));
@@ -585,7 +585,7 @@ export class SmokeField {
       });
     }
     for (const b of barrelLights(this.emitters, camX, camZ, 3)) {
-      lights.push({ preset: 'flare', x: b.x, y: b.y + 0.3, z: b.z, candela: 1100, range: 8 });
+      lights.push({ preset: 'flare', x: b.x, y: b.y + 0.4, z: b.z, candela: 420, range: 3.5 });
     }
     punctual = lights;
   }

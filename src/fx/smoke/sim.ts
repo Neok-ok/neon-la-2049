@@ -139,22 +139,22 @@ export function spawnEmitter(
 export function smokeWindScale(kind: number): number {
   if (kind === KIND.column) return 0.08;
   if (kind === KIND.ground) return 0.32;
-  if (kind === KIND.stack) return 1.2;
+  if (kind === KIND.stack) return 1.35;
   if (kind === KIND.exhaust) return 0.18;
-  if (kind === KIND.stall) return 0.22;
-  if (kind === KIND.manhole) return 0.48;
-  if (kind === KIND.vent) return 0.16;
-  if (kind === KIND.barrel) return 0.1;
-  if (kind === KIND.roof) return 0.72;
+  if (kind === KIND.stall) return 0.4;
+  if (kind === KIND.manhole) return 0.8;
+  if (kind === KIND.vent) return 0.42;
+  if (kind === KIND.barrel) return 0.12;
+  if (kind === KIND.roof) return 1.05;
   return 0.45;
 }
 
 function buoy(kind: number): number {
   switch (kind) {
     case KIND.vent: return 1.45;
-    case KIND.manhole: return 0.42;
-    case KIND.roof: return 1.55;
-    case KIND.stall: return 0.72;
+    case KIND.manhole: return 0.22;
+    case KIND.roof: return 1.15;
+    case KIND.stall: return 0.28;
     case KIND.barrel: return 0.95;
     case KIND.stack: return 0.8;
     case KIND.exhaust: return 0.32;
@@ -172,7 +172,7 @@ function dragK(kind: number): number {
 }
 
 function turb(kind: number): number {
-  if (kind === KIND.column) return 1.5;
+  if (kind === KIND.column) return 2.4;
   if (kind === KIND.ground) return 1.8;
   if (kind === KIND.stack) return 0.55;
   if (kind === KIND.barrel) return 0.7;
@@ -285,7 +285,7 @@ export function integrate(
         const bulge = 2.2 * Math.sin(height * 0.011 + time * 0.32);
         const want = 3.6 + Math.min(6, height * 0.0035) + bulge;
         const err = dist - want;
-        const pull = 1 - Math.exp(-dt * 1.1);
+        const pull = 1 - Math.exp(-dt * 0.55);
         const nx = ox / dist;
         const nz = oz / dist;
         const grip = pull * (err > 0 ? 1 : 0.45);

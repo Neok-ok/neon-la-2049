@@ -105,7 +105,7 @@ function shade(lit: boolean): MeshBasicNodeMaterial {
       const world = ctr.xyz;
       lamps = practicalLit(world, N, V, albedo).mul(litScale).add(practicalInscatter(world).mul(3.6));
     }
-    const heatGain = launch.mul(0.9).add(barrel.mul(1.65)).add(stack.mul(0.1)).add(exhaustK.mul(0.2)).add(steam.mul(0.1));
+    const heatGain = launch.mul(0.9).add(barrel.mul(1.65)).add(stack.mul(0.55)).add(exhaustK.mul(0.2)).add(steam.mul(0.1));
     const heat = vec3(FLAME[0], FLAME[1], FLAME[2])
       .mul(extra.x)
       .mul(authoredLiftU)
