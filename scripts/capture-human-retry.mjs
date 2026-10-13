@@ -2492,9 +2492,9 @@ async function boot(quality) {
                 if (towardWall < 0.62) continue;
                 if (!line(px, pz, stand.x, stand.z, Math.min(gy, stand.gy))) continue;
                 if (!line(px, pz, door.x, door.z, Math.min(gy, stand.gy))) continue;
-                const eye = gy + 1.42;
+                const eye = gy + 1.35;
                 const yaw = Math.atan2(stand.x - px, -(stand.z - pz));
-                const pitch = Math.atan2((stand.gy + 1.05) - eye, vlen);
+                const pitch = Math.atan2((stand.gy + 1.7) - eye, vlen);
                 cam.position.set(px, eye, pz);
                 cam.rotation.set(pitch, -yaw, 0, 'YXZ');
                 cam.updateMatrixWorld();
@@ -2515,7 +2515,7 @@ async function boot(quality) {
                 const gap = Math.abs(crown.x - head.x);
                 if (gap < 0.05 || gap > 0.34) continue;
                 if (Math.abs(crown.x) > 0.5 || Math.abs(head.x) > 0.62) continue;
-                if (feet.y < -0.72 || feet.y > -0.14 || crown.y > 0.5) continue;
+                if (feet.y < -0.82 || feet.y > -0.38 || crown.y > 0.22) continue;
                 // Look across the opening. Same-side lenses hide the walker
                 // behind the near jamb.
                 const across = Math.sign(stand.side) !== latSign ? 0.55 : 0;
@@ -2533,26 +2533,20 @@ async function boot(quality) {
         }
         poses.sort((a, b) => b.score - a.score);
         let pose = null;
-        const THREE = await import('three');
-        const raycaster = new THREE.Raycaster();
-        const rayOrigin = new THREE.Vector3();
-        const rayDir = new THREE.Vector3();
-        for (const cand of poses.slice(0, 10)) {
-          let blocked = false;
-          for (const y of [cand.stand.gy + 1.6, cand.stand.gy + 1.05, cand.stand.gy + 0.4]) {
-            rayOrigin.set(cand.px, cand.eye, cand.pz);
-            rayDir.set(cand.stand.x - cand.px, y - cand.eye, cand.stand.z - cand.pz);
-            const dist = rayDir.length() || 1;
-            rayDir.multiplyScalar(1 / dist);
-            raycaster.set(rayOrigin, rayDir);
-            raycaster.far = dist * 0.78;
-            const hits = raycaster.intersectObject(a.scene, true);
-            if (hits.some((h) => h.object?.visible && h.object.name !== 'scale-car-proof' && h.distance < dist * 0.7)) {
-              blocked = true;
-              break;
-            }
+        const sight = (px, py, pz, tx, ty, tz) => {
+          for (let t = 0.12; t <= 0.7; t += 0.08) {
+            const x = px + (tx - px) * t;
+            const y = py + (ty - py) * t;
+            const z = pz + (tz - pz) * t;
+            if (q.insideSolid(x, y, z, 0.1, true)) return false;
           }
-          if (blocked) continue;
+          return true;
+        };
+        for (const cand of poses.slice(0, 12)) {
+          const clearBody = [1.6, 1.05, 0.45].every((h) => sight(
+            cand.px, cand.eye, cand.pz, cand.stand.x, cand.stand.gy + h, cand.stand.z,
+          ));
+          if (!clearBody) continue;
           a.interiors?.update?.(0.05, 'walk', cand.px, cand.eye, cand.pz, 0);
           if (a.interiors?.stats?.interiorOccluded) continue;
           pose = cand;
@@ -2587,13 +2581,14 @@ async function boot(quality) {
               if (cls?.band !== 'road') continue;
               const dCar = Math.hypot(x - pose.px, z - pose.pz);
               const dMe = Math.hypot(person.x - pose.px, person.z - pose.pz);
-              if (Math.abs(dCar - dMe) > 2.1) continue;
+              if (dCar < dMe + 0.6 || dCar > dMe + 3.2) continue;
               const roof = ndc(x, gy + 1.35, z);
               const tyre = ndc(x, gy + 0.12, z);
               if (!roof || !tyre || !pose.feet || !pose.crown) continue;
-              if (Math.abs(tyre.y - pose.feet.y) > 0.1) continue;
+              if (Math.abs(tyre.y - pose.feet.y) > 0.2) continue;
+              if (roof.y > pose.crown.y - 0.02) continue;
               const h = Math.abs(roof.y - tyre.y);
-              if (h < pose.pSpan * 0.5 || h > pose.pSpan * 0.92) continue;
+              if (h < pose.pSpan * 0.32 || h > pose.pSpan * 0.82) continue;
               const overlap = roof.x > Math.min(pose.crown.x, pose.feet.x) - 0.02
                 && roof.x < Math.max(pose.crown.x, pose.feet.x) + 0.02;
               if (overlap) continue;
@@ -2624,13 +2619,14 @@ async function boot(quality) {
                 if (cls?.band !== 'road') continue;
                 const dCar = Math.hypot(x - pose.px, z - pose.pz);
                 const dMe = Math.hypot(person.x - pose.px, person.z - pose.pz);
-                if (dCar + 0.4 < dMe * 0.82) continue;
+                if (dCar < dMe + 0.4 || dCar > dMe + 3.6) continue;
                 const roof = ndc(x, gy + 1.35, z);
                 const tyre = ndc(x, gy + 0.12, z);
                 if (!roof || !tyre) continue;
-                if (Math.abs(tyre.y - pose.feet.y) > 0.16) continue;
+                if (roof.y > pose.crown.y) continue;
+                if (Math.abs(tyre.y - pose.feet.y) > 0.22) continue;
                 const h = Math.abs(roof.y - tyre.y);
-                if (h < pose.pSpan * 0.4 || h > pose.pSpan * 1.02) continue;
+                if (h < pose.pSpan * 0.28 || h > pose.pSpan * 0.88) continue;
                 if (Math.abs(roof.x - pose.crown.x) < 0.06) continue;
                 if (Math.abs(roof.x) > 0.9) continue;
                 const toX = pose.px - x;
@@ -2749,13 +2745,7 @@ async function boot(quality) {
           }
           if (proof) {
             const back = a.camera.position.clone().set(0, 0, -1);
-            const toCam = a.camera.position.clone();
-            toCam.x -= car.x;
-            toCam.z -= car.z;
-            toCam.y = 0;
-            if (toCam.lengthSq() < 1e-6) toCam.set(0, 0, 1);
-            toCam.normalize();
-            const aim = a.camera.position.clone().set(rx * 0.42 + toCam.x * 0.58, 0, rz * 0.42 + toCam.z * 0.58);
+            const aim = a.camera.position.clone().set(rx, 0, rz);
             if (aim.lengthSq() < 1e-6) aim.set(1, 0, 0);
             aim.normalize();
             proof.position.set(car.x, car.y, car.z);
