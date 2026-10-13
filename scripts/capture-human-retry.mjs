@@ -2436,29 +2436,71 @@ async function boot(quality) {
         // Authored outward already points at the street. Flipping it when the
         // stoop reads as solid puts the lens inside the lobby.
         if (door.kind === 'leaf' && open(ux, uz) === 0 && open(-ux, -uz) > 0) { ux = -ux; uz = -uz; }
+        // The street face of a corridor mouth, not the door-box centre. The
+        // centre sits inside the volume, so a 3.2 m cheek reads twice a person
+        // even when a point at the centre projects at 1.3×.
+        let faceOut = 0;
+        let faceTop = door.y0 + 3.6;
+        if (door.kind !== 'hero') {
+          for (let o = 5.4; o >= -1.5; o -= 0.12) {
+            let hit = false;
+            for (const s of [0.75, -0.75, 1.15, -1.15]) {
+              const x = door.x + ux * o + ax * s;
+              const z = door.z + uz * o + az * s;
+              if (q.insideSolid(x, door.y0 + 1.15, z, 0.05, true)) { hit = true; break; }
+            }
+            if (hit) { faceOut = o; break; }
+          }
+          const fx = door.x + ux * faceOut;
+          const fz = door.z + uz * faceOut;
+          // The cheek beside the leaf, not the tower next door. The shorter
+          // solid under 4.2 m is the mouth.
+          const tops = [];
+          for (const s of [0.55, -0.55, 0.85, -0.85]) {
+            let t = door.y0;
+            let gap = 0;
+            for (let y = door.y0 + 0.2; y <= door.y0 + 4.2; y += 0.1) {
+              if (q.insideSolid(fx + ax * s, y, fz + az * s, 0.04, true)) { t = y; gap = 0; }
+              else {
+                gap += 0.1;
+                if (gap > 0.28 && t > door.y0 + 1.4) break;
+              }
+            }
+            if (t > door.y0 + 1.7 && t < door.y0 + 4.15) tops.push(t);
+          }
+          if (tops.length) faceTop = Math.min(...tops);
+        }
+        const faceH = faceTop - door.y0;
+        const tall = door.kind !== 'hero' && faceH > 2.65;
         const stands = [];
-        // A corridor mouth is about 3.3 m. On the door plane that surround is
-        // nearly twice a 1.80 m walker. A step toward the lens enlarges the
-        // walker until the lintel only clears the crown.
-        for (const out of [1.7, 2.3, 2.9, 1.2, 0.7]) {
-          for (const side of [1.35, -1.35, 1.85, -1.85]) {
+        // Heroes: stand in the opening, in front of the cream panel.
+        // Tall mouths: stand just in front of the face, in the opening.
+        const standOuts = tall
+          ? [0.35, 0.7, 1.15, 1.65].map((d) => faceOut + d)
+          : [2.2, 2.8, 3.6, 4.4, 1.6];
+        const standSides = tall
+          ? [0.2, -0.2, 0.45, -0.45]
+          : [0.4, -0.4, 0.75, -0.75, 1.15, -1.15];
+        for (const out of standOuts) {
+          for (const side of standSides) {
             const x = door.x + ux * out + ax * side;
             const z = door.z + uz * out + az * side;
             const gy = surfaceY(x, z, door.y0);
             if (gy == null) continue;
+            if (gy > door.y0 + (tall ? 0.42 : 0.28)) continue;
             if (q.insideSolid(x, gy + 0.9, z, 0.16, true)) continue;
             const cls = classify(x, z, Math.atan2(ax, az));
             if (cls?.band === 'road') continue;
             const standOut = (x - door.x) * ux + (z - door.z) * uz;
-            if (standOut < 0.45) continue;
-            stands.push({ x, z, gy, out, side, band: cls?.band || 'none' });
+            if (standOut < (tall ? faceOut + 0.2 : 0.9)) continue;
+            stands.push({ x, z, gy, out, side, band: cls?.band || 'none', faceOut, faceTop, faceH, tall });
           }
         }
         if (!stands.length) {
           tried.push({ id: door.id, reason: 'no-stand' });
           continue;
         }
-        const shellTop = door.kind === 'interior' ? door.y0 + 3.3 : door.y1;
+        const shellTop = door.y0 + 3.6;
         const cam = a.camera;
         const poses = [];
         const tally = {};
@@ -2510,8 +2552,8 @@ async function boot(quality) {
             }
           }
         }
-        // Closer, and more square to the opening, so the walker and the
-        // surround share the frame instead of a long shot down an empty lot.
+        // Square to the opening, with the walker between the lens and the
+        // 3.6 m surround. Along one ray the panel and the person scale together.
         if (door.id !== 'lapd-hq') for (const stand of stands) {
           let road = false;
           for (const d of [4, 6.5, 9, 12]) {
@@ -2524,13 +2566,19 @@ async function boot(quality) {
               if (cls?.band === 'road') road = true;
             }
           }
-          for (const dist of [1.8, 2.5, 3.3, 4.2]) {
+          const tall = stand.tall;
+          const dists = tall ? [0.4, 0.85, 1.3] : [0.8, 1.3, 1.9, 2.6];
+          const streets = tall ? [1.35, 1.9, 2.6, 3.4] : [2.4, 3.2, 4.2, 5.2];
+          const refX = tall ? door.x + ux * stand.faceOut : door.x;
+          const refZ = tall ? door.z + uz * stand.faceOut : door.z;
+          const topY = tall ? stand.faceTop : shellTop;
+          for (const dist of dists) {
             for (const latSign of [1, -1]) {
-              for (const street of [1.2, 1.8, 2.6, 3.6, 4.8]) {
+              for (const street of streets) {
                 const px = stand.x + ax * latSign * dist + ux * street;
                 const pz = stand.z + az * latSign * dist + uz * street;
                 const camOut = (px - door.x) * ux + (pz - door.z) * uz;
-                if (camOut < 1.15) { bump('out'); continue; }
+                if (camOut < stand.out + (tall ? 0.85 : 1.2)) { bump('out'); continue; }
                 q.fabricAt(px, pz);
                 let gy = q.groundHeight(px, pz);
                 if (Math.abs(gy - stand.gy) > 0.55) {
@@ -2546,46 +2594,67 @@ async function boot(quality) {
                 const vz = stand.z - pz;
                 const vlen = Math.hypot(vx, vz) || 1;
                 const towardWall = -((vx / vlen) * ux + (vz / vlen) * uz);
-                if (towardWall < 0.62) { bump('toward'); continue; }
+                if (towardWall < 0.7) { bump('toward'); continue; }
+                const dMe = Math.hypot(stand.x - px, stand.z - pz);
+                const dDoor = Math.hypot(refX - px, refZ - pz);
+                const depth = dMe / Math.max(0.4, dDoor);
+                if (depth < (tall ? 0.42 : 0.56) || depth > (tall ? 0.62 : 0.78)) { bump('depth'); continue; }
                 const dropped = stand.gy - gy > 0.35;
                 if (!dropped && !line(px, pz, stand.x, stand.z, Math.min(gy, stand.gy))) { bump('line-person'); continue; }
-                if (!dropped && !line(px, pz, door.x, door.z, Math.min(gy, stand.gy))) { bump('line-door'); continue; }
-                const eye = gy + 1.35;
+                if (!dropped && !line(px, pz, refX, refZ, Math.min(gy, stand.gy))) { bump('line-door'); continue; }
+                const eye = gy + (tall ? 0.92 : 1.35);
                 const yaw = Math.atan2(stand.x - px, -(stand.z - pz));
-                const pitch = Math.atan2((stand.gy + 1.7) - eye, vlen);
+                const pitch = Math.atan2((stand.gy + (tall ? 1.15 : 1.55)) - eye, vlen);
                 cam.position.set(px, eye, pz);
                 cam.rotation.set(pitch, -yaw, 0, 'YXZ');
                 cam.updateMatrixWorld();
-                const sill = ndc(door.x, door.y0 + 0.06, door.z);
-                const head = ndc(door.x, shellTop - 0.05, door.z);
+                const sill = ndc(refX, door.y0 + 0.04, refZ);
+                const leaf = ndc(refX, (tall ? topY : door.y1 - 0.05), refZ);
                 const feet = ndc(stand.x, stand.gy + 0.02, stand.z);
                 const crown = ndc(stand.x, stand.gy + 1.8, stand.z);
-                if (!sill || !head || !feet || !crown) { bump('ndc'); continue; }
+                if (!sill || !leaf || !feet || !crown) { bump('ndc'); continue; }
                 const pSpan = crown.y - feet.y;
-                const dSpan = head.y - sill.y;
-                if (pSpan < 0.42 || pSpan > 0.58) { bump('span'); continue; }
-                if (dSpan < 0.4) { bump('dspan'); continue; }
+                if (pSpan < (tall ? 0.44 : 0.42) || pSpan > (tall ? 1.2 : 0.60)) { bump('span'); continue; }
+                let dSpan = 0;
+                let topNd = null;
+                for (const s of [0, 0.7, -0.7]) {
+                  const top = ndc(refX + ax * s, topY, refZ + az * s);
+                  const bot = ndc(refX + ax * s, door.y0 + 0.04, refZ + az * s);
+                  if (top && bot && top.y - bot.y > dSpan) { dSpan = top.y - bot.y; topNd = top; }
+                }
+                if (dSpan < 0.45 || !topNd) { bump('dspan'); continue; }
                 const ratio = dSpan / pSpan;
-                if (ratio < 1.12 || ratio > 1.42) { bump('ratio'); continue; }
-                if (head.y > 0.86 || head.y < crown.y + 0.03) { bump('lintel'); continue; }
+                const over = topNd.y - crown.y;
+                if (tall) {
+                  // A 3.6 m mouth cannot put the crown in the top 15% and stay
+                  // near 1.2×. Keep the crown in the upper third.
+                  if (ratio < 1.02 || ratio > 1.28) { bump('ratio'); continue; }
+                  if (over < 0.01) { bump('over'); continue; }
+                } else if (ratio < 1.12 || ratio > 1.46) { bump('ratio'); continue; }
+                if (!tall && (leaf.y < crown.y + 0.02 || leaf.y > 0.88)) { bump('lintel'); continue; }
                 const footDrop = sill.y - feet.y;
-                if (footDrop < -0.05 || footDrop > 0.2) { bump('feet'); continue; }
-                const gap = Math.abs(crown.x - head.x);
-                if (gap < 0.05 || gap > 0.34) { bump('gap'); continue; }
-                if (Math.abs(crown.x) > 0.5 || Math.abs(head.x) > 0.62) { bump('x'); continue; }
-                if (feet.y < -0.9 || feet.y > 0.15 || crown.y > 0.72) { bump('frame'); continue; }
-                // Look across the opening. Same-side lenses hide the walker
-                // behind the near jamb. Prefer the feet low so the street
-                // does not fill the frame; a landing may have to sit higher.
-                const across = Math.sign(stand.side) !== latSign ? 0.55 : 0;
-                let score = 2.4 - Math.abs(pSpan - 0.5) * 6 - Math.abs(ratio - 1.26) * 5;
-                score -= Math.abs(footDrop - 0.05) * 2 + Math.abs(gap - 0.14) * 2;
-                score -= Math.abs(feet.y + 0.55) * 1.4;
-                score += towardWall * 0.4 + (road ? 0.3 : 0) + across;
+                if (footDrop < (tall ? -0.08 : -0.06) || footDrop > (tall ? 0.34 : 0.28)) { bump('feet'); continue; }
+                const gap = Math.abs(crown.x - leaf.x);
+                if (gap < 0.03 || gap > (tall ? 0.48 : 0.42)) { bump('gap'); continue; }
+                if (Math.abs(crown.x) > 0.55 || Math.abs(leaf.x) > 0.66) { bump('x'); continue; }
+                if (feet.y < -0.95 || feet.y > 0.15 || crown.y > (tall ? 0.86 : 0.72)) { bump('frame'); continue; }
+                // The free arm is local +X, along +ax. A camera on that side
+                // sees the swing. Look across the opening so the near jamb
+                // does not hide the body.
+                const across = Math.sign(stand.side) !== latSign ? 0.4 : 0;
+                const arm = latSign > 0 ? 0.45 : 0;
+                const ratioTarget = tall ? 1.1 : 1.28;
+                const depthTarget = tall ? 0.52 : 0.68;
+                let score = 3.2 - Math.abs(pSpan - (tall ? 0.58 : 0.5)) * 5 - Math.abs(ratio - ratioTarget) * 4;
+                score -= Math.abs(depth - depthTarget) * 3 + Math.abs(footDrop - (tall ? 0.04 : 0.08)) * 1.6;
+                score -= Math.abs(gap - 0.16) * 1.5 + Math.abs(feet.y + 0.45) * 1.2;
+                if (tall) score -= Math.abs(over - 0.1) * 8;
+                if (Math.abs(stand.side) > 0.95) score -= 0.7;
+                score += towardWall * 0.45 + (road ? 0.25 : 0) + across + arm;
                 poses.push({
                   score, px, pz, gy, eye, yaw, pitch, latSign, dist, street, road,
-                  ratio, pSpan, dSpan, gap,
-                  sill, head, feet, crown, stand,
+                  ratio, pSpan, dSpan, gap, depth, over, faceH: stand.faceH,
+                  sill, head: leaf, feet, crown, stand,
                 });
               }
             }
@@ -2613,7 +2682,7 @@ async function boot(quality) {
           break;
         }
         if (!pose) {
-          tried.push({ id: door.id, reason: poses.length ? 'blocked' : 'no-pose', stands: stands.length, poses: poses.length, standY: r3(stands[0].gy), tally });
+          tried.push({ id: door.id, reason: poses.length ? 'blocked' : 'no-pose', stands: stands.length, poses: poses.length, standY: stands[0] ? r3(stands[0].gy) : null, faceH: r3(faceH), faceOut: r3(faceOut), tally });
           continue;
         }
         const person = pose.stand;
@@ -2838,6 +2907,8 @@ async function boot(quality) {
         headroom: r3(headroom),
         ratio: r3(pose.ratio),
         span: r3(pose.pSpan),
+        faceH: pose.faceH ? r3(pose.faceH) : null,
+        over: pose.over != null ? r3(pose.over) : null,
         car: parked,
         road: pose.road,
         tried: tried.slice(0, 6),
