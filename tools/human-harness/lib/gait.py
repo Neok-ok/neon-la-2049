@@ -335,13 +335,14 @@ def _arm(shoulder, wrist, l1, l2, pole):
 
 
 def _hang_wrist(rest_hand, swing):
-    # swing > 0 reaches forward (+Z). The hanging hand is a full arm's
-    # length below the shoulder, so a pure Z offset locks the elbow.
-    # Raise the wrist and the elbow has to bend.
+    # swing > 0 reaches forward (+Z). The coat body is only about ±0.15 m
+    # deep, so a 0.24 m hang leaves the forearm inside the profile.
+    # UPPER + FORE is 0.54 m. This wrist stays inside that reach, and at
+    # full swing it clears the coat's front and back faces.
     return (
         rest_hand[0],
-        rest_hand[1] + 0.045 + 0.055 * abs(swing),
-        rest_hand[2] + 0.24 * swing,
+        rest_hand[1] + 0.16 + 0.20 * abs(swing),
+        rest_hand[2] + 0.46 * swing,
     )
 
 
@@ -393,8 +394,10 @@ def walk_skin(phase, stride=1.0, umbrella=False):
         else:
             rest_w = REST[f'hand{side}']
             wrist = _hang_wrist(add(rest_w, (delta[0] * 0.7, delta[1], delta[2] * 0.7)), swing)
-            # Keep the hand inside the arm's reach so the elbow stays bent.
-            pole = (0.15 if side == 'R' else -0.15, -0.25, -1.0)
+            # The elbow leads the swing. A pole on -Z folds it back into the coat,
+            # which is why the profile still showed a sleeve glued to the cloth.
+            sign = 1.0 if side == 'R' else -1.0
+            pole = (sign * 0.28 * abs(swing), -0.35, 0.95 * swing)
         elbow, wrist = _arm(shoulder, wrist, UPPER, FORE, pole)
         worlds_t[f'armU{side}'] = shoulder
         worlds_t[f'armF{side}'] = elbow

@@ -231,6 +231,24 @@ async function boot(quality) {
         cycle: Math.round(agent.cycle * 100) / 100,
       };
     };
+    // Park the walk on a known phase so a quarter-step cannot land on the
+    // flat of the sine, where both frames show the arm in the same place.
+    H.poseWalk = (index, phase) => {
+      const a = app();
+      const c = a.crowd;
+      const agent = c.agents[index];
+      if (!agent) return { ok: false };
+      const w = a.cams.walk;
+      if (c.__pin) c.loopKey = forgeKey(w.pos.x, w.pos.z);
+      agent.cycle = ((phase % 1) + 1) % 1;
+      realUpdate(0, w.pos.x, w.pos.z);
+      const motion = c.motionAttr ? c.motionAttr.array[index * 4] : null;
+      return {
+        ok: true,
+        cycle: Math.round(agent.cycle * 100) / 100,
+        motion: motion == null ? null : Math.round(motion * 100) / 100,
+      };
+    };
     H.pump = () => {
       const a = app();
       const w = a.cams.walk;
@@ -769,7 +787,18 @@ async function boot(quality) {
       if (q.insideSolid(px, gy + 1.5, pz, 0.25, true)) return false;
       return true;
     }
-    H.frameDancer = (id, dist) => {
+    function signBlades(spec) {
+      const fab = app().query.fabricAt(spec.x, spec.z);
+      const out = [];
+      for (const s of fab.signs || []) {
+        if (!s || s.h < 4) continue;
+        const d = Math.hypot(s.x - spec.x, s.z - spec.z);
+        if (d > 80 || d < 2) continue;
+        out.push(s);
+      }
+      return out;
+    }
+    H.frameDancer = (id, dist, scale) => {
       const spec = window.__nla.holoSpec(id);
       if (!spec) return { ok: false, reason: 'missing' };
       const a = app();
@@ -779,10 +808,17 @@ async function boot(quality) {
       // The figure is 68 m. Aiming at 0.66 of that height from 40 m cuts the
       // legs off and leaves a vertical smear. 0.40 from farther back keeps
       // hem and crown inside a 60° view, and stays inside the 100 m mesh handoff.
-      const lookY = hem + spec.h * 0.40;
+      // The scale pass aims at the middle of that span and then keeps the
+      // candidate whose crown sits highest, so the head is up in the signs
+      // instead of stopping with a run of floors above it.
+      const lookY = hem + spec.h * (scale ? 0.44 : 0.40);
+      const sides = scale
+        ? [0.95, -0.95, 1.3, -1.3, 0.55, -0.55, 1.7, -1.7, 0.2, -0.2]
+        : [0, Math.PI, 1.15, -1.15, 2.0, -2.0, 0.55, -0.55];
       let placed = null;
       let lastFit = null;
-      for (const side of [0, Math.PI, 1.15, -1.15, 2.0, -2.0, 0.55, -0.55]) {
+      const blades = scale ? signBlades(spec) : [];
+      for (const side of sides) {
         const px = spec.x + (nx * Math.cos(side) + nz * Math.sin(side)) * dist;
         const pz = spec.z + (nz * Math.cos(side) - nx * Math.sin(side)) * dist;
         const gy = a.query.groundHeight(px, pz);
@@ -821,8 +857,27 @@ async function boot(quality) {
           && Math.abs(hemN.x) < 0.55 && Math.abs(crownN.x) < 0.55
           && span > 0.9 && span < 1.7;
         if (!fits) continue;
-        placed = { px, pz, gy, eyeY, yaw, pitch, side };
-        break;
+        let score = span;
+        let beside = 0;
+        if (scale) {
+          if (crownN.y < 0.58 || hemN.y > -0.48) continue;
+          const midX = (crownN.x + hemN.x) * 0.5;
+          for (const s of blades) {
+            const top = ndc(s.x, s.y + s.h * 0.5, s.z);
+            const bot = ndc(s.x, s.y - s.h * 0.5, s.z);
+            if (!top || !bot) continue;
+            const sx = (top.x + bot.x) * 0.5;
+            const gap = Math.abs(sx - midX);
+            const tall = top.y - bot.y;
+            if (gap > 0.05 && gap < 0.62 && tall > 0.12 && top.y > 0.05) beside += Math.min(s.h, 16);
+          }
+          // Crown high, hem low, a blade sign in the frame beside her.
+          score = crownN.y * 5 + span + Math.min(beside, 40) * 0.05 - Math.abs(midX) * 0.35;
+        }
+        if (!placed || score > placed.score) {
+          placed = { px, pz, gy, eyeY, yaw, pitch, side, score, span, beside, hem: hemN.y, crown: crownN.y };
+        }
+        if (!scale) break;
       }
       if (!placed) return { ok: false, reason: 'fit', lastFit };
       // An interior ride in the app frame teleports the walk camera into a
@@ -849,16 +904,20 @@ async function boot(quality) {
       a.dancer.update(a.camera.position);
       H.hold();
       window.__pinDancerCam?.();
-      const witness = parkWitness(spec, hem, placed.px, placed.pz);
+      const witness = parkWitness(spec, hem, placed.px, placed.pz, !!scale);
       return {
         ok: true,
         shown: a.dancer.shown,
-        side: placed.side,
+        side: Math.round(placed.side * 100) / 100,
         pitch: Math.round(placed.pitch * 100) / 100,
+        span: placed.span == null ? null : Math.round(placed.span * 100) / 100,
+        hem: placed.hem == null ? null : Math.round(placed.hem * 100) / 100,
+        crown: placed.crown == null ? null : Math.round(placed.crown * 100) / 100,
+        beside: placed.beside || 0,
         witness,
       };
     };
-    function parkWitness(spec, hem, px, pz) {
+    function parkWitness(spec, hem, px, pz, beside) {
       const c = app().crowd;
       const agent = c.agents && c.agents[0];
       const mesh = c.mesh;
@@ -866,8 +925,15 @@ async function boot(quality) {
       const dx = px - spec.x;
       const dz = pz - spec.z;
       const len = Math.hypot(dx, dz) || 1;
-      const x = spec.x + (dx / len) * 3.4;
-      const z = spec.z + (dz / len) * 3.4;
+      // Beside the hem, and a few metres toward the camera, so the 1.8 m
+      // witness is not standing under the skirt. The lateral step puts them
+      // next to the sign wall the scale frame is built around.
+      const fwd = beside ? 9 : 3.4;
+      const lat = beside ? 8 : 0;
+      const rx = -dz / len;
+      const rz = dx / len;
+      const x = spec.x + (dx / len) * fwd + rx * lat;
+      const z = spec.z + (dz / len) * fwd + rz * lat;
       const gy = app().query.groundHeight(x, z);
       const yaw = Math.atan2(px - x, pz - z);
       const sc = agent.height / 1.8;
@@ -888,7 +954,11 @@ async function boot(quality) {
         c.extraAttr.needsUpdate = true;
       }
       agent.x = x; agent.z = z; agent.yaw = yaw; agent.cycle = 0.25;
-      return { x: Math.round(x), z: Math.round(z), y: Math.round(gy * 10) / 10, hem: Math.round(hem) };
+      const screen = ndc(x, gy + 1.7, z);
+      return {
+        x: Math.round(x), z: Math.round(z), y: Math.round(gy * 10) / 10, hem: Math.round(hem),
+        screen: screen ? { x: Math.round(screen.x * 100) / 100, y: Math.round(screen.y * 100) / 100 } : null,
+      };
     }
     const DANCER_PERIOD = 6.28318530718 / 1.2;
     function lockDancerTime(phase) {
@@ -1595,6 +1665,12 @@ print(json.dumps({"feet": round(hit / max(1, n), 3), "frame": round(fw / max(1, 
         continue;
       }
     }
+    if (process.env.ARM_PHASE === '1') {
+      const posed = await page.evaluate((index) => window.__retry.poseWalk(index, 0), who.i);
+      note('arm phase', { id, tier, attempt, posed });
+      await frames();
+      await page.screenshot({ path: tmp0, timeout: 180000, animations: 'disabled' });
+    }
     if (process.env.NO_EDGE === '1') {
       const edge = spawnSync('python3', ['-c', `
 import json, sys
@@ -1668,10 +1744,20 @@ async function district(id, fn, kinds, tier) {
 
 async function dancerStrip(name, id) {
   let framed = null;
-  const dists = name.includes('broadway') ? [58, 68, 50, 76] : [62, 74, 54, 78];
+  const scale = name.includes('broadway');
+  const dists = scale ? [62, 70, 54, 78, 86] : [62, 74, 54, 78];
+  const order = [];
   for (const dist of dists) {
-    framed = await page.evaluate(({ id, dist }) => window.__retry.frameDancer(id, dist), { id, dist });
-    note('dancer frame', { name, framed });
+    const trial = await page.evaluate(({ id, dist, scale }) => window.__retry.frameDancer(id, dist, scale), { id, dist, scale });
+    note('dancer frame', { name, framed: trial });
+    if (trial?.ok && trial.shown) order.push({ dist, trial });
+  }
+  if (scale) {
+    order.sort((a, b) => ((b.trial.crown || 0) - (a.trial.crown || 0)) || ((b.trial.beside || 0) - (a.trial.beside || 0)));
+  }
+  for (const cand of order) {
+    const dist = cand.dist;
+    framed = await page.evaluate(({ id, dist, scale }) => window.__retry.frameDancer(id, dist, scale), { id, dist, scale });
     if (!(framed?.ok && framed.shown)) {
       framed = null;
       continue;
@@ -1686,15 +1772,20 @@ im = Image.open(${JSON.stringify(probe)}).convert('RGB')
 px = im.load()
 w, h = im.size
 n = 0
+top = h
+bot = 0
 for y in range(0, h, 3):
     for x in range(0, w, 3):
         r, g, b = px[x, y]
         if r > 70 and r > g + 18 and b > 40:
             n += 1
-print(n)
+            if y < top: top = y
+            if y > bot: bot = y
+print(n, top / h, bot / h)
 `], { encoding: 'utf8' });
-    const count = Number(pink.stdout.trim() || 0);
-    note('dancer pink', { name, dist, count });
+    const bits = (pink.stdout.trim() || '0').split(/\s+/);
+    const count = Number(bits[0] || 0);
+    note('dancer pink', { name, dist, count, top: Number(bits[1] || 0), bot: Number(bits[2] || 0), crown: framed.crown, beside: framed.beside });
     if (count > 400) break;
     framed = null;
   }
@@ -1738,8 +1829,9 @@ async function runTier(tier) {
   note('memory', mem);
   writeFileSync(`${OUT}/memory-${tier}.json`, JSON.stringify(mem, null, 2) + '\n');
   if (DANCER_ONLY) {
-    await dancerStrip(`dancer-broadway-${tier}`, 'joi-bridge-dancer');
-    await dancerStrip(`dancer-hollywood-${tier}`, 'hollywood-dancer');
+    const which = process.env.DANCER_FILTER || '';
+    if (!which || which === 'broadway') await dancerStrip(`dancer-broadway-${tier}`, 'joi-bridge-dancer');
+    if (!which || which === 'hollywood') await dancerStrip(`dancer-hollywood-${tier}`, 'hollywood-dancer');
     return;
   }
   if (DOOR_ONLY) {
