@@ -133,17 +133,17 @@
       }
     },
     "medium": {
-      "triangles": 1008,
+      "triangles": 1344,
       "iou": {
-        "front": 0.4869,
-        "side": 0.5873
+        "front": 0.7292,
+        "side": 0.7889
       }
     },
     "high": {
-      "triangles": 2024,
+      "triangles": 2768,
       "iou": {
-        "front": 0.487,
-        "side": 0.5919
+        "front": 0.7297,
+        "side": 0.7856
       }
     }
   }

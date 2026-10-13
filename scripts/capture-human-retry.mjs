@@ -183,6 +183,15 @@ async function boot(quality) {
             arr[b + 12] = 1e7;
             continue;
           }
+          if (pull.parkCloser) {
+            const cam = a.camera.position;
+            const dMe = Math.hypot(origin.x + pull.ox - cam.x, origin.z + pull.oz - cam.z);
+            const dThem = Math.hypot(agent.x + pull.ox - cam.x, agent.z + pull.oz - cam.z);
+            if (dThem < dMe - 1.5) {
+              arr[b + 12] = 1e7;
+              continue;
+            }
+          }
         }
         const x = agent.x + pull.ox;
         const z = agent.z + pull.oz;
@@ -252,6 +261,144 @@ async function boot(quality) {
       a.camera.updateMatrixWorld();
       applyWalkPull();
       return { ok: true, along: Math.round((along + add) * 10) / 10, n: pull.ids.length };
+    };
+    function ensurePull(index, reach) {
+      const c = app().crowd;
+      const agent = c.agents[index];
+      if (!agent) return null;
+      if (!window.__walkPull || window.__walkPull.index !== index) {
+        const ids = [];
+        for (let i = 0; i < c.agents.length; i++) {
+          const o = c.agents[i];
+          if (!o) continue;
+          if (Math.hypot(o.x - agent.x, o.z - agent.z) < reach) ids.push(i);
+        }
+        window.__walkPull = { ox: 0, oz: 0, ids, index };
+      }
+      return window.__walkPull;
+    }
+    // Slide sideways in screen space, toward the lit walk when the shoes
+    // are standing on the darker apron beside it.
+    H.pullScreen = (index, screenSide, step) => {
+      const a = app();
+      const agent = a.crowd.agents[index];
+      if (!agent || !screenSide) return { ok: false };
+      const pull = ensurePull(index, 12);
+      if (!pull) return { ok: false };
+      const along = Math.hypot(pull.ox, pull.oz);
+      if (along > 3.2) return { ok: false, reason: 'far', along };
+      const e = a.camera.matrixWorld.elements;
+      let rx = e[0];
+      let rz = e[2];
+      const rlen = Math.hypot(rx, rz) || 1;
+      rx /= rlen;
+      rz /= rlen;
+      const add = Math.min(step, 3.4 - along);
+      const dir = screenSide >= 0 ? 1 : -1;
+      const addx = rx * dir * add;
+      const addz = rz * dir * add;
+      pull.ox += addx;
+      pull.oz += addz;
+      a.camera.position.x += addx;
+      a.camera.position.z += addz;
+      a.cams.walk.pos.x += addx;
+      a.cams.walk.pos.z += addz;
+      const gy = a.query.groundHeight(a.camera.position.x, a.camera.position.z);
+      const eye = a.camera.position.y - a.cams.walk.pos.y;
+      a.cams.walk.pos.y = gy;
+      a.camera.position.y = gy + (eye > 0.4 ? eye : 1.7);
+      a.camera.updateMatrixWorld();
+      applyWalkPull();
+      return { ok: true, along: Math.round((along + add) * 10) / 10, n: pull.ids.length };
+    };
+    H.parkCloser = (index) => {
+      const pull = ensurePull(index, 16);
+      if (!pull) return { ok: false };
+      pull.parkCloser = true;
+      applyWalkPull();
+      return { ok: true, n: pull.ids.length };
+    };
+    H.facingView = (index) => {
+      const a = app();
+      const arr = a.crowd.mesh.instanceMatrix.array;
+      const base = index * 16;
+      const sc = Math.hypot(arr[base], arr[base + 1], arr[base + 2]) || 1;
+      const faceX = arr[base + 8] / sc;
+      const faceZ = arr[base + 10] / sc;
+      const e = a.camera.matrixWorld.elements;
+      const fx = -e[8];
+      const fz = -e[10];
+      const fl = Math.hypot(fx, fz) || 1;
+      return { dot: Math.round((faceX * fx / fl + faceZ * fz / fl) * 100) / 100 };
+    };
+    H.wallSpan = (index) => {
+      const p = people().find((q) => q.i === index);
+      if (!p) return null;
+      const cam = app().camera.position;
+      const dx = p.x - cam.x;
+      const dz = p.z - cam.z;
+      const dist = Math.hypot(dx, dz) || 1;
+      const ux = dx / dist;
+      const uz = dz / dist;
+      const facade = facadeBeyond(p.x, p.z, ux, uz, p.y);
+      const wall = nearestWall(p);
+      const q = app().query;
+      let hit = 0;
+      for (let s = 0.4; s <= 14; s += 0.45) {
+        if (q.insideSolid(p.x + ux * s, p.y + 1.5, p.z + uz * s, 0.22, true)) {
+          hit = s;
+          break;
+        }
+      }
+      if (!hit) return { facade, wall: Math.round(wall * 10) / 10, span: 0, person: 0, beside: 1, hit: 0 };
+      const sx = -uz;
+      const sz = ux;
+      const baseX = p.x + ux * Math.max(0.3, hit - 0.35) + sx * 1.5;
+      const baseZ = p.z + uz * Math.max(0.3, hit - 0.35) + sz * 1.5;
+      const low = ndc(baseX, p.y + 0.15, baseZ);
+      const high = ndc(baseX, p.y + 3.6, baseZ);
+      const head = ndc(p.x, p.y + 1.72 * p.s, p.z);
+      const feet = ndc(p.x, p.y + 0.04, p.z);
+      const person = head && feet ? Math.abs(head.y - feet.y) : 0;
+      const span = low && high ? Math.abs(high.y - low.y) : 0;
+      const beside = low && head ? Math.abs(low.x - head.x) : 1;
+      return {
+        facade,
+        wall: Math.round(wall * 10) / 10,
+        span: Math.round(span * 100) / 100,
+        person: Math.round(person * 100) / 100,
+        beside: Math.round(beside * 100) / 100,
+        hit: Math.round(hit * 10) / 10,
+      };
+    };
+    H.foreCar = (index) => {
+      const me = people().find((p) => p.i === index);
+      if (!me) return { ok: true };
+      const cam = app().camera.position;
+      const myD = Math.hypot(me.x - cam.x, me.z - cam.z);
+      let bad = null;
+      app().scene.traverse((o) => {
+        if (bad || !o.isInstancedMesh || (o.name !== 'ground-car' && o.name !== 'ground-van')) return;
+        const m = o.instanceMatrix.array;
+        for (let i = 0; i < Math.min(o.count, 80); i++) {
+          const x = m[i * 16 + 12];
+          const y = m[i * 16 + 13];
+          const z = m[i * 16 + 14];
+          if (x > 1e5) continue;
+          const d = Math.hypot(x - cam.x, z - cam.z);
+          if (d > myD - 1.0) continue;
+          const n = ndc(x, y + 0.9, z);
+          const n2 = ndc(x, y + 0.15, z);
+          if (!n || !n2) continue;
+          const h = Math.abs(n.y - n2.y);
+          const cropped = n.x < -0.92 || n.x > 0.92 || n2.y < -0.92;
+          if (h > 0.2 || cropped) {
+            bad = { d: Math.round(d), h: Math.round(h * 100) / 100, x: Math.round(n.x * 100) / 100 };
+            return;
+          }
+        }
+      });
+      return { ok: !bad, bad };
     };
     function forgeKey(x, z) {
       const a = app();
@@ -531,6 +678,10 @@ async function boot(quality) {
         pool = shorts.length ? shorts : (anyShort.length ? anyShort : pool);
       }
       if (!pool.length) pool = moved;
+      if (window.__maxWall > 0) {
+        const near = pool.filter((p) => p.wall <= window.__maxWall);
+        if (near.length) pool = near;
+      }
       return pool.slice(0, 16);
     };
     function stackBoxes() {
@@ -1532,10 +1683,11 @@ async function go(fn, kind) {
 async function shoot(id, tier, allowOpen) {
   const reach = 220;
   const attempts = Number(process.env.ATTEMPTS || '8');
-  await page.evaluate(({ want, loose, headMax, side, camBuilding }) => {
+  await page.evaluate(({ want, loose, headMax, side, camBuilding, maxWall }) => {
     window.__wantShort = want;
     window.__loose = loose;
     window.__headMax = headMax;
+    window.__maxWall = maxWall;
     if (side) window.__sideBase = side;
     window.__side = window.__sideBase || 1.45;
     window.__camBuilding = camBuilding;
@@ -1545,6 +1697,7 @@ async function shoot(id, tier, allowOpen) {
     headMax: Number(process.env.HEAD_MAX || '0.92'),
     side: process.env.SIDE ? Number(process.env.SIDE) : 0,
     camBuilding: process.env.CAM_BUILDING === '1',
+    maxWall: Number(process.env.MAX_WALL || '0'),
   });
   for (let attempt = 0; attempt < attempts; attempt++) {
     const movers = await page.evaluate((r) => window.__retry.movers(r), reach);
@@ -1844,6 +1997,61 @@ print(json.dumps({"feet": round(hit / max(1, n), 3), "frame": round(fw / max(1, 
         continue;
       }
     }
+    if (process.env.BRIGHT_FEET === '1') {
+      const readBright = (box) => {
+        const bright = spawnSync('python3', ['-c', `
+import json, sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert('RGB')
+w, h = im.size
+px = im.load()
+x0, y0, x1, y1 = [float(v) for v in sys.argv[2:6]]
+fy = min(h - 2, max(0, int(y1 * h)))
+def mean(xa, xb, ya, yb):
+    s = n = 0
+    xa, xb = int(min(xa, xb)), int(max(xa, xb))
+    for y in range(max(0, int(ya)), min(h, int(yb))):
+        for x in range(max(0, xa), min(w, xb)):
+            r, g, b = px[x, y]
+            s += (r + g + b) / 3.0
+            n += 1
+    return s / max(1, n)
+bx0, bx1 = int(x0 * w), int(x1 * w)
+left = mean(bx0 - 120, bx0 - 14, fy - 6, fy + 16)
+right = mean(bx1 + 14, bx1 + 120, fy - 6, fy + 16)
+beside = mean(bx0 - 36, bx0 - 4, fy - 8, fy + 6)
+side = 0
+if right > left + 16 and right > beside + 14:
+    side = 1
+elif left > right + 16 and left > beside + 14:
+    side = -1
+print(json.dumps({"left": round(left, 1), "right": round(right, 1), "beside": round(beside, 1), "side": side}))
+`, tmp0, String(box.x0), String(box.y0), String(box.x1), String(box.y1)], { encoding: 'utf8' });
+        return bright.status === 0 ? JSON.parse(bright.stdout) : { side: 0, beside: 80, left: 80, right: 80 };
+      };
+      let footBox = locked.box;
+      let bright = readBright(footBox);
+      note('bright', { id, tier, attempt, ...bright });
+      let pulls = 0;
+      while (bright.side && pulls < 3) {
+        const pulled = await page.evaluate(({ index, side }) => window.__retry.pullScreen(index, side, 0.9), {
+          index: who.i,
+          side: bright.side,
+        });
+        note('bright-pull', { id, tier, attempt, pulls, pulled });
+        if (!pulled?.ok) break;
+        pulls += 1;
+        const framed = await page.evaluate((index) => window.__retry.frameBox(index), who.i);
+        if (framed?.box) {
+          footBox = framed.box;
+          locked.box = framed.box;
+        }
+        await frames();
+        await page.screenshot({ path: tmp0, timeout: 180000, animations: 'disabled' });
+        bright = readBright(footBox);
+        note('bright', { id, tier, attempt, pull: pulls, ...bright });
+      }
+    }
     if (process.env.FEET_ON === '1') {
       // The band under the box is the nearer ground, which can be the sidewalk
       // while the shoes stand on the lane. Sample beside the shoes, at their row.
@@ -1918,6 +2126,51 @@ print(json.dumps({"beside": round(beside, 1), "below": round(below, 1)}))
         note('underfeet', { id, tier, attempt, pull: pulls, ...surface });
       }
       if (onLane(surface)) {
+        await page.evaluate(() => window.__retry.release());
+        continue;
+      }
+    }
+    if (process.env.NO_FORE === '1') {
+      const parked = await page.evaluate((index) => window.__retry.parkCloser(index), who.i);
+      note('park-closer', { id, tier, attempt, parked });
+      await frames();
+      await page.screenshot({ path: tmp0, timeout: 180000, animations: 'disabled' });
+    }
+    const reframed = await page.evaluate((index) => window.__retry.frameBox(index), who.i);
+    if (reframed?.box) locked.box = reframed.box;
+    if (process.env.FULL_BODY === '1') {
+      const b = locked.box;
+      const cropped = b.y1 > 0.9 || b.y0 < 0.05 || b.x0 < 0.07 || b.x1 > 0.93;
+      if (cropped && attempt < attempts - 1) {
+        note('cropped', { id, tier, attempt, box: b });
+        await page.evaluate(() => window.__retry.release());
+        continue;
+      }
+    }
+    if (process.env.SCALE_WALL === '1') {
+      const wall = await page.evaluate((index) => window.__retry.wallSpan(index), who.i);
+      note('wall-span', { id, tier, attempt, wall });
+      const person = wall?.person || 0;
+      const okWall = wall && wall.facade >= 1 && wall.hit > 0 && wall.hit <= 8
+        && person > 0.35 && wall.span >= person * 0.85
+        && wall.beside > 0.05 && wall.beside < 0.62;
+      if (!okWall && attempt < attempts - 1) {
+        await page.evaluate(() => window.__retry.release());
+        continue;
+      }
+    }
+    if (process.env.SIDE_VIEW === '1') {
+      const side = await page.evaluate((index) => window.__retry.facingView(index), who.i);
+      note('side-view', { id, tier, attempt, side });
+      if (side && Math.abs(side.dot) > 0.48 && attempt < attempts - 1) {
+        await page.evaluate(() => window.__retry.release());
+        continue;
+      }
+    }
+    if (process.env.NO_FORE_CAR === '1') {
+      const car = await page.evaluate((index) => window.__retry.foreCar(index), who.i);
+      note('fore-car', { id, tier, attempt, car });
+      if (car && car.ok === false && attempt < attempts - 1) {
         await page.evaluate(() => window.__retry.release());
         continue;
       }
