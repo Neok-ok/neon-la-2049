@@ -126,10 +126,13 @@ function volumeMaterial(): MeshBasicNodeMaterial {
       const dx = rel.x.sub(wdx.mul(lean)).sub(cos(twist).mul(9.0));
       const dz = rel.z.sub(wdz.mul(lean)).sub(sin(twist).mul(9.0));
       const radial = sqrt(dx.mul(dx).add(dz.mul(dz)));
-      const column = smoothstep(radius, radius.mul(0.12), radial)
+      const midR = radius.mul(0.58);
+      const outer = smoothstep(radius, midR, radial);
+      const inner = smoothstep(radius.mul(0.16), midR, radial);
+      const column = outer.mul(inner)
         .mul(smoothstep(float(0.0), float(8.0), height))
-        .mul(smoothstep(volHeight, volHeight.mul(0.9), height))
-        .mul(mix(float(0.58), float(1.0), smoothstep(float(0.22), float(0.78), n01)));
+        .mul(smoothstep(volHeight, volHeight.mul(0.88), height))
+        .mul(mix(float(0.45), float(1.0), smoothstep(float(0.2), float(0.75), n01)));
       const gRad = sqrt(rel.x.mul(rel.x).add(rel.z.mul(rel.z)));
       const ground = smoothstep(volGroundR, volGroundR.mul(0.28), gRad)
         .mul(smoothstep(float(16.0), float(1.5), height))
@@ -142,7 +145,7 @@ function volumeMaterial(): MeshBasicNodeMaterial {
       const ash = vec3(0.66, 0.67, 0.69).mul(9.0);
       const warm = vec3(FLAME[0], FLAME[1], FLAME[2]).mul(core).mul(7.0);
       const glow = ash.add(warm).add(scatter);
-      const tau = density.mul(stepLen).mul(0.0056).mul(live);
+      const tau = density.mul(stepLen).mul(0.022).mul(live);
       const gain = float(1.0).sub(exp(tau.negate()));
       acc.addAssign(tr.mul(glow).mul(gain));
       tr.mulAssign(exp(tau.negate()));

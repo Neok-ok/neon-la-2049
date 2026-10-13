@@ -142,12 +142,12 @@ function puffMaterial(): MeshBasicNodeMaterial {
         .mul(mix(float(0.35), float(1.0), clumps));
 
       const density = sheet.mul(hole).add(wake.mul(exhaust).mul(mix(float(0.75), float(1.25), drive)));
-      const ash = vec3(0.8, 0.82, 0.84).mul(hole).mul(11.0)
-        .add(vec3(0.66, 0.67, 0.69).mul(exhaust).mul(14.0));
+      const ash = vec3(0.72, 0.74, 0.76).mul(hole).mul(9.0)
+        .add(vec3(0.58, 0.59, 0.61).mul(exhaust).mul(12.0));
       const mouth = smoothstep(float(0.4), float(0.0), u).mul(exhaust);
       const warm = vec3(0.82, 0.52, 0.3).mul(mouth).mul(5.0);
       const glow = ash.add(warm).add(scatter.mul(hole.mul(0.45).add(exhaust.mul(0.35))));
-      const sigma = mix(float(0.95), float(0.62), exhaust);
+      const sigma = mix(float(0.62), float(0.7), exhaust);
       const tau = density.mul(stepLen).mul(sigma).mul(live);
       const gain = float(1.0).sub(exp(tau.negate()));
       acc.addAssign(tr.mul(glow).mul(gain));
