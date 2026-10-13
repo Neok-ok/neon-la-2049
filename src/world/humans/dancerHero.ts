@@ -2,7 +2,7 @@
 // The instanced hologram quad keeps getHoloMaterial. This is the one extra draw.
 // Far and low stay on that quad. Street cameras (about 50–80 m) are fully on this mesh.
 import {
-  AdditiveBlending, BufferAttribute, BufferGeometry, DataTexture, DoubleSide, LinearFilter, Mesh, MeshBasicNodeMaterial,
+  BufferAttribute, BufferGeometry, DataTexture, DoubleSide, LinearFilter, Mesh, MeshBasicNodeMaterial, NormalBlending,
   NearestFilter, NoColorSpace, RGBAFormat, TextureLoader, UnsignedByteType, Vector3,
   type Texture, type WebGPURenderer,
 } from 'three/webgpu';
@@ -102,9 +102,9 @@ function heroMaterial(palette: Texture): MeshBasicNodeMaterial {
   const m = resources.material(key, () => new MeshBasicNodeMaterial());
   m.name = 'DancerHero';
   m.transparent = true;
-  m.depthWrite = false;
+  m.depthWrite = true;
   m.depthTest = true;
-  m.blending = AdditiveBlending;
+  m.blending = NormalBlending;
   m.side = DoubleSide;
   m.fog = false;
   m.toneMapped = true;
@@ -133,16 +133,18 @@ function heroMaterial(palette: Texture): MeshBasicNodeMaterial {
     const isDiamond = T.step(4.5, part).mul(T.step(part, 5.5));
     const isHand = T.step(1.5, part).mul(T.step(part, 2.5));
     const hot = T.mix(tint, T.vec3(0.94, 0.97, 1.0), T.float(0.88).mul(isDiamond.add(isHand)));
-    const sweep = T.fract(T.uv().y.mul(28).sub(U.time.mul(1.15)));
-    const line = T.smoothstep(0.06, 0.32, sweep).mul(T.smoothstep(0.58, 0.94, sweep).oneMinus());
-    const scan = T.mix(T.float(0.58), T.float(1), line);
+    const sweep = T.fract(T.uv().y.mul(18).sub(U.time.mul(0.7)));
+    const line = T.smoothstep(0.08, 0.4, sweep).mul(T.smoothstep(0.62, 0.92, sweep).oneMinus());
+    // A deep scan sliced the dress into plates. Keep a faint shimmer.
+    const scan = T.mix(T.float(0.9), T.float(1), line);
     const bucket = T.floor(U.time.mul(6));
     const fh = T.hash(bucket);
     const flick = T.mix(T.float(1), T.float(0.72), T.step(fh, 0.14)).add(T.step(0.975, fh).mul(0.35));
     const haze = T.clamp(T.exp(dist.mul(U.fogDensity).mul(-0.22)), 0.35, 1);
     const night = U.night.mul(0.75).add(0.28);
     // Peak stays under the bloom threshold so the diamond head, skirts, and veil read.
-    return T.vec4(hot.mul(scan).mul(flick).mul(haze).mul(night).mul(U.signPower).mul(0.8).mul(close).mul(authoredLiftU), 1);
+    const rgb = hot.mul(scan).mul(flick).mul(haze).mul(night).mul(U.signPower).mul(0.8).mul(close).mul(authoredLiftU);
+    return T.vec4(rgb, T.float(0.94).mul(close));
   })();
   return m;
 }

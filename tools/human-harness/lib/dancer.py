@@ -47,11 +47,11 @@ def _inside(y, thick, bias=0.0):
 def _bone_body(y):
     # Cuts sit in the slots, so one skirt step is one bone and the sway
     # does not shear a band.
-    if y < 18.25:
+    if y < 18.4:
         return BI['skirtL']
-    if y < 30.05:
+    if y < 30.2:
         return BI['skirtM']
-    if y < 38.25:
+    if y < 38.4:
         return BI['skirtU']
     if y < 42:
         return BI['hip']
@@ -128,14 +128,14 @@ def build_dancer(lod='high'):
     step = 1.15 if lod == 'medium' else 0.7
     segs = 8 if lod == 'medium' else 10
     body = DANCER_BIND['body']
-    # Three skirt steps and a torso. The slots are 0.9 m, a hem line from
-    # the street, not a hole a sign can show through. The 13.2 m flare at
+    # Three skirt steps. The slots are 0.4 m creases, so the street sees one
+    # dress and the steps still break the silhouette. The 13.2 m flare at
     # 21.6 m sits inside the middle step. The head and the raised hand stay
     # their own parts. The hand still ends at 64.4 m.
     skirts = (
-        (0.2, 17.8, 1),
-        (18.7, 29.6, 1),
-        (30.5, 37.8, 1),
+        (0.2, 18.2, 1),
+        (18.6, 30.0, 1),
+        (30.4, 38.2, 1),
     )
     for y0, y1, part in skirts:
         _loft_band(mesh, body, y0, y1, segs, part, _bone_body, PINK, _body_z, step)
@@ -146,10 +146,10 @@ def build_dancer(lod='high'):
                 lambda _y: BI['veil'], CORE, (0.0, 0.0, 1.0, 1.0),
                 y_extra=_samples(veil, step),
             )
-    _loft_band(mesh, body, 38.7, 50.4, segs, 1, _bone_body, PINK, _body_z, step)
+    _loft_band(mesh, body, 38.6, 50.6, segs, 1, _bone_body, PINK, _body_z, step)
     # Part 5 is the diamond, so the hero shader can lift it off the pink body.
-    # One metre of neck keeps the head a separate part without floating it.
-    _loft_band(mesh, body, 51.4, 59.2, max(6, segs - 2), 5, lambda _y: BI['head'], PINK, _body_z, step * 0.8)
+    # A short neck keeps the head a separate part without floating it.
+    _loft_band(mesh, body, 51.1, 59.2, max(6, segs - 2), 5, lambda _y: BI['head'], PINK, _body_z, step * 0.8)
     loft(
         mesh, DANCER_BIND['armUp'], lambda y: _inside(y, 0.7, 0.05), max(4, segs // 2), 2,
         lambda _y: BI['armUp'], CORE, (0.0, 0.0, 1.0, 1.0),
@@ -164,27 +164,28 @@ def build_dancer(lod='high'):
 
 
 def sway_offsets(time):
-    """Lateral metres on the 60 m figure. One bend, skirts a fifth of a radian behind.
-    Neighboring bones stay within about 0.7 m so the loft does not split into
-    shards at the neck or the veil. The crown still travels about 5 m, which
-    reads from the street. No steps.
+    """Lateral metres on the 60 m figure. One bend. The crown still travels
+    about 5 m. Neighboring bones stay within about 0.3 m so a street frame
+    cannot read the tiers as separate signs when the figure leans.
     """
     lead = math.sin(time * 1.2)
-    skirt = math.sin(time * 1.2 - 0.22)
+    skirt = math.sin(time * 1.2 - 0.08)
     return {
         'root': lead * 0.5,
-        'hip': lead * 3.2,
-        'waist': lead * 3.9,
+        'hip': lead * 4.2,
+        'waist': lead * 4.4,
         'chest': lead * 4.6,
-        'head': lead * 5.1,
-        'armUp': lead * 4.8,
-        'armOut': lead * 2.4,
-        # The hem used to stay nearly still while the chest travelled 5 m,
-        # so the steps looked like separate signs. They travel with the bend.
-        'skirtL': skirt * 3.6,
-        'skirtM': skirt * 4.2,
-        'skirtU': skirt * 4.8,
-        'veil': skirt * 4.0,
+        'head': lead * 5.0,
+        'armUp': lead * 4.7,
+        # The short arm tracks the hip. A smaller offset left it beside the
+        # chest as a separate pink piece when the figure swayed.
+        'armOut': lead * 4.2,
+        # The hem travels with the chest. A lag of a metre opened a slot
+        # between the steps on the lean frame.
+        'skirtL': skirt * 4.1,
+        'skirtM': skirt * 4.3,
+        'skirtU': skirt * 4.5,
+        'veil': skirt * 4.3,
     }
 
 

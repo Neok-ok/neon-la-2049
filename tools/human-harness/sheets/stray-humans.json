@@ -68,15 +68,15 @@
       "limitM": 0.64,
       "views": {
         "front": {
-          "iou": 0.8148,
+          "iou": 0.8424,
           "outsidePx": 0,
-          "meshPx": 42873,
+          "meshPx": 44341,
           "protrusion": false
         },
         "side": {
-          "iou": 0.879,
+          "iou": 0.9002,
           "outsidePx": 0,
-          "meshPx": 6882,
+          "meshPx": 7057,
           "protrusion": false
         }
       },
@@ -89,19 +89,19 @@
     },
     "high": {
       "lod": "high",
-      "triangles": 3096,
+      "triangles": 3184,
       "limitM": 0.64,
       "views": {
         "front": {
-          "iou": 0.8149,
+          "iou": 0.843,
           "outsidePx": 0,
-          "meshPx": 42890,
+          "meshPx": 44306,
           "protrusion": false
         },
         "side": {
-          "iou": 0.8723,
+          "iou": 0.898,
           "outsidePx": 0,
-          "meshPx": 6867,
+          "meshPx": 7054,
           "protrusion": false
         }
       },

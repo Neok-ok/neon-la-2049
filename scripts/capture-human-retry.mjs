@@ -192,6 +192,22 @@ async function boot(quality) {
               continue;
             }
           }
+          if (pull.parkEdge) {
+            const n = ndc(arr[b + 12], arr[b + 13] + 1.1, arr[b + 14]);
+            if (!n || n.x < -0.72 || n.x > 0.72) {
+              arr[b + 12] = 1e7;
+              continue;
+            }
+          }
+          if (pull.parkOverlap) {
+            const mb = pull.index * 16;
+            const me = ndc(arr[mb + 12], arr[mb + 13] + 1.2, arr[mb + 14]);
+            const them = ndc(arr[b + 12], arr[b + 13] + 1.1, arr[b + 14]);
+            if (me && them && Math.abs(them.x - me.x) < 0.12 && Math.abs(them.y - me.y) < 0.38) {
+              arr[b + 12] = 1e7;
+              continue;
+            }
+          }
         }
         // The draw position is placeOnWalk(agent), not agent.x. Replacing the
         // matrix with the path point teleports the walker out of the frame.
@@ -322,6 +338,14 @@ async function boot(quality) {
       const pull = ensurePull(index, 16);
       if (!pull) return { ok: false };
       pull.parkCloser = true;
+      applyWalkPull();
+      return { ok: true, n: pull.ids.length };
+    };
+    H.parkEdge = (index) => {
+      const pull = ensurePull(index, 18);
+      if (!pull) return { ok: false };
+      pull.parkEdge = true;
+      pull.parkOverlap = true;
       applyWalkPull();
       return { ok: true, n: pull.ids.length };
     };
@@ -835,7 +859,7 @@ async function boot(quality) {
       let best = 40;
       for (let k = 0; k < 12; k++) {
         const ang = (k / 12) * Math.PI * 2;
-        for (const dist of [1.8, 2.8, 4.2, 6.5]) {
+        for (const dist of [1.8, 2.8, 4.2, 6.5, 9, 12, 15]) {
           const x = p.x + Math.sin(ang) * dist;
           const z = p.z + Math.cos(ang) * dist;
           if (q.insideSolid(x, p.y + 1.35, z, 0.22, true) && dist < best) best = dist;
@@ -867,6 +891,113 @@ async function boot(quality) {
       }
       return 0;
     }
+    H.nearestWall = nearestWall;
+    // Stand outside a solid facade. A parcel edge with no building behind it
+    // reads as an open plaza, so the wall has to be a tall solid within 6 m.
+    H.faceStand = (p) => {
+      const q = app().query;
+      const fab = q.fabricAt(p.x, p.z);
+      let best = null;
+      for (const b of fab.blocks || []) {
+        if (!b || !b.la || !b.lb) continue;
+        const relX = p.x - b.cx;
+        const relZ = p.z - b.cz;
+        const alongA = relX * b.ax + relZ * b.az;
+        const alongB = relX * b.bx + relZ * b.bz;
+        const ha = b.la / 2;
+        const hb = b.lb / 2;
+        const faces = [
+          { out: alongA - ha, nx: b.ax, nz: b.az, tx: b.bx, tz: b.bz, along: alongB, limit: hb },
+          { out: -ha - alongA, nx: -b.ax, nz: -b.az, tx: b.bx, tz: b.bz, along: alongB, limit: hb },
+          { out: alongB - hb, nx: b.bx, nz: b.bz, tx: b.ax, tz: b.az, along: alongA, limit: ha },
+          { out: -hb - alongB, nx: -b.bx, nz: -b.bz, tx: b.ax, tz: b.az, along: alongA, limit: ha },
+        ];
+        for (const f of faces) {
+          if (f.out < -0.4 || f.out > 8) continue;
+          if (Math.abs(f.along) > f.limit - 1.2) continue;
+          const wx = -f.nx;
+          const wz = -f.nz;
+          let hit = 0;
+          for (const s of [0.7, 1.3, 2.1, 3.2, 4.6, 6.2, 8.5, 11, 14]) {
+            const x = p.x + wx * s;
+            const z = p.z + wz * s;
+            const chest = q.insideSolid(x, p.y + 1.35, z, 0.28, true);
+            const tall = q.insideSolid(x, p.y + 2.3, z, 0.28, true);
+            if (chest && tall) { hit = s; break; }
+          }
+          if (!hit) continue;
+          for (const slide of [0, 2.4, -2.4, 3.6, -3.6]) {
+            if (Math.abs(f.along + slide) > f.limit - 1.2) continue;
+            // Camera distance sets the person's size. A far facade stays
+            // behind them; backing up to it shrinks the walker out of the gate.
+            // A slide along the face turns a head-on walk into a profile so
+            // the free arm reads, while the wall stays behind the walker.
+            const dist = 4.6;
+            const px = p.x + f.nx * dist + f.tx * slide;
+            const pz = p.z + f.nz * dist + f.tz * slide;
+            const gy = q.groundHeight(px, pz);
+            if (Math.abs(gy - p.y) > 1.6) continue;
+            if (q.insideSolid(px, gy + 1.4, pz, 0.85, true)) continue;
+            if (!clear(px, pz, gy)) continue;
+            if (!line(px, pz, p.x, p.z, gy)) continue;
+            const vx = p.vx || 0;
+            const vz = p.vz || 0;
+            const vlen = Math.hypot(vx, vz) || 1;
+            const ux = p.x - px;
+            const uz = p.z - pz;
+            const ulen = Math.hypot(ux, uz) || 1;
+            const facing = Math.abs((ux / ulen) * (vx / vlen) + (uz / ulen) * (vz / vlen));
+            const score = Math.abs(hit - 2.0) + facing * 3.2 + Math.abs(slide) * 0.04;
+            if (!best || score < best.score) best = { px, pz, gy, score, out: hit };
+          }
+        }
+      }
+      if (!best) {
+        // A nearby tower that is not on the parcel face still counts.
+        let solid = null;
+        for (let k = 0; k < 16; k++) {
+          const ang = (k / 16) * Math.PI * 2;
+          const dx = Math.sin(ang);
+          const dz = Math.cos(ang);
+          for (const s of [1.1, 1.8, 2.8, 4.2, 6.5, 9, 12]) {
+            const x = p.x + dx * s;
+            const z = p.z + dz * s;
+            if (q.insideSolid(x, p.y + 1.35, z, 0.28, true) && q.insideSolid(x, p.y + 2.3, z, 0.28, true)) {
+              solid = { dx, dz, s };
+              break;
+            }
+          }
+          if (solid) break;
+        }
+        if (solid) {
+          const dist = 4.6;
+          const px = p.x - solid.dx * dist;
+          const pz = p.z - solid.dz * dist;
+          const gy = q.groundHeight(px, pz);
+          if (Math.abs(gy - p.y) < 1.6 && !q.insideSolid(px, gy + 1.4, pz, 0.85, true) && clear(px, pz, gy) && line(px, pz, p.x, p.z, gy)) {
+            best = { px, pz, gy, out: solid.s };
+          }
+        }
+      }
+      if (!best) return { ok: false, reason: 'no-face' };
+      const aimY = p.y + 1.15 * (p.s || 1);
+      const eyeY = best.gy + 1.45;
+      const yaw = Math.atan2(p.x - best.px, -(p.z - best.pz));
+      const horiz = Math.hypot(p.x - best.px, p.z - best.pz) || 1;
+      const pitch = Math.atan2(aimY - eyeY, horiz);
+      apply(best.px, best.pz, best.gy, yaw, pitch);
+      return {
+        ok: true,
+        facade: 2,
+        dist: Math.round(horiz * 10) / 10,
+        pitch: Math.round(pitch * 100) / 100,
+        band: 'face',
+        feet: 'walk',
+        face: 1,
+        building: false,
+        out: Math.round(best.out * 10) / 10,
+      };
+    };
     H.place = (p) => {
       const q = app().query;
       const sp = Math.hypot(p.vx, p.vz) || 1;
@@ -1121,7 +1252,7 @@ async function boot(quality) {
       const profile = across > depth * (window.__side || 1.45);
       const hatRoom = head.y < headMax;
       return {
-        ok: travel >= 0.28 && travel <= 1.35 && span >= 0.5 && span <= 1.35 && centered && profile && hatRoom,
+        ok: travel >= 0.28 && travel <= 1.35 && span >= 0.42 && span <= 1.35 && centered && profile && hatRoom,
         reason: 'framed',
         travel: Math.round(travel * 100) / 100,
         span: Math.round(span * 100) / 100,
@@ -1769,14 +1900,32 @@ async function shoot(id, tier, allowOpen) {
     maxWall: Number(process.env.MAX_WALL || '0'),
   });
   for (let attempt = 0; attempt < attempts; attempt++) {
-    const movers = await page.evaluate((r) => window.__retry.movers(r), reach);
+    let movers = await page.evaluate((r) => window.__retry.movers(r), reach);
+    if (process.env.BLOCK_FACE === '1' && movers.length) {
+      movers = await page.evaluate((list) => list
+        .map((p) => ({ ...p, wall: window.__retry.nearestWall(p) }))
+        .sort((a, b) => a.wall - b.wall), movers);
+    }
     if (!movers.length) {
       const info = await page.evaluate((r) => window.__retry.nearestTravel(r), reach);
       note('no mover', { id, tier, attempt, info });
       continue;
     }
     const who = movers[attempt % movers.length];
-    const placed = await page.evaluate((p) => window.__retry.place(p), who);
+    if (process.env.BLOCK_FACE === '1' && who.wall > 16) {
+      note('far-wall', { id, tier, attempt, wall: who.wall });
+      continue;
+    }
+    let placed = null;
+    if (process.env.BLOCK_FACE === '1') {
+      placed = await page.evaluate((p) => window.__retry.faceStand(p), who);
+      if (!placed?.ok) {
+        note('no place', { id, tier, attempt, reason: placed?.reason, wall: who.wall });
+        continue;
+      }
+    } else {
+      placed = await page.evaluate((p) => window.__retry.place(p), who);
+    }
     if (!placed?.ok) {
       note('no place', { id, tier, attempt, reason: placed?.reason, band: placed?.band, stacks: placed?.stacks, gap: placed?.gap });
       continue;
@@ -1784,7 +1933,8 @@ async function shoot(id, tier, allowOpen) {
     const locked = await page.evaluate(({ index, attempt }) => {
       // A pure profile is the walk the critics can read. Later tries accept a
       // three-quarter so a curved sidewalk still yields a frame.
-      window.__side = attempt >= 3 ? 1.05 : (window.__sideBase || 1.45);
+      const sideBase = window.__sideBase || 1.45;
+      window.__side = attempt >= 3 ? Math.min(sideBase, 1.05) : sideBase;
       return window.__retry.lock(index);
     }, { index: who.i, attempt });
     const ahead = await page.evaluate((who) => window.__retry.ahead(who), who);
@@ -1817,6 +1967,10 @@ async function shoot(id, tier, allowOpen) {
       await page.evaluate(() => window.__retry.release());
       continue;
     }
+    if (process.env.EDGE_CLEAR === '1') {
+      const parked = await page.evaluate((index) => window.__retry.parkEdge(index), who.i);
+      note('park-edge', { id, tier, attempt, parked });
+    }
     await page.evaluate(() => window.__retry.hold());
     await frames();
     const tmp0 = `${OUT}/.tmp-${id}-${tier}-f0.png`;
@@ -1830,6 +1984,36 @@ async function shoot(id, tier, allowOpen) {
     };
     const legs = bodyStats(tmp0, legBox);
     note('body', { id, tier, attempt, std: Math.round((stats.std || 0) * 10) / 10, span: Math.round(stats.span || 0), mean: Math.round(stats.mean || 0), legs: Math.round(legs.span || 0) });
+    if (process.env.NEAR_WINDOW === '1') {
+      const win = spawnSync('python3', ['-c', `
+import json, sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert('RGB')
+w, h = im.size
+px = im.load()
+x0, y0, x1, y1 = [float(v) for v in sys.argv[2:6]]
+# Head is the top of the box. A window at their height sits beside it.
+hy0, hy1 = int((y0 - 0.16) * h), int((y0 + 0.1) * h)
+n = 0
+for y in range(max(0, hy0), min(h, hy1), 2):
+    for x in range(0, w, 2):
+        sx = x / w
+        if x0 - 0.02 <= sx <= x1 + 0.02:
+            continue
+        if sx < x0 - 0.42 or sx > x1 + 0.42:
+            continue
+        r, g, b = px[x, y]
+        if (r + g + b) > 220 and (r > 90 or g > 90):
+            n += 1
+print(json.dumps({"n": n}))
+`, tmp0, String(locked.box.x0), String(locked.box.y0), String(locked.box.x1), String(locked.box.y1)], { encoding: 'utf8' });
+      const near = win.status === 0 ? JSON.parse(win.stdout) : { n: 0 };
+      note('near-window', { id, tier, attempt, ...near });
+      if ((near.n || 0) < 18 && attempt < attempts - 1) {
+        await page.evaluate(() => window.__retry.release());
+        continue;
+      }
+    }
     // A person projected through a facade still fills the lock box with one
     // flat wall. Rain streaks keep the luma span high, so the flat test misses it.
     if ((stats.std || 0) < 22 && (stats.mean || 0) > 55 && attempt < 6) {
