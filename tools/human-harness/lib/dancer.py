@@ -51,7 +51,7 @@ def _bone_body(y):
         return BI['skirtL']
     if y < 30.2:
         return BI['skirtM']
-    if y < 38.4:
+    if y < 40:
         return BI['skirtU']
     if y < 42:
         return BI['hip']
@@ -157,17 +157,19 @@ def build_dancer(lod='high'):
     # it is three flat columns, so the street sees shelves instead of one spike.
     # Part 9 is the stem. Parts 6, 7, 8 are the three widths. The middle tier
     # keeps the 13.2 m flare. The head and the raised hand stay their own parts.
-    # The tiers overlap by a third of a metre so the street cannot see sky
-    # between them. The color change is the shelf. The point stays a dark stem.
+    # The tiers overlap so the street cannot see sky between them. The upper
+    # skirt used to stop a metre under the bodice, and that slot read as two
+    # stacked blocks. The bodice now starts inside the upper skirt. The point
+    # stays a dark stem. The hand still ends at 64.4 m.
     _loft_band(mesh, body, 0.4, 6.5, segs, 9, _bone_body, PINK, _body_z, step)
     skirts = (
         (6.0, 17.7, 6, 2.05),
         (17.3, 29.6, 7, 6.6),
-        (29.2, 37.6, 8, 2.0),
+        (29.2, 39.4, 8, 2.7),
     )
     for y0, y1, part, cap in skirts:
         _loft_band(mesh, body, y0, y1, segs, part, _bone_body, PINK, _body_z, step, cap)
-    _loft_band(mesh, body, 38.6, 51.2, segs, 1, _bone_body, PINK, _body_z, step)
+    _loft_band(mesh, body, 35.6, 51.2, segs, 1, _bone_body, PINK, _body_z, step)
     # Part 5 is the diamond. It overlaps the chest so the neck is not a hole.
     _loft_band(mesh, body, 50.4, 59.2, max(6, segs - 2), 5, lambda _y: BI['head'], PINK, _body_z, step * 0.8)
     # The sleeve stays pink and meets the chest. Only the hand above it is the white part.

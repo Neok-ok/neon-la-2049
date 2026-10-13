@@ -2433,99 +2433,111 @@ async function boot(quality) {
           }
           return n;
         };
-        if (open(ux, uz) === 0 && open(-ux, -uz) > 0) { ux = -ux; uz = -uz; }
-        let person = null;
-        // Beside the jamb, almost on the door plane. A metre in front of the
-        // opening makes a 1.80 m walker read as tall as a 2.2 m lintel.
-        for (const out of [0.45, 0.75, 1.15, 1.6, 0.28]) {
-          for (const side of [1.35, -1.35, 1.7, -1.7, 0.9, -0.9]) {
+        // Authored outward already points at the street. Flipping it when the
+        // stoop reads as solid puts the lens inside the lobby.
+        if (door.kind === 'leaf' && open(ux, uz) === 0 && open(-ux, -uz) > 0) { ux = -ux; uz = -uz; }
+        const stands = [];
+        // A corridor mouth is about 3.3 m. On the door plane that surround is
+        // nearly twice a 1.80 m walker. A step toward the lens enlarges the
+        // walker until the lintel only clears the crown.
+        for (const out of [1.7, 2.3, 2.9, 1.2, 0.7]) {
+          for (const side of [1.35, -1.35, 1.85, -1.85]) {
             const x = door.x + ux * out + ax * side;
             const z = door.z + uz * out + az * side;
             const gy = surfaceY(x, z, door.y0);
             if (gy == null) continue;
-            if (gy + 1.8 > door.y1 - 0.08) continue;
             if (q.insideSolid(x, gy + 0.9, z, 0.16, true)) continue;
             const cls = classify(x, z, Math.atan2(ax, az));
             if (cls?.band === 'road') continue;
-            person = { x, z, gy, out, side, band: cls?.band || 'none' };
-            break;
+            const standOut = (x - door.x) * ux + (z - door.z) * uz;
+            if (standOut < 0.45) continue;
+            stands.push({ x, z, gy, out, side, band: cls?.band || 'none' });
           }
-          if (person) break;
         }
-        if (!person) {
+        if (!stands.length) {
           tried.push({ id: door.id, reason: 'no-stand' });
           continue;
         }
-        let road = false;
-        for (const d of [4, 6.5, 9, 12]) {
-          for (const s of [1, -1]) {
-            const x = person.x + ux * d + ax * s * 2;
-            const z = person.z + uz * d + az * s * 2;
-            const gy = q.groundHeight(x, z);
-            if (Math.abs(gy - person.gy) > 0.6) continue;
-            const cls = classify(x, z, 0);
-            if (cls?.band === 'road') road = true;
-          }
-        }
+        const shellTop = door.kind === 'interior' ? door.y0 + 3.3 : door.y1;
         const cam = a.camera;
         let pose = null;
-        // Stand in the street, off to one side, looking back at the wall so the
-        // doorway and the walker share the frame. A lens aimed down the block
-        // leaves the opening on a side wall and the walker small in the lane.
-        for (const dist of [2.6, 3.4, 4.4, 5.4]) {
-          for (const latSign of [1, -1]) {
-            for (const street of [2.2, 3.2, 4.6, 6.2]) {
-              const px = person.x + ax * latSign * dist + ux * street;
-              const pz = person.z + az * latSign * dist + uz * street;
-              const gy = surfaceY(px, pz, person.gy);
-              if (gy == null || Math.abs(gy - person.gy) > 0.55) continue;
-              if (q.insideSolid(px, gy + 1.3, pz, 0.28, true)) continue;
-              const vx = person.x - px;
-              const vz = person.z - pz;
-              const vlen = Math.hypot(vx, vz) || 1;
-              const towardWall = -((vx / vlen) * ux + (vz / vlen) * uz);
-              if (towardWall < 0.48) continue;
-              if (!line(px, pz, person.x, person.z, Math.min(gy, person.gy))) continue;
-              if (!line(px, pz, door.x, door.z, Math.min(gy, person.gy))) continue;
-              const eye = gy + 1.48;
-              const yaw = Math.atan2(person.x - px, -(person.z - pz));
-              const horiz = vlen;
-              const pitch = Math.atan2((person.gy + 1.15) - eye, horiz);
-              cam.position.set(px, eye, pz);
-              cam.rotation.set(pitch, -yaw, 0, 'YXZ');
-              cam.updateMatrixWorld();
-              const sill = ndc(door.x, door.y0 + 0.08, door.z);
-              const head = ndc(door.x, door.y1 - 0.04, door.z);
-              const feet = ndc(person.x, person.gy + 0.02, person.z);
-              const crown = ndc(person.x, person.gy + 1.8, person.z);
-              if (!sill || !head || !feet || !crown) continue;
-              const pSpan = crown.y - feet.y;
-              const dSpan = head.y - sill.y;
-              const ideal = (door.y1 - door.y0) / 1.8;
-              if (pSpan < 0.36 || pSpan > 0.64) continue;
-              if (dSpan < pSpan * (ideal - 0.08) || dSpan > pSpan * (ideal + 0.16)) continue;
-              if (head.y - crown.y < 0.04) continue;
-              if (Math.abs(feet.y - sill.y) > 0.07) continue;
-              const gap = Math.abs(crown.x - head.x);
-              if (gap < 0.04 || gap > 0.22) continue;
-              if (Math.abs(crown.x) > 0.42 || Math.abs(head.x) > 0.55) continue;
-              if (feet.y < -0.82 || feet.y > -0.02 || crown.y > 0.62) continue;
-              const ratio = dSpan / pSpan;
-              let score = 4 + pSpan * 3 - Math.abs(ratio - (door.y1 - door.y0) / 1.8) * 4;
-              score -= Math.abs(feet.y - sill.y) * 5 + Math.abs(gap - 0.1) * 3;
-              score += towardWall;
-              if (!pose || score > pose.score) {
-                pose = {
-                  score, px, pz, gy, eye, yaw, pitch, latSign, dist, street, road,
-                  ratio, pSpan, dSpan, gap,
-                  sill, head, feet, crown,
-                };
+        // Closer, and more square to the opening, so the walker and the
+        // surround share the frame instead of a long shot down an empty lot.
+        for (const stand of stands) {
+          let road = false;
+          for (const d of [4, 6.5, 9, 12]) {
+            for (const s of [1, -1]) {
+              const x = stand.x + ux * d + ax * s * 2;
+              const z = stand.z + uz * d + az * s * 2;
+              const gy = q.groundHeight(x, z);
+              if (Math.abs(gy - stand.gy) > 0.8) continue;
+              const cls = classify(x, z, 0);
+              if (cls?.band === 'road') road = true;
+            }
+          }
+          for (const dist of [1.8, 2.5, 3.3, 4.2]) {
+            for (const latSign of [1, -1]) {
+              for (const street of [2.0, 2.8, 3.8, 5.0]) {
+                const px = stand.x + ax * latSign * dist + ux * street;
+                const pz = stand.z + az * latSign * dist + uz * street;
+                const camOut = (px - door.x) * ux + (pz - door.z) * uz;
+                if (camOut < 1.6) continue;
+                const gy = surfaceY(px, pz, stand.gy);
+                if (gy == null || Math.abs(gy - stand.gy) > 0.85) continue;
+                if (q.insideSolid(px, gy + 1.3, pz, 0.28, true)) continue;
+                const vx = stand.x - px;
+                const vz = stand.z - pz;
+                const vlen = Math.hypot(vx, vz) || 1;
+                const towardWall = -((vx / vlen) * ux + (vz / vlen) * uz);
+                if (towardWall < 0.62) continue;
+                if (!line(px, pz, stand.x, stand.z, Math.min(gy, stand.gy))) continue;
+                if (!line(px, pz, door.x, door.z, Math.min(gy, stand.gy))) continue;
+                const eye = gy + 1.42;
+                const yaw = Math.atan2(stand.x - px, -(stand.z - pz));
+                const pitch = Math.atan2((stand.gy + 1.05) - eye, vlen);
+                cam.position.set(px, eye, pz);
+                cam.rotation.set(pitch, -yaw, 0, 'YXZ');
+                cam.updateMatrixWorld();
+                const sill = ndc(door.x, door.y0 + 0.06, door.z);
+                const head = ndc(door.x, shellTop - 0.05, door.z);
+                const feet = ndc(stand.x, stand.gy + 0.02, stand.z);
+                const crown = ndc(stand.x, stand.gy + 1.8, stand.z);
+                if (!sill || !head || !feet || !crown) continue;
+                const pSpan = crown.y - feet.y;
+                const dSpan = head.y - sill.y;
+                if (pSpan < 0.44 || pSpan > 0.7) continue;
+                if (dSpan < 0.4) continue;
+                const ratio = dSpan / pSpan;
+                if (ratio < 1.12 || ratio > 1.42) continue;
+                if (head.y > 0.86 || head.y < crown.y + 0.03) continue;
+                const footDrop = sill.y - feet.y;
+                if (footDrop < -0.05 || footDrop > 0.2) continue;
+                const gap = Math.abs(crown.x - head.x);
+                if (gap < 0.05 || gap > 0.34) continue;
+                if (Math.abs(crown.x) > 0.5 || Math.abs(head.x) > 0.62) continue;
+                if (feet.y < -0.72 || feet.y > -0.14 || crown.y > 0.5) continue;
+                let score = pSpan * 5 - Math.abs(ratio - 1.26) * 5;
+                score -= Math.abs(footDrop - 0.05) * 2 + Math.abs(gap - 0.14) * 2;
+                score += towardWall * 0.5 + (road ? 0.35 : 0);
+                if (!pose || score > pose.score) {
+                  pose = {
+                    score, px, pz, gy, eye, yaw, pitch, latSign, dist, street, road,
+                    ratio, pSpan, dSpan, gap,
+                    sill, head, feet, crown, stand,
+                  };
+                }
               }
             }
           }
         }
         if (!pose) {
-          tried.push({ id: door.id, reason: 'no-pose', band: person.band });
+          tried.push({ id: door.id, reason: 'no-pose', stands: stands.length });
+          continue;
+        }
+        const person = pose.stand;
+        a.interiors?.update?.(0.05, 'walk', pose.px, pose.eye, pose.pz, 0);
+        if (a.interiors?.stats?.interiorOccluded) {
+          tried.push({ id: door.id, reason: 'inside', ratio: r3(pose.ratio) });
           continue;
         }
         cam.position.set(pose.px, pose.eye, pose.pz);
