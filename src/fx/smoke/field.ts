@@ -1,22 +1,27 @@
-// Launch, manhole, and exhaust are ray-marched volumes. Billboard cards stay
-// behind SMOKE_CARDS and are not drawn. Buffers for the card path are still
+// Cards and ray-marched volumes stay behind their flags. Lit soft shells are
+// the later prototype: built only when a shell flag is on, or when the page
+// was opened with smoke=shell for a still. Buffers for the card path are still
 // the size of the tier that is showing, and only allocated when that flag is on.
 import {
   BufferAttribute, BufferGeometry, DynamicDrawUsage, InstancedMesh, Mesh, type Scene,
 } from 'three/webgpu';
 import type { Tier } from '../../core/quality';
+import { params } from '../../core/params';
 import { resources } from '../../core/memory';
 import { kitSteamGain } from '../../districts/_shared/kit/materials';
 import type { PunctualInput } from '../../lighting/validate.ts';
 import type { CityQuery } from '../../world/CityQuery';
-import { SMOKE_CARDS, SMOKE_EXHAUST_VOLUME, SMOKE_LAUNCH_VOLUME, SMOKE_MANHOLE_VOLUME } from './flags';
+import {
+  SMOKE_CARDS, SMOKE_EXHAUST_VOLUME, SMOKE_LAUNCH_SHELL, SMOKE_LAUNCH_VOLUME, SMOKE_MANHOLE_SHELL, SMOKE_MANHOLE_VOLUME,
+} from './flags';
 import { smokeRain, smokeMaterial } from './material';
 import { launchDrive, type LaunchDrive } from './launchDrive';
 import { barrelLights, gatherEmitters } from './places';
 import { puffCount, puffRain, puffVolumeMesh, syncPuffs, type PuffPlacement } from './puffs';
+import { shellCount, shellMesh, shellRain, shellsRequested, syncShells, type ShellPlacement } from './shells';
 import { columnRadius, integrate, killParticle, plumeLean, smokeRand, smokeWindScale, spawnEmitter, spawnParticle } from './sim';
 import {
-  LAUNCH_COLUMN_CAP, LAUNCH_GROUND_CAP, PUFF_CAP, RATE_SCALE, SMOKE_CAP, streetCap,
+  LAUNCH_COLUMN_CAP, LAUNCH_GROUND_CAP, LAUNCH_SHELL, MANHOLE_SHELL, PUFF_CAP, RATE_SCALE, SMOKE_CAP, streetCap,
 } from './tiers';
 import { KIND, createPool, type Emitter, type Pool, type Tailpipe, type Wind } from './types';
 import {
@@ -54,6 +59,7 @@ export interface SmokeSnapshot {
   volume: boolean;
   launch: boolean;
   puffs: number;
+  shells: number;
   cap: number;
   street: number;
   ground: number;
@@ -96,6 +102,7 @@ export class SmokeField {
   private mesh: Mesh | null = null;
   private volume: Mesh | null = null;
   private puffs: InstancedMesh | null = null;
+  private shells: InstancedMesh | null = null;
   private tier: Tier = 'low';
   private emitters: Emitter[] = [];
   private anchorX = 1e9;
@@ -135,12 +142,17 @@ export class SmokeField {
       this.puffs = puffVolumeMesh();
       scene.add(this.puffs);
     }
+    if (shellsRequested()) {
+      this.shells = shellMesh();
+      scene.add(this.shells);
+    }
   }
 
   conceal(): void {
     if (this.mesh) this.mesh.visible = false;
     if (this.volume) this.volume.visible = false;
     if (this.puffs) this.puffs.visible = false;
+    if (this.shells) this.shells.visible = false;
   }
 
   snapshot(): SmokeSnapshot {
@@ -148,10 +160,11 @@ export class SmokeField {
     return {
       particles: this.pool.n,
       emitters: this.emitters.length,
-      draws: (this.mesh?.visible ? 1 : 0) + (this.volume?.visible ? 1 : 0) + (this.puffs?.visible ? 1 : 0),
+      draws: (this.mesh?.visible ? 1 : 0) + (this.volume?.visible ? 1 : 0) + (this.puffs?.visible ? 1 : 0) + (this.shells?.visible ? 1 : 0),
       volume: !!this.volume?.visible,
       launch: drive.burning || (drive.id > 0 && drive.age < 180),
       puffs: puffCount(),
+      shells: shellCount(),
       cap: this.pool.cap,
       street: this.pool.slotN[0],
       ground: this.pool.slotN[1],
@@ -218,6 +231,7 @@ export class SmokeField {
     }
     this.placeVolume(drive, frame.tier);
     this.placePuffs(frame, wind);
+    this.placeShells(drive, frame, wind);
     this.writeLights(drive, frame.camX, frame.camZ);
   }
 
@@ -659,6 +673,85 @@ export class SmokeField {
       }
     }
     syncPuffs(frame.tier, list);
+  }
+
+  /**
+   * Lit soft shells. Launch curtains stand left and right of the flame so a
+   * ray does not travel down a filled cone. The manhole is a short stack on
+   * the nearest grate.
+   */
+  private placeShells(drive: LaunchDrive, frame: SmokeFrame, wind: Wind): void {
+    shellRain.value = frame.rain;
+    if (!this.shells) return;
+    const list: ShellPlacement[] = [];
+    const launchOn = SMOKE_LAUNCH_SHELL || params.smoke === 'shell';
+    const holeOn = SMOKE_MANHOLE_SHELL || params.smoke === 'shell';
+    if (launchOn && drive.id > 0 && drive.age > 0.2 && drive.age < 200) {
+      const n = LAUNCH_SHELL[frame.tier];
+      const len = Math.max(80, drive.headY - drive.y);
+      const vx = drive.x - frame.camX;
+      const vz = drive.z - frame.camZ;
+      const vlen = Math.hypot(vx, vz) || 1;
+      const rx = -vz / vlen;
+      const rz = vx / vlen;
+      const pairs = Math.max(1, Math.ceil(n / 2));
+      const span = 125;
+      const stepH = pairs <= 1 ? 0 : span / (pairs - 1);
+      const halfH = Math.min(48, stepH * 0.72 + 6);
+      for (let i = 0; i < n; i++) {
+        const band = Math.floor(i / 2);
+        const side = i % 2 === 0 ? -1 : 1;
+        const u = pairs === 1 ? 0.4 : band / (pairs - 1);
+        const h = 12 + u * span;
+        const lean = plumeLean(h, len, drive.wind);
+        const rad = columnRadius(h, frame.time);
+        list.push({
+          x: drive.x + Math.cos(drive.windDir) * lean + rx * side * rad * 0.55,
+          y: drive.y + h,
+          z: drive.z + Math.sin(drive.windDir) * lean + rz * side * rad * 0.55,
+          halfW: rad * 0.62,
+          halfH,
+          seed: fract(i * 0.37 + 0.21),
+          kind: 1,
+          heat: Math.exp(-h / 46),
+          peak: 0.9,
+          soft: 6,
+        });
+      }
+    }
+    if (holeOn) {
+      const holes = this.emitters.filter((e) => e.kind === KIND.manhole);
+      holes.sort((a, b) => {
+        const da = (a.x - frame.camX) ** 2 + (a.z - frame.camZ) ** 2;
+        const db = (b.x - frame.camX) ** 2 + (b.z - frame.camZ) ** 2;
+        return da - db;
+      });
+      const hero = holes.find((e) => {
+        const dist = Math.hypot(e.x - frame.camX, e.z - frame.camZ);
+        return dist >= 3.4 && dist <= 18;
+      });
+      if (hero) {
+        const layers = MANHOLE_SHELL[frame.tier];
+        const wx = Math.cos(wind.dir) * Math.min(6, wind.speed) * 0.45;
+        const wz = Math.sin(wind.dir) * Math.min(6, wind.speed) * 0.45;
+        for (let i = 0; i < layers && list.length < 12; i++) {
+          const rise = 0.4 + i * 0.78;
+          list.push({
+            x: hero.x + wx * (0.06 + i * 0.1),
+            y: hero.y + rise,
+            z: hero.z + wz * (0.06 + i * 0.1),
+            halfW: 0.85 + i * 0.22,
+            halfH: 0.55 + i * 0.16,
+            seed: fract(hero.x * 0.17 + hero.z * 0.31 + i * 0.19),
+            kind: 0,
+            heat: 0,
+            peak: 0.95 - i * 0.08,
+            soft: 0.45,
+          });
+        }
+      }
+    }
+    syncShells(list);
   }
 
   private writeLights(drive: LaunchDrive, camX: number, camZ: number): void {

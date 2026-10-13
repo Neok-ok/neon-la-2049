@@ -2,6 +2,7 @@
 //   ?mode=fly|walk|cine  &at=<landmark|poi id>  &x=&y=&z=&yaw=&pitch=  (yaw/pitch in degrees)
 //   &time=22.5  &weather=rain  &quality=low|medium|high|ultra  &webgl=1  &hud=1  &ui=0  &freeze=1  &seed=123
 //   &tonemap=agx|aces|neutral  &ev=4.26  locks the camera exposure value
+//   &smoke=shell builds the lit-shell prototype for stills. City flags stay off.
 //   &surf=1 holds the sea-wall breaker at impact (screenshots)
 //   &refl=1 forces the planar wet-street mirror; &refl=0 keeps the cheap fake pools only
 const q = new URLSearchParams(location.search);
@@ -43,4 +44,6 @@ export const params = {
   budget: q.get('budget') ?? undefined,
   tonemap: q.get('tonemap') ?? undefined,
   ev: num('ev'),
+  /** `shell` draws the lit-shell prototype. Absent on a normal load. */
+  smoke: q.get('smoke') || undefined,
 };

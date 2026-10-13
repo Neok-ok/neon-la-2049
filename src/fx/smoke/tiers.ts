@@ -48,6 +48,25 @@ export const PUFF_STEPS: Record<Tier, number> = {
   ultra: 5,
 };
 
+/**
+ * Vertical curtains around the launch flame. Few on purpose: each one is a
+ * full veil, and a stack of them along the view becomes a solid cone.
+ */
+export const LAUNCH_SHELL: Record<Tier, number> = {
+  low: 4,
+  medium: 6,
+  high: 8,
+  ultra: 8,
+};
+
+/** Stacked puffs on the nearest manhole. Person scale, not a lane sheet. */
+export const MANHOLE_SHELL: Record<Tier, number> = {
+  low: 2,
+  medium: 3,
+  high: 3,
+  ultra: 4,
+};
+
 /** Manhole sheets and exhaust wakes sharing one instanced box. */
 export const PUFF_CAP: Record<Tier, number> = {
   low: 4,

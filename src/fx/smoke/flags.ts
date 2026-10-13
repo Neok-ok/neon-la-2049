@@ -21,3 +21,12 @@ export const SMOKE_MANHOLE_VOLUME: boolean = false;
 
 /** Tailpipe wakes. The avenue still read as lamps. Off. */
 export const SMOKE_EXHAUST_VOLUME: boolean = false;
+
+/**
+ * Lit soft shells around the flame. Off until the film, realism, and
+ * technical critics each score the still at 7 or higher.
+ */
+export const SMOKE_LAUNCH_SHELL: boolean = false;
+
+/** Lit soft shells on a manhole. Same gate as the launch shells. Off. */
+export const SMOKE_MANHOLE_SHELL: boolean = false;

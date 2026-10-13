@@ -9,7 +9,7 @@ const OUT = process.env.OUT ?? '/tmp/k1-shots';
 const PHASE = process.env.PHASE ?? 'after';
 mkdirSync(OUT, { recursive: true });
 
-const common = 'freeze=1&ui=0&time=22.5&webgl=1';
+const common = `freeze=1&ui=0&time=22.5&webgl=1${process.env.EXTRA ? `&${process.env.EXTRA}` : ''}`;
 
 /** @type {Array<{name:string,q:string,after:Function,frames?:number}>} */
 const shots = [
