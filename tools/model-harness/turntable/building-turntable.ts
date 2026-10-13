@@ -374,8 +374,8 @@ function buildLights(camera: PerspectiveCamera, kind: Kind): Record<LightName, G
   camera.add(night, rim, studio);
   // Each still has its own light. Hall is floodlit limestone, Wallace is a cool
   // miniature, LAPD is the dark overhead block. One warm key made all three khaki.
-  const key = kind === 'hall' ? 0.1 : kind === 'wallace' ? 7.2 : 3.1;
-  const fill = kind === 'hall' ? 0.02 : kind === 'wallace' ? 0.22 : 0.85;
+  const key = kind === 'hall' ? 0.1 : kind === 'wallace' ? 7.2 : 4.4;
+  const fill = kind === 'hall' ? 0.02 : kind === 'wallace' ? 0.22 : 1.15;
   const up = kind === 'hall' ? 0.42 : kind === 'wallace' ? 0.5 : 0.62;
   const nightKey = kind === 'hall' ? 0xe4f0e8 : kind === 'wallace' ? 0xc5d0dc : 0xb0aca3;
   const nightFill = kind === 'hall' ? 0xc5d4cc : kind === 'wallace' ? 0x8ea0b4 : 0x8e8a82;
@@ -406,7 +406,7 @@ function applyLight(
   ground.night.visible = light === 'night';
   ground.rim.visible = light === 'rim';
   ground.studio.visible = light === 'studio';
-  const nightHemi = kind === 'hall' ? 0.045 : kind === 'wallace' ? 0.24 : kind === 'lapd' ? 0.2 : 0.9;
+  const nightHemi = kind === 'hall' ? 0.045 : kind === 'wallace' ? 0.24 : kind === 'lapd' ? 0.36 : 0.9;
   hemi.intensity = light === 'night' ? nightHemi : light === 'rim' ? (kind === 'lapd' ? 0.48 : 0.28) : kind === 'hall' ? 0.55 : 0.7;
   const nightHemiColor = kind === 'hall' ? 0xd5e6de : kind === 'wallace' ? 0x9eb4cc : 0x5c6b78;
   hemi.color.set(light === 'studio' ? 0xc8c8c8 : light === 'rim' ? 0x243656 : nightHemiColor);
@@ -524,7 +524,7 @@ async function renderSheet(
     applyLight(scene, rigs, hemi, grounds, shot.light, size.y, kind);
     hallKey.intensity = kind === 'hall' && shot.light === 'night' ? 6.5 : 0;
     hallRim.intensity = kind === 'hall' && shot.light === 'night' ? 1.4 : 0;
-    lapdKey.intensity = kind === 'lapd' && shot.light === 'night' ? 2.4 : kind === 'lapd' && shot.light === 'rim' ? 2.6 : 0;
+    lapdKey.intensity = kind === 'lapd' && shot.light === 'night' ? 3.6 : kind === 'lapd' && shot.light === 'rim' ? 2.6 : 0;
     lapdUp.intensity = kind === 'lapd' && shot.light === 'night' ? 0.45 : kind === 'lapd' && shot.light === 'rim' ? 0.3 : 0;
     wallaceMouth.intensity = kind === 'wallace' && shot.light === 'night' ? 22000 : 0;
     renderer.setViewport(x, y, viewW, TILE_H);
@@ -611,7 +611,7 @@ async function renderCloseups(
     applyLight(scene, rigs, hemi, grounds, shot.light, size.y, kind);
     hallKey.intensity = kind === 'hall' && shot.light === 'night' ? 6.5 : 0;
     hallRim.intensity = kind === 'hall' && shot.light === 'night' ? 1.4 : 0;
-    lapdKey.intensity = kind === 'lapd' && shot.light === 'night' ? 2.4 : kind === 'lapd' && shot.light === 'rim' ? 2.6 : 0;
+    lapdKey.intensity = kind === 'lapd' && shot.light === 'night' ? 3.6 : kind === 'lapd' && shot.light === 'rim' ? 2.6 : 0;
     lapdUp.intensity = kind === 'lapd' && shot.light === 'night' ? 0.45 : kind === 'lapd' && shot.light === 'rim' ? 0.3 : 0;
     wallaceMouth.intensity = kind === 'wallace' && shot.light === 'night' ? 22000 : 0;
     span.textContent = shot.label;

@@ -891,7 +891,8 @@ def tint_lapd(x, y, z):
     if y >= SHAFT_Y - 0.4:
         tone = 1.0
         return (tone, tone, tone)
-    tone = 0.28 + 0.06 * blot(x + z * 0.13, y * 0.35, 42.0)
+    # Dark enough that the deck stays the light read, light enough that the boards show.
+    tone = 0.48 + 0.08 * blot(x + z * 0.13, y * 0.35, 42.0)
     if y < 2.4:
         tone *= 0.85
     return (tone * 0.92, tone * 0.95, tone)
