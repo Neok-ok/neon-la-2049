@@ -120,16 +120,16 @@ function volumeMaterial(): MeshBasicNodeMaterial {
         pos.z.mul(0.018).add(cos(height.mul(0.005)).mul(0.7)),
       ));
       const n01 = n.mul(0.5).add(0.5);
-      const wave = sin(height.mul(0.011).add(0.5)).mul(0.5).add(0.5);
-      const pinch = mix(float(0.78), float(1.2), n01);
-      const radius = mix(float(14.0), float(40.0), wave).mul(pinch);
+      const wave = sin(height.mul(0.01).add(0.5)).mul(0.5).add(0.5);
+      const pinch = mix(float(0.86), float(1.14), n01);
+      const radius = mix(float(18.0), float(36.0), wave).mul(pinch);
       const dx = rel.x.sub(wdx.mul(lean)).sub(cos(twist).mul(9.0));
       const dz = rel.z.sub(wdz.mul(lean)).sub(sin(twist).mul(9.0));
       const radial = sqrt(dx.mul(dx).add(dz.mul(dz)));
       const column = smoothstep(radius, radius.mul(0.12), radial)
         .mul(smoothstep(float(0.0), float(8.0), height))
         .mul(smoothstep(volHeight, volHeight.mul(0.9), height))
-        .mul(mix(float(0.32), float(1.0), smoothstep(float(0.18), float(0.82), n01)));
+        .mul(mix(float(0.58), float(1.0), smoothstep(float(0.22), float(0.78), n01)));
       const gRad = sqrt(rel.x.mul(rel.x).add(rel.z.mul(rel.z)));
       const ground = smoothstep(volGroundR, volGroundR.mul(0.28), gRad)
         .mul(smoothstep(float(16.0), float(1.5), height))
@@ -139,10 +139,10 @@ function volumeMaterial(): MeshBasicNodeMaterial {
       const core = smoothstep(radius.mul(0.34), radius.mul(0.05), radial)
         .mul(smoothstep(float(4.0), float(18.0), height))
         .mul(smoothstep(float(70.0), float(18.0), height));
-      const ash = vec3(0.64, 0.65, 0.67).mul(8.0);
-      const warm = vec3(FLAME[0], FLAME[1], FLAME[2]).mul(core).mul(6.0);
+      const ash = vec3(0.66, 0.67, 0.69).mul(9.0);
+      const warm = vec3(FLAME[0], FLAME[1], FLAME[2]).mul(core).mul(7.0);
       const glow = ash.add(warm).add(scatter);
-      const tau = density.mul(stepLen).mul(0.004).mul(live);
+      const tau = density.mul(stepLen).mul(0.0056).mul(live);
       const gain = float(1.0).sub(exp(tau.negate()));
       acc.addAssign(tr.mul(glow).mul(gain));
       tr.mulAssign(exp(tau.negate()));

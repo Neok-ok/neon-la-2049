@@ -623,17 +623,17 @@ export class SmokeField {
         if (dist < 4.2 || dist > 16) continue;
         list.push({
           x: e.x + wx * 0.05,
-          y: e.y + 1.15,
+          y: e.y + 0.5,
           z: e.z + wz * 0.05,
-          hx: 2.5,
-          hy: 1.05,
-          hz: 2.2,
+          hx: 1.05,
+          hy: 0.42,
+          hz: 0.95,
           ax: wx,
           ay: 0.2,
           az: wz,
           mode: 0,
           seed: fract(e.x * 0.17 + e.z * 0.31),
-          radius: 2.25,
+          radius: 0.9,
         });
       }
     }
@@ -691,9 +691,9 @@ function exhaustPuff(t: Tailpipe): PuffPlacement {
   const dirz = sp > 0.2 ? fz / sp : 1;
   const truck = t.heavy === 1;
   const spin = t.heavy === 2;
-  const len = spin ? 8.0 : truck ? 10.5 : 7.6;
-  const wide = spin ? 0.7 : truck ? 1.05 : 0.72;
-  const tall = spin ? 1.15 : truck ? 1.55 : 1.15;
+  const len = spin ? 5.2 : truck ? 6.8 : 5.0;
+  const wide = spin ? 0.65 : truck ? 0.9 : 0.62;
+  const tall = spin ? 1.4 : truck ? 1.7 : 1.35;
   const ax = -dirx;
   const ay = 0.14;
   const az = -dirz;
@@ -702,9 +702,9 @@ function exhaustPuff(t: Tailpipe): PuffPlacement {
   const uy = ay / al;
   const uz = az / al;
   const half = len * 0.5;
-  const cx = t.x + ux * half * 1.15;
-  const cy = t.y + 0.45 + uy * half * 1.15;
-  const cz = t.z + uz * half * 1.15;
+  const cx = t.x + ux * 1.5;
+  const cy = t.y + (truck ? 1.25 : 0.95);
+  const cz = t.z + uz * 1.5;
   return {
     x: cx,
     y: cy,
@@ -717,7 +717,7 @@ function exhaustPuff(t: Tailpipe): PuffPlacement {
     az: uz * half,
     mode: 1 + Math.min(1, Math.max(0, t.drive)) * 0.45,
     seed: fract(t.x * 0.13 + t.z * 0.27 + t.y * 0.05),
-    radius: truck ? 0.78 : spin ? 0.55 : 0.58,
+    radius: truck ? 0.72 : 0.55,
   };
 }
 
