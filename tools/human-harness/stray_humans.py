@@ -206,7 +206,8 @@ def dancer_report(lod):
     comps = _components(mesh, 0.08)
     # Skirt steps, the diamond, and the raised hand are separate on purpose.
     # A component is loose only when it sits off the figure, not in a skirt gap.
-    authored = {1, 2, 3, 4, 5}
+    # 6, 7, 8 are the three skirt widths. 9 is the dark stem inside the plate point.
+    authored = {1, 2, 3, 4, 5, 6, 7, 8, 9}
     loose = []
     comps.sort(key=len, reverse=True)
     boxes = [_bounds([mesh.pos[j] for j in comp]) for comp in comps]

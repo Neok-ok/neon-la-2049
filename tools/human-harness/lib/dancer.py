@@ -153,10 +153,15 @@ def build_dancer(lod='high'):
     # at 21.6 m. The lower and upper tiers are columns, so the shelves read
     # from the street instead of one tapering cone. The head and the raised
     # hand stay their own parts. The hand still ends at 64.4 m.
+    # The plate ends in a point. That point stays a dark stem. The dress above
+    # it is three flat columns, so the street sees shelves instead of one spike.
+    # Part 9 is the stem. Parts 6, 7, 8 are the three widths. The middle tier
+    # keeps the 13.2 m flare. The head and the raised hand stay their own parts.
+    _loft_band(mesh, body, 0.4, 5.6, segs, 9, _bone_body, PINK, _body_z, step)
     skirts = (
-        (0.2, 18.2, 1, 2.45),
-        (18.6, 30.0, 1, 6.6),
-        (30.4, 38.2, 1, 2.05),
+        (7.2, 16.4, 6, 2.05),
+        (18.0, 28.4, 7, 6.6),
+        (30.0, 37.6, 8, 2.0),
     )
     for y0, y1, part, cap in skirts:
         _loft_band(mesh, body, y0, y1, segs, part, _bone_body, PINK, _body_z, step, cap)

@@ -912,7 +912,8 @@ export class CrowdField {
           const gait = STRIDE * (a.height / 1.8) * (hasUmbrella ? 1 : a.strideScale);
           a.cycle = (a.cycle + (a.speed * dt) / gait) % 1;
         } else if (a.x < 1e5 && dist < reach) {
-          a.cycle = (a.cycle + dt * 0.12) % 1;
+          // A slow weight shift. The capture samples it in quarters, same as the walk.
+          a.cycle = (a.cycle + dt * 0.55) % 1;
         }
       }
       if (amp > 0 || (a.role === 'vendor' && quality.tier !== 'low' && a.x < 1e5 && dist < reach)) animated++;

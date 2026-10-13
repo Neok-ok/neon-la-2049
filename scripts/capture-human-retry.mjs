@@ -438,7 +438,8 @@ async function boot(quality) {
           if (a.query.insideSolid(x, gy + 0.8, z, 0.35, true)) continue;
           const dCar = Math.hypot(x - cam.position.x, z - cam.position.z);
           const dMe = Math.hypot(me.x - cam.position.x, me.z - cam.position.z);
-          if (dCar < dMe - 1.4) continue;
+          // Same depth as the walker. A car in the nearer lane does not prove height.
+          if (Math.abs(dCar - dMe) > 2.6) continue;
           const roof = ndc(x, gy + 1.35, z);
           const tyre = ndc(x, gy + 0.15, z);
           const nose = ndc(x + rx * sign * 2.3, gy + 0.7, z + rz * sign * 2.3);
@@ -448,6 +449,7 @@ async function boot(quality) {
           const h = Math.abs(roof.y - tyre.y);
           if (w < 0.16 || w > 0.72 || h < 0.08 || h > person * 1.6) continue;
           if (Math.abs(roof.x) > 0.82 || tyre.y < -0.88 || roof.y > 0.72) continue;
+          if (feet && Math.abs(tyre.y - feet.y) > 0.18) continue;
           if (head && (roof.x < head.x + 0.08 && roof.x > head.x - 0.08)) continue;
           spot = { x, z, y: gy + 0.02, h, w, side: sign * side };
           break;
@@ -501,6 +503,13 @@ async function boot(quality) {
         }
       });
       return { ok: true, side: Math.round(spot.side * 10) / 10, h: Math.round(spot.h * 100) / 100 };
+    };
+    H.bandOf = (index) => {
+      const p = people().find((q) => q.i === index);
+      if (!p) return { ok: false };
+      const agent = app().crowd.agents[index];
+      const cls = classify(p.x, p.z, agent?.yaw || 0);
+      return cls ? { ok: true, band: cls.band } : { ok: false, band: 'none' };
     };
     H.pour = () => {
       const a = app();
@@ -743,6 +752,17 @@ async function boot(quality) {
       const dt = (0.25 * gait) / speed;
       const before = agent.cycle;
       H.step(Math.min(dt, 0.45));
+      // Standers do not travel. Put them on the same quarter as the walker
+      // so a stall or a queue shifts weight across the four frames.
+      const phase = agent.cycle;
+      for (let i = 0; i < c.agents.length; i++) {
+        const other = c.agents[i];
+        if (!other || i === index || other.x > 1e5) continue;
+        const moving = other.role === 'walk' && !other.hold && other.speed > 0.35;
+        if (moving) continue;
+        other.cycle = phase;
+      }
+      realUpdate(0, app().cams.walk.pos.x, app().cams.walk.pos.z);
       return {
         ok: true,
         dt: Math.round(dt * 1000) / 1000,
@@ -760,6 +780,13 @@ async function boot(quality) {
       const w = a.cams.walk;
       if (c.__pin) c.loopKey = forgeKey(w.pos.x, w.pos.z);
       agent.cycle = ((phase % 1) + 1) % 1;
+      for (let i = 0; i < c.agents.length; i++) {
+        const other = c.agents[i];
+        if (!other || i === index || other.x > 1e5) continue;
+        const moving = other.role === 'walk' && !other.hold && other.speed > 0.35;
+        if (moving) continue;
+        other.cycle = agent.cycle;
+      }
       realUpdate(0, w.pos.x, w.pos.z);
       const motion = c.motionAttr ? c.motionAttr.array[index * 4] : null;
       return {
@@ -767,6 +794,30 @@ async function boot(quality) {
         cycle: Math.round(agent.cycle * 100) / 100,
         motion: motion == null ? null : Math.round(motion * 100) / 100,
       };
+    };
+    // Two walkers in one tan is one coat. Push anyone that close in hue onto
+    // a blue or a red the palette already uses.
+    H.separateCoats = (index) => {
+      const a = app();
+      const c = a.crowd;
+      const mine = c.agents[index];
+      if (!mine?.coat) return { ok: false };
+      const alt = [[0.12, 0.16, 0.30], [0.34, 0.12, 0.16], [0.16, 0.22, 0.14]];
+      const cam = a.camera.position;
+      let n = 0;
+      for (let i = 0; i < c.agents.length; i++) {
+        const other = c.agents[i];
+        if (!other?.coat || i === index || other.x > 1e5) continue;
+        if (Math.hypot(other.x - cam.x, other.z - cam.z) > 36) continue;
+        const d = Math.hypot(other.coat[0] - mine.coat[0], other.coat[1] - mine.coat[1], other.coat[2] - mine.coat[2]);
+        if (d > 0.1) continue;
+        other.coat = alt[n % alt.length];
+        n++;
+      }
+      const w = a.cams.walk;
+      if (c.__pin) c.loopKey = forgeKey(w.pos.x, w.pos.z);
+      realUpdate(0, w.pos.x, w.pos.z);
+      return { ok: true, n };
     };
     // Step the camera back along the view so a group at the edge stays in
     // frame for the next stride, without leaving the locked walker.
@@ -2391,6 +2442,15 @@ async function shoot(id, tier, allowOpen) {
     if (process.env.POUR === '1') {
       await page.evaluate(() => window.__retry.pour());
     }
+    if (process.env.ON_WALK === '1') {
+      const band = await page.evaluate((index) => window.__retry.bandOf(index), who.i);
+      note('where', { id, tier, attempt, band });
+      if (band?.band === 'road' && attempt < attempts - 1) {
+        await page.evaluate(() => window.__retry.release());
+        continue;
+      }
+    }
+    await page.evaluate((index) => window.__retry.separateCoats(index), who.i);
     if (process.env.CURB === '1' || process.env.PARK_CAR === '1') {
       const again = await page.evaluate((index) => window.__retry.frameBox(index), who.i);
       if (again?.box) locked.box = again.box;

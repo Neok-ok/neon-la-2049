@@ -128,13 +128,29 @@ function heroMaterial(palette: Texture): MeshBasicNodeMaterial {
     const close = T.smoothstep(T.float(132), T.float(100), dist);
     const tint = T.vec3(1, 0.18, 0.55);
     // Diamond head (part 5) and the raised hand (part 2) take the hot core.
-    // The skirts stay pink, so the pose separates under the scan.
+    // The three skirt widths are their own parts, each a different pink, with
+    // a white lip on the shelf. The plate's point (part 9) stays nearly black
+    // so it does not read as the dress.
     const part = T.uv(1).x;
     const isDiamond = T.step(4.5, part).mul(T.step(part, 5.5));
     const isHand = T.step(1.5, part).mul(T.step(part, 2.5));
-    const hot = T.mix(tint, T.vec3(0.94, 0.97, 1.0), T.float(0.88).mul(isDiamond.add(isHand)));
-    // Horizontal scan lines read as a ribbed crystal. The three skirt steps
-    // are the silhouette, so the cloth stays one flat pink.
+    const isLow = T.step(5.5, part).mul(T.step(part, 6.5));
+    const isMid = T.step(6.5, part).mul(T.step(part, 7.5));
+    const isUp = T.step(7.5, part).mul(T.step(part, 8.5));
+    const isStem = T.step(8.5, part).mul(T.step(part, 9.5));
+    const yGeom = T.positionGeometry.y;
+    const lip = T.smoothstep(0.4, 0.05, T.abs(yGeom.sub(16.3)))
+      .add(T.smoothstep(0.4, 0.05, T.abs(yGeom.sub(18.1))))
+      .add(T.smoothstep(0.4, 0.05, T.abs(yGeom.sub(28.3))))
+      .add(T.smoothstep(0.4, 0.05, T.abs(yGeom.sub(30.1))));
+    let cloth = tint;
+    cloth = T.mix(cloth, T.vec3(0.45, 0.06, 0.18), isLow);
+    cloth = T.mix(cloth, T.vec3(1.0, 0.45, 0.78), isMid);
+    cloth = T.mix(cloth, T.vec3(0.72, 0.12, 0.38), isUp);
+    cloth = T.mix(cloth, T.vec3(0.95, 0.92, 1.0), T.clamp(lip, 0, 1).mul(isLow.add(isMid).add(isUp)));
+    cloth = T.mix(cloth, T.vec3(0.05, 0.02, 0.03), isStem);
+    const hot = T.mix(cloth, T.vec3(0.94, 0.97, 1.0), T.float(0.88).mul(isDiamond.add(isHand)));
+    // Horizontal scan lines read as a ribbed crystal. The steps are the silhouette.
     const scan = T.float(1);
     const bucket = T.floor(U.time.mul(6));
     const fh = T.hash(bucket);

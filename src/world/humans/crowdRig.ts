@@ -202,6 +202,11 @@ function crowdMaterial(palette: Texture, atlas: Texture): MeshStandardNodeMateri
   pos = T.mix(T.vec3(0.32, 1.2, 0.05), pos, show(T.float(1).sub(umbrella), isAR));
   pos = T.mix(T.vec3(0.28, 1.15, 0.08), pos, show(umbrella, isRain));
   pos = T.mix(T.vec3(0, 1.62, 0.05), pos, show(maskOn.mul(T.float(1).sub(style.x)), isMask));
+  // People waiting under an awning still shift their weight. A frozen arm
+  // in a walking street reads as a statue. Walkers (amp 1) keep the clip.
+  const idle = T.sin(motion.x.mul(6.28318)).mul(T.float(0.42)).mul(T.clamp(T.float(1).sub(motion.y), 0, 1));
+  const nudge = T.vec3(idle, idle.mul(0.12), idle.mul(0.28));
+  pos = pos.add(nudge.mul(isAL)).sub(nudge.mul(isAR));
 
   const setup = m.setupPosition.bind(m);
   m.setupPosition = (builder) => {
