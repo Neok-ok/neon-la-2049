@@ -1,6 +1,6 @@
 # Neon LA queue — late night, Monday 12 October 2026
 
-About 11:10 PM ET. `main` is `b9eff00`, the evening queue note (#75). Times below are America/New_York.
+About 11:10 PM ET. `main` is `b9eff00`, the evening queue note (#75). Times below are America/New_York. A later snapshot, about 11:35 PM, is [queue-2026-10-12-1135.md](queue-2026-10-12-1135.md). #45 merged at 11:19 PM, after the paragraphs below were written.
 
 The readable copy is [queue-2026-10-12-late-night.html](queue-2026-10-12-late-night.html). The 6:40 PM picture is [queue-2026-10-12-evening.md](queue-2026-10-12-evening.md).
 
