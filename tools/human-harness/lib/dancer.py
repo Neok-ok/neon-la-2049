@@ -94,8 +94,28 @@ def _band(poly, y0, y1, step):
     return tuple(left + right[::-1])
 
 
-def _loft_band(mesh, poly, y0, y1, segs, part, bone_at, color, z_at, step):
-    band = _band(poly, y0, y1, step)
+def _loft_band(mesh, poly, y0, y1, segs, part, bone_at, color, z_at, step, cap_half=None):
+    """Loft a plate slice. cap_half flattens a skirt tier inside the plate so the
+    street sees a shelf, not the plate's continuous taper."""
+    if cap_half is None:
+        band = _band(poly, y0, y1, step)
+    else:
+        ys = []
+        y = y0
+        while y < y1 - 1e-4:
+            ys.append(round(y, 4))
+            y += step
+        ys.append(round(y1, 4))
+        left, right = [], []
+        for y in ys:
+            span = x_span(poly, y)
+            if span is None:
+                continue
+            plate = min(-span[0], span[1])
+            h = min(plate, cap_half)
+            left.append((round(-h, 4), y))
+            right.append((round(h, 4), y))
+        band = tuple(left + right[::-1]) if len(left) >= 2 else None
     if band is None:
         return
     loft(mesh, band, z_at, segs, part, bone_at, color, (0.0, 0.0, 1.0, 1.0), y_extra=_samples(band, step))
@@ -128,24 +148,18 @@ def build_dancer(lod='high'):
     step = 1.15 if lod == 'medium' else 0.7
     segs = 8 if lod == 'medium' else 10
     body = DANCER_BIND['body']
-    # Three skirt steps. The slots are 0.4 m creases, so the street sees one
-    # dress and the steps still break the silhouette. The 13.2 m flare at
-    # 21.6 m sits inside the middle step. The head and the raised hand stay
-    # their own parts. The hand still ends at 64.4 m.
+    # Three skirt steps. Each tier is a flat width, clamped inside the plate,
+    # with a 0.4 m slot between tiers. The middle tier keeps the 13.2 m flare
+    # at 21.6 m. The lower and upper tiers are columns, so the shelves read
+    # from the street instead of one tapering cone. The head and the raised
+    # hand stay their own parts. The hand still ends at 64.4 m.
     skirts = (
-        (0.2, 18.2, 1),
-        (18.6, 30.0, 1),
-        (30.4, 38.2, 1),
+        (0.2, 18.2, 1, 2.45),
+        (18.6, 30.0, 1, 6.6),
+        (30.4, 38.2, 1, 2.05),
     )
-    for y0, y1, part in skirts:
-        _loft_band(mesh, body, y0, y1, segs, part, _bone_body, PINK, _body_z, step)
-        veil = _veil_piece(y0 + 0.3, y1 - 0.3)
-        if veil is not None:
-            loft(
-                mesh, veil, lambda y: _inside(y, 0.35, -0.2), 4, 4,
-                lambda _y: BI['veil'], CORE, (0.0, 0.0, 1.0, 1.0),
-                y_extra=_samples(veil, step),
-            )
+    for y0, y1, part, cap in skirts:
+        _loft_band(mesh, body, y0, y1, segs, part, _bone_body, PINK, _body_z, step, cap)
     _loft_band(mesh, body, 38.6, 50.6, segs, 1, _bone_body, PINK, _body_z, step)
     # Part 5 is the diamond, so the hero shader can lift it off the pink body.
     # A short neck keeps the head a separate part without floating it.

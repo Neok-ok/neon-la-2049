@@ -209,10 +209,37 @@ async function boot(quality) {
             }
           }
           if (pull.parkOverlap) {
-            const mb = pull.index * 16;
-            const me = ndc(arr[mb + 12], arr[mb + 13] + 1.2, arr[mb + 14]);
-            const them = ndc(arr[b + 12], arr[b + 13] + 1.1, arr[b + 14]);
-            if (me && them && Math.abs(them.x - me.x) < 0.12 && Math.abs(them.y - me.y) < 0.38) {
+            let clash = false;
+            const ax = arr[b + 12];
+            const ay = arr[b + 13];
+            const az = arr[b + 14];
+            const them = ndc(ax, ay + 1.1, az);
+            const themHead = ndc(ax, ay + 1.7, az);
+            const themFeet = ndc(ax, ay + 0.05, az);
+            const spanA = themHead && themFeet ? Math.abs(themHead.y - themFeet.y) : 0.2;
+            for (const j of pull.ids) {
+              if (j === i) continue;
+              const jb = j * 16;
+              if (arr[jb + 12] > 1e6) continue;
+              const bx = arr[jb + 12];
+              const by = arr[jb + 13];
+              const bz = arr[jb + 14];
+              const other = ndc(bx, by + 1.1, bz);
+              const oHead = ndc(bx, by + 1.7, bz);
+              const oFeet = ndc(bx, by + 0.05, bz);
+              const spanB = oHead && oFeet ? Math.abs(oHead.y - oFeet.y) : 0.2;
+              const near = Math.hypot(ax - bx, az - bz);
+              const dx = them && other ? Math.abs(them.x - other.x) : 1;
+              const half = Math.max(0.05, spanA * 0.22) + Math.max(0.05, spanB * 0.22) + 0.04;
+              const yOverlap = them && other && Math.abs(them.y - other.y) < (spanA + spanB) * 0.45;
+              // Shoulder-to-shoulder pairs still share a silhouette when the
+              // centres are just over a metre apart. Park the companion.
+              if (near < 1.85 || (dx < half && yOverlap)) {
+                clash = true;
+                break;
+              }
+            }
+            if (clash) {
               arr[b + 12] = 1e7;
               continue;
             }
@@ -357,6 +384,164 @@ async function boot(quality) {
       pull.parkOverlap = true;
       applyWalkPull();
       return { ok: true, n: pull.ids.length };
+    };
+    H.plantScaleCar = (index) => {
+      const a = app();
+      const me = people().find((p) => p.i === index);
+      if (!me) return { ok: false, reason: 'lost' };
+      let mesh = null;
+      a.scene.traverse((o) => {
+        if (!mesh && o.isInstancedMesh && o.name === 'ground-car') mesh = o;
+      });
+      if (!mesh) return { ok: false, reason: 'no-car' };
+      // A car beside a 3 m portrait fills the lens and reads as a black slab.
+      // Step back until the walker and a side-on car share the frame.
+      {
+        const dx = me.x - a.camera.position.x;
+        const dz = me.z - a.camera.position.z;
+        const dist = Math.hypot(dx, dz) || 1;
+        if (dist < 7.2) {
+          const ux = dx / dist;
+          const uz = dz / dist;
+          const nd = 8.4;
+          const px = me.x - ux * nd;
+          const pz = me.z - uz * nd;
+          const gy = a.query.groundHeight(px, pz);
+          if (Math.abs(gy - me.y) < 2.2 && !a.query.insideSolid(px, gy + 1.3, pz, 0.4, true)) {
+            const yaw = Math.atan2(me.x - px, -(me.z - pz));
+            const pitch = Math.atan2((me.y + 1.05 * me.s) - (gy + 1.35), nd);
+            apply(px, pz, gy, yaw, pitch);
+          }
+        }
+      }
+      const cam = a.camera;
+      const e = cam.matrixWorld.elements;
+      let rx = e[0];
+      let rz = e[2];
+      const rl = Math.hypot(rx, rz) || 1;
+      rx /= rl; rz /= rl;
+      let fx = -e[8];
+      let fz = -e[10];
+      const fl = Math.hypot(fx, fz) || 1;
+      fx /= fl; fz /= fl;
+      const head = ndc(me.x, me.y + 1.7 * me.s, me.z);
+      const feet = ndc(me.x, me.y + 0.05, me.z);
+      const person = head && feet ? Math.abs(head.y - feet.y) : 0;
+      if (person < 0.2) return { ok: false, reason: 'small', person };
+      let spot = null;
+      for (const sign of [1, -1]) {
+        for (const side of [4.2, 5.4, 3.4, 6.6]) {
+          const x = me.x + rx * sign * side;
+          const z = me.z + rz * sign * side;
+          const gy = a.query.groundHeight(x, z);
+          if (Math.abs(gy - me.y) > 1.6) continue;
+          if (a.query.insideSolid(x, gy + 0.8, z, 0.35, true)) continue;
+          const dCar = Math.hypot(x - cam.position.x, z - cam.position.z);
+          const dMe = Math.hypot(me.x - cam.position.x, me.z - cam.position.z);
+          if (dCar < dMe - 1.4) continue;
+          const roof = ndc(x, gy + 1.35, z);
+          const tyre = ndc(x, gy + 0.15, z);
+          const nose = ndc(x + rx * sign * 2.3, gy + 0.7, z + rz * sign * 2.3);
+          const tail = ndc(x - rx * sign * 2.3, gy + 0.7, z - rz * sign * 2.3);
+          if (!roof || !tyre || !nose || !tail) continue;
+          const w = Math.abs(nose.x - tail.x);
+          const h = Math.abs(roof.y - tyre.y);
+          if (w < 0.16 || w > 0.72 || h < 0.08 || h > person * 1.6) continue;
+          if (Math.abs(roof.x) > 0.82 || tyre.y < -0.88 || roof.y > 0.72) continue;
+          if (head && (roof.x < head.x + 0.08 && roof.x > head.x - 0.08)) continue;
+          spot = { x, z, y: gy + 0.02, h, w, side: sign * side };
+          break;
+        }
+        if (spot) break;
+      }
+      if (!spot) return { ok: false, reason: 'no-spot', person: Math.round(person * 100) / 100 };
+      let proof = mesh.userData.doorProof;
+      if (!proof || proof.userData.srcGeo !== mesh.geometry) {
+        if (proof) {
+          a.scene.remove(proof);
+          proof.geometry.dispose();
+        }
+        const geo = mesh.geometry.clone();
+        geo.computeBoundingBox();
+        const color = geo.getAttribute('color');
+        const emit = geo.getAttribute('emit');
+        if (color && emit) {
+          for (let i = 0; i < color.count; i++) {
+            if (emit.getX(i) < 0.5) color.setXYZ(i, 0.72, 0.74, 0.78);
+          }
+          color.needsUpdate = true;
+        }
+        let sample = null;
+        a.scene.traverse((o) => {
+          if (!sample && o.isMesh && !o.isInstancedMesh) sample = o;
+        });
+        if (!sample) return { ok: false, reason: 'no-sample' };
+        proof = new sample.constructor(geo, mesh.material);
+        proof.name = 'scale-car-proof';
+        proof.frustumCulled = false;
+        proof.userData.srcGeo = mesh.geometry;
+        a.scene.add(proof);
+        mesh.userData.doorProof = proof;
+      }
+      const back = cam.position.clone().set(0, 0, -1);
+      // Long side toward the lens, so the car's height reads next to the walker.
+      const aim = cam.position.clone().set(rx, 0, rz);
+      if (aim.lengthSq() < 1e-6) aim.set(1, 0, 0);
+      aim.normalize();
+      proof.position.set(spot.x, spot.y, spot.z);
+      proof.quaternion.setFromUnitVectors(back, aim);
+      proof.scale.set(1, 1, 1);
+      proof.visible = true;
+      proof.updateMatrix();
+      a.scene.traverse((o) => {
+        if (!o.isInstancedMesh) return;
+        if (o.name === 'traffic-pools' || (o.name && o.name.startsWith('ground-'))) {
+          o.count = 0;
+          o.visible = false;
+        }
+      });
+      return { ok: true, side: Math.round(spot.side * 10) / 10, h: Math.round(spot.h * 100) / 100 };
+    };
+    H.pour = () => {
+      const a = app();
+      const w = a.atmosphere?.weather;
+      if (!w?.params || !a.rain) return { ok: false };
+      w.params.rain = 1;
+      const dir = w.windDir || 0;
+      for (let i = 0; i < 4; i++) {
+        a.rain.update(0.05, a.camera.position, 1, w.params.wind || 5, dir, a.quality.rainCount);
+      }
+      a.rain.mesh.visible = true;
+      return { ok: true };
+    };
+    // Stand in the carriageway so the curb sits between the lens and the walker.
+    H.revealCurb = (index) => {
+      const p = people().find((q) => q.i === index);
+      if (!p) return { ok: false, reason: 'lost' };
+      const agent = app().crowd.agents[index];
+      const cls = classify(p.x, p.z, agent?.yaw || 0);
+      if (!cls) return { ok: false, reason: 'no-street' };
+      const road = Math.max(2.2, cls.carriage * 0.42);
+      let best = null;
+      for (const along of [3.4, -3.4, 5.2, -5.2, 1.4]) {
+        const px = cls.ex + cls.rx * cls.sign * road + cls.efx * along;
+        const pz = cls.ez + cls.rz * cls.sign * road + cls.efz * along;
+        const dist = Math.hypot(p.x - px, p.z - pz);
+        if (dist < 3.4 || dist > 12) continue;
+        const gy = app().query.groundHeight(px, pz);
+        if (Math.abs(gy - p.y) > 1.8) continue;
+        if (app().query.insideSolid(px, gy + 1.3, pz, 0.55, true)) continue;
+        if (!clear(px, pz, gy) || !line(px, pz, p.x, p.z, gy)) continue;
+        const aimY = p.y + 1.05 * (p.s || 1);
+        const eye = gy + 1.35;
+        const yaw = Math.atan2(p.x - px, -(p.z - pz));
+        const pitch = Math.atan2(aimY - eye, dist);
+        best = { px, pz, gy, yaw, pitch, dist };
+        break;
+      }
+      if (!best) return { ok: false, reason: 'no-stand', abs: Math.round(cls.absSide * 10) / 10 };
+      apply(best.px, best.pz, best.gy, best.yaw, best.pitch);
+      return { ok: true, dist: Math.round(best.dist * 10) / 10 };
     };
     H.facingView = (index) => {
       const a = app();
@@ -1425,9 +1610,14 @@ async function boot(quality) {
       // instead of stopping with a run of floors above it.
       // The raised hand is about 64 m, above the 0.86 sample. Aim a little
       // under that so the hand sits in the signs and the hem stays on the street.
-      const lookY = hem + spec.h * (scale ? 0.33 : 0.40);
+      // Side of the street, not straight down the canyon. A head-on shot
+      // shrinks the hem to the vanishing point, so a person standing there
+      // disappears and the signs sit in the foreground instead of beside her.
+      const lookY = hem + spec.h * (scale ? 0.36 : 0.40);
+      // Stay near the front. Past about 70° the 1.8 m depth reads as a needle
+      // and the three skirt steps disappear.
       const sides = scale
-        ? [0, 0.35, -0.35, 0.65, -0.65, 0.15, -0.15, Math.PI]
+        ? [0.4, -0.4, 0.62, -0.62, 0.22, -0.22, 0.08, -0.08]
         : [0, Math.PI, 1.15, -1.15, 2.0, -2.0, 0.55, -0.55];
       let placed = null;
       let lastFit = null;
@@ -1469,33 +1659,55 @@ async function boot(quality) {
           crown: crownN ? Math.round(crownN.y * 100) / 100 : null,
         };
         const fits = hemN && crownN
-          && hemN.y > -0.88 && crownN.y < 0.9
-          && Math.abs(hemN.x) < 0.55 && Math.abs(crownN.x) < 0.55
-          && span > 0.9 && span < 1.7;
+          && hemN.y > (scale ? -0.94 : -0.88) && crownN.y < 0.92
+          && Math.abs(hemN.x) < 0.62 && Math.abs(crownN.x) < 0.62
+          && span > (scale ? 0.82 : 0.9) && span < 1.75;
         if (!fits) { reject.fit++; continue; }
         let score = span;
         let beside = 0;
+        let witnessH = 0;
         if (scale) {
-          // Hand in the upper sign band, hem low enough to meet the street,
-          // and the figure near the centre so the blades sit beside her.
-          if (crownN.y < 0.62 || crownN.y > 0.9 || hemN.y > -0.55 || Math.abs(side) > 0.7) {
+          // Full figure, hem in the lower half, crown among the signs rather
+          // than a run of floors above them.
+          if (crownN.y < 0.38 || crownN.y > 0.9 || hemN.y > -0.32 || hemN.y < -0.92) {
             reject.scale++; continue;
           }
           const midX = (crownN.x + hemN.x) * 0.5;
+          let signTop = -1;
           for (const s of blades) {
             const top = ndc(s.x, s.y + s.h * 0.5, s.z);
             const bot = ndc(s.x, s.y - s.h * 0.5, s.z);
             if (!top || !bot) continue;
             const sx = (top.x + bot.x) * 0.5;
             const gap = Math.abs(sx - midX);
-            const tall = top.y - bot.y;
-            if (gap > 0.05 && gap < 0.62 && tall > 0.12 && top.y > 0.05) beside += Math.min(s.h, 16);
+            const overlapY = Math.min(top.y, crownN.y) - Math.max(bot.y, hemN.y);
+            if (gap > 0.06 && gap < 0.58 && overlapY > 0.12) {
+              beside += overlapY * Math.min(s.h, 18);
+              if (top.y > signTop) signTop = top.y;
+            }
           }
-          // Crown high, hem low, a blade sign in the frame beside her.
-          score = crownN.y * 3 + (-hemN.y) * 2 + span + Math.min(beside, 40) * 0.04 - Math.abs(midX) * 0.5 - Math.abs(side) * 0.8;
+          const tx = nz;
+          const tz = -nx;
+          const midY = hem + spec.h * 0.32;
+          const left = ndc(spec.x + tx * 6.2, midY, spec.z + tz * 6.2);
+          const right = ndc(spec.x - tx * 6.2, midY, spec.z - tz * 6.2);
+          const wide = left && right ? Math.abs(left.x - right.x) : 0;
+          if (wide < 0.18) {
+            reject.scale++; continue;
+          }
+          const preview = witnessPreview(spec, hem, px, pz);
+          witnessH = preview?.h || 0;
+          // A person has to stand at the hem, large enough to read, and a
+          // sign has to share her height. A crown floating above the blades
+          // does not show scale.
+          if (witnessH < 0.032 || !preview?.besideHem) {
+            reject.scale++; continue;
+          }
+          const over = signTop > -0.5 ? Math.max(0, crownN.y - signTop - 0.12) : 0.55;
+          score = wide * 4 + beside * 0.05 + witnessH * 14 + span * 0.25 - over * 3.2 - Math.abs(midX) * 0.2;
         }
         if (!placed || score > placed.score) {
-          placed = { px, pz, gy, eyeY, yaw, pitch, side, score, span, beside, hem: hemN.y, crown: crownN.y };
+          placed = { px, pz, gy, eyeY, yaw, pitch, side, score, span, beside, hem: hemN.y, crown: crownN.y, witnessH };
         }
         if (!scale) break;
       }
@@ -1534,56 +1746,105 @@ async function boot(quality) {
         hem: placed.hem == null ? null : Math.round(placed.hem * 100) / 100,
         crown: placed.crown == null ? null : Math.round(placed.crown * 100) / 100,
         beside: placed.beside || 0,
+        score: placed.score,
         witness,
       };
     };
+    function witnessPreview(spec, hem, px, pz) {
+      const spot = hemSpot(spec, hem, px, pz);
+      if (!spot) return null;
+      return { h: spot.h, besideHem: true };
+    }
+    function hemSpot(spec, hem, px, pz) {
+      const dx = px - spec.x;
+      const dz = pz - spec.z;
+      const len = Math.hypot(dx, dz) || 1;
+      const rx = -dz / len;
+      const rz = dx / len;
+      const q = app().query;
+      let best = null;
+      for (const lat of [6.2, 8.4, 4.6, 10.5]) {
+        for (const sign of [1, -1]) {
+          const x = spec.x + (dx / len) * 2.6 + rx * lat * sign;
+          const z = spec.z + (dz / len) * 2.6 + rz * lat * sign;
+          const y = q.groundHeight(x, z);
+          if (Math.abs(y - hem) > 4) continue;
+          if (q.insideSolid(x, y + 0.9, z, 0.35, true)) continue;
+          const head = ndc(x, y + 1.75, z);
+          const feet = ndc(x, y + 0.05, z);
+          const hemN = ndc(spec.x, hem + 0.5, spec.z);
+          if (!head || !feet || !hemN) continue;
+          const h = Math.abs(head.y - feet.y);
+          const off = Math.abs(feet.x - hemN.x);
+          const besideHem = Math.abs(feet.y - hemN.y) < 0.24 && off > 0.03 && off < 0.4
+            && Math.abs(feet.x) < 0.88 && feet.y > -0.96 && feet.y < 0.15;
+          if (!besideHem || h < 0.028) continue;
+          const rank = h * 10 - off;
+          if (!best || rank > best.rank) {
+            best = { x, z, y, yaw: Math.atan2(px - x, pz - z), h, besideHem: true, rank };
+          }
+        }
+      }
+      return best;
+    }
     function parkWitness(spec, hem, px, pz, beside) {
       const c = app().crowd;
       const agent = c.agents && c.agents[0];
       const mesh = c.mesh;
       if (!agent || !mesh || !c.motionAttr) return null;
-      const dx = px - spec.x;
-      const dz = pz - spec.z;
-      const len = Math.hypot(dx, dz) || 1;
-      // Beside the hem, and a few metres toward the camera, so the 1.8 m
-      // witness is not standing under the skirt. The lateral step puts them
-      // next to the sign wall the scale frame is built around.
-      const camDist = Math.hypot(px - spec.x, pz - spec.z);
-      // A witness at the hem is a few pixels under a 64 m figure. Standing
-      // about 14 m from the camera, off to the side, makes that person readable
-      // against the signs and the hem.
-      const fwd = beside ? Math.max(8, camDist - 14) : 3.4;
-      const lat = beside ? 9 : 0;
-      const rx = -dz / len;
-      const rz = dx / len;
-      const x = spec.x + (dx / len) * fwd + rx * lat;
-      const z = spec.z + (dz / len) * fwd + rz * lat;
-      const gy = app().query.groundHeight(x, z);
-      const yaw = Math.atan2(px - x, pz - z);
-      const sc = agent.height / 1.8;
-      const cos = Math.cos(yaw);
-      const sin = Math.sin(yaw);
+      const spot = hemSpot(spec, hem, px, pz);
+      if (!spot) return null;
+      const x = spot.x;
+      const z = spot.z;
+      const gy = spot.y;
+      const yaw = spot.yaw;
+      const placeOne = (index, wx, wz, face) => {
+        const sc = (c.agents[index]?.height || agent.height) / 1.8;
+        const cos = Math.cos(face);
+        const sin = Math.sin(face);
+        const b = index * 16;
+        arr[b] = cos * sc; arr[b + 1] = 0; arr[b + 2] = -sin * sc; arr[b + 3] = 0;
+        arr[b + 4] = 0; arr[b + 5] = sc; arr[b + 6] = 0; arr[b + 7] = 0;
+        arr[b + 8] = sin * sc; arr[b + 9] = 0; arr[b + 10] = cos * sc; arr[b + 11] = 0;
+        const gyI = app().query.groundHeight(wx, wz);
+        arr[b + 12] = wx; arr[b + 13] = gyI; arr[b + 14] = wz; arr[b + 15] = 1;
+        const motion = c.motionAttr.array;
+        motion[index * 4] = 0.25; motion[index * 4 + 1] = 1; motion[index * 4 + 2] = 0; motion[index * 4 + 3] = 0;
+        if (c.agents[index]) {
+          c.agents[index].x = wx;
+          c.agents[index].z = wz;
+          c.agents[index].yaw = face;
+          c.agents[index].cycle = 0.25;
+        }
+        return ndc(wx, gyI + 1.7, wz);
+      };
       const arr = mesh.instanceMatrix.array;
-      arr[0] = cos * sc; arr[1] = 0; arr[2] = -sin * sc; arr[3] = 0;
-      arr[4] = 0; arr[5] = sc; arr[6] = 0; arr[7] = 0;
-      arr[8] = sin * sc; arr[9] = 0; arr[10] = cos * sc; arr[11] = 0;
-      arr[12] = x; arr[13] = gy; arr[14] = z; arr[15] = 1;
-      if (mesh.count < 1) mesh.count = 1;
+      const hemScreen = placeOne(0, x, z, yaw);
+      // One person, at the hem. A second figure closer to the lens reads as
+      // the witness and the hem looks empty.
+      mesh.count = 1;
       mesh.instanceMatrix.needsUpdate = true;
-      const motion = c.motionAttr.array;
-      motion[0] = 0.25; motion[1] = 1; motion[2] = 0; motion[3] = 0;
       c.motionAttr.needsUpdate = true;
-      if (c.extraAttr) {
-        c.extraAttr.array[3] = 1;
-        c.extraAttr.needsUpdate = true;
+      if (c.coatAttr) {
+        c.coatAttr.array[0] = 0.84;
+        c.coatAttr.array[1] = 0.72;
+        c.coatAttr.array[2] = 0.42;
+        c.coatAttr.needsUpdate = true;
       }
-      agent.x = x; agent.z = z; agent.yaw = yaw; agent.cycle = 0.25;
-      const screen = ndc(x, gy + 1.7, z);
+      if (c.styleAttr) {
+        c.styleAttr.array[0] = 0;
+        c.styleAttr.array[1] = 1;
+        c.styleAttr.array[2] = 0;
+        c.styleAttr.array[3] = 0;
+        c.styleAttr.needsUpdate = true;
+      }
+      window.__replantWitness = () => parkWitness(spec, hem, px, pz, beside);
       return {
         x: Math.round(x), z: Math.round(z), y: Math.round(gy * 10) / 10, hem: Math.round(hem),
-        screen: screen ? { x: Math.round(screen.x * 100) / 100, y: Math.round(screen.y * 100) / 100 } : null,
+        screen: hemScreen ? { x: Math.round(hemScreen.x * 100) / 100, y: Math.round(hemScreen.y * 100) / 100 } : null,
       };
     }
+    H.replantWitness = () => window.__replantWitness?.() || null;
     const DANCER_PERIOD = 6.28318530718 / 1.2;
     function lockDancerTime(phase) {
       const a = app();
@@ -2044,7 +2305,9 @@ async function shoot(id, tier, allowOpen) {
       continue;
     }
     const who = movers[attempt % movers.length];
-    if (process.env.BLOCK_FACE === '1' && who.wall > 16) {
+    // nearestWall reports 40 when it found nothing. That is not a far wall;
+    // faceStand can still put the walker on a facade the probe missed.
+    if (process.env.BLOCK_FACE === '1' && who.wall > 16 && who.wall < 39) {
       note('far-wall', { id, tier, attempt, wall: who.wall });
       continue;
     }
@@ -2109,6 +2372,29 @@ async function shoot(id, tier, allowOpen) {
       const parked = await page.evaluate((index) => window.__retry.parkEdge(index), who.i);
       note('park-edge', { id, tier, attempt, parked });
     }
+    if (process.env.CURB === '1') {
+      const curb = await page.evaluate((index) => window.__retry.revealCurb(index), who.i);
+      note('curb-stand', { id, tier, attempt, curb });
+      if (!curb?.ok && attempt < attempts - 1) {
+        await page.evaluate(() => window.__retry.release());
+        continue;
+      }
+    }
+    if (process.env.PARK_CAR === '1') {
+      const car = await page.evaluate((index) => window.__retry.plantScaleCar(index), who.i);
+      note('scale-car', { id, tier, attempt, car });
+      if (!car?.ok) {
+        await page.evaluate(() => window.__retry.release());
+        continue;
+      }
+    }
+    if (process.env.POUR === '1') {
+      await page.evaluate(() => window.__retry.pour());
+    }
+    if (process.env.CURB === '1' || process.env.PARK_CAR === '1') {
+      const again = await page.evaluate((index) => window.__retry.frameBox(index), who.i);
+      if (again?.box) locked.box = again.box;
+    }
     await page.evaluate(() => window.__retry.hold());
     await frames();
     const tmp0 = `${OUT}/.tmp-${id}-${tier}-f0.png`;
@@ -2122,6 +2408,76 @@ async function shoot(id, tier, allowOpen) {
     };
     const legs = bodyStats(tmp0, legBox);
     note('body', { id, tier, attempt, std: Math.round((stats.std || 0) * 10) / 10, span: Math.round(stats.span || 0), mean: Math.round(stats.mean || 0), legs: Math.round(legs.span || 0) });
+    if (process.env.POLE === '1') {
+      const pole = spawnSync('python3', ['-c', `
+import json, sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert('RGB')
+w, h = im.size
+px = im.load()
+dark = []
+for x in range(int(w * 0.32), int(w * 0.68)):
+    n = 0
+    tot = 0
+    for y in range(0, int(h * 0.72), 2):
+        tot += 1
+        r, g, b = px[x, y]
+        if r + g + b < 36:
+            n += 1
+    if tot and n / tot > 0.55:
+        dark.append(x)
+hit = 0
+if dark:
+    run = 1
+    best = 1
+    for i in range(1, len(dark)):
+        if dark[i] == dark[i - 1] + 1:
+            run += 1
+            if run > best:
+                best = run
+        else:
+            run = 1
+    hit = best
+print(json.dumps({"hit": hit}))
+`, tmp0], { encoding: 'utf8' });
+      const bar = pole.status === 0 ? JSON.parse(pole.stdout) : { hit: 0 };
+      note('pole', { id, tier, attempt, ...bar });
+      if ((bar.hit || 0) >= 14 && attempt < attempts - 1) {
+        await page.evaluate(() => window.__retry.release());
+        continue;
+      }
+    }
+    if (process.env.CURB === '1') {
+      const edge = spawnSync('python3', ['-c', `
+import json, sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert('RGB')
+w, h = im.size
+px = im.load()
+rows = []
+for y in range(int(h * 0.42), h - 2, 2):
+    s = n = 0
+    for x in range(int(w * 0.12), int(w * 0.88), 4):
+        r, g, b = px[x, y]
+        s += (r + g + b) / 3.0
+        n += 1
+    rows.append(s / max(1, n))
+best = 0
+for i in range(2, len(rows) - 2):
+    a = (rows[i - 2] + rows[i - 1]) * 0.5
+    b = (rows[i + 1] + rows[i + 2]) * 0.5
+    d = abs(b - a)
+    if d > best:
+        best = d
+print(json.dumps({"edge": round(best, 1)}))
+`, tmp0], { encoding: 'utf8' });
+      const curb = edge.status === 0 ? JSON.parse(edge.stdout) : { edge: 0 };
+      note('curb-edge', { id, tier, attempt, ...curb });
+      if ((curb.edge || 0) < 16 && attempt < attempts - 1) {
+        await page.evaluate(() => window.__retry.release());
+        continue;
+      }
+    }
     if (process.env.NO_WEDGE === '1') {
       const wedge = spawnSync('python3', ['-c', `
 import json, sys
@@ -2607,7 +2963,7 @@ print(json.dumps({"warm": round(s / max(1, n), 1)}))
     if (process.env.SIDE_VIEW === '1') {
       const side = await page.evaluate((index) => window.__retry.facingView(index), who.i);
       note('side-view', { id, tier, attempt, side });
-      if (side && Math.abs(side.dot) > 0.48 && attempt < attempts - 1) {
+      if (side && Math.abs(side.dot) > 0.66 && attempt < attempts - 1) {
         await page.evaluate(() => window.__retry.release());
         continue;
       }
@@ -2664,7 +3020,8 @@ print(json.dumps({"warm": round(s / max(1, n), 1)}))
       const span = still?.head && still?.feet ? Math.abs(still.head.y - still.feet.y) : 0;
       const mid = still?.head && still?.feet ? Math.abs((still.head.x + still.feet.x) * 0.5) : 1;
       note('still', { id, tier, attempt, span: Math.round(span * 100) / 100, mid: Math.round(mid * 100) / 100 });
-      if (!still?.head || span < 0.4 || mid > 0.48 || still.feet.y < -0.92) {
+      const minSpan = process.env.PARK_CAR === '1' ? 0.2 : process.env.CURB === '1' ? 0.24 : 0.4;
+      if (!still?.head || span < minSpan || mid > 0.48 || still.feet.y < -0.92) {
         await page.evaluate(() => window.__retry.release());
         continue;
       }
@@ -2743,17 +3100,14 @@ async function district(id, fn, kinds, tier) {
 async function dancerStrip(name, id) {
   let framed = null;
   const scale = true;
-  const dists = scale ? [62, 70, 54, 78, 86] : [62, 74, 54, 78];
+  const dists = scale ? [42, 48, 56, 64, 74] : [62, 74, 54, 78];
   const order = [];
   for (const dist of dists) {
     const trial = await page.evaluate(({ id, dist, scale }) => window.__retry.frameDancer(id, dist, scale), { id, dist, scale });
     note('dancer frame', { name, framed: trial });
     if (trial?.ok && trial.shown) order.push({ dist, trial });
   }
-  if (scale) {
-    const rank = (t) => (t.crown || 0) * 3 + (-(t.hem || 0)) * 2 + (t.span || 0) + Math.min(t.beside || 0, 40) * 0.04 - Math.abs(t.side || 0) * 0.8;
-    order.sort((a, b) => rank(b.trial) - rank(a.trial));
-  }
+  if (scale) order.sort((a, b) => (b.trial.score || 0) - (a.trial.score || 0));
   for (const cand of order) {
     const dist = cand.dist;
     framed = await page.evaluate(({ id, dist, scale }) => window.__retry.frameDancer(id, dist, scale), { id, dist, scale });
@@ -2802,6 +3156,7 @@ print(n, top / h, bot / h)
     }
     await frames();
     await page.evaluate(() => window.__pinDancerCam?.());
+    await page.evaluate(() => window.__retry.replantWitness?.());
     await page.evaluate(() => window.__nla.app.dancer.update(window.__nla.app.camera.position));
     await page.waitForTimeout(80);
     await page.screenshot({ path: `${OUT}/${name}-f${f}.png`, timeout: 180000, animations: 'disabled' });

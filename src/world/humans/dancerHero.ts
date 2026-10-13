@@ -133,10 +133,9 @@ function heroMaterial(palette: Texture): MeshBasicNodeMaterial {
     const isDiamond = T.step(4.5, part).mul(T.step(part, 5.5));
     const isHand = T.step(1.5, part).mul(T.step(part, 2.5));
     const hot = T.mix(tint, T.vec3(0.94, 0.97, 1.0), T.float(0.88).mul(isDiamond.add(isHand)));
-    const sweep = T.fract(T.uv().y.mul(18).sub(U.time.mul(0.7)));
-    const line = T.smoothstep(0.08, 0.4, sweep).mul(T.smoothstep(0.62, 0.92, sweep).oneMinus());
-    // A deep scan sliced the dress into plates. Keep a faint shimmer.
-    const scan = T.mix(T.float(0.9), T.float(1), line);
+    // Horizontal scan lines read as a ribbed crystal. The three skirt steps
+    // are the silhouette, so the cloth stays one flat pink.
+    const scan = T.float(1);
     const bucket = T.floor(U.time.mul(6));
     const fh = T.hash(bucket);
     const flick = T.mix(T.float(1), T.float(0.72), T.step(fh, 0.14)).add(T.step(0.975, fh).mul(0.35));
