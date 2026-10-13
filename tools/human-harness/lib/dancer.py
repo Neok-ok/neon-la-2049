@@ -148,24 +148,18 @@ def build_dancer(lod='high'):
     step = 1.15 if lod == 'medium' else 0.7
     segs = 8 if lod == 'medium' else 10
     body = DANCER_BIND['body']
-    # Three skirt steps. Each tier is a flat width, clamped inside the plate,
-    # with a 0.4 m slot between tiers. The middle tier keeps the 13.2 m flare
-    # at 21.6 m. The lower and upper tiers are columns, so the shelves read
-    # from the street instead of one tapering cone. The head and the raised
-    # hand stay their own parts. The hand still ends at 64.4 m.
-    # The plate ends in a point. That point stays a dark stem. The dress above
-    # it is three flat columns, so the street sees shelves instead of one spike.
-    # Part 9 is the stem. Parts 6, 7, 8 are the three widths. The middle tier
-    # keeps the 13.2 m flare. The head and the raised hand stay their own parts.
-    # The tiers overlap so the street cannot see sky between them. The upper
-    # skirt used to stop a metre under the bodice, and that slot read as two
-    # stacked blocks. The bodice now starts inside the upper skirt. The point
-    # stays a dark stem. The hand still ends at 64.4 m.
-    _loft_band(mesh, body, 0.4, 6.5, segs, 9, _bone_body, PINK, _body_z, step)
+    # Three skirt bones, each one the plate's own width. Clamping the hem and
+    # the waist into skinny columns left a shelf, and the street camera looked
+    # up under it, so the torso, the flare, and the hem read as three blocks.
+    # The plate already changes width: about 4 m at the hem, 13.2 m at 21.6 m,
+    # and about 4.5 m at the waist. The bands overlap so a sway cannot open a
+    # slot. Part 9 is the point. The head and the raised hand stay their own
+    # parts. The hand still ends at 64.4 m.
+    _loft_band(mesh, body, 0.4, 4.2, segs, 9, _bone_body, PINK, _body_z, step)
     skirts = (
-        (6.0, 17.7, 6, 2.05),
-        (17.3, 29.6, 7, 6.6),
-        (29.2, 39.4, 8, 2.7),
+        (2.6, 20.4, 6, None),
+        (18.2, 31.2, 7, None),
+        (28.6, 42.0, 8, None),
     )
     for y0, y1, part, cap in skirts:
         _loft_band(mesh, body, y0, y1, segs, part, _bone_body, PINK, _body_z, step, cap)
