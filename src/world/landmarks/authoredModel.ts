@@ -11,6 +11,7 @@ import * as TSL from 'three/tsl';
 import { U } from '../../atmosphere/uniforms';
 import type { Tier } from '../../core/quality';
 import { resources } from '../../core/memory';
+import { BLOOM_THRESHOLD_NITS, NITS } from '../../lighting/presets.ts';
 import lapdHighUrl from '../../../public/models/landmarks/lapd-high.glb?url';
 import lapdMediumUrl from '../../../public/models/landmarks/lapd-medium.glb?url';
 import lapdLowUrl from '../../../public/models/landmarks/lapd-low.glb?url';
@@ -98,6 +99,11 @@ const LAMP: Record<string, Color> = {
   'light-blue': new Color(0.12, 0.28, 0.9),
 };
 
+/** MeshStandard emissive is not the nit node. A registry nit stays under bloom. */
+function underBloom(nits: number): number {
+  return nits / BLOOM_THRESHOLD_NITS;
+}
+
 function trackMap(tex: Texture | null | undefined, label: string): void {
   if (!tex) return;
   resources.tag(tex, { label, owner: 'landmarks', evictable: false });
@@ -126,7 +132,7 @@ function dressMaterial(src: Material, mesh: Mesh, kind: LandmarkKind, lod: Landm
     }));
   }
   if (role === 'mouth-stone') {
-    const intensity = lod === 'low' ? 0.12 : 0.55;
+    const intensity = lod === 'low' ? underBloom(NITS.beaconGlare) : underBloom(NITS.window);
     return resources.material(key, () => new MeshStandardNodeMaterial({
       color: 0x243038,
       roughness: 0.9,
@@ -138,7 +144,7 @@ function dressMaterial(src: Material, mesh: Mesh, kind: LandmarkKind, lod: Landm
   }
   if (role === 'portal-glow') {
     // Low keeps the mouth and drops the bloom. High stays under a clip.
-    const intensity = lod === 'low' ? 0.12 : 0.48;
+    const intensity = lod === 'low' ? underBloom(NITS.beaconGlare) : underBloom(NITS.lampHead) * 0.96;
     return resources.material(key, () => new MeshStandardNodeMaterial({
       color: 0x1a0c06,
       roughness: 0.55,
@@ -150,7 +156,10 @@ function dressMaterial(src: Material, mesh: Mesh, kind: LandmarkKind, lod: Landm
   }
   if (role.startsWith('light-')) {
     const emissive = (LAMP[role] ?? LAMP['light-amber']!).clone();
-    const intensity = lod === 'low' && kind === 'wallace' ? 0.15 : 0.7;
+    // 16 nits is half the bloom threshold. The extra gain keeps a sconce readable and still under 1.
+    const intensity = lod === 'low' && kind === 'wallace'
+      ? underBloom(NITS.beaconGlare) * 1.41
+      : underBloom(NITS.lampHead) * 1.4;
     return resources.material(key, () => new MeshStandardNodeMaterial({
       color: 0x14110e,
       roughness: 0.45,
@@ -161,7 +170,7 @@ function dressMaterial(src: Material, mesh: Mesh, kind: LandmarkKind, lod: Landm
     }));
   }
   if (role === 'glass-warm') {
-    const intensity = lod === 'low' ? 0.06 : 0.16;
+    const intensity = lod === 'low' ? underBloom(NITS.neonReflection) : underBloom(NITS.lampHead) * 0.32;
     return resources.material(key, () => new MeshStandardNodeMaterial({
       color: 0x140c08,
       roughness: 0.4,
@@ -190,7 +199,7 @@ function dressMaterial(src: Material, mesh: Mesh, kind: LandmarkKind, lod: Landm
       m.transparent = false;
       m.opacity = 1;
       m.emissive = new Color(0.03, 0.025, 0.02);
-      m.emissiveIntensity = 0.04;
+      m.emissiveIntensity = underBloom(NITS.groundCarpet) * 0.64;
       m.color = new Color(0.03, 0.028, 0.024);
       m.roughness = 0.42;
       m.metalness = 0.08;
