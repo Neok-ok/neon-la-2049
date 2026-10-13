@@ -59,7 +59,11 @@ function sidewalkLoop(query: CityQuery, x: number, z: number): Array<[number, nu
   const street = query.layout.districtAt(px, pz).grid.street;
   const profile = streetProfile(street, e.lane, e.kind === 'canyon' ? 'canyon' : 'street');
   if (profile.sidewalk < 1.2) return null;
-  const lat = side * (profile.carriageHalf + CURB_W + Math.min(1.6, profile.sidewalk * 0.55));
+  // The inner 1.6 m of this sidewalk is the asphalt in the night frames.
+  // Stand in the outer walk, short of the building line, so the shoes
+  // are on the slab and the lane paint stays on the street side.
+  const inset = Math.min(profile.sidewalk - 0.55, Math.max(1.15, profile.sidewalk * 0.78));
+  const lat = side * (profile.carriageHalf + CURB_W + inset);
   const pts: Array<[number, number]> = [];
   for (const along of [-18, -6, 6, 18]) {
     const t = bestT + along / Math.max(8, e.length);

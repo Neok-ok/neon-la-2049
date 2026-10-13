@@ -163,12 +163,96 @@ async function boot(quality) {
       }
       return out;
     }
+    function applyWalkPull() {
+      const pull = window.__walkPull;
+      if (!pull) return;
+      const a = app();
+      const mesh = a.crowd.mesh;
+      const arr = mesh.instanceMatrix.array;
+      const origin = a.crowd.agents[pull.index];
+      const plen = Math.hypot(pull.ox, pull.oz) || 1;
+      for (const i of pull.ids) {
+        const agent = a.crowd.agents[i];
+        if (!agent) continue;
+        const b = i * 16;
+        // Someone still streetward of the locked walker stays in the lane.
+        // Park them off the shot so the frame is the sidewalk group.
+        if (origin && i !== pull.index) {
+          const streetward = -((agent.x - origin.x) * pull.ox + (agent.z - origin.z) * pull.oz) / plen;
+          if (streetward > 1.1) {
+            arr[b + 12] = 1e7;
+            continue;
+          }
+        }
+        const x = agent.x + pull.ox;
+        const z = agent.z + pull.oz;
+        arr[b + 12] = x;
+        arr[b + 13] = a.query.groundHeight(x, z) + 0.162;
+        arr[b + 14] = z;
+      }
+      mesh.instanceMatrix.needsUpdate = true;
+    }
     function realUpdate(dt, x, z) {
       const a = app();
       const c = a.crowd;
       const fn = c.__realUpdate || c.update.bind(c);
       fn(dt, x, z, a.query, a.quality, rain(), a.elapsed, a.cams.walk.heading);
+      applyWalkPull();
     }
+    // The lens stands on the lit slab and the shoes are one curb streetward.
+    // Slide the nearby group sideways toward that slab. A pull along the
+    // view just enlarges them until they crop. The sim keeps the path; the
+    // draw adds the offset back after every step.
+    H.pullGroup = (index, step) => {
+      const c = app().crowd;
+      const agent = c.agents[index];
+      const cam = app().camera.position;
+      if (!agent) return { ok: false };
+      const fx = Math.sin(agent.yaw || 0);
+      const fz = Math.cos(agent.yaw || 0);
+      const dx = cam.x - agent.x;
+      const dz = cam.z - agent.z;
+      const dot = dx * fx + dz * fz;
+      let lx = dx - fx * dot;
+      let lz = dz - fz * dot;
+      let llen = Math.hypot(lx, lz);
+      if (llen < 0.25) {
+        lx = fz;
+        lz = -fx;
+        llen = 1;
+      }
+      if (!window.__walkPull || window.__walkPull.index !== index) {
+        const ids = [];
+        for (let i = 0; i < c.agents.length; i++) {
+          const o = c.agents[i];
+          if (!o) continue;
+          if (Math.hypot(o.x - agent.x, o.z - agent.z) < 12) ids.push(i);
+        }
+        window.__walkPull = { ox: 0, oz: 0, ids, index };
+      }
+      const pull = window.__walkPull;
+      const along = Math.hypot(pull.ox, pull.oz);
+      if (along > 3.2) return { ok: false, reason: 'far', along };
+      const add = Math.min(step, 3.4 - along);
+      const addx = (lx / llen) * add;
+      const addz = (lz / llen) * add;
+      pull.ox += addx;
+      pull.oz += addz;
+      // Slide the lens with the group so they stay framed while the slab
+      // comes under the shoes. A sideways pull alone walks them out of frame.
+      const a = app();
+      a.camera.position.x += addx;
+      a.camera.position.z += addz;
+      a.cams.walk.pos.x += addx;
+      a.cams.walk.pos.z += addz;
+      const gy = a.query.groundHeight(a.camera.position.x, a.camera.position.z);
+      const eye = a.camera.position.y - a.cams.walk.pos.y;
+      a.cams.walk.pos.y = gy;
+      a.camera.position.y = gy + (eye > 0.4 ? eye : 1.7);
+      a.camera.updateMatrixWorld();
+      applyWalkPull();
+      return { ok: true, along: Math.round((along + add) * 10) / 10, n: pull.ids.length };
+    };
     function forgeKey(x, z) {
       const a = app();
       const c = a.crowd;
@@ -208,6 +292,7 @@ async function boot(quality) {
       c.__pin = false;
       window.__pinDancerCam = null;
       window.__dancerPose = null;
+      window.__walkPull = null;
       if (c.__realUpdate) c.update = c.__realUpdate;
       if (a.cams.walk.__realUpdate) a.cams.walk.update = a.cams.walk.__realUpdate;
       if (a.ground?.__realUpdate) a.ground.update = a.ground.__realUpdate;
@@ -608,12 +693,18 @@ async function boot(quality) {
           if (!c) continue;
           if (!street || c.absSide < street.abs) street = { s, abs: c.absSide };
         }
-        const sx = rx * (street ? street.s : 1);
-        const sz = rz * (street ? street.s : 1);
+        // Streetward puts the lens in the lane and the walker on the far curb.
+        // Building-side stands on the same walk as the person.
+        let sideS = street ? street.s : 1;
+        if (window.__camBuilding) sideS = -sideS;
+        const sx = rx * sideS;
+        const sz = rz * sideS;
         for (const lat of [1.15, 1.7, 2.2, 2.7]) {
           for (const along of [0, -0.35, 0.35, -1.6, 1.6, -2.8, 2.8]) {
             consider(p.x + sx * lat + fx * along, p.z + sz * lat + fz * along, false);
-            consider(p.x - sx * lat + fx * along, p.z - sz * lat + fz * along, false);
+            if (!window.__camBuilding) {
+              consider(p.x - sx * lat + fx * along, p.z - sz * lat + fz * along, false);
+            }
           }
         }
       }
@@ -758,6 +849,7 @@ async function boot(quality) {
         band: best.band,
         feet: info?.band || 'none',
         face: Math.round((p.faceDot || 0) * 100) / 100,
+        building: !!window.__camBuilding,
       };
     };
     H.ahead = (who) => {
@@ -776,6 +868,14 @@ async function boot(quality) {
         }
       }
       return { ok: true };
+    };
+    H.frameBox = (index) => {
+      const p = people().find((q) => q.i === index);
+      if (!p) return null;
+      const head = ndc(p.x, p.y + 1.72 * p.s, p.z);
+      const feet = ndc(p.x, p.y + 0.04, p.z);
+      if (!head || !feet) return null;
+      return { head, feet, box: screenBox(head, feet) };
     };
     H.lock = (index) => {
       const a = app();
@@ -842,7 +942,7 @@ async function boot(quality) {
       // instead of stopping with a run of floors above it.
       // The raised hand is about 64 m, above the 0.86 sample. Aim a little
       // under that so the hand sits in the signs and the hem stays on the street.
-      const lookY = hem + spec.h * (scale ? 0.36 : 0.40);
+      const lookY = hem + spec.h * (scale ? 0.33 : 0.40);
       const sides = scale
         ? [0, 0.35, -0.35, 0.65, -0.65, 0.15, -0.15, Math.PI]
         : [0, Math.PI, 1.15, -1.15, 2.0, -2.0, 0.55, -0.55];
@@ -965,8 +1065,12 @@ async function boot(quality) {
       // Beside the hem, and a few metres toward the camera, so the 1.8 m
       // witness is not standing under the skirt. The lateral step puts them
       // next to the sign wall the scale frame is built around.
-      const fwd = beside ? 6.5 : 3.4;
-      const lat = beside ? 4.2 : 0;
+      const camDist = Math.hypot(px - spec.x, pz - spec.z);
+      // A witness at the hem is a few pixels under a 64 m figure. Standing
+      // about 14 m from the camera, off to the side, makes that person readable
+      // against the signs and the hem.
+      const fwd = beside ? Math.max(8, camDist - 14) : 3.4;
+      const lat = beside ? 9 : 0;
       const rx = -dz / len;
       const rz = dx / len;
       const x = spec.x + (dx / len) * fwd + rx * lat;
@@ -1233,6 +1337,50 @@ async function boot(quality) {
         mat.compose(pos, quat, scl);
         return projectCar();
       };
+      // Ultra was finding the walker down the block and leaving the opening empty.
+      // Drop one in the threshold before the car is parked, so the sedan clears them.
+      const nearDoor = pick.person
+        && Math.abs((pick.person.n?.x ?? 9) - pick.doorN.x) < 0.22
+        && Math.abs((pick.person.n?.y ?? 9) - pick.doorN.y) < 0.38;
+      let planted = null;
+      if (!nearDoor) {
+        const c = a.crowd;
+        const agent = c.agents && c.agents[0];
+        const mesh = c.mesh;
+        if (agent && mesh && c.motionAttr) {
+          const dx = pick.px - door.x;
+          const dz = pick.pz - door.z;
+          const len = Math.hypot(dx, dz) || 1;
+          for (const out of [0.7, 1.15, 1.6]) {
+            const x = door.x + (dx / len) * out;
+            const z = door.z + (dz / len) * out;
+            const gy = a.query.groundHeight(x, z);
+            if (a.query.insideSolid(x, gy + 1.05, z, 0.18, true)) continue;
+            const yaw = Math.atan2(pick.px - x, -(pick.pz - z));
+            const sc = agent.height / 1.8;
+            const cos = Math.cos(yaw);
+            const sin = Math.sin(yaw);
+            const arr = mesh.instanceMatrix.array;
+            arr[0] = cos * sc; arr[1] = 0; arr[2] = -sin * sc; arr[3] = 0;
+            arr[4] = 0; arr[5] = sc; arr[6] = 0; arr[7] = 0;
+            arr[8] = sin * sc; arr[9] = 0; arr[10] = cos * sc; arr[11] = 0;
+            arr[12] = x; arr[13] = gy; arr[14] = z; arr[15] = 1;
+            if (mesh.count < 1) mesh.count = 1;
+            mesh.instanceMatrix.needsUpdate = true;
+            const motion = c.motionAttr.array;
+            motion[0] = 0.25; motion[1] = 1; motion[2] = 1; motion[3] = 0;
+            c.motionAttr.needsUpdate = true;
+            agent.x = x; agent.z = z; agent.yaw = yaw; agent.cycle = 0.25;
+            const screen = ndc(x, gy + 1.6, z);
+            planted = {
+              x: Math.round(x), z: Math.round(z), out,
+              screen: screen ? { x: Math.round(screen.x * 100) / 100, y: Math.round(screen.y * 100) / 100 } : null,
+            };
+            pick.person = { d: Math.round(out * 10) / 10, n: screen, planted: true };
+            break;
+          }
+        }
+      }
       let spot = null;
       const rejected = [];
       const px = pick.person?.n?.x;
@@ -1354,7 +1502,7 @@ async function boot(quality) {
       }
       const parked = stamp();
       if (parked?.ok) pick.car = { name: parked.name, parked: true, x: parked.x, z: parked.z, n: parked.n };
-      return { ok: true, dist: pick.dist, lat: pick.lat, doorN: pick.doorN, car: pick.car, person: pick.person, parked };
+      return { ok: true, dist: pick.dist, lat: pick.lat, doorN: pick.doorN, car: pick.car, person: pick.person, parked, planted };
     };
     window.__retry = H;
   });
@@ -1384,17 +1532,19 @@ async function go(fn, kind) {
 async function shoot(id, tier, allowOpen) {
   const reach = 220;
   const attempts = Number(process.env.ATTEMPTS || '8');
-  await page.evaluate(({ want, loose, headMax, side }) => {
+  await page.evaluate(({ want, loose, headMax, side, camBuilding }) => {
     window.__wantShort = want;
     window.__loose = loose;
     window.__headMax = headMax;
     if (side) window.__sideBase = side;
     window.__side = window.__sideBase || 1.45;
+    window.__camBuilding = camBuilding;
   }, {
     want: process.env.WANT_SHORT === '1',
     loose: process.env.LOOSE === '1',
     headMax: Number(process.env.HEAD_MAX || '0.92'),
     side: process.env.SIDE ? Number(process.env.SIDE) : 0,
+    camBuilding: process.env.CAM_BUILDING === '1',
   });
   for (let attempt = 0; attempt < attempts; attempt++) {
     const movers = await page.evaluate((r) => window.__retry.movers(r), reach);
@@ -1694,6 +1844,84 @@ print(json.dumps({"feet": round(hit / max(1, n), 3), "frame": round(fw / max(1, 
         continue;
       }
     }
+    if (process.env.FEET_ON === '1') {
+      // The band under the box is the nearer ground, which can be the sidewalk
+      // while the shoes stand on the lane. Sample beside the shoes, at their row.
+      const curb = spawnSync('python3', ['-c', `
+import json, sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert('RGB')
+w, h = im.size
+px = im.load()
+x0, y0, x1, y1 = [float(v) for v in sys.argv[2:6]]
+fy = min(h - 2, max(0, int(y1 * h)))
+def mean(xa, xb, ya, yb):
+    s = n = 0
+    for y in range(max(0, ya), min(h, yb)):
+        for x in range(max(0, xa), min(w, xb)):
+            r, g, b = px[x, y]
+            s += (r + g + b) / 3.0
+            n += 1
+    return s / max(1, n)
+bx0, bx1 = int(x0 * w), int(x1 * w)
+beside = mean(bx0 - 36, bx0 - 4, fy - 8, fy + 6)
+if beside <= 0:
+    beside = mean(bx1 + 4, bx1 + 36, fy - 8, fy + 6)
+below = mean(bx0 - 10, bx1 + 10, fy + 18, fy + 48)
+print(json.dumps({"beside": round(beside, 1), "below": round(below, 1)}))
+`, tmp0, String(locked.box.x0), String(locked.box.y0), String(locked.box.x1), String(locked.box.y1)], { encoding: 'utf8' });
+      const feet = curb.status === 0 ? JSON.parse(curb.stdout) : { beside: 80, below: 80 };
+      note('underfeet', { id, tier, attempt, ...feet });
+      let pulls = 0;
+      let surface = feet;
+      let footBox = locked.box;
+      const onLane = (s) => {
+        if (s.beside >= 90) return false;
+        if (s.below > 20 && s.beside + 24 < s.below && s.beside < 82) return true;
+        // Ultra night crushes the slab and the lane to the same dark value.
+        // Once the slide has happened and the two samples agree, the shoes
+        // are on the slab the lens is standing on.
+        if (pulls >= 2 && Math.abs(s.beside - s.below) < 16 && s.beside >= 28) return false;
+        return s.beside < 38;
+      };
+      while (onLane(surface) && pulls < 3) {
+        const pulled = await page.evaluate((index) => window.__retry.pullGroup(index, 1.15), who.i);
+        note('pull', { id, tier, attempt, pulls, pulled });
+        if (!pulled?.ok) break;
+        pulls += 1;
+        const framed = await page.evaluate((index) => window.__retry.frameBox(index), who.i);
+        if (framed?.box) footBox = framed.box;
+        await frames();
+        await page.screenshot({ path: tmp0, timeout: 180000, animations: 'disabled' });
+        const again = spawnSync('python3', ['-c', `
+import json, sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert('RGB')
+w, h = im.size
+px = im.load()
+x0, y0, x1, y1 = [float(v) for v in sys.argv[2:6]]
+fy = min(h - 2, max(0, int(y1 * h)))
+def mean(xa, xb, ya, yb):
+    s = n = 0
+    for y in range(max(0, ya), min(h, yb)):
+        for x in range(max(0, xa), min(w, xb)):
+            r, g, b = px[x, y]
+            s += (r + g + b) / 3.0
+            n += 1
+    return s / max(1, n)
+bx0, bx1 = int(x0 * w), int(x1 * w)
+beside = mean(bx0 - 36, bx0 - 4, fy - 8, fy + 6)
+below = mean(bx0 - 10, bx1 + 10, fy + 18, fy + 48)
+print(json.dumps({"beside": round(beside, 1), "below": round(below, 1)}))
+`, tmp0, String(footBox.x0), String(footBox.y0), String(footBox.x1), String(footBox.y1)], { encoding: 'utf8' });
+        surface = again.status === 0 ? JSON.parse(again.stdout) : surface;
+        note('underfeet', { id, tier, attempt, pull: pulls, ...surface });
+      }
+      if (onLane(surface)) {
+        await page.evaluate(() => window.__retry.release());
+        continue;
+      }
+    }
     if (process.env.SEE_GROUND === '1') {
       const ground = bodyStats(tmp0, { x0: 0.08, x1: 0.92, y0: 0.62, y1: 0.98 });
       note('see-ground', { id, tier, attempt, mean: Math.round(ground.mean || 0) });
@@ -1792,7 +2020,7 @@ async function district(id, fn, kinds, tier) {
 
 async function dancerStrip(name, id) {
   let framed = null;
-  const scale = name.includes('broadway');
+  const scale = true;
   const dists = scale ? [62, 70, 54, 78, 86] : [62, 74, 54, 78];
   const order = [];
   for (const dist of dists) {

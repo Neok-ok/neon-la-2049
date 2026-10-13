@@ -174,10 +174,12 @@ def sway_offsets(time):
         'head': lead * 5.1,
         'armUp': lead * 4.8,
         'armOut': lead * 2.4,
-        'skirtL': skirt * 0.9,
-        'skirtM': skirt * 1.8,
-        'skirtU': skirt * 2.6,
-        'veil': skirt * 2.4,
+        # The hem used to stay nearly still while the chest travelled 5 m,
+        # so the steps looked like separate signs. They travel with the bend.
+        'skirtL': skirt * 3.6,
+        'skirtM': skirt * 4.2,
+        'skirtU': skirt * 4.8,
+        'veil': skirt * 4.0,
     }
 
 
