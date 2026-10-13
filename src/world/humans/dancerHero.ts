@@ -139,15 +139,13 @@ function heroMaterial(palette: Texture): MeshBasicNodeMaterial {
     const isUp = T.step(7.5, part).mul(T.step(part, 8.5));
     const isStem = T.step(8.5, part).mul(T.step(part, 9.5));
     const yGeom = T.positionGeometry.y;
-    const lip = T.smoothstep(0.4, 0.05, T.abs(yGeom.sub(16.3)))
-      .add(T.smoothstep(0.4, 0.05, T.abs(yGeom.sub(18.1))))
-      .add(T.smoothstep(0.4, 0.05, T.abs(yGeom.sub(28.3))))
-      .add(T.smoothstep(0.4, 0.05, T.abs(yGeom.sub(30.1))));
+    const lip = T.smoothstep(0.35, 0.04, T.abs(yGeom.sub(17.5)))
+      .add(T.smoothstep(0.35, 0.04, T.abs(yGeom.sub(29.4))));
     let cloth = tint;
-    cloth = T.mix(cloth, T.vec3(0.45, 0.06, 0.18), isLow);
-    cloth = T.mix(cloth, T.vec3(1.0, 0.45, 0.78), isMid);
-    cloth = T.mix(cloth, T.vec3(0.72, 0.12, 0.38), isUp);
-    cloth = T.mix(cloth, T.vec3(0.95, 0.92, 1.0), T.clamp(lip, 0, 1).mul(isLow.add(isMid).add(isUp)));
+    cloth = T.mix(cloth, T.vec3(0.78, 0.14, 0.4), isLow);
+    cloth = T.mix(cloth, T.vec3(1.0, 0.32, 0.66), isMid);
+    cloth = T.mix(cloth, T.vec3(0.88, 0.18, 0.48), isUp);
+    cloth = T.mix(cloth, T.vec3(1.0, 0.62, 0.82), T.clamp(lip, 0, 1).mul(0.55));
     cloth = T.mix(cloth, T.vec3(0.05, 0.02, 0.03), isStem);
     const hot = T.mix(cloth, T.vec3(0.94, 0.97, 1.0), T.float(0.88).mul(isDiamond.add(isHand)));
     // Horizontal scan lines read as a ribbed crystal. The steps are the silhouette.

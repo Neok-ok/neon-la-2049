@@ -157,22 +157,27 @@ def build_dancer(lod='high'):
     # it is three flat columns, so the street sees shelves instead of one spike.
     # Part 9 is the stem. Parts 6, 7, 8 are the three widths. The middle tier
     # keeps the 13.2 m flare. The head and the raised hand stay their own parts.
-    _loft_band(mesh, body, 0.4, 5.6, segs, 9, _bone_body, PINK, _body_z, step)
+    # The tiers overlap by a third of a metre so the street cannot see sky
+    # between them. The color change is the shelf. The point stays a dark stem.
+    _loft_band(mesh, body, 0.4, 6.5, segs, 9, _bone_body, PINK, _body_z, step)
     skirts = (
-        (7.2, 16.4, 6, 2.05),
-        (18.0, 28.4, 7, 6.6),
-        (30.0, 37.6, 8, 2.0),
+        (6.0, 17.7, 6, 2.05),
+        (17.3, 29.6, 7, 6.6),
+        (29.2, 37.6, 8, 2.0),
     )
     for y0, y1, part, cap in skirts:
         _loft_band(mesh, body, y0, y1, segs, part, _bone_body, PINK, _body_z, step, cap)
-    _loft_band(mesh, body, 38.6, 50.6, segs, 1, _bone_body, PINK, _body_z, step)
-    # Part 5 is the diamond, so the hero shader can lift it off the pink body.
-    # A short neck keeps the head a separate part without floating it.
-    _loft_band(mesh, body, 51.1, 59.2, max(6, segs - 2), 5, lambda _y: BI['head'], PINK, _body_z, step * 0.8)
-    loft(
-        mesh, DANCER_BIND['armUp'], lambda y: _inside(y, 0.7, 0.05), max(4, segs // 2), 2,
-        lambda _y: BI['armUp'], CORE, (0.0, 0.0, 1.0, 1.0),
-        y_extra=_samples(DANCER_BIND['armUp'], step),
+    _loft_band(mesh, body, 38.6, 51.2, segs, 1, _bone_body, PINK, _body_z, step)
+    # Part 5 is the diamond. It overlaps the chest so the neck is not a hole.
+    _loft_band(mesh, body, 50.4, 59.2, max(6, segs - 2), 5, lambda _y: BI['head'], PINK, _body_z, step * 0.8)
+    # The sleeve stays pink and meets the chest. Only the hand above it is the white part.
+    _loft_band(
+        mesh, DANCER_BIND['armUp'], 47.0, 55.0, max(4, segs // 2), 1,
+        lambda _y: BI['armUp'], PINK, lambda y: _inside(y, 0.7, 0.05), step,
+    )
+    _loft_band(
+        mesh, DANCER_BIND['armUp'], 54.2, 64.4, max(4, segs // 2), 2,
+        lambda _y: BI['armUp'], CORE, lambda y: _inside(y, 0.7, 0.05), step,
     )
     loft(
         mesh, DANCER_BIND['armOut'], lambda y: _inside(y, 0.55, 0.0), 4, 3,

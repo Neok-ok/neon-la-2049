@@ -430,7 +430,7 @@ async function boot(quality) {
       if (person < 0.2) return { ok: false, reason: 'small', person };
       let spot = null;
       for (const sign of [1, -1]) {
-        for (const side of [4.2, 5.4, 3.4, 6.6]) {
+        for (const side of [6.4, 7.6, 8.8]) {
           const x = me.x + rx * sign * side;
           const z = me.z + rz * sign * side;
           const gy = a.query.groundHeight(x, z);
