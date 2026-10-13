@@ -94,8 +94,8 @@ export class SmokeField {
   private pool: Pool = createPool(0);
   private geo: BufferGeometry | null = null;
   private mesh: Mesh | null = null;
-  private readonly volume: Mesh;
-  private readonly puffs: InstancedMesh;
+  private volume: Mesh | null = null;
+  private puffs: InstancedMesh | null = null;
   private tier: Tier = 'low';
   private emitters: Emitter[] = [];
   private anchorX = 1e9;
@@ -127,15 +127,20 @@ export class SmokeField {
     } else {
       this.pool = createPool(0);
     }
-    this.volume = launchVolumeMesh();
-    this.puffs = puffVolumeMesh();
-    scene.add(this.volume, this.puffs);
+    if (SMOKE_LAUNCH_VOLUME) {
+      this.volume = launchVolumeMesh();
+      scene.add(this.volume);
+    }
+    if (SMOKE_MANHOLE_VOLUME || SMOKE_EXHAUST_VOLUME) {
+      this.puffs = puffVolumeMesh();
+      scene.add(this.puffs);
+    }
   }
 
   conceal(): void {
     if (this.mesh) this.mesh.visible = false;
-    this.volume.visible = false;
-    this.puffs.visible = false;
+    if (this.volume) this.volume.visible = false;
+    if (this.puffs) this.puffs.visible = false;
   }
 
   snapshot(): SmokeSnapshot {
@@ -143,8 +148,8 @@ export class SmokeField {
     return {
       particles: this.pool.n,
       emitters: this.emitters.length,
-      draws: (this.mesh?.visible ? 1 : 0) + (this.volume.visible ? 1 : 0) + (this.puffs.visible ? 1 : 0),
-      volume: this.volume.visible,
+      draws: (this.mesh?.visible ? 1 : 0) + (this.volume?.visible ? 1 : 0) + (this.puffs?.visible ? 1 : 0),
+      volume: !!this.volume?.visible,
       launch: drive.burning || (drive.id > 0 && drive.age < 180),
       puffs: puffCount(),
       cap: this.pool.cap,
@@ -572,8 +577,8 @@ export class SmokeField {
 
   private placeVolume(drive: LaunchDrive, tier: Tier): void {
     const alive = drive.id > 0 && drive.age > 0.2 && drive.age < 200;
-    if (!SMOKE_LAUNCH_VOLUME || !volumeActive(tier) || !alive) {
-      this.volume.visible = false;
+    if (!SMOKE_LAUNCH_VOLUME || !this.volume || !volumeActive(tier) || !alive) {
+      if (this.volume) this.volume.visible = false;
       volDensity.value = 0;
       return;
     }
@@ -658,7 +663,7 @@ export class SmokeField {
 
   private writeLights(drive: LaunchDrive, camX: number, camZ: number): void {
     const lights: PunctualInput[] = [];
-    if (drive.burning && drive.id > 0) {
+    if (SMOKE_LAUNCH_VOLUME && drive.burning && drive.id > 0) {
       lights.push({ preset: 'flare', x: drive.x, y: drive.y + 6, z: drive.z, candela: 8000, range: 64 });
       lights.push({
         preset: 'flare',

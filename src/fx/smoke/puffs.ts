@@ -201,6 +201,7 @@ export function puffCount(): number {
 }
 
 export function syncPuffs(tier: Tier, list: readonly PuffPlacement[]): void {
+  if (!mesh && list.length === 0) return;
   const draw = puffVolumeMesh();
   if (!a0 || !a1 || !a2) return;
   puffSteps.value = PUFF_STEPS[tier];

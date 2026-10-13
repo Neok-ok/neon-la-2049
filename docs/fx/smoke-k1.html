@@ -28,29 +28,23 @@
   <p>Graphics tier is how the plume is drawn. The memory budget is how much stays resident. Ultra stays selectable on a phone and does not allocate the ultra particle buffer on a low device. Rules: <a href="../perf/MEMORY-RULES.html">MEMORY-RULES.html</a>.</p>
 
   <h2>What is in the picture</h2>
+  <p>Nothing from this pass. Billboard cards and the ray-marched prototypes are both behind flags in <code>src/fx/smoke/flags.ts</code>, and every flag is off. A poor still does not go into the city. The flame ribbon in <code>launch.ts</code> is unchanged. Kit steam gain stays 0.</p>
+  <p>The volume code is still in the repo. It is an original march, not a copied shader and not a downloaded flipbook.</p>
   <ul>
-    <li>One camera-facing billboard field in <code>src/fx/smoke</code>. Eight kinds share it: vent, manhole, roof, stall, barrel, stack, exhaust, and the launch column and ground cloud.</li>
-    <li>The stamp is an original flipbook, baked once from the same value noise as the curl field. Density in alpha, a tangent normal in the colour. No downloaded art. The rim is torn so a card is not a hard disc, and the core stays dense so a street puff still reads at night.</li>
-    <li>High and ultra add a short ray march for the launch only. Four steps on high, six on ultra. One noise sample and one in-scatter lookup per ray. Low and medium stay on billboards.</li>
-    <li>The launch flame ribbon in <code>src/districts/lax-spaceport/launch.ts</code> is the existing hot core. Smoke is the body around it. The ribbon is not rewritten into the lighting registry.</li>
-    <li>Street emitters are gathered near the camera from the block grid. Heroes for the market, the refinery gate, and the stacks are placed in the smoke catalog so district files stay untouched.</li>
+    <li><strong>Launch.</strong> One box around the pad. The fragment marches a finite vertical cylinder, Beer–Lambert, one low-frequency noise tap per step, one in-scatter sample per ray. Steps are 3 / 4 / 5 / 6 by tier. The sheath was meant to be the body. On the burn camera it read as a searchlight.</li>
+    <li><strong>Manhole and exhaust.</strong> One instanced unit box and one material. A sheet or a wake, entered on the front face and stopped at the scene depth. The market frame did not show steam the critics would count. The avenue wakes read as lamps.</li>
+    <li>Vent, roof, stall, barrel, and stack were never converted. Their cards stay off.</li>
   </ul>
 
   <h2>Wind, rain, light, scale</h2>
+  <p>The card field still implements the behaviour below. It is not drawn. The launch practicals are written only while the launch volume flag is on, so they are not in the city either.</p>
   <p>Every puff shares <code>Weather.windDir</code> and <code>params.wind</code>. Horizontal velocity approaches <code>wind × scale × shear</code> with the existing drag time constant, then it is clamped to the weather wind so a stack cannot run away from its flare. Scales: roof 0.5, manhole 0.45, vent 0.35, stall 0.3, stack 0.22, barrel 0.2, exhaust 0.15, pad cloud 0.04. The launch column scale is 0. It leans with <code>plumeLean</code>, the same family as the flame ribbon. Curl noise (Bridson, Hourihan, Nordenstam, SIGGRAPH 2007) is the local roll on top of that target. Rain cuts loft, adds a sideways push, and shortens life. Street cards that hit a solid are aged out. Barrel, stack, and roof cards may lift onto a roof. The launch skips building tests; it is an open apron. Breath discs use the same wind at 0.08 of the weather speed and skip a cell within 5 m of a vent, manhole, or stall.</p>
   <p><code>columnRadius</code> is about 22–46 m, so the sheath sits with the 60 m LAX street. Cards are a fraction of that radius. Hot cards stay at 0.16 of the radius. The ground ring is around the pad, not chosen from the camera. The additive ribbon in <code>launch.ts</code> uses the 1800 K flare chromaticity, and the head stays hot white. The two launch practicals are pad-scale (8000 cd / 64 m and 2500 cd / 48 m).</p>
   <p>Unlit steam is the fog colour times the albedo at a small coefficient. It is not multiplied by <code>authoredLiftU</code>, so a dark grate does not glow like a window. <code>practicalLit</code> and <code>practicalInscatter</code> supply the nits, including the low-tier 34 m bake. The flat sodium hint is gone. Soot and the launch sheath add a few nits of grey, under an 18-nit window, so a stack and a pad cloud still read where no lamp reaches. Barrel and launch flares are <code>flare</code> practicals through <code>setEphemeral</code>. A crease darkens the valleys of a card. Soft particles follow the NVIDIA SDK 10 depth fade, and an empty depth buffer does not delete the field.</p>
   <p>Cards thin with distance. The atlas is one texture, not an uncompressed copy beside a KTX2. Particle buffers and the billboard geometry are allocated for the tier that is showing, and rebuilt when the tier changes. The constructor starts at the low cap.</p>
 
   <h2>Tiers</h2>
-  <table>
-    <tr><th>Tier</th><th>Cards</th><th>Launch ground</th><th>Launch column</th><th>Volume steps</th><th>Gather</th></tr>
-    <tr><td>Low</td><td>96</td><td>14</td><td>0</td><td>0</td><td>48 m</td></tr>
-    <tr><td>Medium</td><td>320</td><td>32</td><td>40</td><td>0</td><td>80 m</td></tr>
-    <tr><td>High</td><td>520</td><td>56</td><td>72</td><td>4</td><td>120 m</td></tr>
-    <tr><td>Ultra</td><td>720</td><td>80</td><td>110</td><td>6</td><td>150 m</td></tr>
-  </table>
-  <p>Low draws the pad cloud and does not draw the column, so the kilometre ribbon is not a string of beads. Low also calls <code>practicalLit</code>, which on that tier is the 34 m sodium bake, not a flat hint on every card. Low spawns no ground traffic, so the tailpipe wake is a medium-and-up feature. There is no hard frame-rate gate. SwiftShader at 1280×720 is noisy: a cold shader compile and a warm frame are different numbers. On this revision, high launch drew 124 calls with the volume on (72 column cards, 47 ground) and the fps sample was a compile hitch at 0.35. The stack shot, a cheap sky, was 19 fps and 98 draws. Low launch was 60 fps and 74 draws, volume off, 0 column cards and 11 ground cards. Street shots sat at about 0.4–4 fps and 108–155 draws because of the crowd and the compile. <code>npm run memory:check</code> and <code>npm run stray</code> pass. Smoke added no meshes. The stray “round 10 fixture” note is older than this pass.</p>
+  <p>While a volume flag is on, the launch march is 3, 4, 5, and 6 samples and a street puff is 3, 4, 4, and 5. The loops are fixed at six and five. Extra taps are masked. One noise octave. With the flags off, none of those draws are built, so a low device does not compile them. Card buffers stay unallocated for the same reason. <code>npm run memory:check</code> passes. The stray “round 10 fixture” note is older than this pass.</p>
 
   <h2>Research</h2>
   <p>The implementations are original. The formulas are the public ones.</p>
@@ -65,38 +59,22 @@
   </ol>
 
   <h2>Stills</h2>
-  <p>High tier, 1280×720, night. The golden bulb ladder in the market frame is a neon sign. Street steam is the pale column in the lane. The stack’s orange mouth is the existing burner. The launch’s orange tip is the engine.</p>
+  <p>These four frames are the volume prototypes the critics scored. They are not what the city draws now. 1280×720, night. The golden bulb ladder in the market frame is a neon sign. The orange shape on the launch is the existing flame ribbon.</p>
   <figure>
-    <img class="pair" src="stills/launch.png" alt="Launch plume, high tier">
-    <figcaption>Launch, ultra. A grey mass beside the 1800 K ribbon, warm low in the column.</figcaption>
+    <img class="pair" src="stills/launch.png" alt="Launch volume prototype, ultra">
+    <figcaption>Launch, ultra. A smooth grey cone beside the ribbon. Film read it as a searchlight with one small puff at the nozzle.</figcaption>
   </figure>
   <figure>
-    <img class="pair" src="stills/launch-low.png" alt="Launch pad cloud, low tier">
-    <figcaption>Launch, low. The column cap is 0. The grey bank is the pad cloud.</figcaption>
+    <img class="pair" src="stills/launch-low.png" alt="Launch volume prototype, low">
+    <figcaption>Launch, low. The same cone, coarser. The puff at the nozzle is gone.</figcaption>
   </figure>
   <figure>
-    <img class="pair" src="stills/market-rain.png" alt="Market street in rain">
-    <figcaption>Market rain. The grey column in the lane is the vent. The bulb ladder is the sign. The brown patch on the asphalt is the manhole.</figcaption>
+    <img class="pair" src="stills/market-rain.png" alt="Market street, volume prototype">
+    <figcaption>Market rain. The bulb ladder is the sign. The critics found no steam.</figcaption>
   </figure>
   <figure>
-    <img class="pair" src="stills/stack.png" alt="Refinery stack">
-    <figcaption>Refinery stack. A grey cap on the mouth, orange only at the lip.</figcaption>
-  </figure>
-  <figure>
-    <img class="pair" src="stills/barrel.png" alt="Barrel soot">
-    <figcaption>Gate barrel. Dark soot at the mouth, next to a 1.80 m figure.</figcaption>
-  </figure>
-  <figure>
-    <img class="pair" src="stills/stall.png" alt="Food stall steam">
-    <figcaption>Food stall. A short dark wisp between the figures. The pink lantern is the sign.</figcaption>
-  </figure>
-  <figure>
-    <img class="pair" src="stills/roof.png" alt="Rooftop steam">
-    <figcaption>Roof. A dark column off a lower slab.</figcaption>
-  </figure>
-  <figure>
-    <img class="pair" src="stills/exhaust.png" alt="Tailpipe wisp">
-    <figcaption>Traffic rain. Short grey puffs by the taillights. Low tier spawns no ground traffic, so this wake is medium and up.</figcaption>
+    <img class="pair" src="stills/exhaust.png" alt="Traffic, volume prototype">
+    <figcaption>Traffic rain. The bright ovals on the road are lights. The soft grey shapes were not accepted as exhaust.</figcaption>
   </figure>
 
   <h2>Critics</h2>
@@ -139,10 +117,21 @@
     <tr><td>Roof</td><td>2 / 4 / 2</td></tr>
     <tr><td>Exhaust</td><td>1 / 3 / 1</td></tr>
   </table>
-  <p>Overall: realism 3, technical 4, film 3. Wind, lighting, and tiers on the technical read were 4, 4, and 4. The launch is the only frame that reads as a wide grey mass with a warm core, and the critics still called the lobes. The street column is a few metres and dark. The stack is a grey cap on the mouth. The barrel is person-scale with orange at the mouth. Nothing in round 12 cleared 7.</p>
+  <p>Overall on the card stills: realism 3, technical 4, film 3. Nothing in round 12 cleared 7. Those card frames are not the pictures above.</p>
+
+  <h2>Volume critics</h2>
+  <p>Three fresh readers scored the four frames on this page. Cells are realism, technical, then film. They were not given a target. The golden bulb ladder was named as a sign. The orange launch shape was named as the existing flame.</p>
+  <table>
+    <tr><th>Effect</th><th>Realism</th><th>Technical</th><th>Film</th></tr>
+    <tr><td>Launch, ultra</td><td>2</td><td>8</td><td>4</td></tr>
+    <tr><td>Launch, low</td><td>1</td><td>7</td><td>1</td></tr>
+    <tr><td>Manhole</td><td>1</td><td>2</td><td>1</td></tr>
+    <tr><td>Exhaust</td><td>2</td><td>2</td><td>1</td></tr>
+  </table>
+  <p>Overall: realism 2, technical did not give one number for the set (lighting 8, tier step-down 7, on the launch pair alone), film 2. The technical reader scored a small cap at the nozzle and called the cone a spotlight. Film and realism scored that cone as the smoke, and both refused it. No effect cleared 7 with all three. All three volume flags are off, and the card flag stays off.</p>
 
   <h2>Where to look</h2>
-  <p>The golden bulb ladder down the market canyon is a sign. Street steam is the pale column beside the umbrella pedestrians, and the manhole is the lower patch further up the lane. The stack’s orange mouth is the existing burner. The launch’s bright tip is the engine. Exhaust is the short grey trail behind the taillights, not the rain.</p>
+  <p>In the city as shipped, do not look for this pass. The launch flame is the ribbon that was already there. The market’s golden ladder is a sign. The avenue’s white pools are headlights and lamps.</p>
 </main>
 </body>
 </html>
