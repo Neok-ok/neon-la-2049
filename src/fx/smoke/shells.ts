@@ -48,6 +48,8 @@ export interface ShellPlacement {
   peak: number;
   /** Soft-particle range, metres. */
   soft: number;
+  /** Noise cells across the card. Large curtains need a higher count. */
+  freq: number;
 }
 
 let mesh: InstancedMesh | null = null;
@@ -122,12 +124,12 @@ function shellMaterial(): MeshBasicNodeMaterial {
     const heat = sh2.x;
     const peak = sh2.y;
     const softDist = max(sh2.z, 0.2);
+    const freq = max(sh2.w, 1.5);
     const corner = uv().mul(2.0).sub(1.0);
 
-    const rise = U.time.mul(0.07);
     const flow = vec2(
-      corner.x.mul(1.35).add(seed.mul(4.7)),
-      corner.y.mul(1.55).sub(rise).add(seed.mul(2.1)),
+      corner.x.mul(freq).add(seed.mul(4.7)),
+      corner.y.mul(freq.mul(1.15)).sub(U.time.mul(0.18)).add(seed.mul(2.1)),
     );
     const e = float(0.16);
     const nL = value2(flow.sub(vec2(e, 0.0)));
@@ -144,14 +146,14 @@ function shellMaterial(): MeshBasicNodeMaterial {
     const o2 = value2(spun.mul(4.15).add(vec2(1.8, 8.6)));
     const body = o0.mul(0.52).add(o1.mul(0.31)).add(o2.mul(0.17));
 
-    const radial = length(corner.mul(vec2(0.82, 0.96)));
-    const edge = smoothstep(float(1.05), float(0.18), radial);
-    const column = smoothstep(float(1.0), float(0.22), abs(corner.x))
-      .mul(smoothstep(float(-1.02), float(-0.45), corner.y))
-      .mul(smoothstep(float(1.02), float(0.35), corner.y));
+    const radial = length(corner.mul(vec2(0.9, 1.0)));
+    const edge = smoothstep(float(1.02), float(0.42), radial);
+    const column = smoothstep(float(0.95), float(0.28), abs(corner.x))
+      .mul(smoothstep(float(-1.02), float(-0.35), corner.y))
+      .mul(smoothstep(float(1.02), float(0.42), corner.y));
     const mask = mix(column, edge, launch);
-    const veil = smoothstep(float(0.30), float(0.56), body).mul(0.42);
-    const shred = smoothstep(float(0.50), float(0.78), body);
+    const veil = smoothstep(float(0.40), float(0.64), body).mul(0.34);
+    const shred = smoothstep(float(0.60), float(0.88), body);
     const dens = max(veil, shred).mul(mask);
 
     const light = clamp(float(0.40).add(dx.mul(-2.4)).add(dy.mul(1.15)), float(0.32), float(1.0));
@@ -159,7 +161,7 @@ function shellMaterial(): MeshBasicNodeMaterial {
     const ash = vec3(0.70, 0.72, 0.74).mul(hole).mul(13.0)
       .add(vec3(0.60, 0.61, 0.64).mul(launch).mul(12.0));
     const bottom = smoothstep(float(0.2), float(-0.8), corner.y);
-    const warm = vec3(FLAME[0], FLAME[1], FLAME[2]).mul(heat).mul(bottom).mul(launch).mul(shred).mul(6.0);
+    const warm = vec3(FLAME[0], FLAME[1], FLAME[2]).mul(heat).mul(bottom).mul(launch).mul(shred).mul(4.0);
     const scatter = practicalInscatter(center).mul(0.12);
     const lit = ash.mul(light).mul(belly).add(warm).add(scatter);
 
@@ -225,7 +227,7 @@ export function syncShells(list: readonly ShellPlacement[]): void {
     const s = list[i]!;
     a0.setXYZW(i, s.x, s.y, s.z, s.halfW);
     a1.setXYZW(i, s.halfH, s.seed, s.kind, 0);
-    a2.setXYZW(i, s.heat, s.peak, s.soft, 0);
+    a2.setXYZW(i, s.heat, s.peak, s.soft, s.freq);
   }
   a0.needsUpdate = true;
   a1.needsUpdate = true;

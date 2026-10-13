@@ -28,7 +28,7 @@
   <p>Graphics tier is how the plume is drawn. The memory budget is how much stays resident. Ultra stays selectable on a phone and does not allocate the ultra particle buffer on a low device. Rules: <a href="../perf/MEMORY-RULES.html">MEMORY-RULES.html</a>.</p>
 
   <h2>What is in the picture</h2>
-  <p>Nothing from this pass. Billboard cards and the ray-marched prototypes are both behind flags in <code>src/fx/smoke/flags.ts</code>, and every flag is off. A poor still does not go into the city. The flame ribbon in <code>launch.ts</code> is unchanged. Kit steam gain stays 0.</p>
+  <p>Nothing from this pass. Billboard cards, the ray-marched prototypes, and the lit soft shells are all behind flags in <code>src/fx/smoke/flags.ts</code>, and every flag is off. A poor still does not go into the city. The flame ribbon in <code>launch.ts</code> is unchanged. Kit steam gain stays 0. The survey those shells were built from is <a href="smoke-research.md">smoke-research.md</a>.</p>
   <p>The volume code is still in the repo. It is an original march, not a copied shader and not a downloaded flipbook.</p>
   <ul>
     <li><strong>Launch.</strong> One box around the pad. The fragment marches a finite vertical cylinder, Beer–Lambert, one low-frequency noise tap per step, one in-scatter sample per ray. Steps are 3 / 4 / 5 / 6 by tier. The sheath was meant to be the body. On the burn camera it read as a searchlight.</li>
@@ -129,6 +129,28 @@
     <tr><td>Exhaust</td><td>2</td><td>2</td><td>1</td></tr>
   </table>
   <p>Overall: realism 2, technical did not give one number for the set (lighting 8, tier step-down 7, on the launch pair alone), film 2. The technical reader scored a small cap at the nozzle and called the cone a spotlight. Film and realism scored that cone as the smoke, and both refused it. No effect cleared 7 with all three. All three volume flags are off, and the card flag stays off.</p>
+
+  <h2>Shell critics</h2>
+  <p>After the volume pass, the survey recommended lit soft shells for the launch and the manhole: a few veils, three octaves of value noise, a curl offset, a density-gradient shade, premultiplied grey, and a depth fade. No downloaded art and no copied shader. The stills below were shot with <code>?smoke=shell</code>. The city flags stayed off. Cells are realism, technical, then film. The readers were not given a target. The golden bulb ladder was named as a sign. The orange shape was named as the existing flame.</p>
+  <figure>
+    <img class="pair" src="stills/shell-launch.png" alt="Launch lit soft shells, ultra">
+    <figcaption>Launch, ultra. Grey shreds beside the gantry. The orange shape is the flame ribbon.</figcaption>
+  </figure>
+  <figure>
+    <img class="pair" src="stills/shell-launch-low.png" alt="Launch lit soft shells, low">
+    <figcaption>Launch, low. A small tuft by the flame and a separate patch lower down.</figcaption>
+  </figure>
+  <figure>
+    <img class="pair" src="stills/shell-market.png" alt="Market street with shell prototype">
+    <figcaption>Market rain. The bulb ladder is the sign. The readers found no steam.</figcaption>
+  </figure>
+  <table>
+    <tr><th>Effect</th><th>Realism</th><th>Technical</th><th>Film</th></tr>
+    <tr><td>Launch, ultra</td><td>4</td><td>6</td><td>4</td></tr>
+    <tr><td>Launch, low</td><td>3</td><td>4</td><td>2</td></tr>
+    <tr><td>Manhole</td><td>0</td><td>0</td><td>0</td></tr>
+  </table>
+  <p>Overall: realism 2, technical 3, film 2. The ultra plume was read as stacked soft clumps with a repeated noise stamp, cool grey beside the flame. The low frame split into two patches. No reader found street steam. No effect cleared 7 with all three, so <code>SMOKE_LAUNCH_SHELL</code> and <code>SMOKE_MANHOLE_SHELL</code> stay off. Exhaust, vent, and stack were not built.</p>
 
   <h2>Where to look</h2>
   <p>In the city as shipped, do not look for this pass. The launch flame is the ribbon that was already there. The market’s golden ladder is a sign. The avenue’s white pools are headlights and lamps.</p>

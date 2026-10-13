@@ -695,27 +695,32 @@ export class SmokeField {
       const rx = -vz / vlen;
       const rz = vx / vlen;
       const pairs = Math.max(1, Math.ceil(n / 2));
-      const span = 125;
+      const span = 220;
       const stepH = pairs <= 1 ? 0 : span / (pairs - 1);
-      const halfH = Math.min(48, stepH * 0.72 + 6);
+      const halfH = Math.min(58, stepH * 0.62 + 10);
+      const tx = -vx / vlen;
+      const tz = -vz / vlen;
       for (let i = 0; i < n; i++) {
         const band = Math.floor(i / 2);
-        const side = i % 2 === 0 ? -1 : 1;
-        const u = pairs === 1 ? 0.4 : band / (pairs - 1);
-        const h = 12 + u * span;
+        const front = i % 2 === 0;
+        const u = pairs === 1 ? 0.45 : band / (pairs - 1);
+        const h = 24 + u * span;
         const lean = plumeLean(h, len, drive.wind);
         const rad = columnRadius(h, frame.time);
+        const ox = front ? tx * 6 : rx * rad * 0.22;
+        const oz = front ? tz * 6 : rz * rad * 0.22;
         list.push({
-          x: drive.x + Math.cos(drive.windDir) * lean + rx * side * rad * 0.55,
+          x: drive.x + Math.cos(drive.windDir) * lean + ox,
           y: drive.y + h,
-          z: drive.z + Math.sin(drive.windDir) * lean + rz * side * rad * 0.55,
-          halfW: rad * 0.62,
+          z: drive.z + Math.sin(drive.windDir) * lean + oz,
+          halfW: rad * 0.9,
           halfH,
           seed: fract(i * 0.37 + 0.21),
           kind: 1,
-          heat: Math.exp(-h / 46),
-          peak: 0.9,
-          soft: 6,
+          heat: Math.exp(-h / 70) * 0.45,
+          peak: 0.82,
+          soft: 8,
+          freq: 4.6,
         });
       }
     }
@@ -735,18 +740,19 @@ export class SmokeField {
         const wx = Math.cos(wind.dir) * Math.min(6, wind.speed) * 0.45;
         const wz = Math.sin(wind.dir) * Math.min(6, wind.speed) * 0.45;
         for (let i = 0; i < layers && list.length < 12; i++) {
-          const rise = 0.4 + i * 0.78;
+          const rise = 0.55 + i * 0.85;
           list.push({
-            x: hero.x + wx * (0.06 + i * 0.1),
+            x: hero.x + wx * (0.05 + i * 0.12),
             y: hero.y + rise,
-            z: hero.z + wz * (0.06 + i * 0.1),
-            halfW: 0.85 + i * 0.22,
-            halfH: 0.55 + i * 0.16,
+            z: hero.z + wz * (0.05 + i * 0.12),
+            halfW: 0.62 + i * 0.16,
+            halfH: 0.48 + i * 0.14,
             seed: fract(hero.x * 0.17 + hero.z * 0.31 + i * 0.19),
             kind: 0,
             heat: 0,
-            peak: 0.95 - i * 0.08,
-            soft: 0.45,
+            peak: 1,
+            soft: 0.4,
+            freq: 3.1,
           });
         }
       }
