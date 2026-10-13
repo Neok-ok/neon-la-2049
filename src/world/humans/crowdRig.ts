@@ -173,16 +173,14 @@ function crowdMaterial(palette: Texture, atlas: Texture): MeshStandardNodeMateri
     T.smoothstep(0.28, 0.64, y),
     upper,
   );
-  // The whole hem, front and back included, follows the thigh on that side.
-  // A profile shot looks at the front and back of the cloth. Leaving those on
-  // the chest while the pants swing forward is the gap under the coat.
-  // Long hem is 0.74 m. Short jacket hem is 0.96 m.
+  // The side and the front of the hem follow the thigh, so a profile does not
+  // open a gap under the cloth. The back stays on the coat bone. Letting both
+  // thighs pull the back panels apart is the pale slot down the coat.
   const hemLong = T.float(1).sub(T.smoothstep(0.74, 1.08, y));
   const hemShort = T.float(1).sub(T.smoothstep(0.96, 1.24, y));
   const isCoat = isLong.add(isShort);
-  // Opposite thighs pull the left and right hem apart and open a slot down
-  // the back. The centre cloth stays on the coat bone so the vent stays shut.
-  const hemEdge = T.smoothstep(0.05, 0.2, T.abs(rest.x));
+  const onBack = T.smoothstep(0.02, -0.08, rest.z);
+  const hemEdge = T.smoothstep(0.08, 0.22, T.abs(rest.x)).mul(T.float(1).sub(onBack));
   const coatW = T.mix(hemLong, hemShort, isShort).mul(hemEdge);
   const hemThigh = T.mix(T.float(4), T.float(7), T.step(T.float(0), rest.x));
   const bone1 = T.mix(T.mix(stored, shinId, isLeg), T.float(16), isCoat);

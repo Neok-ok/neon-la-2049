@@ -1128,38 +1128,44 @@ async function boot(quality) {
       };
       let spot = null;
       const rejected = [];
-      for (const ahead of [8, 7, 9, 6, 10]) {
-        for (const side of [5.6, 6.6, 4.6, 7.6, -5.2]) {
-          const x = pick.px + fx * ahead + rx * side;
-          const z = pick.pz + fz * ahead + rz * side;
-          const gy = a.query.groundHeight(x, z);
-          if (a.query.insideSolid(x, gy + 1.2, z, 0.4, true)) {
-            if (rejected.length < 4) rejected.push('solid');
-            continue;
+      const px = pick.person?.n?.x;
+      const accept = (box) => {
+        if (!box || box.seen < 8) return false;
+        const onScreen = box.minx > -0.8 && box.maxx < 0.86 && box.miny > -0.82 && box.maxy < 0.48;
+        const sideOn = box.w > 0.22 && box.w < 0.72 && box.w > box.h * 1.45;
+        const personIn = px == null || (px > -0.7 && px < 0.7);
+        const personClear = px == null || px < box.minx - 0.1 || px > box.maxx + 0.1;
+        return onScreen && sideOn && personIn && personClear;
+      };
+      for (const ahead of [12, 14, 10, 16, 8, 18]) {
+        for (const side of [6.5, -6.5, 8, -8, 4.5, 10]) {
+          for (const shift of [0, 2.4, -2.4, 4.2]) {
+            const x = pick.px + fx * ahead + rx * (side + shift);
+            const z = pick.pz + fz * ahead + rz * (side + shift);
+            const gy = a.query.groundHeight(x, z);
+            if (a.query.insideSolid(x, gy + 1.2, z, 0.45, true)) {
+              if (rejected.length < 4) rejected.push('solid');
+              continue;
+            }
+            const y = gy + 0.02;
+            const across = poseAt(x, y, z, rx, rz);
+            const along = poseAt(x, y, z, fx, fz);
+            const candidates = [
+              across && { box: across, dx: rx, dz: rz },
+              along && { box: along, dx: fx, dz: fz },
+            ].filter((c) => c && accept(c.box));
+            candidates.sort((a, b) => b.box.w - a.box.w);
+            const best = candidates[0];
+            if (!best) {
+              const box = across && across.w >= (along?.w || 0) ? across : along;
+              if (rejected.length < 4 && box) rejected.push(`box ${box.w.toFixed(2)}x${box.h.toFixed(2)} p ${px == null ? 'none' : px.toFixed(2)}`);
+              continue;
+            }
+            spot = { x, y, z, ahead, side: side + shift, box: best.box, dx: best.dx, dz: best.dz };
+            poseAt(x, y, z, best.dx, best.dz);
+            break;
           }
-          const y = gy + 0.02;
-          const across = poseAt(x, y, z, rx, rz);
-          const along = poseAt(x, y, z, fx, fz);
-          const candidates = [
-            across && { box: across, dx: rx, dz: rz },
-            along && { box: along, dx: fx, dz: fz },
-          ].filter(Boolean);
-          candidates.sort((a, b) => b.box.w - a.box.w);
-          const best = candidates[0];
-          const box = best?.box;
-          if (!box || box.seen < 8) {
-            if (rejected.length < 4) rejected.push('clip');
-            continue;
-          }
-          const onScreen = box.minx > -0.72 && box.maxx < 0.78 && box.miny > -0.8 && box.maxy < 0.42;
-          const sideOn = box.w > 0.28 && box.w < 0.7 && box.w > box.h * 1.6;
-          if (!onScreen || !sideOn) {
-            if (rejected.length < 4) rejected.push(`box ${box.w.toFixed(2)}x${box.h.toFixed(2)}`);
-            continue;
-          }
-          spot = { x, y, z, ahead, side, box, dx: best.dx, dz: best.dz };
-          poseAt(x, y, z, best.dx, best.dz);
-          break;
+          if (spot) break;
         }
         if (spot) break;
       }
@@ -1719,7 +1725,7 @@ async function doorShot(tier) {
   note('door settled', { tier, settled });
   const found = await page.evaluate(() => window.__retry.composeDoor());
   note('door pose', { tier, found });
-  if (!found?.ok) return;
+  if (!found?.ok || !found.parked?.ok) return;
   await frames();
   await page.evaluate(() => window.__pinDancerCam?.());
   await page.screenshot({ path: `${OUT}/scale-door-car-${tier}.png`, timeout: 180000, animations: 'disabled' });
