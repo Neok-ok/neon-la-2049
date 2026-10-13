@@ -3,11 +3,11 @@
   "topIsReconstructed": false,
   "views": {
     "hall-day": {
-      "iou": 0.6171847088245802,
+      "iou": 0.6199884047629666,
       "scale": 1.0051485148514854,
       "translation": [
-        -11.76500940205095,
-        8.220923907835811
+        -14.783357375568116,
+        8.130550168678468
       ],
       "ref": "hall-day-ref.pgm",
       "still": "hall-day.jpg, the 1928 tower from the south-east. White stone above the tree line. The base is in the trees and is not in this mask. A neighbouring tower on the right is excluded.",
@@ -26,11 +26,11 @@
       "note": "Three-quarter from the front-right, about the height of the day photo. Uniform scale and translation onto hall-day.jpg."
     },
     "hall-dusk": {
-      "iou": 0.6291668587763383,
-      "scale": 1.0265346534653468,
+      "iou": 0.633731384572825,
+      "scale": 1.015841584158416,
       "translation": [
-        -46.023147606522,
-        9.40413514111306
+        -46.023829249200986,
+        9.403012320887015
       ],
       "ref": "hall-dusk-ref.pgm",
       "still": "hall-silhouette.png, dusk profile of the shaft and the stepped crown. The foreground roof starts near y=729 and is cut off, along with the person and the railing. The base of the tower is not in this still.",

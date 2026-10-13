@@ -1015,7 +1015,9 @@ def tint_hall(x, y, z):
         tone = 0.55 + 0.08 * blot(x, y, 9.0)
         return (tone * 0.96, tone * 0.94, tone * 0.90)
     if y >= 112:
-        return (1.0, 1.0, 1.0)
+        # Full white flattens the terraces into one slope.
+        tone = 0.78 + 0.08 * blot(x, z, 7.0)
+        return (tone, tone * 0.995, tone * 0.98)
     tone = 0.88 + 0.07 * blot(x + z * 0.2, y * 0.25, 18.0)
     return (tone * 0.995, tone * 0.99, tone * 0.975)
 

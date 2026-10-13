@@ -40,8 +40,8 @@
     "plinthH": null,
     "tris": {
       "low": 1374,
-      "high": 6726,
-      "medium": 2694
+      "high": 4458,
+      "medium": 2178
     }
   },
   "hall": {
@@ -78,15 +78,15 @@
     "rise": 0.172,
     "tread": 0.29,
     "risers": 20,
-    "doorClearM": 1.0999999089674481,
+    "doorClearM": 1.099999908967448,
     "portal": null,
     "stepH": null,
     "apex": null,
     "plinthH": null,
     "tris": {
-      "high": 27300,
-      "medium": 6468,
-      "low": 3048
+      "high": 27226,
+      "medium": 6394,
+      "low": 2974
     }
   },
   "wallace": {

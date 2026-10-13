@@ -367,9 +367,10 @@ def _shaft_storeys(parts, mat, tint, tile, pitch, fins_x, fins_z, fin_t, north, 
 
 def _podium_windows(kit, metal, tint, tile, rank, face, outward, axis, span, skip_door):
     # The pane sits under the lip. The lip top is the storey, not the plywood sheet.
-    pitch = 3.6
-    win_h = 2.05 if rank >= 2 else 2.3
-    n = 8 if rank >= 2 else 5
+    # Punched openings. A 2 m pane on a 3.6 m pitch is a ribbon window.
+    pitch = 7.2
+    win_h = 1.25 if rank >= 2 else 1.55
+    n = 5 if rank >= 2 else 3
     margin = 6.0
     bay = (span - margin * 2) / n
     for i in range(n):
@@ -811,15 +812,16 @@ def build_hall(kit, rank):
     # Square terraces. A smooth hip reads as a roof, and an open drum reads as a well.
     pyr0 = neck_top - 0.15
     span0 = neck - 0.8
-    span1 = 7.6
-    n_steps = 12
+    span1 = 11.2
+    # Seven deep terraces. Twelve shallow ones alias into a smooth pyramid.
+    n_steps = 7
     rise = (pyramid_top - pyr0) / n_steps
     for i in range(n_steps):
         y0 = pyr0 + rise * i
         span = span0 + (span1 - span0) * (i / float(n_steps))
-        mass.box(0, 0, y0, span, span, rise + 0.2)
-    # Round lantern on the top terrace. A square cap reads as a gold box.
-    _add_drum(mass, pyramid_top - 0.35, 2.15, (Q['lanternTop'] - pyramid_top) + 0.7, 16)
+        mass.box(0, 0, y0, span, span, rise + 0.25)
+    # Round lantern, wide enough to read on the contact sheet.
+    _add_drum(mass, pyramid_top - 0.25, 3.35, 5.1, 20)
     mass.box(0, 0, Q['lanternTop'], 0.7, 0.7, Q['height'] - Q['lanternTop'])
     # Pier relief sits outside the stone. The collar is the envelope, not extra stone.
     _rec(mass.parts, 0, 0, 0, Q['baseW'] + 2.6, Q['baseD'] + 2.6, base_h + 0.6)
@@ -1192,17 +1194,17 @@ def _rgb(kind, course_i, stone_i, face):
         # Darker and warmer than the face. The same tint as the wall reads as no mouth.
         return (0.22, 0.16, 0.11)
     if kind == 'mortar':
-        return (0.34, 0.36, 0.38)
+        return (0.16, 0.17, 0.18)
     if kind == 'ledge':
         return (0.78, 0.80, 0.82)
     if kind == 'podium' or (kind == 'stone' and course_i < 4):
         # Alternate the four street courses so a 3.6 m floor reads at the door.
-        tone = 0.96 if course_i % 2 == 0 else 0.58
-        return (tone * 0.92, tone * 0.96, tone)
-    tone = 0.88 + 0.08 * _hash(course_i * 3 + face * 17, stone_i * 5 + 2)
+        tone = 0.82 if course_i % 2 == 0 else 0.48
+        return (tone, tone * 0.97, tone * 0.92)
+    tone = 0.70 + 0.16 * _hash(course_i * 3 + face * 17, stone_i * 5 + 2)
     if _hash(course_i + 4, stone_i + 9) > 0.82:
-        tone *= 0.86
-    return (tone * 0.92, tone * 0.96, tone)
+        tone *= 0.78
+    return (tone, tone * 0.97, tone * 0.90)
 
 
 def _paint_face(face, layer, rgb):

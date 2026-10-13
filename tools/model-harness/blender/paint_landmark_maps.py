@@ -134,17 +134,17 @@ def paint_lapd(size, tile=7.2):
             stain = noise2(xm * 0.35, ym * 0.2, 4, 2)
             # Mid map. The shaft vertex colour crushes it to black; the crown stays this grey.
             drip = noise2(xm * 1.1, ym * 0.08, 7, 3)
-            base = 132 + (sheet - 0.5) * 10 + (grain - 0.5) * 6 + (grit - 0.5) * 6 + (board - 0.5) * 8
+            base = 148 + (sheet - 0.5) * 22 + (grain - 0.5) * 8 + (grit - 0.5) * 8 + (board - 0.5) * 16
             if stain > 0.82:
-                base -= 7
+                base -= 14
             if drip > 0.74:
-                base -= 8
+                base -= 16
             if seam:
-                base -= 3
+                base -= 18
             if pour:
-                base -= 5
+                base -= 28
             if tie:
-                base -= 3
+                base -= 10
             base = clamp(base)
             apx[x, y] = (clamp(base * 0.94), clamp(base * 0.96), clamp(base * 0.99))
             wet = 62 if drip > 0.7 else 108
@@ -185,11 +185,11 @@ def paint_hall(size, tile=4.0):
             perp = lx < 0.05 or lx > stone - 0.05
             block = hash2(cx + 5, cy + 9)
             speckle = hash2(x, y)
-            base = 216 + (block - 0.5) * 16 + (speckle - 0.5) * 5
+            base = 198 + (block - 0.5) * 28 + (speckle - 0.5) * 6
             if bed:
-                base -= 36
+                base -= 72
             elif perp:
-                base -= 18
+                base -= 34
             base = clamp(base)
             apx[x, y] = (clamp(base * 0.995), clamp(base * 0.99), clamp(base * 0.975))
             rpx[x, y] = clamp(92 + (1.0 - block) * 16 + (28 if bed else 0) + (14 if perp else 0))
@@ -199,7 +199,7 @@ def paint_hall(size, tile=4.0):
             elif perp:
                 h -= 0.04
             row[x] = h
-    write_normal(height, npx, 3.2)
+    write_normal(height, npx, 5.4)
     save_maps('hall', size, albedo, rough, normal)
 
 
@@ -233,7 +233,7 @@ def _ashlar_stones(row_i, tile):
 
 
 def paint_wallace(size, tile=120.0):
-    """Irregular blue-grey ashlar. Stones differ in both directions, nearly flush."""
+    """Irregular charcoal ashlar. Stones differ in both directions, nearly flush."""
     albedo = Image.new('RGB', (size, size))
     rough = Image.new('L', (size, size))
     normal = Image.new('RGB', (size, size))
@@ -270,15 +270,16 @@ def paint_wallace(size, tile=120.0):
             block = hash2(sk + 5, cy * 3 + 9)
             mineral = noise2(xm * 0.009, ym * 0.007, 4, 2)
             stain = noise2(xm * 0.003, ym * 0.004, 3, 7)
-            base = 124 + (block - 0.5) * 26 + (mineral - 0.5) * 12
+            base = 96 + (block - 0.5) * 30 + (mineral - 0.5) * 10
             if stain > 0.78:
-                base -= 18
+                base -= 16
             if hash2(sk + 2, cy + 6) > 0.92:
-                base -= 26
+                base -= 22
             if bed or perp:
-                base -= 28
+                base -= 34
             base = clamp(base)
-            apx[x, y] = (clamp(base * 0.70), clamp(base * 0.80), clamp(base * 0.92))
+            # Warm gray. A blue multiplier reads as a clean asset, not the miniature.
+            apx[x, y] = (clamp(base * 0.98), clamp(base * 0.95), clamp(base * 0.88))
             rpx[x, y] = clamp(132 + (1.0 - block) * 24 + (18 if bed or perp else 0))
             hgt = 0.55 + (block - 0.5) * 0.04
             if bed or perp:

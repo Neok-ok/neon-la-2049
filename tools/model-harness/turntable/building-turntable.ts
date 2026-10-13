@@ -458,8 +458,9 @@ async function renderSheet(
   scene.add(hemi);
   const rigs = buildLights(camera, kind);
   const hallKey = new DirectionalLight(0xf4f7f4, 0);
-  hallKey.position.set(210, 48, 36);
-  hallKey.target.position.set(0, 64, 0);
+  // Above the crown so the terraces and the roof take light. A side flood flattens both.
+  hallKey.position.set(90, 210, 70);
+  hallKey.target.position.set(0, 80, 0);
   scene.add(hallKey, hallKey.target);
   const hallRim = new DirectionalLight(0xe7f2ea, 0);
   hallRim.position.set(-190, 46, -30);
@@ -522,8 +523,8 @@ async function renderSheet(
     const y = row * TILE_H;
     const viewW = col === 3 ? TILE : cols[col]!;
     applyLight(scene, rigs, hemi, grounds, shot.light, size.y, kind);
-    hallKey.intensity = kind === 'hall' && shot.light === 'night' ? 6.5 : 0;
-    hallRim.intensity = kind === 'hall' && shot.light === 'night' ? 1.4 : 0;
+    hallKey.intensity = kind === 'hall' && shot.light === 'night' ? 3.4 : 0;
+    hallRim.intensity = kind === 'hall' && shot.light === 'night' ? 1.6 : 0;
     lapdKey.intensity = kind === 'lapd' && shot.light === 'night' ? 3.6 : kind === 'lapd' && shot.light === 'rim' ? 2.6 : 0;
     lapdUp.intensity = kind === 'lapd' && shot.light === 'night' ? 0.45 : kind === 'lapd' && shot.light === 'rim' ? 0.3 : 0;
     wallaceMouth.intensity = kind === 'wallace' && shot.light === 'night' ? 22000 : 0;
@@ -575,8 +576,9 @@ async function renderCloseups(
   scene.add(hemi);
   const rigs = buildLights(camera, kind);
   const hallKey = new DirectionalLight(0xf4f7f4, 0);
-  hallKey.position.set(210, 48, 36);
-  hallKey.target.position.set(0, 64, 0);
+  // Above the crown so the terraces and the roof take light. A side flood flattens both.
+  hallKey.position.set(90, 210, 70);
+  hallKey.target.position.set(0, 80, 0);
   scene.add(hallKey, hallKey.target);
   const hallRim = new DirectionalLight(0xe7f2ea, 0);
   hallRim.position.set(-190, 46, -30);
@@ -609,8 +611,8 @@ async function renderCloseups(
   const show = (index: number) => {
     const shot = shots[((index % shots.length) + shots.length) % shots.length]!;
     applyLight(scene, rigs, hemi, grounds, shot.light, size.y, kind);
-    hallKey.intensity = kind === 'hall' && shot.light === 'night' ? 6.5 : 0;
-    hallRim.intensity = kind === 'hall' && shot.light === 'night' ? 1.4 : 0;
+    hallKey.intensity = kind === 'hall' && shot.light === 'night' ? 3.4 : 0;
+    hallRim.intensity = kind === 'hall' && shot.light === 'night' ? 1.6 : 0;
     lapdKey.intensity = kind === 'lapd' && shot.light === 'night' ? 3.6 : kind === 'lapd' && shot.light === 'rim' ? 2.6 : 0;
     lapdUp.intensity = kind === 'lapd' && shot.light === 'night' ? 0.45 : kind === 'lapd' && shot.light === 'rim' ? 0.3 : 0;
     wallaceMouth.intensity = kind === 'wallace' && shot.light === 'night' ? 22000 : 0;
@@ -764,7 +766,10 @@ async function parkSpinner(scene: Scene, x: number, y: number, z: number, yaw: n
   scene.add(gltf.scene);
 }
 
-function gauge(parent: Group, x: number, y: number, z: number, toward: number, stairX: number, stairZ: number): void {
+function gauge(
+  parent: Group, x: number, y: number, z: number, toward: number,
+  stairX: number, stairZ: number, stairY = y,
+): void {
   const cloth = concrete(0x3c4558);
   const skin = concrete(0xc2a588);
   const paint = concrete(0xf4f6f8);
@@ -784,7 +789,7 @@ function gauge(parent: Group, x: number, y: number, z: number, toward: number, s
   addBox(parent, 0.42, 0.05, 0.08, poleX, y + PERSON_M, z, paint);
   addBox(parent, 0.62, 0.05, 0.08, poleX, y + STOREY_M, z, paint);
   addBox(parent, LANE_M, 0.04, 1.6, x + 4.3, y, z, lane);
-  if (stairX !== 0 || stairZ !== 0) addFlight(parent, stairX, y, stairZ, toward);
+  if (stairX !== 0 || stairZ !== 0) addFlight(parent, stairX, stairY, stairZ, toward);
 }
 
 function scaleStand(kind: Kind): { look: Vector3; wide: Vector3; person: Vector3; toward: number; stairX: number; stairZ: number } {
@@ -794,9 +799,9 @@ function scaleStand(kind: Kind): { look: Vector3; wide: Vector3; person: Vector3
     return { person, look: new Vector3(1.2, 4.6, -63), wide: new Vector3(8, 168, -12), toward: 1, stairX: 16, stairZ: -74 };
   }
   if (kind === 'hall') {
-    // Close on the porch so the person, the door and the flight are readable.
-    const person = new Vector3(-1.6, 0, 48);
-    return { person, look: new Vector3(0.4, 3.4, 42), wide: new Vector3(0, 70, 10), toward: -1, stairX: 4.8, stairZ: 53 };
+    // On the landing, beside the 2.2 m leaf. The portico slots are not the door.
+    const person = new Vector3(-2.15, 3.66, 34.0);
+    return { person, look: new Vector3(-1.2, 4.7, 32.0), wide: new Vector3(0, 70, 10), toward: -1, stairX: 8.5, stairZ: 46 };
   }
   // Outside the jamb, on the 3.6 m street courses. The figure stands between the camera and the wall.
   const person = new Vector3(196, 0, -1626);
@@ -812,7 +817,10 @@ async function renderScale(
   const cellH = 900;
   layoutSheet([cellW, cellW], 1, cellH);
   const stand = scaleStand(kind);
-  gauge(scene, stand.person.x, stand.person.y, stand.person.z, stand.toward, stand.stairX, stand.stairZ);
+  gauge(
+    scene, stand.person.x, stand.person.y, stand.person.z, stand.toward,
+    stand.stairX, stand.stairZ, kind === 'hall' ? 0 : stand.person.y,
+  );
   const span = Math.max(box.getSize(new Vector3()).x, box.getSize(new Vector3()).z) * 2.4;
   const ground = new Mesh(
     new PlaneGeometry(span, span),
@@ -856,12 +864,12 @@ async function renderScale(
   }
   const close = new PerspectiveCamera(30, cellW / cellH, 0.05, 8000);
   const closeDir = kind === 'hall'
-    ? new Vector3(0.4, 0.16, 0.9)
+    ? new Vector3(0.12, 0.05, 0.99)
     : kind === 'lapd'
       ? new Vector3(0.8, 0.04, -0.6)
       : new Vector3(0.12, 0.02, -0.99);
-  const closeRadius = kind === 'wallace' ? 11 : kind === 'hall' ? 14 : 10;
-  const closeFov = kind === 'wallace' ? 40 : kind === 'hall' ? 44 : 42;
+  const closeRadius = kind === 'wallace' ? 11 : kind === 'hall' ? 2.8 : 10;
+  const closeFov = kind === 'wallace' ? 40 : kind === 'hall' ? 32 : 42;
   aim(close, closeDir, stand.look, closeRadius, closeFov);
   const wide = new PerspectiveCamera(28, cellW / cellH, 0.2, 20000);
   const wideDir = kind === 'lapd'
