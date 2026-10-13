@@ -132,19 +132,23 @@ def paint_lapd(size, tile=7.2):
             board = hash2(sx + 9, int(ly * 90.0) + sy * 5)
             grit = noise2(xm * 2.4, ym * 2.4, 11, 11)
             stain = noise2(xm * 0.35, ym * 0.2, 4, 2)
-            # Charcoal you can see. A 1.2 m form seam at full depth reads as roof tile.
-            base = 72 + (sheet - 0.5) * 8 + (grain - 0.5) * 5 + (grit - 0.5) * 6 + (board - 0.5) * 7
-            if stain > 0.88:
+            # Mid map. The shaft vertex colour crushes it to black; the crown stays this grey.
+            drip = noise2(xm * 1.1, ym * 0.08, 7, 3)
+            base = 132 + (sheet - 0.5) * 10 + (grain - 0.5) * 6 + (grit - 0.5) * 6 + (board - 0.5) * 8
+            if stain > 0.82:
+                base -= 7
+            if drip > 0.74:
                 base -= 8
             if seam:
                 base -= 3
             if pour:
-                base -= 6
+                base -= 5
             if tie:
-                base -= 4
+                base -= 3
             base = clamp(base)
-            apx[x, y] = (clamp(base * 0.96), clamp(base * 0.98), clamp(base * 1.0))
-            rpx[x, y] = clamp(176 + (1.0 - grit) * 16 + (4 if seam else 0) + (6 if pour else 0))
+            apx[x, y] = (clamp(base * 0.94), clamp(base * 0.96), clamp(base * 0.99))
+            wet = 62 if drip > 0.7 else 108
+            rpx[x, y] = clamp(wet + (1.0 - grit) * 18 + (8 if seam else 0) + (10 if pour else 0))
             hgt = 0.52 + (board - 0.8) * 0.03 + (grit - 0.5) * 0.02
             if seam:
                 hgt -= 0.012
@@ -163,28 +167,28 @@ def paint_hall(size, tile=4.0):
     rough = Image.new('L', (size, size))
     normal = Image.new('RGB', (size, size))
     apx, rpx, npx = albedo.load(), rough.load(), normal.load()
-    course = 0.48
-    stone = 1.05
+    course = 0.72
+    stone = 1.35
     height = [[0.0] * size for _ in range(size)]
     for y in range(size):
         row = height[y]
         ym = (y / size) * tile
         cy = int(ym / course)
         ly = ym - cy * course
-        bed = ly < 0.016 or ly > course - 0.016
+        bed = ly < 0.055 or ly > course - 0.055
         shift = (stone * 0.5) if (cy % 2) else 0.0
         for x in range(size):
             xm = (x / size) * tile + shift
             cx = int(xm / stone)
             lx = xm - cx * stone
-            perp = lx < 0.014 or lx > stone - 0.014
+            perp = lx < 0.05 or lx > stone - 0.05
             block = hash2(cx + 5, cy + 9)
             speckle = hash2(x, y)
-            base = 232 + (block - 0.5) * 14 + (speckle - 0.5) * 3
+            base = 208 + (block - 0.5) * 34 + (speckle - 0.5) * 8
             if bed:
-                base -= 36
+                base -= 78
             elif perp:
-                base -= 20
+                base -= 46
             base = clamp(base)
             apx[x, y] = (clamp(base * 0.995), clamp(base * 0.99), clamp(base * 0.975))
             rpx[x, y] = clamp(92 + (1.0 - block) * 16 + (28 if bed else 0) + (14 if perp else 0))
@@ -265,7 +269,7 @@ def paint_wallace(size, tile=120.0):
             block = hash2(sk + 5, cy * 3 + 9)
             mineral = noise2(xm * 0.009, ym * 0.007, 4, 2)
             stain = noise2(xm * 0.003, ym * 0.004, 3, 7)
-            base = 108 + (block - 0.5) * 88 + (mineral - 0.5) * 26
+            base = 124 + (block - 0.5) * 26 + (mineral - 0.5) * 12
             if stain > 0.78:
                 base -= 18
             if hash2(sk + 2, cy + 6) > 0.92:

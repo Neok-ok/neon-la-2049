@@ -33,15 +33,15 @@
     "rise": 0.16733333333333336,
     "tread": 0.3,
     "risers": 30,
-    "doorClearM": 1.0980000347839238,
+    "doorClearM": 1.0900001550376852,
     "portal": null,
     "stepH": null,
     "apex": null,
     "plinthH": null,
     "tris": {
-      "low": 1548,
-      "high": 15588,
-      "medium": 4644
+      "low": 1374,
+      "high": 6726,
+      "medium": 2694
     }
   },
   "hall": {
@@ -84,9 +84,9 @@
     "apex": null,
     "plinthH": null,
     "tris": {
-      "high": 27299,
-      "medium": 6467,
-      "low": 3335
+      "high": 27228,
+      "medium": 6396,
+      "low": 3264
     }
   },
   "wallace": {
@@ -111,9 +111,9 @@
     "apex": 210.0,
     "plinthH": 3.6,
     "tris": {
-      "high": 96434,
-      "medium": 49708,
-      "low": 26895
+      "high": 95067,
+      "medium": 48996,
+      "low": 26710
     }
   }
 }

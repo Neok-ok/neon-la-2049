@@ -612,6 +612,16 @@ def paint_corners(obj, tint):
         poly.use_smooth = False
 
 
+def _freeze_byte_color(obj, src):
+    me = obj.data
+    colors = [tuple(src.data[i].color) for i in range(len(src.data))]
+    me.color_attributes.remove(src)
+    dst = me.color_attributes.new(name='Col', type='BYTE_COLOR', domain='CORNER')
+    me.color_attributes.active_color = dst
+    for i, col in enumerate(colors):
+        dst.data[i].color = (col[0], col[1], col[2], 1.0)
+
+
 def finish_shell(obj, mat, tint, tile=16.0):
     obj.data.materials.clear()
     obj.data.materials.append(mat)
@@ -642,8 +652,21 @@ def bake_meshes(kind):
         bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
         obj.select_set(False)
         uses_body = any(slot and slot.name == 'body' for slot in obj.data.materials)
-        if uses_body and obj.data.color_attributes.get('Col') is None:
-            paint_corners(obj, tint)
+        if uses_body:
+            # Paint after the world transform. A colour baked in local space
+            # stays on the wrong axis once the object is rotated flat.
+            existing = obj.data.color_attributes.get('Col')
+            # Wallace colours are the mouth, the long joints and the 3.6 m
+            # street courses. tint_wallace is one light multiplier, and it
+            # turns the opening back into the wall. A float layer is exported
+            # through sRGB and the mouth goes black, so the values are copied
+            # into the same byte colour the other shells use.
+            if kind == 'wallace' and existing is not None:
+                _freeze_byte_color(obj, existing)
+            else:
+                if existing is not None:
+                    obj.data.color_attributes.remove(existing)
+                paint_corners(obj, tint)
 
 
 def wire_maps(mat, size, kind):
@@ -763,9 +786,10 @@ def add_stairs(mass, z0, z1, y0, y1, n, width, rail=True):
     run = (z1 - z0) / n
     rise = (y1 - y0) / n
     for i in range(n):
-        z = z0 + run * (i + 0.5)
-        # 2 cm of overlap so the treads share a volume and can be stitched.
-        mass.box(0, z, y0 + rise * i - 0.01, width, abs(run) + 0.02, rise + 0.012, record=False)
+        # Nosing toward the approach, so a head-on flight is not a smooth ramp.
+        overhang = 0.05
+        z = z0 + run * (i + 0.5) - math.copysign(overhang * 0.45, run)
+        mass.box(0, z, y0 + rise * i - 0.01, width, abs(run) + overhang, rise + 0.02, record=False)
     span_z = (z0 + z1) * 0.5
     span_d = abs(z1 - z0) + 0.4
     extra = 1.3 if rail else 0.2
@@ -862,16 +886,15 @@ def weather(x, y, z):
 
 
 def tint_lapd(x, y, z):
-    # Dark wet concrete. Crushing the map under 0.25 turns the shaft into a black field.
-    if y > HQ['height'] - 1.0:
-        # The overhead still is a dark block, not a pale pad and not a black hole.
-        tone = 0.72 + 0.08 * blot(x, z, 14.0)
-        return (tone * 0.90, tone * 0.92, tone * 0.95)
-    tone = 0.86 + 0.1 * blot(x + z * 0.13, y * 0.35, 42.0)
+    # Vertex colour can only darken the map. The crown stays at the map;
+    # the shaft is crushed so the overhead reads as a pale deck on a black block.
+    if y >= SHAFT_Y - 0.4:
+        tone = 1.0
+        return (tone, tone, tone)
+    tone = 0.28 + 0.06 * blot(x + z * 0.13, y * 0.35, 42.0)
     if y < 2.4:
-        tone *= 0.94
-    tone = max(0.78, min(0.98, tone))
-    return (tone * 0.92, tone * 0.94, tone * 0.97)
+        tone *= 0.85
+    return (tone * 0.92, tone * 0.95, tone)
 
 
 def cut_reveal_z(mass, face_z, inward, x, y, w, h, depth):
@@ -985,16 +1008,14 @@ HALL = dict(height=138, baseW=92, baseD=62, baseH=28, shaft=34, shaftTop=100,
 
 
 def tint_hall(x, y, z):
-    # Limestone shaft, a slightly darker granite base, and a tiled pyramid.
-    # The cap is a different material from the white shaft.
-    # White limestone. The night still is floodlit stone, not a tan render.
+    # Granite base, limestone shaft, white stepped pyramid.
+    # The cap stays at the map so the crown is lighter than the shaft.
     if y < 26:
-        tone = 0.62 + 0.05 * blot(x, y, 9.0)
-        return (tone * 0.96, tone * 0.95, tone * 0.92)
+        tone = 0.55 + 0.08 * blot(x, y, 9.0)
+        return (tone * 0.96, tone * 0.94, tone * 0.90)
     if y >= 112:
-        tone = 0.84 + 0.04 * blot(x * 0.4, y, 6.0)
-        return (tone * 0.99, tone * 0.985, tone * 0.96)
-    tone = 0.97 + 0.03 * blot(x + z * 0.2, y * 0.25, 22.0)
+        return (1.0, 1.0, 1.0)
+    tone = 0.88 + 0.07 * blot(x + z * 0.2, y * 0.25, 18.0)
     return (tone * 0.995, tone * 0.99, tone * 0.975)
 
 

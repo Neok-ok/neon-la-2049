@@ -1,7 +1,7 @@
 // Landmark contact sheet, orthographic mask, and scale rig.
 // Playwright screenshots #sheet. Film stills load from /harness-refs/ and stay gitignored.
 import {
-  ACESFilmicToneMapping, Box3, BoxGeometry, Color, DirectionalLight, DoubleSide,
+  ACESFilmicToneMapping, Box3, BoxGeometry, Color, DirectionalLight, DoubleSide, PointLight,
   FogExp2, Group, HemisphereLight, Mesh, MeshBasicMaterial, MeshStandardNodeMaterial,
   OrthographicCamera, PerspectiveCamera, PlaneGeometry, Scene, SRGBColorSpace, Vector3,
   WebGPURenderer,
@@ -237,7 +237,17 @@ async function loadGlb(url: string): Promise<Group> {
     for (const mat of list) {
       const name = (mat.name || '').toLowerCase();
       const std = mat as MeshStandardNodeMaterial;
-      if (target.kind === 'lapd') std.side = DoubleSide;
+      if (target.kind === 'lapd' || target.kind === 'wallace') std.side = DoubleSide;
+      if (mesh.geometry.getAttribute('color')) std.vertexColors = true;
+      if (name.includes('deck-stone')) {
+        std.color = new Color(0.68, 0.72, 0.78);
+        std.map = null;
+        std.normalMap = null;
+        std.roughnessMap = null;
+        std.roughness = 0.36;
+        std.metalness = 0.48;
+        std.vertexColors = false;
+      }
       if (name.includes('light-') && std.emissive) {
         const cap = name.includes('white') ? 0.55 : 0.75;
         std.emissiveIntensity = Math.min(std.emissiveIntensity ?? cap, cap);
@@ -336,11 +346,11 @@ function shotsFor(kind: Kind, box: Box3): Shot[] {
   };
   return [
     { label: 'night · three-quarter', light: 'night', angle: '34', pose: whole(quarter) },
-    { label: 'night · entrance', light: 'night', angle: 'entrance', pose: (c) => aim(c, kind === 'wallace' ? new Vector3(0.72, 0.1, sign * 0.85) : front, kind === 'wallace' ? new Vector3(0, 46, -1564) : door, kind === 'wallace' ? 240 : doorRadius, kind === 'wallace' ? 36 : 34) },
+    { label: 'night · entrance', light: 'night', angle: 'entrance', pose: (c) => aim(c, kind === 'wallace' ? new Vector3(0.22, 0.05, sign * 0.97) : front, kind === 'wallace' ? new Vector3(0, 46, -1564) : door, kind === 'wallace' ? 248 : doorRadius, kind === 'wallace' ? 36 : 34) },
     { label: 'night · side', light: 'night', angle: 'side', pose: whole(side) },
     { label: 'night · top', light: 'night', angle: 'top', pose: whole(above, 26, upTop, plan) },
     { label: 'rim · three-quarter', light: 'rim', angle: '34', pose: whole(quarter) },
-    { label: 'rim · entrance', light: 'rim', angle: 'entrance', pose: (c) => aim(c, kind === 'wallace' ? new Vector3(0.72, 0.1, sign * 0.85) : front, kind === 'wallace' ? new Vector3(0, 46, -1564) : door, kind === 'wallace' ? 240 : doorRadius, kind === 'wallace' ? 36 : 34) },
+    { label: 'rim · entrance', light: 'rim', angle: 'entrance', pose: (c) => aim(c, kind === 'wallace' ? new Vector3(0.22, 0.05, sign * 0.97) : front, kind === 'wallace' ? new Vector3(0, 46, -1564) : door, kind === 'wallace' ? 248 : doorRadius, kind === 'wallace' ? 36 : 34) },
     { label: 'rim · crown', light: 'rim', angle: 'crown', pose: (c) => aim(c, new Vector3(0.72, -0.28, sign * 0.82), crown, crownRadius, 30) },
     { label: 'rim · top', light: 'rim', angle: 'top', pose: whole(above, 26, upTop, plan) },
     { label: 'studio · facade', light: 'studio', angle: 'facade', pose: (c) => aim(c, new Vector3(0.2, 0.05, sign), wall, wallRadius, 28) },
@@ -361,8 +371,8 @@ function buildLights(camera: PerspectiveCamera, kind: Kind): Record<LightName, G
   camera.add(night, rim, studio);
   // Each still has its own light. Hall is floodlit limestone, Wallace is a cool
   // miniature, LAPD is the dark overhead block. One warm key made all three khaki.
-  const key = kind === 'hall' ? 0.1 : kind === 'wallace' ? 5.2 : 3.1;
-  const fill = kind === 'hall' ? 0.02 : kind === 'wallace' ? 1.35 : 0.85;
+  const key = kind === 'hall' ? 0.1 : kind === 'wallace' ? 7.2 : 3.1;
+  const fill = kind === 'hall' ? 0.02 : kind === 'wallace' ? 0.22 : 0.85;
   const up = kind === 'hall' ? 0.42 : kind === 'wallace' ? 0.5 : 0.62;
   const nightKey = kind === 'hall' ? 0xe4f0e8 : kind === 'wallace' ? 0xc5d0dc : 0xb0aca3;
   const nightFill = kind === 'hall' ? 0xc5d4cc : kind === 'wallace' ? 0x8ea0b4 : 0x8e8a82;
@@ -393,12 +403,12 @@ function applyLight(
   ground.night.visible = light === 'night';
   ground.rim.visible = light === 'rim';
   ground.studio.visible = light === 'studio';
-  const nightHemi = kind === 'hall' ? 0.045 : kind === 'wallace' ? 0.85 : 0.9;
+  const nightHemi = kind === 'hall' ? 0.045 : kind === 'wallace' ? 0.24 : kind === 'lapd' ? 0.2 : 0.9;
   hemi.intensity = light === 'night' ? nightHemi : light === 'rim' ? (kind === 'lapd' ? 0.48 : 0.28) : kind === 'hall' ? 0.55 : 0.7;
   const nightHemiColor = kind === 'hall' ? 0xd5e6de : kind === 'wallace' ? 0x9eb4cc : 0x5c6b78;
   hemi.color.set(light === 'studio' ? 0xc8c8c8 : light === 'rim' ? 0x243656 : nightHemiColor);
   hemi.groundColor.set(light === 'studio' ? 0x9a9a9a : 0x121018);
-  const nightEnv = kind === 'hall' ? 0.06 : kind === 'wallace' ? 0.95 : 0.32;
+  const nightEnv = kind === 'hall' ? 0.06 : kind === 'wallace' ? 0.18 : kind === 'lapd' ? 0.12 : 0.32;
   const rimEnv = kind === 'lapd' ? 0.72 : 0.5;
   scene.environmentIntensity = light === 'night' ? nightEnv : light === 'rim' ? rimEnv : 0.22;
   scene.fog = light === 'night' ? new FogExp2(0x100e16, 0.04 / Math.max(40, height)) : null;
@@ -454,13 +464,17 @@ async function renderSheet(
   scene.add(hallRim, hallRim.target);
   // World key, so the three-quarter is not the unlit corner and the side is not a flat fill.
   const lapdKey = new DirectionalLight(0xc4c0b6, 0);
-  lapdKey.position.set(280, 160, -260);
-  lapdKey.target.position.set(0, 70, 0);
+  lapdKey.position.set(160, 260, -140);
+  lapdKey.target.position.set(0, 180, 0);
   scene.add(lapdKey, lapdKey.target);
   const lapdUp = new DirectionalLight(0xa39e94, 0);
   lapdUp.position.set(40, -30, -180);
   lapdUp.target.position.set(0, 190, 0);
   scene.add(lapdUp, lapdUp.target);
+  const wallaceMouth = new PointLight(0xff7722, 0, 480, 2);
+  // Inside the mouth, so the recess and the jambs take the warm light.
+  wallaceMouth.position.set(0, 32, -1566);
+  scene.add(wallaceMouth);
   const span = Math.max(box.getSize(new Vector3()).x, box.getSize(new Vector3()).z) * 3;
   const groundMat = (color: number) => new MeshStandardNodeMaterial({ color, roughness: 1, metalness: 0 });
   const grounds = {
@@ -505,10 +519,11 @@ async function renderSheet(
     const y = row * TILE_H;
     const viewW = col === 3 ? TILE : cols[col]!;
     applyLight(scene, rigs, hemi, grounds, shot.light, size.y, kind);
-    hallKey.intensity = kind === 'hall' && shot.light === 'night' ? 16 : 0;
-    hallRim.intensity = kind === 'hall' && shot.light === 'night' ? 2.2 : 0;
-    lapdKey.intensity = kind === 'lapd' && shot.light === 'night' ? 3.4 : kind === 'lapd' && shot.light === 'rim' ? 2.2 : 0;
+    hallKey.intensity = kind === 'hall' && shot.light === 'night' ? 6.5 : 0;
+    hallRim.intensity = kind === 'hall' && shot.light === 'night' ? 1.4 : 0;
+    lapdKey.intensity = kind === 'lapd' && shot.light === 'night' ? 2.4 : kind === 'lapd' && shot.light === 'rim' ? 2.6 : 0;
     lapdUp.intensity = kind === 'lapd' && shot.light === 'night' ? 0.45 : kind === 'lapd' && shot.light === 'rim' ? 0.3 : 0;
+    wallaceMouth.intensity = kind === 'wallace' && shot.light === 'night' ? 22000 : 0;
     renderer.setViewport(x, y, viewW, TILE_H);
     renderer.setScissor(x, y, viewW, TILE_H);
     renderer.setClearColor(scene.background as Color, 1);
@@ -565,13 +580,17 @@ async function renderCloseups(
   hallRim.target.position.set(0, 96, 0);
   scene.add(hallRim, hallRim.target);
   const lapdKey = new DirectionalLight(0xc4c0b6, 0);
-  lapdKey.position.set(280, 160, -260);
-  lapdKey.target.position.set(0, 70, 0);
+  lapdKey.position.set(160, 260, -140);
+  lapdKey.target.position.set(0, 180, 0);
   scene.add(lapdKey, lapdKey.target);
   const lapdUp = new DirectionalLight(0xa39e94, 0);
   lapdUp.position.set(40, -30, -180);
   lapdUp.target.position.set(0, 190, 0);
   scene.add(lapdUp, lapdUp.target);
+  const wallaceMouth = new PointLight(0xff7722, 0, 480, 2);
+  // Inside the mouth, so the recess and the jambs take the warm light.
+  wallaceMouth.position.set(0, 32, -1566);
+  scene.add(wallaceMouth);
   const groundSpan = Math.max(box.getSize(new Vector3()).x, box.getSize(new Vector3()).z) * 3;
   const grounds = {
     night: new Mesh(new PlaneGeometry(groundSpan, groundSpan), new MeshStandardNodeMaterial({ color: 0x07080c, roughness: 1, metalness: 0 })),
@@ -587,10 +606,11 @@ async function renderCloseups(
   const show = (index: number) => {
     const shot = shots[((index % shots.length) + shots.length) % shots.length]!;
     applyLight(scene, rigs, hemi, grounds, shot.light, size.y, kind);
-    hallKey.intensity = kind === 'hall' && shot.light === 'night' ? 16 : 0;
-    hallRim.intensity = kind === 'hall' && shot.light === 'night' ? 2.2 : 0;
-    lapdKey.intensity = kind === 'lapd' && shot.light === 'night' ? 3.4 : kind === 'lapd' && shot.light === 'rim' ? 2.2 : 0;
+    hallKey.intensity = kind === 'hall' && shot.light === 'night' ? 6.5 : 0;
+    hallRim.intensity = kind === 'hall' && shot.light === 'night' ? 1.4 : 0;
+    lapdKey.intensity = kind === 'lapd' && shot.light === 'night' ? 2.4 : kind === 'lapd' && shot.light === 'rim' ? 2.6 : 0;
     lapdUp.intensity = kind === 'lapd' && shot.light === 'night' ? 0.45 : kind === 'lapd' && shot.light === 'rim' ? 0.3 : 0;
+    wallaceMouth.intensity = kind === 'wallace' && shot.light === 'night' ? 22000 : 0;
     span.textContent = shot.label;
     document.getElementById('dims')!.textContent =
       `${shot.label} · W ${size.x.toFixed(1)} × D ${size.z.toFixed(1)} × H ${size.y.toFixed(1)} m · ${tris} tris · ${CLOSE_W}×${CLOSE_H}`;
@@ -757,17 +777,17 @@ function gauge(parent: Group, x: number, y: number, z: number, toward: number, s
 function scaleStand(kind: Kind): { look: Vector3; wide: Vector3; person: Vector3; toward: number; stairX: number; stairZ: number } {
   if (kind === 'lapd') {
     // The figure stands in the lower third. The door and the podium share that frame.
-    const person = new Vector3(3.2, 0, -95);
-    return { person, look: new Vector3(0, 28, -55), wide: new Vector3(0, 100, -20), toward: 1, stairX: 14, stairZ: -90 };
+    const person = new Vector3(16, 0, -74);
+    return { person, look: new Vector3(2, 3.2, -64), wide: new Vector3(0, 100, -20), toward: 1, stairX: 18, stairZ: -68 };
   }
   if (kind === 'hall') {
     // Close on the porch so the person, the door and the flight are readable.
     const person = new Vector3(-1.6, 0, 48);
     return { person, look: new Vector3(0.4, 3.4, 42), wide: new Vector3(0, 70, 10), toward: -1, stairX: 4.8, stairZ: 53 };
   }
-  // Eye height, looking at the base of the mouth, so the figure and the stone share the frame.
-  const person = new Vector3(20, 0, -1768);
-  return { person, look: new Vector3(14, 4.5, -1690), wide: new Vector3(0, 1200, -400), toward: 1, stairX: 26, stairZ: -1774 };
+  // Outside the jamb, on the 3.6 m street courses. The figure stands between the camera and the wall.
+  const person = new Vector3(196, 0, -1626);
+  return { person, look: new Vector3(192, 2.4, -1612), wide: new Vector3(0, 1200, -400), toward: 1, stairX: 184, stairZ: -1634 };
 }
 
 async function renderScale(
@@ -787,10 +807,10 @@ async function renderScale(
   ground.rotation.x = -Math.PI / 2;
   ground.position.y = box.min.y - 0.02;
   scene.add(ground);
-  const hemi = new HemisphereLight(0xd0d4dc, 0x8a8e94, 0.85);
+  const hemi = new HemisphereLight(0xd0d4dc, 0x8a8e94, kind === 'wallace' ? 0.5 : 0.85);
   scene.add(hemi);
   const sign = entranceSign(kind);
-  const key = new DirectionalLight(0xffffff, 3.4);
+  const key = new DirectionalLight(0xffffff, kind === 'wallace' ? 1.5 : 3.4);
   key.position.set(30, 80, sign * 120);
   key.target.position.set(0, kind === 'wallace' ? 200 : 20, 0);
   scene.add(key, key.target);
@@ -818,10 +838,10 @@ async function renderScale(
   const closeDir = kind === 'hall'
     ? new Vector3(0.4, 0.16, 0.9)
     : kind === 'lapd'
-      ? new Vector3(0.07, -0.37, -0.92)
-      : new Vector3(0.085, -0.031, -0.996);
-  const closeRadius = kind === 'wallace' ? 49 : kind === 'hall' ? 14 : 50;
-  const closeFov = kind === 'wallace' ? 62 : kind === 'hall' ? 44 : 90;
+      ? new Vector3(0.8, 0.04, -0.6)
+      : new Vector3(0.12, 0.02, -0.99);
+  const closeRadius = kind === 'wallace' ? 8 : kind === 'hall' ? 14 : 12;
+  const closeFov = kind === 'wallace' ? 38 : kind === 'hall' ? 44 : 46;
   aim(close, closeDir, stand.look, closeRadius, closeFov);
   const wide = new PerspectiveCamera(28, cellW / cellH, 0.2, 20000);
   aim(wide, new Vector3(0.55, 0.28, entranceSign(kind) * 0.8), stand.wide, kind === 'wallace' ? 2200 : box.getSize(new Vector3()).y * 0.7, 28);

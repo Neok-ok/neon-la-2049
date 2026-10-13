@@ -69,6 +69,7 @@ function kindOf(name: string): string {
   if (n.includes('portal-glow')) return 'portal-glow';
   if (n.includes('mouth-stone')) return 'mouth-stone';
   if (n.includes('roof-clay')) return 'roof-clay';
+  if (n.includes('deck-stone')) return 'deck-stone';
   if (n.includes('glass-warm')) return 'glass-warm';
   if (n.includes('glass')) return 'glass';
   if (n.includes('metal')) return 'metal';
@@ -108,6 +109,14 @@ function dressMaterial(src: Material, mesh: Mesh, kind: LandmarkKind, lod: Landm
   const tex = src as Pbr;
   const key = `landmark-${kind}-${lod}-${src.name || role}`;
   const hasColor = !!mesh.geometry.getAttribute('color');
+  if (role === 'deck-stone') {
+    return resources.material(key, () => new MeshStandardNodeMaterial({
+      color: 0x9aa3ad,
+      roughness: 0.36,
+      metalness: 0.48,
+      name: src.name,
+    }));
+  }
   if (role === 'roof-clay') {
     return resources.material(key, () => new MeshStandardNodeMaterial({
       color: 0x7a3422,

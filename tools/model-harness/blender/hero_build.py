@@ -5,8 +5,6 @@ metres. A pyramid face is one welded grid on the battered steps: block, joint,
 terrace and channel share vertices, so the skin is a single shell. No imported
 mesh. The published door, stair, pad and tip stay where the district lights are.
 """
-import math
-
 import bmesh
 
 H = None
@@ -140,22 +138,7 @@ def build_lapd(kit, rank):
     mass = H.Mass()
     mass.box(0, 0, 0, Q['podiumW'], Q['podiumD'], Q['podiumH'])
     mass.box(0, 0, Q['podiumH'] - 0.25, Q['shaftW'], Q['shaftD'], shaft_y - Q['podiumH'] + 0.4)
-    mass.frustum(
-        0, 0, shaft_y - 0.12,
-        Q['shaftW'], Q['shaftD'], Q['crownW'], Q['crownD'], Q['crownH'] + 0.12,
-    )
-    # Vertical fascias on the flare. A bare slope turns black in a side light
-    # and the cap reads as two slabs floating over a gap.
-    for y, h, w, d in _crown_tiers(shaft_y):
-        mass.box(0, 0, y, w, d, h)
-    # A deep eave, so the flare reads as a cap and not a wafer.
-    mass.box(0, 0, Q['height'] - 7.2, Q['crownW'] + 2.4, Q['crownD'] + 2.4, 4.6)
-    _deck_lip(mass, Q)
     mast_top = Q['height'] + Q['padH'] + 6
-    for lx, lz in ((-28, -38), (28, -38), (-28, 38), (28, 38)):
-        mass.box(lx, lz, Q['height'] - 0.05, Q['pad'], Q['pad'], Q['padH'] + 0.05)
-        _rec(mass.parts, lx, lz, Q['height'] - 0.05, Q['pad'] + 0.4, Q['pad'] + 0.4, Q['padH'] + 1.45)
-    mass.box(0, 0, Q['height'] - 0.4, 4.6, 4.6, mast_top - (Q['height'] - 0.4))
     if rank >= 1:
         mass.box(0, 0, 64, Q['shaftW'] + 1.6, Q['shaftD'] + 1.6, 3.6)
         mass.box(0, 0, 118, Q['shaftW'] + 2.0, Q['shaftD'] + 2.0, 3.8)
@@ -167,6 +150,8 @@ def build_lapd(kit, rank):
     print('fuse lapd', len(mass.solids), flush=True)
     host = mass.fuse()
     H.finish_shell(host, kit.body, tint, tile)
+    # A lighter deck on the black shaft. Vertex colour cannot lift the dark map.
+    _lapd_crown(mass, Q, shaft_y, mast_top)
 
     # Low keeps every other fin of the high grid, so it sits inside the high envelope.
     shaft_fins_x = [-(Q['shaftW'] * 0.5 - 4) + i * (Q['shaftW'] - 8) / 6 for i in range(7)]
@@ -208,9 +193,6 @@ def build_lapd(kit, rank):
         kit, metal, tint, tile, rank, pitch, win_h,
         shaft_fins_z, fin_t, west, -1, 'x', win_y0, shaft_y - 2.5,
     )
-    # Two belt courses are already in the shell. A lip in every bay is a chart.
-    _deck_seams(mass.parts, kit.recess, Q)
-
     face = -Q['podiumD'] / 2
     # Street pilasters and the door surround. The leaf stays empty.
     for x in (-36, -24, -14, 14, 24, 36):
@@ -226,19 +208,12 @@ def build_lapd(kit, rank):
         _podium_windows(kit, metal, tint, tile, rank, Q['podiumW'] / 2, 1, 'x', Q['podiumD'], False)
         _podium_windows(kit, metal, tint, tile, rank, -Q['podiumW'] / 2, -1, 'x', Q['podiumD'], False)
         for lx, lz in ((-28, -38), (28, -38), (-28, 38), (28, 38)):
-            # One short strip inside the pad, not a bar across the entrance.
-            H.place_lamp(kit, f'pad-{lx}-{lz}', lx, Q['height'] + Q['padH'], lz, (0, 1, 0), 4.5, 0.28, 'amber')
-            _pad_lip(kit.body, tint, tile, lx, lz, Q['height'] + Q['padH'] - 0.01)
-        H.place_lamp(kit, 'mast', 0, mast_top, 0, (0, 1, 0), 1.1, 0.28, 'amber', -0.2)
+            # Short and thick. A long bezel on the crown fails the thin-part gate.
+            _crown_lamp(kit, f'pad-{lx}-{lz}', lx, Q['height'] + Q['padH'], lz)
+        _crown_lamp(kit, 'mast', 0, mast_top - 0.15, 0)
         # Two short sconces on the jambs. A bar across the door is the old white band.
         H.place_lamp(kit, 'door-l', -4.4, Q['lobbyFloor'] + 2.6, face, (0, 0, -1), 0.7, 0.18, 'amber', -0.12)
         H.place_lamp(kit, 'door-r', 4.4, Q['lobbyFloor'] + 2.6, face, (0, 0, -1), 0.7, 0.18, 'amber', -0.12)
-    if rank >= 2:
-        # Landing paint on the pads. The entrance has no sign: a chevron over
-        # the door reads as a department mark, and the film tower has none.
-        for lx, lz in ((-28, -38), (28, -38), (-28, 38), (28, 38)):
-            H.place_decal(kit, f'pad-mark-{lx}', lx, Q['height'] + Q['padH'] + 0.02, lz, (0, 1, 0), 6, 10, z_scale=8, lift=0.01)
-
     flush_detail()
     door_clear = H.gap_at(host, (0, 59.15, Q['lobbyFloor'] + 1.1))
     return {
@@ -292,19 +267,20 @@ def _shaft_windows(kit, metal, tint, tile, rank, pitch, win_h, fins, fin_t, face
                     continue
                 _opening(kit.glass, metal, tint, tile, rank, face, outward, axis, aa, bb, y, 2.05, jambs=False)
         return
-    for a, b in bays:
-        # Deep concrete cheeks. The bay is a slot between fins, not a glass curtain.
-        inset = (b - a) * 0.36
-        a, b = a + inset, b - inset
-        if b - a < 0.8:
+    floors = _floors(y0, y1, pitch * 2, win_h)
+    for i, (a, b) in enumerate(bays):
+        # Most bays stay solid. A ladder of identical slots is not this shaft.
+        if (i + (0 if outward > 0 else 1)) % 3 != 0:
             continue
-        if rank >= 2:
-            for y in _floors(y0, y1, pitch, win_h):
-                _opening(kit.glass, metal, tint, tile, rank, face, outward, axis, a, b, y, win_h, jambs=True)
+        inset = (b - a) * 0.3
+        a, b = a + inset, b - inset
+        if b - a < 0.8 or not floors:
+            continue
+        picks = floors[(i % 2)::2][:2]
+        for y in picks:
+            _opening(kit.glass, metal, tint, tile, rank, face, outward, axis, a, b, y, win_h, jambs=rank >= 2)
+            if rank >= 2:
                 _sill(kit.body, tint, tile, face, outward, axis, a, b, y - 0.15, 1.15, 0.72)
-        else:
-            for y in _floors(y0, y1, pitch, win_h):
-                _opening(kit.glass, metal, tint, tile, rank, face, outward, axis, a, b, y, win_h, jambs=False)
 
 
 def _opening(glass, metal, tint, tile, rank, face, outward, axis, a, b, y, h, jambs):
@@ -405,6 +381,12 @@ def _podium_windows(kit, metal, tint, tile, rank, face, outward, axis, span, ski
             _opening(kit.glass, metal, tint, tile, rank, face, outward, axis, a, b, y, win_h, jambs=rank >= 2)
 
 
+def _crown_lamp(kit, name, x, y, z):
+    # 2.6 m over a 0.34 m bezel stays under the stray aspect cap.
+    part = kit.light_strip(name, 2.6, 0.42, 0.48, 'amber', bezel=kit.recess)
+    kit.place(part, H.bl_point(x, y, z), normal=H.bl_normal(0, 1, 0), lift=-0.16)
+
+
 def _pad_lip(mat, tint, tile, lx, lz, y):
     pad = H.HQ['pad']
     t = 0.7
@@ -446,6 +428,135 @@ def _deck_seams(parts, mat, Q):
     for z in (-40, 40):
         _seam(mat, 0, z, y, cw, t, h)
         _rec(parts, 0, z, y, cw, t + 0.2, h + 0.15)
+
+
+def _deck_mat():
+    import bpy
+    found = bpy.data.materials.get('deck-stone')
+    if found is not None:
+        return found
+    from kit.parts import _principled
+    # The overhead still is a pale metal deck, not the black shaft.
+    return _principled('deck-stone', (0.62, 0.66, 0.72), 0.38, 0.42, (0.0, 0.0, 0.0), 0.0)
+
+
+def _paint_deck(ob):
+    ob.data.materials.clear()
+    ob.data.materials.append(_deck_mat())
+    return ob
+
+
+def _lapd_crown(mass, Q, shaft_y, mast_top):
+    # One shell. Pads and the mast share roof vertices, and the bottom corners
+    # sit on the shaft corners so the pale deck is not a floating plate.
+    import bmesh
+    from mathutils import Vector
+    top = shaft_y + 0.15
+    hw0, hd0 = Q['shaftW'] * 0.5, Q['shaftD'] * 0.5
+    eave = 1.2
+    hw1, hd1 = Q['crownW'] * 0.5 + eave, Q['crownD'] * 0.5 + eave
+    y_flare = Q['height'] - 6.4
+    y_deck = Q['height']
+    lip_h = 2.6
+    half = Q['pad'] * 0.5
+    centres = ((-28.0, -38.0), (28.0, -38.0), (-28.0, 38.0), (28.0, 38.0))
+    xs = sorted({-hw1, hw1, *{px - half for px, _pz in centres}, *{px + half for px, _pz in centres}})
+    zs = sorted({-hd1, hd1, *{pz - half for _px, pz in centres}, *{pz + half for _px, pz in centres}})
+    if any(b - a < 0.2 for a, b in zip(xs, xs[1:])) or any(b - a < 0.2 for a, b in zip(zs, zs[1:])):
+        raise RuntimeError(f'crown grid collapsed {xs} {zs}')
+    bm = bmesh.new()
+
+    def add_face(verts, interior):
+        face = bm.faces.new(tuple(verts))
+        face.normal_update()
+        centre = face.calc_center_median()
+        if face.normal.dot(interior - centre) > 0:
+            bmesh.ops.reverse_faces(bm, faces=[face])
+        return face
+
+    def ring(y, hw, hd):
+        return [bm.verts.new((x, -z, y)) for x, z in (
+            (-hw, -hd), (hw, -hd), (hw, hd), (-hw, hd),
+        )]
+
+    def link(lower, upper, interior):
+        for i in range(4):
+            j = (i + 1) % 4
+            add_face((lower[i], lower[j], upper[j], upper[i]), interior)
+
+    shell = Vector((0.0, 0.0, (top + y_deck) * 0.5))
+    bottom = ring(top, hw0, hd0)
+    flare = ring(y_flare, Q['crownW'] * 0.5, Q['crownD'] * 0.5)
+    link(bottom, flare, shell)
+    grid = [[bm.verts.new((x, -z, y_deck)) for x in xs] for z in zs]
+    outer = [grid[0][0], grid[0][-1], grid[-1][-1], grid[-1][0]]
+    link(flare, outer, shell)
+
+    def pad_cell(zi, xi):
+        cx = (xs[xi] + xs[xi + 1]) * 0.5
+        cz = (zs[zi] + zs[zi + 1]) * 0.5
+        return any(abs(cx - px) < 0.1 and abs(cz - pz) < 0.1 for px, pz in centres)
+
+    origin = None
+    for zi in range(len(zs) - 1):
+        for xi in range(len(xs) - 1):
+            corners = (
+                grid[zi][xi], grid[zi][xi + 1],
+                grid[zi + 1][xi + 1], grid[zi + 1][xi],
+            )
+            if xs[xi] < 0 < xs[xi + 1] and zs[zi] < 0 < zs[zi + 1]:
+                origin = corners
+                continue
+            if pad_cell(zi, xi):
+                cap = [bm.verts.new((v.co.x, v.co.y, y_deck + Q['padH'])) for v in corners]
+                interior = Vector((
+                    (corners[0].co.x + corners[2].co.x) * 0.5,
+                    (corners[0].co.y + corners[2].co.y) * 0.5,
+                    y_deck + Q['padH'] * 0.5,
+                ))
+                link(corners, cap, interior)
+                add_face(cap, interior)
+                continue
+            add_face(corners, shell)
+    if origin is None:
+        raise RuntimeError('crown has no centre bay')
+    mast_hw = 2.3
+    mast_base = ring(y_deck, mast_hw, mast_hw)
+    mast_cap = ring(mast_top, mast_hw, mast_hw)
+    mast_in = Vector((0.0, 0.0, (y_deck + mast_top) * 0.5))
+    link(mast_base, mast_cap, mast_in)
+    add_face(mast_cap, mast_in)
+    a, b, c, d = origin
+    m0, m1, m2, m3 = mast_base
+    add_face((a, b, m1, m0), shell)
+    add_face((b, c, m2, m1), shell)
+    add_face((c, d, m3, m2), shell)
+    add_face((d, a, m0, m3), shell)
+    lip = ring(y_deck + lip_h, hw1, hd1)
+    link(outer, lip, Vector((0.0, 0.0, y_deck + lip_h * 0.5)))
+    ob = H.mesh_of(bm, 'crown')
+    _paint_deck(ob)
+    mass.parts.append({
+        'type': 'frustum', 'cx': 0, 'cz': 0, 'y': top,
+        'w0': Q['shaftW'], 'd0': Q['shaftD'], 'w1': Q['crownW'], 'd1': Q['crownD'],
+        'h': y_flare - top,
+    })
+    mass.parts.append({
+        'type': 'box', 'cx': 0, 'cz': 0, 'y': y_flare,
+        'w': Q['crownW'] + 2.4, 'd': Q['crownD'] + 2.4, 'h': y_deck - y_flare,
+    })
+    mass.parts.append({
+        'type': 'box', 'cx': 0, 'cz': 0, 'y': y_deck,
+        'w': Q['crownW'] + 2.4, 'd': Q['crownD'] + 2.4, 'h': lip_h,
+    })
+    for lx, lz in centres:
+        mass.parts.append({
+            'type': 'box', 'cx': lx, 'cz': lz, 'y': y_deck,
+            'w': Q['pad'], 'd': Q['pad'], 'h': Q['padH'],
+        })
+    mass.parts.append({
+        'type': 'box', 'cx': 0, 'cz': 0, 'y': y_deck, 'w': 4.6, 'd': 4.6, 'h': mast_top - y_deck,
+    })
 
 
 def _crown_tiers(shaft_y):
@@ -680,25 +791,20 @@ def build_hall(kit, rank):
             # Deep slots. A shallow groove reads as a scratch, not a colonnade.
             mass.cut(mid, face - outward * 0.7, slot_y, span, 2.6, slot_h)
             mass.cut(face - outward * 0.7, mid, slot_y, 2.6, span, slot_h)
-    # A stone pyramid in three slopes. A stack of equal treads reads as brick.
-    pyr0 = neck_top - 0.2
-    span0 = neck - 0.6
-    span1 = 6.2
-    rise = pyramid_top - pyr0
-    n_slopes = 3
-    for i in range(n_slopes):
-        y0 = pyr0 + rise * i / n_slopes
-        s0 = span0 + (span1 - span0) * (i / float(n_slopes))
-        s1 = span0 + (span1 - span0) * ((i + 1) / float(n_slopes))
-        mass.frustum(0, 0, y0, s0, s0, s1, s1, rise / n_slopes + 0.35)
-    # Open drum: a floor, eight posts, a ring. A solid cap is the gold box.
-    drum_h = Q['lanternTop'] - pyramid_top
-    mass.box(0, 0, pyramid_top - 0.12, 5.0, 5.0, 0.42)
-    for i in range(8):
-        ang = i * math.pi / 4.0
-        mass.box(math.cos(ang) * 2.15, math.sin(ang) * 2.15, pyramid_top - 0.05, 0.42, 0.42, drum_h + 0.05)
-    mass.box(0, 0, Q['lanternTop'] - 0.38, 5.4, 5.4, 0.38)
-    mass.box(0, 0, Q['lanternTop'], 1.25, 1.25, Q['height'] - Q['lanternTop'])
+    # Square terraces. A smooth hip reads as a roof, and an open drum reads as a well.
+    pyr0 = neck_top - 0.15
+    span0 = neck - 0.8
+    span1 = 7.6
+    n_steps = 8
+    rise = (pyramid_top - pyr0) / n_steps
+    for i in range(n_steps):
+        y0 = pyr0 + rise * i
+        span = span0 + (span1 - span0) * (i / float(n_steps))
+        mass.box(0, 0, y0, span, span, rise + 0.2)
+    # Closed white lantern. A slot cut here leaves a loose chip on the cap.
+    lantern_h = Q['lanternTop'] - pyramid_top
+    mass.box(0, 0, pyramid_top - 0.1, 6.4, 6.4, lantern_h + 0.24)
+    mass.box(0, 0, Q['lanternTop'], 1.15, 1.15, Q['height'] - Q['lanternTop'])
     # Pier relief sits outside the stone. The collar is the envelope, not extra stone.
     _rec(mass.parts, 0, 0, 0, Q['baseW'] + 2.6, Q['baseD'] + 2.6, base_h + 0.6)
     _rec(mass.parts, 0, 0, base_h + 1.2, shaft + 2.6, shaft + 2.6, shaft_top - base_h)
@@ -876,14 +982,14 @@ PORTAL_BACK = 72.0
 # One fat slot reads as a black column of blocks.
 def _flute_lines():
     lines = []
-    # Wide enough to read on the whole pyramid, narrow enough to stay a joint.
-    for center in (0.22, 0.50, 0.78):
-        lines.extend((center - 0.006, center, center + 0.006))
+    # Three bundles. Each line is wide enough to survive a full-pyramid frame.
+    for center in (0.20, 0.50, 0.80):
+        lines.extend((center - 0.022, center, center + 0.022))
     return tuple(round(v, 5) for v in lines)
 
 
 CHANNEL_LINES = _flute_lines()
-FLUTE_HALF = 0.0022
+FLUTE_HALF = 0.0055
 WALLACE_TILE = 120.0
 
 
@@ -984,7 +1090,7 @@ def _splits(rank, course_i, half, y0, terrace):
 
 
 def _channel(um, width):
-    if width > 0.006:
+    if width > 0.016:
         return False
     for c in CHANNEL_LINES:
         if abs(um - c) <= FLUTE_HALF + 0.0004:
@@ -1004,14 +1110,14 @@ def _span_kind(face, u0, u1, y0, half, course_i, terrace):
         if span > 0.0 and overlap >= span - 0.4 and overlap > 0.35:
             return 'portal', -130.0
     if not terrace and _channel(um, u1 - u0):
-        return 'channel', -2.4
+        return 'channel', -6.0
     # Only a hairline joint. The stone between two flutes is still ashlar.
     if (u1 - u0) < 0.00045:
         return 'mortar', -0.35
     if y0 < 0.05:
-        return 'podium', 2.4
+        return 'podium', 0.2
     if y0 < 14.41:
-        return 'stone', 0.55
+        return 'stone', 0.22
     # Flush ashlar. A proud course is a brick, and the paint carries the joint.
     return 'stone', 0.0
 
@@ -1047,19 +1153,22 @@ def _co(face, y, half, u, relief):
 
 def _rgb(kind, course_i, stone_i, face):
     if kind == 'channel':
-        return (0.18, 0.20, 0.24)
+        return (0.07, 0.075, 0.08)
     if kind == 'portal':
-        return (0.36, 0.38, 0.42)
+        # Darker and warmer than the face. The same tint as the wall reads as no mouth.
+        return (0.22, 0.16, 0.11)
     if kind == 'mortar':
-        return (0.40, 0.44, 0.48)
+        return (0.34, 0.36, 0.38)
     if kind == 'ledge':
-        return (0.62, 0.66, 0.70)
-    if kind == 'podium':
-        return (0.48, 0.52, 0.56)
-    tone = 0.42 + 0.55 * _hash(course_i * 3 + face * 17, stone_i * 5 + 2)
-    if _hash(course_i + 4, stone_i + 9) > 0.78:
-        tone *= 0.7
-    return (tone * 0.76, tone * 0.84, tone * 0.98)
+        return (0.78, 0.80, 0.82)
+    if kind == 'podium' or (kind == 'stone' and course_i < 4):
+        # Alternate the four street courses so a 3.6 m floor reads at the door.
+        tone = 0.96 if course_i % 2 == 0 else 0.58
+        return (tone * 0.92, tone * 0.96, tone)
+    tone = 0.88 + 0.08 * _hash(course_i * 3 + face * 17, stone_i * 5 + 2)
+    if _hash(course_i + 4, stone_i + 9) > 0.82:
+        tone *= 0.86
+    return (tone * 0.92, tone * 0.96, tone)
 
 
 def _paint_face(face, layer, rgb):
@@ -1301,15 +1410,14 @@ def _seat_lights(kit, ob, rank):
     _vx, cy, cz = best
     # Centre the throat in the mouth. A vertex on one jamb is not the middle.
     cx = 0.0 if abs(_vx) > 8.0 else _vx
-    # Thick enough for the thin-part gate. The visible face sits on the back wall;
-    # the rest of the box is inside the mass, so the opening is a stone mouth.
-    # A tall doorway on the back wall. A wide short panel is the flat mouth slab.
+    # A human door on the floor of the monumental mouth. A glow whose
+    # sill sits near 9 m reads as a ledge with no storey line under it.
     depth = 16.0
-    width = 44.0
-    height = 72.0
+    width = 7.2
+    height = 4.2
     back_z = -(PY_BASE * 0.5 - PORTAL_BACK)
     throat = H.make_box(
-        'throat', 0.0, back_z - 0.06 + depth * 0.5, 9.0,
+        'throat', 0.0, back_z - 0.06 + depth * 0.5, 0.2,
         width, depth, height,
     )
     throat.data.materials.append(_portal_glow(rank))
