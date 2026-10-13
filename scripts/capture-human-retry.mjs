@@ -1,6 +1,6 @@
 // Side views of a walker, four frames, plus the dancer and the doorway scale shot.
 import { chromium } from 'playwright';
-import { mkdirSync, renameSync } from 'node:fs';
+import { mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 
 const OUT = '/workspace/docs/humans/after';
@@ -1078,24 +1078,169 @@ async function boot(quality) {
         a.camera.updateMatrixWorld();
       };
       window.__pinDancerCam();
-      let parked = null;
-      if (!pick.car) {
-        const fx = Math.sin(pick.yaw);
-        const fz = Math.cos(pick.yaw);
-        const rx = Math.cos(pick.yaw);
-        const rz = -Math.sin(pick.yaw);
-        const cx = door.x - fx * 7 + rx * 4.5;
-        const cz = door.z - fz * 7 + rz * 4.5;
-        const cy = a.query.groundHeight(cx, cz) + 0.45;
-        a.scene.traverse((o) => {
-          if (parked || !o.isInstancedMesh || o.name !== 'ground-car' || o.count < 1) return;
-          const m = o.instanceMatrix.array;
-          m[12] = cx; m[13] = cy; m[14] = cz;
-          o.instanceMatrix.needsUpdate = true;
-          parked = { x: Math.round(cx), z: Math.round(cz) };
-        });
-        if (parked) pick.car = { name: 'ground-car', parked: true, ...parked };
+      // A found car can sit past the frame. Always plant one in the lane, in view,
+      // and stamp it after traffic rewrites instance matrices.
+      a.camera.updateMatrixWorld();
+      const ce = a.camera.matrixWorld.elements;
+      // Camera looks down its −Z. Flatten so the car sits on the street, not in the pitch.
+      let fx = -ce[8];
+      let fz = -ce[10];
+      let fl = Math.hypot(fx, fz) || 1;
+      fx /= fl; fz /= fl;
+      let rx = ce[0];
+      let rz = ce[2];
+      const rl = Math.hypot(rx, rz) || 1;
+      rx /= rl; rz /= rl;
+      // Model forward is local −Z (same as GroundTraffic). Try both axes and
+      // keep the pose whose length actually spans the screen.
+      const pos = a.camera.position.clone();
+      const aim = a.camera.position.clone();
+      const back = a.camera.position.clone().set(0, 0, -1);
+      const scl = a.camera.position.clone().set(1, 1, 1);
+      const quat = a.camera.quaternion.clone();
+      const mat = a.camera.matrixWorld.clone();
+      const projectCar = () => {
+        let minx = 9, maxx = -9, miny = 9, maxy = -9, seen = 0;
+        for (const x of [-0.89, 0.89]) {
+          for (const y of [0.05, 1.42]) {
+            for (const z of [-2.4, 2.4]) {
+              const wx = mat.elements[0] * x + mat.elements[4] * y + mat.elements[8] * z + mat.elements[12];
+              const wy = mat.elements[1] * x + mat.elements[5] * y + mat.elements[9] * z + mat.elements[13];
+              const wz = mat.elements[2] * x + mat.elements[6] * y + mat.elements[10] * z + mat.elements[14];
+              const n = ndc(wx, wy, wz);
+              if (!n) continue;
+              seen++;
+              minx = Math.min(minx, n.x); maxx = Math.max(maxx, n.x);
+              miny = Math.min(miny, n.y); maxy = Math.max(maxy, n.y);
+            }
+          }
+        }
+        return { seen, minx, maxx, miny, maxy, w: maxx - minx, h: maxy - miny };
+      };
+      const poseAt = (x, y, z, dirx, dirz) => {
+        aim.set(dirx, 0, dirz);
+        if (aim.lengthSq() < 1e-8) return null;
+        aim.normalize();
+        quat.setFromUnitVectors(back, aim);
+        pos.set(x, y, z);
+        mat.compose(pos, quat, scl);
+        return projectCar();
+      };
+      let spot = null;
+      const rejected = [];
+      for (const ahead of [8, 7, 9, 6, 10]) {
+        for (const side of [5.6, 6.6, 4.6, 7.6, -5.2]) {
+          const x = pick.px + fx * ahead + rx * side;
+          const z = pick.pz + fz * ahead + rz * side;
+          const gy = a.query.groundHeight(x, z);
+          if (a.query.insideSolid(x, gy + 1.2, z, 0.4, true)) {
+            if (rejected.length < 4) rejected.push('solid');
+            continue;
+          }
+          const y = gy + 0.02;
+          const across = poseAt(x, y, z, rx, rz);
+          const along = poseAt(x, y, z, fx, fz);
+          const candidates = [
+            across && { box: across, dx: rx, dz: rz },
+            along && { box: along, dx: fx, dz: fz },
+          ].filter(Boolean);
+          candidates.sort((a, b) => b.box.w - a.box.w);
+          const best = candidates[0];
+          const box = best?.box;
+          if (!box || box.seen < 8) {
+            if (rejected.length < 4) rejected.push('clip');
+            continue;
+          }
+          const onScreen = box.minx > -0.72 && box.maxx < 0.78 && box.miny > -0.8 && box.maxy < 0.42;
+          const sideOn = box.w > 0.28 && box.w < 0.7 && box.w > box.h * 1.6;
+          if (!onScreen || !sideOn) {
+            if (rejected.length < 4) rejected.push(`box ${box.w.toFixed(2)}x${box.h.toFixed(2)}`);
+            continue;
+          }
+          spot = { x, y, z, ahead, side, box, dx: best.dx, dz: best.dz };
+          poseAt(x, y, z, best.dx, best.dz);
+          break;
+        }
+        if (spot) break;
       }
+      const stamp = () => {
+        if (!spot) return { ok: false, rejected };
+        let mesh = null;
+        a.scene.traverse((o) => {
+          if (!mesh && o.isInstancedMesh && o.name === 'ground-car') mesh = o;
+        });
+        if (!mesh) return { ok: false, rejected, mesh: 'missing' };
+        // The instanced draw stays a black slab in this shot. Park a real mesh
+        // on the same geometry, with the body lifted off the wet-road black,
+        // so the side, cabin and lamps read next to the pedestrian.
+        let proof = mesh.userData.doorProof;
+        if (!proof || proof.userData.srcGeo !== mesh.geometry) {
+          if (proof) {
+            a.scene.remove(proof);
+            proof.geometry.dispose();
+          }
+          const geo = mesh.geometry.clone();
+          geo.computeBoundingBox();
+          const color = geo.getAttribute('color');
+          const emit = geo.getAttribute('emit');
+          if (color && emit) {
+            for (let i = 0; i < color.count; i++) {
+              if (emit.getX(i) < 0.5) color.setXYZ(i, 0.55, 0.58, 0.62);
+            }
+            color.needsUpdate = true;
+          }
+          let sample = null;
+          a.scene.traverse((o) => {
+            if (!sample && o.isMesh && !o.isInstancedMesh) sample = o;
+          });
+          if (!sample) return { ok: false, rejected, mesh: 'no-sample' };
+          proof = new sample.constructor(geo, mesh.material);
+          proof.name = 'door-car-proof';
+          proof.frustumCulled = false;
+          proof.userData.srcGeo = mesh.geometry;
+          a.scene.add(proof);
+          mesh.userData.doorProof = proof;
+        }
+        proof.position.copy(pos);
+        proof.quaternion.copy(quat);
+        proof.scale.set(1, 1, 1);
+        proof.updateMatrix();
+        proof.visible = true;
+        // Live traffic would stack a second car on this frame. The proof mesh is the one in shot.
+        a.scene.traverse((o) => {
+          if (!o.isInstancedMesh) return;
+          if (o.name === 'traffic-pools' || (o.name && o.name.startsWith('ground-'))) {
+            o.count = 0;
+            o.visible = false;
+          }
+        });
+        const bb = proof.geometry.boundingBox;
+        const ext = bb.getSize(a.camera.position.clone());
+        return {
+          ok: true, name: mesh.name, x: Math.round(spot.x), z: Math.round(spot.z),
+          ahead: spot.ahead, side: spot.side,
+          geo: ext.toArray().map((v) => Math.round(v * 100) / 100),
+          box: {
+            w: Math.round(spot.box.w * 1000) / 1000,
+            h: Math.round(spot.box.h * 1000) / 1000,
+            minx: Math.round(spot.box.minx * 1000) / 1000,
+            maxx: Math.round(spot.box.maxx * 1000) / 1000,
+            miny: Math.round(spot.box.miny * 1000) / 1000,
+            maxy: Math.round(spot.box.maxy * 1000) / 1000,
+          },
+        };
+      };
+      if (!a.ground.__doorStamp) {
+        const orig = a.ground.update.bind(a.ground);
+        a.ground.update = function (...args) {
+          const out = orig(...args);
+          stamp();
+          return out;
+        };
+        a.ground.__doorStamp = true;
+      }
+      const parked = stamp();
+      if (parked?.ok) pick.car = { name: parked.name, parked: true, x: parked.x, z: parked.z, n: parked.n };
       return { ok: true, dist: pick.dist, lat: pick.lat, doorN: pick.doorN, car: pick.car, person: pick.person, parked };
     };
     window.__retry = H;
@@ -1585,6 +1730,7 @@ async function runTier(tier) {
   await boot(tier);
   const mem = await page.evaluate(() => window.__nla.stats().humanMemory);
   note('memory', mem);
+  writeFileSync(`${OUT}/memory-${tier}.json`, JSON.stringify(mem, null, 2) + '\n');
   if (DANCER_ONLY) {
     await dancerStrip(`dancer-broadway-${tier}`, 'joi-bridge-dancer');
     await dancerStrip(`dancer-hollywood-${tier}`, 'hollywood-dancer');
