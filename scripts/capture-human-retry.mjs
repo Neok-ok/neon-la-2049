@@ -193,8 +193,17 @@ async function boot(quality) {
             }
           }
           if (pull.parkEdge) {
-            const n = ndc(arr[b + 12], arr[b + 13] + 1.1, arr[b + 14]);
-            if (!n || n.x < -0.72 || n.x > 0.72) {
+            const x = arr[b + 12];
+            const y = arr[b + 13];
+            const z = arr[b + 14];
+            const n = ndc(x, y + 1.1, z);
+            const head = ndc(x, y + 1.7, z);
+            const feet = ndc(x, y + 0.05, z);
+            const span = head && feet ? Math.abs(head.y - feet.y) : 0;
+            const half = Math.max(0.08, span * 0.22);
+            // Park a companion whose body would leave the frame. A centre
+            // still inside 0.7 can belong to a figure cut in half.
+            if (!n || Math.abs(n.x) + half > 0.86) {
               arr[b + 12] = 1e7;
               continue;
             }
@@ -940,6 +949,14 @@ async function boot(quality) {
             if (q.insideSolid(px, gy + 1.4, pz, 0.85, true)) continue;
             if (!clear(px, pz, gy)) continue;
             if (!line(px, pz, p.x, p.z, gy)) continue;
+            // A building corner a metre beside the lens fills the frame with
+            // two gray wedges. Skip slides that stand in that corner.
+            let corner = 0;
+            for (const s of [1.3, 2.2]) {
+              if (q.insideSolid(px + f.tx * s, gy + 1.3, pz + f.tz * s, 0.25, true)) corner = s;
+              if (q.insideSolid(px - f.tx * s, gy + 1.3, pz - f.tz * s, 0.25, true)) corner = s;
+            }
+            if (corner && corner < 1.5) continue;
             const vx = p.vx || 0;
             const vz = p.vz || 0;
             const vlen = Math.hypot(vx, vz) || 1;
@@ -947,7 +964,7 @@ async function boot(quality) {
             const uz = p.z - pz;
             const ulen = Math.hypot(ux, uz) || 1;
             const facing = Math.abs((ux / ulen) * (vx / vlen) + (uz / ulen) * (vz / vlen));
-            const score = Math.abs(hit - 2.0) + facing * 3.2 + Math.abs(slide) * 0.04;
+            const score = Math.abs(hit - 2.0) + facing * 3.2 + Math.abs(slide) * 0.04 + (corner ? 1.6 : 0);
             if (!best || score < best.score) best = { px, pz, gy, score, out: hit };
           }
         }
@@ -996,6 +1013,121 @@ async function boot(quality) {
         face: 1,
         building: false,
         out: Math.round(best.out * 10) / 10,
+      };
+    };
+    // Draw the locked walker against the nearest tall mass so a door, window
+    // or stack sits at their depth. The sim path stays put; the draw offset
+    // is the haul. The pin keeps the crowd from retargeting onto the camera.
+    H.haulToWall = (p) => {
+      const q = app().query;
+      const agent = app().crowd.agents[p.i];
+      if (!agent) return { ok: false, reason: 'no-agent' };
+      let mass = null;
+      for (let k = 0; k < 24; k++) {
+        const ang = (k / 24) * Math.PI * 2;
+        const dx = Math.sin(ang);
+        const dz = Math.cos(ang);
+        let hit = 0;
+        for (const s of [3, 4.5, 6.5, 9, 12, 16, 22, 30, 40, 52]) {
+          const x = p.x + dx * s;
+          const z = p.z + dz * s;
+          if (q.insideSolid(x, p.y + 1.45, z, 0.35, true) && q.insideSolid(x, p.y + 4.2, z, 0.35, true)) {
+            hit = s;
+            break;
+          }
+        }
+        if (!hit) continue;
+        let face = hit;
+        for (let t = hit; t > 0.6; t -= 0.4) {
+          if (!q.insideSolid(p.x + dx * t, p.y + 1.45, p.z + dz * t, 0.08, true)) {
+            face = t + 0.4;
+            break;
+          }
+        }
+        if (!mass || hit < mass.hit) mass = { dx, dz, hit, face, kind: 'solid' };
+      }
+      if (!mass) {
+        const boxes = stackBoxes().filter((s) => s.sy > 2 && Math.hypot(s.x - p.x, s.z - p.z) < 80);
+        if (boxes.length) {
+          boxes.sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z));
+          const s = boxes[0];
+          const dx = s.x - p.x;
+          const dz = s.z - p.z;
+          const len = Math.hypot(dx, dz) || 1;
+          const half = Math.max(s.sx, s.sz) * 0.5;
+          mass = { dx: dx / len, dz: dz / len, hit: len, face: Math.max(1.2, len - half), kind: 'stack' };
+        }
+      }
+      if (!mass) return { ok: false, reason: 'no-mass' };
+      const stand = mass.face - 2.05;
+      if (stand < 0.8) return { ok: false, reason: 'tight', face: mass.face };
+      const sx = p.x + mass.dx * stand;
+      const sz = p.z + mass.dz * stand;
+      const gy = q.groundHeight(sx, sz);
+      if (Math.abs(gy - p.y) > 2.4) return { ok: false, reason: 'grade' };
+      if (!clear(sx, sz, gy)) return { ok: false, reason: 'blocked' };
+      const vx = p.vx || mass.dz;
+      const vz = p.vz || -mass.dx;
+      const vlen = Math.hypot(vx, vz) || 1;
+      const sideX = -vz / vlen;
+      const sideZ = vx / vlen;
+      let best = null;
+      for (const sign of [1, -1]) {
+        for (const along of [0, 1.6, -1.6]) {
+          const px = sx + sideX * sign * 4.5 - mass.dx * 0.55 + (-mass.dz) * along;
+          const pz = sz + sideZ * sign * 4.5 - mass.dz * 0.55 + mass.dx * along;
+          const cy = q.groundHeight(px, pz);
+          if (Math.abs(cy - gy) > 1.8) continue;
+          if (q.insideSolid(px, cy + 1.4, pz, 0.7, true)) continue;
+          if (!clear(px, pz, cy) || !line(px, pz, sx, sz, Math.min(gy, cy))) continue;
+          const aimY = gy + 1.15 * (p.s || 1);
+          const eyeY = cy + 1.45;
+          const yaw = Math.atan2(sx - px, -(sz - pz));
+          const horiz = Math.hypot(sx - px, sz - pz) || 1;
+          const pitch = Math.atan2(aimY - eyeY, horiz);
+          apply(px, pz, cy, yaw, pitch);
+          const head = ndc(sx, gy + 1.65, sz);
+          const feetN = ndc(sx, gy + 0.05, sz);
+          if (!head || !feetN) continue;
+          const span = Math.abs(head.y - feetN.y);
+          const mid = Math.abs((head.x + feetN.x) * 0.5);
+          const wx = sx + mass.dx * 1.65 + (-mass.dz) * 1.3;
+          const wz = sz + mass.dz * 1.65 + mass.dx * 1.3;
+          const wallN = ndc(wx, gy + 1.7, wz);
+          const beside = wallN ? Math.abs(wallN.x - head.x) : 9;
+          const onWall = wallN && Math.abs(wallN.x) < 1.05 && wallN.y < 0.95 && wallN.y > -0.9 && beside < 0.72;
+          if (span < 0.4 || mid > 0.42 || !onWall) continue;
+          const viewX = sx - px;
+          const viewZ = sz - pz;
+          const viewL = Math.hypot(viewX, viewZ) || 1;
+          const facing = Math.abs((viewX / viewL) * (vx / vlen) + (viewZ / viewL) * (vz / vlen));
+          const score = facing * 4 + beside + Math.abs(span - 0.62);
+          if (!best || score < best.score) best = { px, pz, cy, yaw, pitch, score, beside, facing, span };
+        }
+      }
+      if (!best) return { ok: false, reason: 'no-frame', kind: mass.kind, hit: Math.round(mass.hit) };
+      apply(best.px, best.pz, best.cy, best.yaw, best.pitch);
+      const pull = ensurePull(p.i, 4);
+      if (!pull) return { ok: false, reason: 'no-pull' };
+      pull.ids = [p.i];
+      pull.ox = sx - p.x;
+      pull.oz = sz - p.z;
+      pull.parkEdge = true;
+      pull.parkOverlap = true;
+      pull.base = null;
+      applyWalkPull();
+      return {
+        ok: true,
+        facade: 2,
+        dist: Math.round(Math.hypot(sx - best.px, sz - best.pz) * 10) / 10,
+        band: 'face',
+        feet: 'walk',
+        face: 1,
+        building: true,
+        out: Math.round(mass.hit),
+        kind: mass.kind,
+        haul: Math.round(stand),
+        beside: Math.round(best.beside * 100) / 100,
       };
     };
     H.place = (p) => {
@@ -1917,7 +2049,13 @@ async function shoot(id, tier, allowOpen) {
       continue;
     }
     let placed = null;
-    if (process.env.BLOCK_FACE === '1') {
+    if (process.env.HAUL === '1') {
+      placed = await page.evaluate((p) => window.__retry.haulToWall(p), who);
+      if (!placed?.ok) {
+        note('no haul', { id, tier, attempt, reason: placed?.reason, kind: placed?.kind, hit: placed?.hit });
+        continue;
+      }
+    } else if (process.env.BLOCK_FACE === '1') {
       placed = await page.evaluate((p) => window.__retry.faceStand(p), who);
       if (!placed?.ok) {
         note('no place', { id, tier, attempt, reason: placed?.reason, wall: who.wall });
@@ -1984,6 +2122,33 @@ async function shoot(id, tier, allowOpen) {
     };
     const legs = bodyStats(tmp0, legBox);
     note('body', { id, tier, attempt, std: Math.round((stats.std || 0) * 10) / 10, span: Math.round(stats.span || 0), mean: Math.round(stats.mean || 0), legs: Math.round(legs.span || 0) });
+    if (process.env.NO_WEDGE === '1') {
+      const wedge = spawnSync('python3', ['-c', `
+import json, sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert('RGB')
+w, h = im.size
+px = im.load()
+n = 0
+y1 = int(h * 0.62)
+for y in range(0, y1, 2):
+    for x in range(0, w, 2):
+        r, g, b = px[x, y]
+        mx = r if r > g else g
+        if b > mx: mx = b
+        mn = r if r < g else g
+        if b < mn: mn = b
+        if mx - mn < 18 and 85 < mx < 170:
+            n += 1
+print(json.dumps({"n": n * 4}))
+`, tmp0], { encoding: 'utf8' });
+      const gray = wedge.status === 0 ? JSON.parse(wedge.stdout) : { n: 0 };
+      note('wedge', { id, tier, attempt, ...gray });
+      if ((gray.n || 0) > 9000) {
+        await page.evaluate(() => window.__retry.release());
+        continue;
+      }
+    }
     if (process.env.NEAR_WINDOW === '1') {
       const win = spawnSync('python3', ['-c', `
 import json, sys
