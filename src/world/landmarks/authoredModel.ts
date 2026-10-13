@@ -2,7 +2,7 @@
 // stay on the lighter files, so a phone on low does not fetch the 1024 maps.
 // Placement, signs, beacons and colliders stay with the district builders.
 import {
-  Color, Group, Mesh, MeshStandardNodeMaterial,
+  Color, Group, Mesh, MeshStandardNodeMaterial, Vector2,
   type Material, type Object3D, type Texture,
 } from 'three/webgpu';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -66,7 +66,12 @@ function kindOf(name: string): string {
   const n = name.toLowerCase().replace(/\.\d+$/, '');
   const light = n.match(/light-[a-z0-9-]+/);
   if (light) return light[0];
+  if (n.includes('portal-glow')) return 'portal-glow';
+  if (n.includes('mouth-stone')) return 'mouth-stone';
+  if (n.includes('roof-clay')) return 'roof-clay';
+  if (n.includes('glass-warm')) return 'glass-warm';
   if (n.includes('glass')) return 'glass';
+  if (n.includes('metal')) return 'metal';
   if (n.includes('livery')) return 'livery';
   if (n.includes('recess')) return 'recess';
   if (n.includes('fin')) return 'fin';
@@ -78,6 +83,7 @@ function kindOf(name: string): string {
 type Pbr = Material & {
   map?: Texture | null;
   normalMap?: Texture | null;
+  normalScale?: Vector2;
   roughnessMap?: Texture | null;
   metalnessMap?: Texture | null;
   emissive?: Color;
@@ -85,10 +91,10 @@ type Pbr = Material & {
 };
 
 const LAMP: Record<string, Color> = {
-  'light-white': new Color(1.55, 1.48, 1.32),
-  'light-amber': new Color(1.0, 0.42, 0.08),
-  'light-red': new Color(1.0, 0.05, 0.02),
-  'light-blue': new Color(0.12, 0.28, 1.0),
+  'light-white': new Color(0.9, 0.86, 0.78),
+  'light-amber': new Color(0.9, 0.4, 0.08),
+  'light-red': new Color(0.85, 0.05, 0.02),
+  'light-blue': new Color(0.12, 0.28, 0.9),
 };
 
 function trackMap(tex: Texture | null | undefined, label: string): void {
@@ -102,34 +108,83 @@ function dressMaterial(src: Material, mesh: Mesh, kind: LandmarkKind, lod: Landm
   const tex = src as Pbr;
   const key = `landmark-${kind}-${lod}-${src.name || role}`;
   const hasColor = !!mesh.geometry.getAttribute('color');
+  if (role === 'roof-clay') {
+    return resources.material(key, () => new MeshStandardNodeMaterial({
+      color: 0x7a3422,
+      roughness: 0.74,
+      metalness: 0.02,
+      name: src.name,
+    }));
+  }
+  if (role === 'mouth-stone') {
+    const intensity = lod === 'low' ? 0.12 : 0.55;
+    return resources.material(key, () => new MeshStandardNodeMaterial({
+      color: 0x243038,
+      roughness: 0.9,
+      metalness: 0,
+      emissive: new Color(0.2, 0.24, 0.3),
+      emissiveIntensity: intensity,
+      name: src.name,
+    }));
+  }
+  if (role === 'portal-glow') {
+    // Low keeps the mouth and drops the bloom. High stays under a clip.
+    const intensity = lod === 'low' ? 0.12 : 0.48;
+    return resources.material(key, () => new MeshStandardNodeMaterial({
+      color: 0x1a0c06,
+      roughness: 0.55,
+      metalness: 0,
+      emissive: new Color(0.55, 0.22, 0.06),
+      emissiveIntensity: intensity,
+      name: src.name,
+    }));
+  }
   if (role.startsWith('light-')) {
-    const emissive = tex.emissive ? tex.emissive.clone() : (LAMP[role] ?? LAMP['light-amber']!).clone();
+    const emissive = (LAMP[role] ?? LAMP['light-amber']!).clone();
+    const intensity = lod === 'low' && kind === 'wallace' ? 0.15 : 0.7;
     return resources.material(key, () => new MeshStandardNodeMaterial({
       color: 0x14110e,
       roughness: 0.45,
       metalness: 0,
       emissive,
-      emissiveIntensity: Math.max(tex.emissiveIntensity ?? 1, 3.5),
+      emissiveIntensity: intensity,
+      name: src.name,
+    }));
+  }
+  if (role === 'glass-warm') {
+    const intensity = lod === 'low' ? 0.06 : 0.16;
+    return resources.material(key, () => new MeshStandardNodeMaterial({
+      color: 0x140c08,
+      roughness: 0.4,
+      metalness: 0.02,
+      emissive: new Color(0.55, 0.32, 0.1),
+      emissiveIntensity: intensity,
       name: src.name,
     }));
   }
   const wet = role === 'glass' ? 0.08 : role === 'livery' ? 0.2 : role === 'recess' ? 0.22 : 0.12;
   const mat = resources.material(key, () => {
     const m = new MeshStandardNodeMaterial({
-      color: tex.map ? 0xffffff : 0x8a8680,
-      metalness: role === 'glass' ? 0.55 : 0.04,
-      roughness: tex.roughnessMap ? 1 : 0.82,
+      color: role === 'metal' ? 0x8e949c : tex.map ? 0xffffff : 0x8a8680,
+      metalness: role === 'glass' ? 0.55 : role === 'metal' ? 0.86 : 0.04,
+      roughness: role === 'metal' ? 0.34 : tex.roughnessMap ? 1 : 0.82,
       name: src.name,
       vertexColors: hasColor,
     });
     if (tex.map) m.map = tex.map;
-    if (tex.normalMap) m.normalMap = tex.normalMap;
+    if (tex.normalMap) {
+      m.normalMap = tex.normalMap;
+      if (tex.normalScale) m.normalScale.copy(tex.normalScale);
+    }
     if (tex.roughnessMap) m.roughnessMap = tex.roughnessMap;
     if (role === 'glass') {
-      m.transparent = true;
-      m.opacity = 0.72;
-      m.emissive = new Color(0.42, 0.58, 0.78);
-      m.emissiveIntensity = 0.55;
+      m.transparent = false;
+      m.opacity = 1;
+      m.emissive = new Color(0.03, 0.025, 0.02);
+      m.emissiveIntensity = 0.04;
+      m.color = new Color(0.03, 0.028, 0.024);
+      m.roughness = 0.42;
+      m.metalness = 0.08;
     }
     // Rain darkens the roughness. The albedo stays the trim sheet.
     m.roughnessNode = T.mix(T.materialRoughness, T.float(wet), U.wetness);

@@ -226,6 +226,22 @@ def main():
         crop = render.crop((panel['x'], panel['y'], panel['x'] + panel['w'], panel['y'] + panel['h']))
         if crop.size != size:
             raise SystemExit(f'{name} crop {crop.size} != panel {size}. The mask screenshot is not the canvas.')
+        if name == 'top' and trace.get('strayHullOnly'):
+            # The part boxes are the stray hull. They are not the plan.
+            ref = Image.new('L', size, 0)
+            note = trace.get('source', '')
+            photo = True
+            model = model_mask(crop, args.thresh)
+            views[name] = {
+                'iou': None,
+                'source': 'photographed or surveyed plan, scored by film_iou.mjs',
+                'photo': True,
+                'note': note,
+                'skipped': 'source boxes are not a plan',
+            }
+            strips.append(overlay(ref, model))
+            print(f"{name:5} plan is not these boxes")
+            continue
         if trace.get('parts'):
             ref = raster_landmark(trace, name, size)
             note = trace.get('source', '')
@@ -258,7 +274,8 @@ def main():
         'targets': {'side': 0.85, 'front': 0.80, 'top': 0.80},
         'legend': 'White is overlap. Red is reference only. Cyan is model only.',
         'alignment': trace.get('alignment') or trace.get('source') or '',
-        'topIsReconstructed': bool(trace.get('parts')),
+        # True only when the top mask was rasterised from the mesh's own boxes.
+        'topIsReconstructed': bool(trace.get('parts')) and not trace.get('strayHullOnly') and not (trace.get('views') or {}).get('top', {}).get('plan'),
     }
     os.makedirs(os.path.dirname(os.path.abspath(args.out)) or '.', exist_ok=True)
     with open(args.out, 'w', encoding='utf-8') as f:

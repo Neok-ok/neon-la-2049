@@ -1,0 +1,167 @@
+{
+  "alignment": "uniform scale and translation, no non-uniform stretch",
+  "topIsReconstructed": false,
+  "views": {
+    "hall-day": {
+      "iou": 0.6109233232520904,
+      "scale": 1.0051485148514854,
+      "translation": [
+        -11.747854807644146,
+        5.66660148790325
+      ],
+      "ref": "hall-day-ref.pgm",
+      "still": "hall-day.jpg, the 1928 tower from the south-east. White stone above the tree line. The base is in the trees and is not in this mask. A neighbouring tower on the right is excluded.",
+      "camera": {
+        "eye": [
+          48,
+          62,
+          210
+        ],
+        "target": [
+          0,
+          72,
+          0
+        ]
+      },
+      "note": "Three-quarter from the front-right, about the height of the day photo. Uniform scale and translation onto hall-day.jpg."
+    },
+    "hall-dusk": {
+      "iou": 0.6240490571257319,
+      "scale": 1.0265346534653468,
+      "translation": [
+        -46.02451117382414,
+        8.678887952498243
+      ],
+      "ref": "hall-dusk-ref.pgm",
+      "still": "hall-silhouette.png, dusk profile of the shaft and the stepped crown. The foreground roof starts near y=729 and is cut off, along with the person and the railing. The base of the tower is not in this still.",
+      "camera": {
+        "eye": [
+          22,
+          42,
+          168
+        ],
+        "target": [
+          0,
+          108,
+          0
+        ]
+      },
+      "note": "Shaft and crown. The dusk still hides the wings behind a foreground roof, so stone below 30 m is not in this comparison."
+    },
+    "lapd-aerial": {
+      "iou": 0.6534242308890196,
+      "scale": 1.0075247524752478,
+      "translation": [
+        -37.80797325370324,
+        2.9733116167130476
+      ],
+      "ref": "lapd-aerial-ref.pgm",
+      "still": "lapd-roof.jpg, the film overhead of the LAPD tower. The two lamps are a spinner and are not the roof. The mask is the brighter tower under them. The frame is an oblique aerial, not an orthographic plan. No cleaner published plan of this roof was in the reference set.",
+      "camera": {
+        "eye": [
+          18,
+          260,
+          -210
+        ],
+        "target": [
+          0,
+          150,
+          -10
+        ]
+      },
+      "note": "High front aerial, matching lapd-roof.jpg. The still is oblique. An orthographic plan is a different picture and is not this score."
+    },
+    "lapd-plan": {
+      "iou": 0.7478899656142545,
+      "scale": 0.9970443349753697,
+      "translation": [
+        -23.674285714285745,
+        -68.08000000000003
+      ],
+      "ref": "lapd-plan-ref.pgm",
+      "still": "Roof deck traced from lapd-roof.jpg, the film overhead. The two lamps are a spinner and are not the roof. The shaft face under the deck is not in this mask. This is not the mesh source boxes.",
+      "camera": {
+        "eye": [
+          0,
+          500,
+          0
+        ],
+        "target": [
+          0,
+          160,
+          0
+        ]
+      },
+      "note": "Orthographic roof against the deck traced from the film overhead. The shaft under the deck is not in the mask, and the mask is not the source boxes."
+    },
+    "hall-plan": {
+      "iou": 0.8578260400560929,
+      "scale": 0.9789162561576357,
+      "translation": [
+        -5.608064894418831,
+        -18.41981794097663
+      ],
+      "ref": "hall-plan-ref.pgm",
+      "still": "OpenStreetMap relation 6333145, the surveyed footprint of Los Angeles City Hall (outer way 425993492). Rotated onto its long axis. This is not the mesh source boxes.",
+      "camera": {
+        "eye": [
+          0,
+          400,
+          0
+        ],
+        "target": [
+          0,
+          40,
+          0
+        ]
+      },
+      "note": "Orthographic plan against the surveyed City Hall footprint. Uniform scale and translation after the footprint is rotated onto its long axis."
+    },
+    "wallace-plan": {
+      "iou": 0.9980344099589895,
+      "scale": 0.995073891625616,
+      "translation": [
+        -6.944877924269008,
+        8.81932360067539
+      ],
+      "ref": "wallace-plan-ref.pgm",
+      "still": "Square plan of the Weta Wallace pyramid. wallace-bts.jpg shows two equal faces of the centre tower meeting at a corner, and one face of the same pyramid beside it. No nadir photograph was found. This outline is that square plan, not the terrace boxes the mesh was built from.",
+      "camera": {
+        "eye": [
+          0,
+          8000,
+          0
+        ],
+        "target": [
+          0,
+          1600,
+          0
+        ]
+      },
+      "note": "Orthographic plan against the square footprint of the Weta pyramid. Not the terrace boxes."
+    },
+    "wallace-face": {
+      "iou": 0.6158842443729904,
+      "scale": 1.0265346534653468,
+      "translation": [
+        -15.100181984034649,
+        -21.868402676008202
+      ],
+      "ref": "wallace-face-ref.pgm",
+      "still": "wallace-bts.jpg, the Weta miniature, left pyramid only. The still is a low oblique of one face, cropped through the base. It is not a top view. No verified overhead of the Wallace pyramids was found in the Weta workshop notes or the published stills searched for this pass.",
+      "camera": {
+        "eye": [
+          180,
+          220,
+          -2600
+        ],
+        "target": [
+          0,
+          1700,
+          -700
+        ]
+      },
+      "note": "Low oblique of the entrance face, cropped the way wallace-bts.jpg crops one pyramid. There is no verified top-down still."
+    }
+  }
+}

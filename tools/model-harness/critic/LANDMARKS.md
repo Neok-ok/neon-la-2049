@@ -1,6 +1,8 @@
 # Landmark critic
 
-Three scores, from three passes. A pass does not see the others. Every numeric score is 7 or higher. The answer to "stray parts" is no. Each building has to read as the one from the film: the LAPD block, the jacketed City Hall, or the Wallace pyramid.
+Three scores, from three passes. A pass does not see the others. Every numeric score is 7 or higher. The answer to "stray parts" is no. Each building has to read as the one from the film: the LAPD tower, the 1928 City Hall, or the Wallace pyramid.
+
+Answer this as well, yes or no, from the pictures alone: "Would a Blade Runner 2049 fan recognize this instantly at street level and from a spinner?"
 
 The sheets are the picture. The rubric is this file. Do not ask for the Blender script.
 
@@ -23,7 +25,7 @@ Score each building, 1 to 10:
 You see the contact sheet beside the reference still.
 
 - LAPD: the overhead is a real 2049 frame. The tower is the dark block, not the bright lamps (those are a spinner). Brutalist podium, shaft, wide crown, pads. No department wordmark.
-- City Hall: the night photo is the real 1928 tower. This project keeps that shaft and puts a dark 2049 jacket around the base. It is not a traced copy of the ornament.
+- City Hall: the day and night photos are the real 1928 tower. Pale stone, setbacks, a colonnade, a stepped pyramid. It is not a traced copy of the ornament, and it is not a black jacket on a plain shaft.
 - Wallace: the still is the Weta miniature of the pyramid towers. Dark stone, vertical joints, a slope or a step, no office grid. The project's single pyramid also carries the warm portal and the lantern. Those are the entrance and the apex, not a second building.
 
 Score, 1 to 10: `reads as this building`, `mass matches the still`, `materials match the still`, `no copied logo`.

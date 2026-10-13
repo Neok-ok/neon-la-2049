@@ -11,7 +11,6 @@ import { makeSignMesh } from '../../world/materials/signMesh';
 import { Style, SignColor, type Sign } from '../../world/fabric/types';
 import { CELL, phraseSeed } from '../../world/materials/signPhrases';
 import { registerLandmarkType, type LandmarkEnv } from '../../world/landmarks/registry';
-import { LightKind } from '../../world/landmarks/Beacons';
 import type { Landmark } from '../../world/layout';
 import { openDoorLeaf } from '../../world/architecture/trim';
 import { retainChunk } from '../../lighting/registry.ts';
@@ -257,8 +256,6 @@ function signsFor(l: Landmark, yaw: number): Sign[] {
     // over the door, readable from the steps. Atlas cell is the invented "SECTOR 5", not a badge.
     at(0, 9.4, -HQ.podiumD / 2 - 0.5, 9.2, 1.55, out, phraseSeed(39), 0),
     at(0, 8.4, -42.7, 6.4, 1.2, out, phraseSeed(39), 0),
-    // Where the shaft glyph loop stood. A plate, not a projector. Tall enough to read from the steps.
-    at(0, 36, -HQ.shaftD / 2 - 0.55, 16, 7, out, phraseSeed(CELL.BASELINE), 0),
     // Screen-right of the door (local −X), clear of the column that cuts the other side.
     at(-3.4, HQ.lobbyFloor + 2.35, -51.6, 3.1, 0.88, out, phraseSeed(CELL.PAPER_ONLY), 0),
   ];
@@ -284,28 +281,6 @@ function retainStepLights(l: Landmark, yaw: number, ground: number): void {
     put(-6.4, 8.2, doorZ, 'beacon-red', { candela: 700, range: 16 }),
     put(6.4, 8.2, doorZ, 'hologram', { candela: 500, range: 16, rgb: [0.2, 0.38, 1] }),
   ]);
-}
-
-function beacons(l: Landmark, env: LandmarkEnv, yaw: number): void {
-  const add = (lx: number, y: number, lz: number, kind: number, size: number) => {
-    const [x, z] = localToWorld(l.x, l.z, yaw, lx, lz);
-    env.beacons.add(x, y, z, kind, size);
-  };
-  for (const p of PADS) {
-    const e = HQ.pad / 2 - 1.2;
-    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-      add(p.lx + sx * e, HQ.height + HQ.padH + 0.4, p.lz + sz * e, LightKind.Pad, 2.4);
-    }
-  }
-  add(0, HQ.height + 7.2, 0, LightKind.Strobe, 5);
-  const cw = HQ.crownW / 2 - 2, cd = HQ.crownD / 2 - 2;
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) add(sx * cw, HQ.height + 1.2, sz * cd, LightKind.Police, 3.6);
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) add(sx * (HQ.shaftW / 2 - 1), SHAFT_Y * 0.55, sz * (HQ.shaftD / 2 - 1), LightKind.Steady, 2.2);
-  add(-6.4, 8.2, -HQ.podiumD / 2 - 1.2, LightKind.Police, 1.05);
-  add(6.4, 8.2, -HQ.podiumD / 2 - 1.2, LightKind.Police, 1.05);
-  // Small practicals at the pylon heads. Large warm quads bloom out the whole stair on high.
-  add(-20, 10.4, -96, LightKind.Warm, 2.2);
-  add(20, 10.4, -96, LightKind.Warm, 2.2);
 }
 
 export function buildLapdHq(l: Landmark, env: LandmarkEnv) {
@@ -335,7 +310,6 @@ export function buildLapdHq(l: Landmark, env: LandmarkEnv) {
   const r = Math.hypot(HQ.crownW, HQ.crownD) / 2;
   const object = env.lods.add(l.id, [lod0, mid!, far!], HQ_LOD_DIST, l.x, l.z, 0, HQ.height + 8, r);
   object.add(ground);
-  beacons(l, env, yaw);
   retainStepLights(l, yaw, env.layout.heightAt(l.x, l.z));
   return { object, colliders: collider.cols };
 }

@@ -86,6 +86,7 @@ const params = new URLSearchParams(location.search);
 const src = params.get('src') ?? 'lapd';
 const title = params.get('title') ?? src;
 const mode = params.get('mode') ?? 'sheet';
+const blind = params.get('blind') === '1';
 
 const TILE = 520;
 const TILE_H = 680;
@@ -236,15 +237,51 @@ async function loadGlb(url: string): Promise<Group> {
     for (const mat of list) {
       const name = (mat.name || '').toLowerCase();
       const std = mat as MeshStandardNodeMaterial;
+      if (target.kind === 'lapd') std.side = DoubleSide;
       if (name.includes('light-') && std.emissive) {
-        std.emissiveIntensity = Math.max(std.emissiveIntensity ?? 1, 4);
+        const cap = name.includes('white') ? 0.55 : 0.75;
+        std.emissiveIntensity = Math.min(std.emissiveIntensity ?? cap, cap);
+        const e = std.emissive;
+        e.r = Math.min(e.r, 1);
+        e.g = Math.min(e.g, 1);
+        e.b = Math.min(e.b, 1);
       }
-      if (name.includes('glass')) {
-        std.transparent = true;
-        std.opacity = 0.74;
-        std.emissive = new Color(0.50, 0.68, 0.88);
-        std.emissiveIntensity = target.kind === 'lapd' ? 0.22 : Math.max(std.emissiveIntensity ?? 0, 0.9);
-        std.roughness = Math.min(std.roughness ?? 0.2, 0.22);
+      if (name.includes('portal-glow') && std.emissive) {
+        // Warm throat inside the stone mouth. Full white reads as a blank panel.
+        std.color = new Color(0.08, 0.028, 0.01);
+        std.emissive = new Color(0.72, 0.3, 0.08);
+        std.emissiveIntensity = 1.35;
+        std.roughness = 1;
+        std.metalness = 0;
+      }
+      if (name.includes('mouth-stone')) {
+        std.color = new Color(0.14, 0.16, 0.2);
+        std.emissive = new Color(0.2, 0.24, 0.3);
+        std.emissiveIntensity = 0.9;
+        std.roughness = 0.9;
+        std.metalness = 0;
+      }
+      if (name.includes('metal')) {
+        std.metalness = 0.56;
+        std.roughness = 0.48;
+        std.color = new Color(0.22, 0.24, 0.26);
+      }
+      if (name.includes('glass-warm')) {
+        std.transparent = false;
+        std.opacity = 1;
+        std.color = new Color(0.07, 0.045, 0.025);
+        std.emissive = new Color(0.62, 0.36, 0.12);
+        std.emissiveIntensity = 0.42;
+        std.roughness = 0.45;
+        std.metalness = 0.02;
+      } else if (name.includes('glass')) {
+        std.transparent = false;
+        std.opacity = 1;
+        std.color = new Color(0.02, 0.02, 0.022);
+        std.emissive = new Color(0.03, 0.025, 0.02);
+        std.emissiveIntensity = 0.04;
+        std.roughness = 0.5;
+        std.metalness = 0.06;
       }
     }
   });
@@ -274,14 +311,16 @@ function shotsFor(kind: Kind, box: Box3): Shot[] {
   const radius = size.length() * 0.55;
   const sign = entranceSign(kind);
   const front = new Vector3(0.15, 0.22, sign);
-  const quarter = new Vector3(0.85, 0.32, sign * 0.7);
+  const quarter = kind === 'lapd'
+    ? new Vector3(0.72, 0.26, 0.55)
+    : new Vector3(0.85, 0.32, sign * 0.7);
   const side = new Vector3(1, 0.16, 0.04);
   const above = new Vector3(0.04, 1, sign * 0.08);
   const upTop = new Vector3(0, 0, sign);
-  const doorY = kind === 'lapd' ? 6.6 : kind === 'hall' ? 6.2 : 90;
-  const doorZ = kind === 'lapd' ? -61 : kind === 'hall' ? 34 : -1660;
+  const doorY = kind === 'lapd' ? 36 : kind === 'hall' ? 16 : 120;
+  const doorZ = kind === 'lapd' ? -78 : kind === 'hall' ? 42 : -1860;
   const door = new Vector3(0, doorY, doorZ);
-  const doorRadius = kind === 'wallace' ? 210 : kind === 'lapd' ? 12 : 16;
+  const doorRadius = kind === 'wallace' ? 780 : kind === 'lapd' ? 92 : 42;
   const crownY = kind === 'wallace' ? 3360 : kind === 'hall' ? 118 : 186;
   const crown = new Vector3(0, crownY, 0);
   const crownRadius = kind === 'wallace' ? 380 : kind === 'hall' ? 32 : 62;
@@ -289,19 +328,19 @@ function shotsFor(kind: Kind, box: Box3): Shot[] {
     ? new Vector3(-18, 78, -51)
     : kind === 'hall'
       ? new Vector3(6, 62, 18)
-      : new Vector3(0, 700, -1500);
-  const wallRadius = kind === 'wallace' ? 90 : 14;
+      : new Vector3(780, 640, -1420);
+  const wallRadius = kind === 'wallace' ? 70 : 14;
   const plan = Math.max(size.x, size.z) * 0.62;
   const whole = (dir: Vector3, fov = 28, up?: Vector3, span = radius) => (camera: PerspectiveCamera) => {
     aim(camera, dir, center, span, fov, up);
   };
   return [
     { label: 'night · three-quarter', light: 'night', angle: '34', pose: whole(quarter) },
-    { label: 'night · entrance', light: 'night', angle: 'entrance', pose: (c) => aim(c, front, door, doorRadius, 32) },
+    { label: 'night · entrance', light: 'night', angle: 'entrance', pose: (c) => aim(c, kind === 'wallace' ? new Vector3(0.72, 0.1, sign * 0.85) : front, kind === 'wallace' ? new Vector3(0, 46, -1564) : door, kind === 'wallace' ? 240 : doorRadius, kind === 'wallace' ? 36 : 34) },
     { label: 'night · side', light: 'night', angle: 'side', pose: whole(side) },
     { label: 'night · top', light: 'night', angle: 'top', pose: whole(above, 26, upTop, plan) },
     { label: 'rim · three-quarter', light: 'rim', angle: '34', pose: whole(quarter) },
-    { label: 'rim · entrance', light: 'rim', angle: 'entrance', pose: (c) => aim(c, front, door, doorRadius, 32) },
+    { label: 'rim · entrance', light: 'rim', angle: 'entrance', pose: (c) => aim(c, kind === 'wallace' ? new Vector3(0.72, 0.1, sign * 0.85) : front, kind === 'wallace' ? new Vector3(0, 46, -1564) : door, kind === 'wallace' ? 240 : doorRadius, kind === 'wallace' ? 36 : 34) },
     { label: 'rim · crown', light: 'rim', angle: 'crown', pose: (c) => aim(c, new Vector3(0.72, -0.28, sign * 0.82), crown, crownRadius, 30) },
     { label: 'rim · top', light: 'rim', angle: 'top', pose: whole(above, 26, upTop, plan) },
     { label: 'studio · facade', light: 'studio', angle: 'facade', pose: (c) => aim(c, new Vector3(0.2, 0.05, sign), wall, wallRadius, 28) },
@@ -322,23 +361,25 @@ function buildLights(camera: PerspectiveCamera, kind: Kind): Record<LightName, G
   camera.add(night, rim, studio);
   // Each still has its own light. Hall is floodlit limestone, Wallace is a cool
   // miniature, LAPD is the dark overhead block. One warm key made all three khaki.
-  const key = kind === 'hall' ? 2.7 : kind === 'wallace' ? 2.15 : 3.05;
-  const fill = kind === 'hall' ? 1.25 : kind === 'wallace' ? 1.05 : 1.35;
-  const up = kind === 'hall' ? 1.6 : kind === 'wallace' ? 0.45 : 1.15;
-  const nightKey = kind === 'hall' ? 0xd7f0e6 : kind === 'wallace' ? 0xc5d7ee : 0x9aabbc;
-  const nightFill = kind === 'hall' ? 0xc5ddd2 : kind === 'wallace' ? 0xa8bdd4 : 0x7e8c9c;
+  const key = kind === 'hall' ? 0.1 : kind === 'wallace' ? 5.2 : 3.1;
+  const fill = kind === 'hall' ? 0.02 : kind === 'wallace' ? 1.35 : 0.85;
+  const up = kind === 'hall' ? 0.42 : kind === 'wallace' ? 0.5 : 0.62;
+  const nightKey = kind === 'hall' ? 0xe4f0e8 : kind === 'wallace' ? 0xc5d0dc : 0xb0aca3;
+  const nightFill = kind === 'hall' ? 0xc5d4cc : kind === 'wallace' ? 0x8ea0b4 : 0x8e8a82;
   dir(night, nightKey, key, new Vector3(-1.5, 2.6, -1.4), new Vector3(0, 0.3, -8));
   dir(night, nightFill, fill, new Vector3(2.1, 1.2, -2.2), new Vector3(0, 0.4, -8));
-  dir(night, 0x8fa4b8, fill * 0.45, new Vector3(-0.3, 0.35, 2.4), new Vector3(0, 0.6, -8));
-  dir(night, kind === 'hall' ? 0xe7f6ee : 0xc5d4e6, up, new Vector3(0.15, -1.1, -1.6), new Vector3(0, 1.4, -8));
-  dir(night, 0xb9c8d8, kind === 'lapd' ? 1.7 : 0.15, new Vector3(0.08, 0.35, -6.5), new Vector3(0, 0.2, -8));
-  dir(rim, 0xe7f0ff, kind === 'wallace' ? 3.6 : kind === 'lapd' ? 9.2 : 6.4, new Vector3(1.5, 1.8, -10), new Vector3(0, 0.5, -4));
-  dir(rim, 0xc5d4f2, kind === 'wallace' ? 2.0 : kind === 'lapd' ? 5.2 : 3.2, new Vector3(-1.7, 0.45, -9), new Vector3(0, 0.4, -4));
-  dir(rim, kind === 'hall' ? 0xe4f3ea : 0xd5e0f0, kind === 'hall' ? 2.2 : kind === 'lapd' ? 3.4 : 1.3, new Vector3(0.15, -0.2, -2), new Vector3(0, 0.8, -8));
+  dir(night, kind === 'hall' ? 0xd5e4dc : 0x8fa4b8, fill * 0.45, new Vector3(-0.3, 0.35, 2.4), new Vector3(0, 0.6, -8));
+  dir(night, kind === 'hall' ? 0xe7f2ea : 0xc5d4e6, up, new Vector3(0.15, -1.1, -1.6), new Vector3(0, 1.4, -8));
+  dir(night, 0xc8c4bc, kind === 'lapd' ? 0.16 : 0.18, new Vector3(0.08, 0.35, -6.5), new Vector3(0, 0.2, -8));
+  // Straight out of the lens, so the three-quarter corner is not the unlit face.
+  dir(night, kind === 'lapd' ? 0x9a968c : 0xc5d0dc, kind === 'lapd' ? 0.35 : 0, new Vector3(0, 0.4, 2.4), new Vector3(0, 0.15, -8));
+  dir(rim, kind === 'hall' ? 0xf4f7f4 : 0xe7f0ff, kind === 'wallace' ? 6.4 : kind === 'lapd' ? 1.7 : 3.2, new Vector3(1.5, 1.8, -10), new Vector3(0, 0.5, -4));
+  dir(rim, kind === 'hall' ? 0xd5e0dc : 0xc5d4f2, kind === 'wallace' ? 2.8 : kind === 'lapd' ? 0.8 : 1.5, new Vector3(-1.7, 0.45, -9), new Vector3(0, 0.4, -4));
+  dir(rim, kind === 'hall' ? 0xe7f0ea : 0xd5e0f0, kind === 'hall' ? 1.2 : kind === 'lapd' ? 0.9 : 1.6, new Vector3(0.15, -0.2, -2), new Vector3(0, 0.8, -8));
   // Head-on fill so a dark crown soffit is not a black wedge in the rim pass.
-  dir(rim, 0xd5e2f0, kind === 'lapd' ? 3.8 : 0.35, new Vector3(0.05, 0.2, -7), new Vector3(0, 0.15, -8));
-  dir(studio, 0xffffff, kind === 'hall' ? 1.45 : kind === 'wallace' ? 2.3 : 2.6, new Vector3(-1.8, 2.4, -2), new Vector3(0, 0, -8));
-  dir(studio, 0xd5d8de, kind === 'hall' ? 1.05 : 1.35, new Vector3(1.6, 0.5, -3), new Vector3(0, 0, -8));
+  dir(rim, 0xd5e2f0, kind === 'lapd' ? 1.5 : 0.35, new Vector3(0.05, 0.2, -7), new Vector3(0, 0.15, -8));
+  dir(studio, kind === 'hall' ? 0xf6f7f5 : 0xffffff, kind === 'hall' ? 1.35 : kind === 'wallace' ? 1.7 : 3.2, new Vector3(-1.8, 2.4, -2), new Vector3(0, 0, -8));
+  dir(studio, kind === 'hall' ? 0xe6e8ea : 0xd5d8de, kind === 'hall' ? 0.7 : 0.85, new Vector3(1.6, 0.5, -3), new Vector3(0, 0, -8));
   return { night, rim, studio };
 }
 
@@ -346,18 +387,18 @@ function applyLight(
   scene: Scene, rigs: Record<LightName, Group>, hemi: HemisphereLight,
   ground: { night: Mesh; rim: Mesh; studio: Mesh }, light: LightName, height: number, kind: Kind,
 ): void {
-  rigs.night.visible = light === 'night';
+  rigs.night.visible = light === 'night' && kind !== 'hall';
   rigs.rim.visible = light === 'rim';
   rigs.studio.visible = light === 'studio';
   ground.night.visible = light === 'night';
   ground.rim.visible = light === 'rim';
   ground.studio.visible = light === 'studio';
-  const nightHemi = kind === 'hall' ? 0.42 : kind === 'wallace' ? 0.34 : 0.42;
+  const nightHemi = kind === 'hall' ? 0.045 : kind === 'wallace' ? 0.85 : 0.9;
   hemi.intensity = light === 'night' ? nightHemi : light === 'rim' ? (kind === 'lapd' ? 0.48 : 0.28) : kind === 'hall' ? 0.55 : 0.7;
-  const nightHemiColor = kind === 'hall' ? 0xc9e6dc : kind === 'wallace' ? 0x8eabc8 : 0x4a5868;
+  const nightHemiColor = kind === 'hall' ? 0xd5e6de : kind === 'wallace' ? 0x9eb4cc : 0x5c6b78;
   hemi.color.set(light === 'studio' ? 0xc8c8c8 : light === 'rim' ? 0x243656 : nightHemiColor);
   hemi.groundColor.set(light === 'studio' ? 0x9a9a9a : 0x121018);
-  const nightEnv = kind === 'hall' ? 0.5 : kind === 'wallace' ? 0.42 : 0.48;
+  const nightEnv = kind === 'hall' ? 0.06 : kind === 'wallace' ? 0.95 : 0.32;
   const rimEnv = kind === 'lapd' ? 0.72 : 0.5;
   scene.environmentIntensity = light === 'night' ? nightEnv : light === 'rim' ? rimEnv : 0.22;
   scene.fog = light === 'night' ? new FogExp2(0x100e16, 0.04 / Math.max(40, height)) : null;
@@ -386,7 +427,7 @@ function layoutSheet(cols: number[], rows: number, cellH: number): { w: number; 
 }
 
 function sheetColumns(): number[] {
-  return [TILE, TILE, TILE, TILE + REF_W];
+  return blind ? [TILE, TILE, TILE, TILE] : [TILE, TILE, TILE, TILE + REF_W];
 }
 
 async function renderSheet(
@@ -403,12 +444,29 @@ async function renderSheet(
   const hemi = new HemisphereLight(0x6e7c90, 0x1a120e, 0.55);
   scene.add(hemi);
   const rigs = buildLights(camera, kind);
+  const hallKey = new DirectionalLight(0xf4f7f4, 0);
+  hallKey.position.set(210, 48, 36);
+  hallKey.target.position.set(0, 64, 0);
+  scene.add(hallKey, hallKey.target);
+  const hallRim = new DirectionalLight(0xe7f2ea, 0);
+  hallRim.position.set(-190, 46, -30);
+  hallRim.target.position.set(0, 96, 0);
+  scene.add(hallRim, hallRim.target);
+  // World key, so the three-quarter is not the unlit corner and the side is not a flat fill.
+  const lapdKey = new DirectionalLight(0xc4c0b6, 0);
+  lapdKey.position.set(280, 160, -260);
+  lapdKey.target.position.set(0, 70, 0);
+  scene.add(lapdKey, lapdKey.target);
+  const lapdUp = new DirectionalLight(0xa39e94, 0);
+  lapdUp.position.set(40, -30, -180);
+  lapdUp.target.position.set(0, 190, 0);
+  scene.add(lapdUp, lapdUp.target);
   const span = Math.max(box.getSize(new Vector3()).x, box.getSize(new Vector3()).z) * 3;
-  const groundMat = (color: number, rough: number) => new MeshStandardNodeMaterial({ color, roughness: rough, metalness: 0.08 });
+  const groundMat = (color: number) => new MeshStandardNodeMaterial({ color, roughness: 1, metalness: 0 });
   const grounds = {
-    night: new Mesh(new PlaneGeometry(span, span), groundMat(0x07080c, 0.35)),
-    rim: new Mesh(new PlaneGeometry(span, span), groundMat(0x05060a, 0.6)),
-    studio: new Mesh(new PlaneGeometry(span, span), groundMat(0xb4b6b8, 0.7)),
+    night: new Mesh(new PlaneGeometry(span, span), groundMat(0x07080c)),
+    rim: new Mesh(new PlaneGeometry(span, span), groundMat(0x05060a)),
+    studio: new Mesh(new PlaneGeometry(span, span), groundMat(0xb4b6b8)),
   };
   for (const mesh of Object.values(grounds)) {
     mesh.rotation.x = -Math.PI / 2;
@@ -426,7 +484,7 @@ async function renderSheet(
     const span = document.createElement('span');
     span.textContent = shot.label;
     cell.appendChild(span);
-    if (i % 4 === 3) {
+    if (!blind && i % 4 === 3) {
       const img = document.createElement('img');
       img.src = `/harness-refs/${ref.file}`;
       img.alt = ref.caption;
@@ -447,6 +505,10 @@ async function renderSheet(
     const y = row * TILE_H;
     const viewW = col === 3 ? TILE : cols[col]!;
     applyLight(scene, rigs, hemi, grounds, shot.light, size.y, kind);
+    hallKey.intensity = kind === 'hall' && shot.light === 'night' ? 16 : 0;
+    hallRim.intensity = kind === 'hall' && shot.light === 'night' ? 2.2 : 0;
+    lapdKey.intensity = kind === 'lapd' && shot.light === 'night' ? 3.4 : kind === 'lapd' && shot.light === 'rim' ? 2.2 : 0;
+    lapdUp.intensity = kind === 'lapd' && shot.light === 'night' ? 0.45 : kind === 'lapd' && shot.light === 'rim' ? 0.3 : 0;
     renderer.setViewport(x, y, viewW, TILE_H);
     renderer.setScissor(x, y, viewW, TILE_H);
     renderer.setClearColor(scene.background as Color, 1);
@@ -454,7 +516,7 @@ async function renderSheet(
     camera.aspect = viewW / TILE_H;
     camera.updateProjectionMatrix();
     renderer.render(scene, camera);
-    if (col === 3) {
+    if (!blind && col === 3) {
       renderer.setViewport(x + TILE, y, REF_W, TILE_H);
       renderer.setScissor(x + TILE, y, REF_W, TILE_H);
       renderer.setClearColor(0x07080c, 1);
@@ -494,11 +556,27 @@ async function renderCloseups(
   const hemi = new HemisphereLight(0x6e7c90, 0x1a120e, 0.55);
   scene.add(hemi);
   const rigs = buildLights(camera, kind);
+  const hallKey = new DirectionalLight(0xf4f7f4, 0);
+  hallKey.position.set(210, 48, 36);
+  hallKey.target.position.set(0, 64, 0);
+  scene.add(hallKey, hallKey.target);
+  const hallRim = new DirectionalLight(0xe7f2ea, 0);
+  hallRim.position.set(-190, 46, -30);
+  hallRim.target.position.set(0, 96, 0);
+  scene.add(hallRim, hallRim.target);
+  const lapdKey = new DirectionalLight(0xc4c0b6, 0);
+  lapdKey.position.set(280, 160, -260);
+  lapdKey.target.position.set(0, 70, 0);
+  scene.add(lapdKey, lapdKey.target);
+  const lapdUp = new DirectionalLight(0xa39e94, 0);
+  lapdUp.position.set(40, -30, -180);
+  lapdUp.target.position.set(0, 190, 0);
+  scene.add(lapdUp, lapdUp.target);
   const groundSpan = Math.max(box.getSize(new Vector3()).x, box.getSize(new Vector3()).z) * 3;
   const grounds = {
-    night: new Mesh(new PlaneGeometry(groundSpan, groundSpan), new MeshStandardNodeMaterial({ color: 0x07080c, roughness: 0.35 })),
-    rim: new Mesh(new PlaneGeometry(groundSpan, groundSpan), new MeshStandardNodeMaterial({ color: 0x05060a, roughness: 0.6 })),
-    studio: new Mesh(new PlaneGeometry(groundSpan, groundSpan), new MeshStandardNodeMaterial({ color: 0xb4b6b8, roughness: 0.7 })),
+    night: new Mesh(new PlaneGeometry(groundSpan, groundSpan), new MeshStandardNodeMaterial({ color: 0x07080c, roughness: 1, metalness: 0 })),
+    rim: new Mesh(new PlaneGeometry(groundSpan, groundSpan), new MeshStandardNodeMaterial({ color: 0x05060a, roughness: 1, metalness: 0 })),
+    studio: new Mesh(new PlaneGeometry(groundSpan, groundSpan), new MeshStandardNodeMaterial({ color: 0xb4b6b8, roughness: 1, metalness: 0 })),
   };
   for (const mesh of Object.values(grounds)) {
     mesh.rotation.x = -Math.PI / 2;
@@ -509,6 +587,10 @@ async function renderCloseups(
   const show = (index: number) => {
     const shot = shots[((index % shots.length) + shots.length) % shots.length]!;
     applyLight(scene, rigs, hemi, grounds, shot.light, size.y, kind);
+    hallKey.intensity = kind === 'hall' && shot.light === 'night' ? 16 : 0;
+    hallRim.intensity = kind === 'hall' && shot.light === 'night' ? 2.2 : 0;
+    lapdKey.intensity = kind === 'lapd' && shot.light === 'night' ? 3.4 : kind === 'lapd' && shot.light === 'rim' ? 2.2 : 0;
+    lapdUp.intensity = kind === 'lapd' && shot.light === 'night' ? 0.45 : kind === 'lapd' && shot.light === 'rim' ? 0.3 : 0;
     span.textContent = shot.label;
     document.getElementById('dims')!.textContent =
       `${shot.label} · W ${size.x.toFixed(1)} × D ${size.z.toFixed(1)} × H ${size.y.toFixed(1)} m · ${tris} tris · ${CLOSE_W}×${CLOSE_H}`;
@@ -649,14 +731,15 @@ function addFlight(parent: Group, x: number, y: number, z: number, toward: numbe
   addBox(parent, 0.08, n * rise + RAIL_H, run, x + 0.86, y, z + toward * (run * 0.5), rail);
 }
 
-function gauge(parent: Group, x: number, y: number, z: number, toward: number): void {
+function gauge(parent: Group, x: number, y: number, z: number, toward: number, stairX: number, stairZ: number): void {
   const cloth = concrete(0x3c4558);
   const skin = concrete(0xc2a588);
   const paint = concrete(0xf4f6f8);
   const lane = concrete(0x8d8678);
   addBox(parent, 0.34, 0.86, 0.22, x, y, z, cloth);
   addBox(parent, 0.46, 0.58, 0.24, x, y + 0.86, z, cloth);
-  addBox(parent, 0.24, 0.28, 0.24, x, y + 1.46, z, skin);
+  // Crown meets the 1.80 m bar. A short head reads as a short person.
+  addBox(parent, 0.24, 0.32, 0.24, x, y + 1.48, z, skin);
   const leaf = DOOR_W;
   const doorX = x + 2.05;
   addBox(parent, 0.08, DOOR_H, 0.08, doorX - leaf / 2, y, z, paint);
@@ -668,21 +751,23 @@ function gauge(parent: Group, x: number, y: number, z: number, toward: number): 
   addBox(parent, 0.42, 0.05, 0.08, poleX, y + PERSON_M, z, paint);
   addBox(parent, 0.62, 0.05, 0.08, poleX, y + STOREY_M, z, paint);
   addBox(parent, LANE_M, 0.04, 1.6, x + 4.3, y, z, lane);
-  addFlight(parent, x - 4.35, y, z + toward * 0.8, toward);
+  addFlight(parent, stairX, y, stairZ, toward);
 }
 
-function scaleStand(kind: Kind): { look: Vector3; wide: Vector3; person: Vector3; toward: number } {
+function scaleStand(kind: Kind): { look: Vector3; wide: Vector3; person: Vector3; toward: number; stairX: number; stairZ: number } {
   if (kind === 'lapd') {
-    // Beside the stair, so the white frame is the only door in the close view.
-    const person = new Vector3(26, 0, -80);
-    return { person, look: new Vector3(26, 1.2, -80), wide: new Vector3(0, 80, -48), toward: 1 };
+    // The figure stands in the lower third. The door and the podium share that frame.
+    const person = new Vector3(3.2, 0, -95);
+    return { person, look: new Vector3(0, 28, -55), wide: new Vector3(0, 100, -20), toward: 1, stairX: 14, stairZ: -90 };
   }
   if (kind === 'hall') {
-    const person = new Vector3(-30, 0, 56);
-    return { person, look: new Vector3(-30, 1.2, 56), wide: new Vector3(0, 55, 28), toward: -1 };
+    // Close on the porch so the person, the door and the flight are readable.
+    const person = new Vector3(-1.6, 0, 48);
+    return { person, look: new Vector3(0.4, 3.4, 42), wide: new Vector3(0, 70, 10), toward: -1, stairX: 4.8, stairZ: 53 };
   }
-  const person = new Vector3(0, 0, -1724);
-  return { person, look: new Vector3(0, 1.25, -1724), wide: new Vector3(0, 420, -1400), toward: 1 };
+  // Eye height, looking at the base of the mouth, so the figure and the stone share the frame.
+  const person = new Vector3(20, 0, -1768);
+  return { person, look: new Vector3(14, 4.5, -1690), wide: new Vector3(0, 1200, -400), toward: 1, stairX: 26, stairZ: -1774 };
 }
 
 async function renderScale(
@@ -693,7 +778,7 @@ async function renderScale(
   const cellH = 900;
   layoutSheet([cellW, cellW], 1, cellH);
   const stand = scaleStand(kind);
-  gauge(scene, stand.person.x, stand.person.y, stand.person.z, stand.toward);
+  gauge(scene, stand.person.x, stand.person.y, stand.person.z, stand.toward, stand.stairX, stand.stairZ);
   const span = Math.max(box.getSize(new Vector3()).x, box.getSize(new Vector3()).z) * 2.4;
   const ground = new Mesh(
     new PlaneGeometry(span, span),
@@ -730,8 +815,14 @@ async function renderScale(
     labels.appendChild(cell);
   }
   const close = new PerspectiveCamera(30, cellW / cellH, 0.05, 8000);
-  const closeDir = new Vector3(0, 0.06, entranceSign(kind));
-  aim(close, closeDir, stand.look, kind === 'wallace' ? 4.2 : 3.15, 30);
+  const closeDir = kind === 'hall'
+    ? new Vector3(0.4, 0.16, 0.9)
+    : kind === 'lapd'
+      ? new Vector3(0.07, -0.37, -0.92)
+      : new Vector3(0.085, -0.031, -0.996);
+  const closeRadius = kind === 'wallace' ? 49 : kind === 'hall' ? 14 : 50;
+  const closeFov = kind === 'wallace' ? 62 : kind === 'hall' ? 44 : 90;
+  aim(close, closeDir, stand.look, closeRadius, closeFov);
   const wide = new PerspectiveCamera(28, cellW / cellH, 0.2, 20000);
   aim(wide, new Vector3(0.55, 0.28, entranceSign(kind) * 0.8), stand.wide, kind === 'wallace' ? 2200 : box.getSize(new Vector3()).y * 0.7, 28);
   renderer.setSize(cellW * 2, cellH, false);

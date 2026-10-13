@@ -10,7 +10,6 @@ import { makeSignMesh } from '../../world/materials/signMesh';
 import { Style, SignColor, type Sign } from '../../world/fabric/types';
 import { phraseSeed } from '../../world/materials/signPhrases';
 import { registerLandmarkType, type LandmarkEnv } from '../../world/landmarks/registry';
-import { LightKind } from '../../world/landmarks/Beacons';
 import type { Landmark } from '../../world/layout';
 import { openDoorLeaf } from '../../world/architecture/trim';
 import { Mass } from './mass';
@@ -156,19 +155,6 @@ function signsFor(l: Landmark, yaw: number): Sign[] {
   }];
 }
 
-function beacons(l: Landmark, env: LandmarkEnv, yaw: number): void {
-  const add = (lx: number, y: number, lz: number, kind: number, size: number) => {
-    const [x, z] = localToWorld(l.x, l.z, yaw, lx, lz);
-    env.beacons.add(x, y, z, kind, size);
-  };
-  add(0, HALL.height + 1.4, 0, LightKind.Warm, 8);
-  add(0, HALL.height + 1.4, 0, LightKind.Red, 3.2);
-  const s = HALL.neck / 2 - 1;
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) add(sx * s, HALL.neckTop + 1, sz * s, LightKind.Warm, 4);
-  add(-14, 9.2, 62, LightKind.Warm, 2.2);
-  add(14, 9.2, 62, LightKind.Warm, 2.2);
-}
-
 export function buildCityHall(l: Landmark, env: LandmarkEnv) {
   const yaw = bearingToYaw(l.bearingDeg);
   const collider = new Mass(new GeoWriter(), l.x, l.z, yaw, 2, { draw: false });
@@ -196,7 +182,6 @@ export function buildCityHall(l: Landmark, env: LandmarkEnv) {
     HALL_LOD_DIST, l.x, l.z, 0, HALL.height + 2, r,
   );
   object.add(ground);
-  beacons(l, env, yaw);
   return { object, colliders: collider.cols };
 }
 

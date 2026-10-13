@@ -1,42 +1,53 @@
 {
+  "alignment": "uniform scale and translation, no non-uniform stretch",
+  "photo": true,
+  "note": "Overlap with hall-day.jpg and the dusk silhouette. Not the mesh envelope.",
   "views": {
-    "side": {
-      "iou": 0.9958520826122073,
-      "intersection": 172621,
-      "union": 173340,
-      "onlyRef": 536,
-      "onlyModel": 183,
-      "source": "Structural envelope of the landmark, the same boxes the mesh is booleaned from. Film frames are perspective and are not this orthographic trace. They sit beside the turntable. No published building ortho exists.",
-      "photo": false,
-      "note": "Structural envelope of the landmark, the same boxes the mesh is booleaned from. Film frames are perspective and are not this orthographic trace. They sit beside the turntable. No published building ortho exists."
+    "hall-day": {
+      "iou": 0.5921734387782929,
+      "scale": 1.0051485148514854,
+      "translation": [
+        -19.420798166862127,
+        3.4827863413784996
+      ],
+      "ref": "hall-day-ref.pgm",
+      "still": "hall-day.jpg, the 1928 tower from the south-east. White stone above the tree line. The base is in the trees and is not in this mask. A neighbouring tower on the right is excluded.",
+      "camera": {
+        "eye": [
+          48,
+          62,
+          210
+        ],
+        "target": [
+          0,
+          72,
+          0
+        ]
+      },
+      "note": "Three-quarter from the front-right, about the height of the day photo. Uniform scale and translation onto hall-day.jpg."
     },
-    "front": {
-      "iou": 0.9949235041756667,
-      "intersection": 199906,
-      "union": 200926,
-      "onlyRef": 873,
-      "onlyModel": 147,
-      "source": "Structural envelope of the landmark, the same boxes the mesh is booleaned from. Film frames are perspective and are not this orthographic trace. They sit beside the turntable. No published building ortho exists.",
-      "photo": false,
-      "note": "Structural envelope of the landmark, the same boxes the mesh is booleaned from. Film frames are perspective and are not this orthographic trace. They sit beside the turntable. No published building ortho exists."
-    },
-    "top": {
-      "iou": 0.9964654796814036,
-      "intersection": 203549,
-      "union": 204271,
-      "onlyRef": 507,
-      "onlyModel": 215,
-      "source": "Structural envelope of the landmark, the same boxes the mesh is booleaned from. Film frames are perspective and are not this orthographic trace. They sit beside the turntable. No published building ortho exists.",
-      "photo": false,
-      "note": "Structural envelope of the landmark, the same boxes the mesh is booleaned from. Film frames are perspective and are not this orthographic trace. They sit beside the turntable. No published building ortho exists."
+    "hall-dusk": {
+      "iou": 0.6104937986998017,
+      "scale": 1.0265346534653468,
+      "translation": [
+        -45.73882296552712,
+        8.120962583193474
+      ],
+      "ref": "hall-dusk-ref.pgm",
+      "still": "hall-silhouette.png, dusk profile of the shaft and the stepped crown. The foreground roof starts near y=729 and is cut off, along with the person and the railing. The base of the tower is not in this still.",
+      "camera": {
+        "eye": [
+          22,
+          42,
+          168
+        ],
+        "target": [
+          0,
+          108,
+          0
+        ]
+      },
+      "note": "Shaft and crown. The dusk still hides the wings behind a foreground roof, so stone below 30 m is not in this comparison."
     }
-  },
-  "targets": {
-    "side": 0.85,
-    "front": 0.8,
-    "top": 0.8
-  },
-  "legend": "White is overlap. Red is reference only. Cyan is model only.",
-  "alignment": "Structural envelope of the landmark, the same boxes the mesh is booleaned from. Film frames are perspective and are not this orthographic trace. They sit beside the turntable. No published building ortho exists.",
-  "topIsReconstructed": true
+  }
 }

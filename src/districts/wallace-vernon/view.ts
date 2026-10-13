@@ -56,9 +56,9 @@ export function wallaceCamera(layout: CityLayout, kind: WallaceView): WallacePos
   });
 
   if (kind === 'approach') {
-    // In the walled causeway, above the truck lanes, looking south at the portal.
-    const eye = world(0, 6.4, COURT.roadNorth + 78);
-    const look = world(0, 42, -1900);
+    // Off the causeway and above the haze, so the batter and the mouth share the frame.
+    const eye = world(640, 160, -3400);
+    const look = world(0, 520, -900);
     return fly(eye, look);
   }
   if (kind === 'plaza') {

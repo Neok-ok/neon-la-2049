@@ -3,8 +3,9 @@
 
 Metres, landmark space (+X right, +Y up, +Z depth). Blender is Z-up, so a
 landmark point (x, y, z) is stored as (x, -z, y) and the glTF exporter's Y-up
-conversion puts it back. Structural boxes are EXACT-booleaned into one shell
-so stairs, pads and the door jambs are not loose plates. The kit in
+conversion puts it back. The shell is stitched into one mesh: overlapping
+solids share a vertex, so stairs and pads are not loose plates. Door openings
+are cut from the podium before that stitch. The kit in
 tools/model-harness/kit dresses vents, lamps, seams and decals. No third-party
 mesh is imported.
 
@@ -19,6 +20,7 @@ import sys
 import bmesh
 import bpy
 from mathutils import Vector
+from mathutils.bvhtree import BVHTree
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 HARNESS = os.path.dirname(HERE)
@@ -96,8 +98,20 @@ def make_frustum(name, cx, cz, y, w0, d0, w1, d1, h):
     for i in range(4):
         j = (i + 1) % 4
         bm.faces.new((bottom[i], bottom[j], top[j], top[i]))
-    bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
+    _force_outward(bm)
     return mesh_of(bm, name)
+
+
+def _force_outward(bm):
+    """Consistent normals. A negative volume means they point into the solid."""
+    if not bm.faces:
+        return
+    bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
+    volume = 0.0
+    for face in bm.faces:
+        volume += face.calc_center_median().dot(face.normal) * face.calc_area()
+    if volume < 0:
+        bmesh.ops.reverse_faces(bm, faces=list(bm.faces))
 
 
 def _object_mode():
@@ -105,11 +119,16 @@ def _object_mode():
         bpy.ops.object.mode_set(mode='OBJECT')
 
 
-def bool_op(host, other, operation):
+def bool_op(host, other, operation, solver='EXACT'):
+    """One boolean. The tower is not fused this way: a union of the whole stack stalls.
+
+    Interior recesses use Exact. Fast retriangulates the outer wall and drops
+    the quad above a door, so glass in that band has nothing to sit on.
+    """
     _object_mode()
     mod = host.modifiers.new('bool', 'BOOLEAN')
     mod.operation = operation
-    mod.solver = 'EXACT'
+    mod.solver = solver
     mod.object = other
     bpy.context.view_layer.objects.active = host
     host.select_set(True)
@@ -119,17 +138,403 @@ def bool_op(host, other, operation):
     return host
 
 
-def unite(objs, mat=None):
-    host = objs[0]
-    if mat is not None:
-        host.data.materials.clear()
-        host.data.materials.append(mat)
-    for other in objs[1:]:
-        if mat is not None:
-            other.data.materials.clear()
-            other.data.materials.append(mat)
-        bool_op(host, other, 'UNION')
+def _aabb_obj(ob):
+    xs = [v.co.x for v in ob.data.vertices]
+    ys = [v.co.y for v in ob.data.vertices]
+    zs = [v.co.z for v in ob.data.vertices]
+    return (min(xs), min(ys), min(zs), max(xs), max(ys), max(zs))
+
+
+def _aabb_bm(bm):
+    xs = [v.co.x for v in bm.verts]
+    ys = [v.co.y for v in bm.verts]
+    zs = [v.co.z for v in bm.verts]
+    return (min(xs), min(ys), min(zs), max(xs), max(ys), max(zs))
+
+
+def _cutter_aabb(cx, cz, y, w, d, h):
+    # Landmark (x, z, y) stored as Blender (x, -z, y).
+    return (
+        cx - w * 0.5,
+        -(cz + d * 0.5),
+        y,
+        cx + w * 0.5,
+        -(cz - d * 0.5),
+        y + h,
+    )
+
+
+def _aabb_overlap(a, b, min_span=0.0):
+    return all(min(a[i + 3], b[i + 3]) - max(a[i], b[i]) > min_span for i in range(3))
+
+
+def _in_box(p, box, pad=0.0):
+    return all(box[i] - pad <= p[i] <= box[i + 3] + pad for i in range(3))
+
+
+def _pt(axis_val, u, u_val, v, v_val):
+    p = [0.0, 0.0, 0.0]
+    p[axis_val[0]] = axis_val[1]
+    p[u] = u_val
+    p[v] = v_val
+    return tuple(p)
+
+
+def punch_box(ob, hole):
+    """Open a rectangular recess in an axis-aligned box. The float boolean leaves the front quad in place."""
+    if len(ob.data.vertices) != 8:
+        return False
+    xs = [v.co.x for v in ob.data.vertices]
+    ys = [v.co.y for v in ob.data.vertices]
+    zs = [v.co.z for v in ob.data.vertices]
+    o = [min(xs), min(ys), min(zs), max(xs), max(ys), max(zs)]
+    axis = None
+    sign = 0
+    for i in range(3):
+        if hole[i] < o[i] - 1e-3:
+            axis, sign = i, -1
+            break
+        if hole[i + 3] > o[i + 3] + 1e-3:
+            axis, sign = i, 1
+            break
+    if axis is None:
+        return False
+    face = o[axis] if sign < 0 else o[axis + 3]
+    inner = hole[axis + 3] if sign < 0 else hole[axis]
+    inner = min(o[axis + 3] - 0.08, max(o[axis] + 0.08, inner))
+    others = [j for j in range(3) if j != axis]
+    u, v = others
+    hu0 = max(hole[u], o[u] + 0.02)
+    hu1 = min(hole[u + 3], o[u + 3] - 0.02)
+    hv0 = max(hole[v], o[v] + 0.02)
+    hv1 = min(hole[v + 3], o[v + 3] - 0.02)
+    if hu1 - hu0 < 0.2 or hv1 - hv0 < 0.2:
+        return False
+    u0, u1 = o[u], o[u + 3]
+    v0, v1 = o[v], o[v + 3]
+    bm = bmesh.new()
+    cache = {}
+
+    def V(p):
+        key = tuple(round(c, 4) for c in p)
+        vert = cache.get(key)
+        if vert is None:
+            vert = bm.verts.new(p)
+            cache[key] = vert
+        return vert
+
+    def quad(a, b, c, d):
+        try:
+            bm.faces.new((V(a), V(b), V(c), V(d)))
+        except ValueError:
+            pass
+
+    def face_quad(axis_k, value):
+        a, b = [j for j in range(3) if j != axis_k]
+        corners = []
+        for ia, ib in ((0, 0), (1, 0), (1, 1), (0, 1)):
+            p = [0.0, 0.0, 0.0]
+            p[axis_k] = value
+            p[a] = o[a] if ia == 0 else o[a + 3]
+            p[b] = o[b] if ib == 0 else o[b + 3]
+            corners.append(tuple(p))
+        quad(*corners)
+
+    for k in range(3):
+        for side, value in ((-1, o[k]), (1, o[k + 3])):
+            if k == axis and (value == face):
+                continue
+            face_quad(k, value)
+    along = (axis, face)
+    inner_at = (axis, inner)
+    # Picture frame. Each band is a rectangle. A trapezoid from the sill up to
+    # the door head leaves the wall above the opening as a diagonal gap, and
+    # glass in that gap is a loose plate.
+    quad(_pt(along, u, u0, v, v0), _pt(along, u, u1, v, v0), _pt(along, u, u1, v, hv0), _pt(along, u, u0, v, hv0))
+    quad(_pt(along, u, u0, v, hv1), _pt(along, u, u1, v, hv1), _pt(along, u, u1, v, v1), _pt(along, u, u0, v, v1))
+    quad(_pt(along, u, u0, v, hv0), _pt(along, u, hu0, v, hv0), _pt(along, u, hu0, v, hv1), _pt(along, u, u0, v, hv1))
+    quad(_pt(along, u, hu1, v, hv0), _pt(along, u, u1, v, hv0), _pt(along, u, u1, v, hv1), _pt(along, u, hu1, v, hv1))
+    for a0, b0, a1, b1 in (
+        (hu0, hv0, hu1, hv0),
+        (hu1, hv0, hu1, hv1),
+        (hu1, hv1, hu0, hv1),
+        (hu0, hv1, hu0, hv0),
+    ):
+        quad(_pt(along, u, a0, v, b0), _pt(along, u, a1, v, b1), _pt(inner_at, u, a1, v, b1), _pt(inner_at, u, a0, v, b0))
+    quad(
+        _pt(inner_at, u, hu0, v, hv0), _pt(inner_at, u, hu1, v, hv0),
+        _pt(inner_at, u, hu1, v, hv1), _pt(inner_at, u, hu0, v, hv1),
+    )
+    _force_outward(bm)
+    bm.to_mesh(ob.data)
+    bm.free()
+    ob.data.update()
+    return True
+
+
+def apply_cutters(objs, cutters):
+    """Open doors in the podium. A box gets an explicit recess; the float boolean leaves the front quad."""
+    if not cutters:
+        return
+    for cx, cz, y, w, d, h in cutters:
+        box = _cutter_aabb(cx, cz, y, w, d, h)
+        for ob in list(objs):
+            if ob is None or ob.name not in bpy.data.objects or len(ob.data.vertices) == 0:
+                continue
+            if not _aabb_overlap(_aabb_obj(ob), box, 0.02):
+                continue
+            if punch_box(ob, box):
+                print('punch', ob.name, 'verts', len(ob.data.vertices), flush=True)
+                continue
+            cutter = make_box('cut', cx, cz, y, w, d, h)
+            before = len(ob.data.vertices)
+            bool_op(ob, cutter, 'DIFFERENCE')
+            print('cut', ob.name, 'verts', before, '->', len(ob.data.vertices), flush=True)
+            if len(ob.data.vertices) == 0:
+                bpy.data.objects.remove(ob, do_unlink=True)
+                objs.remove(ob)
+
+
+def _overlap_candidates(a, b):
+    mn = [max(a[i], b[i]) for i in range(3)]
+    mx = [min(a[i + 3], b[i + 3]) for i in range(3)]
+    span = [mx[i] - mn[i] for i in range(3)]
+    if any(s < 0.004 for s in span):
+        return []
+    fracs = []
+    for s in span:
+        fracs.append((0.5,) if s < 0.06 else (0.18, 0.5, 0.82))
+    out = []
+    for u in fracs[0]:
+        for v in fracs[1]:
+            for w in fracs[2]:
+                out.append(tuple(mn[i] + span[i] * t for i, t in enumerate((u, v, w))))
+    return out
+
+
+def _inside(tree, point):
+    """Parity of a ray. Face normals on the frustum point inward, so a half-space test lies."""
+    origin = Vector(point)
+    loc, _normal, _index, dist = tree.find_nearest(origin)
+    if loc is not None and dist <= 0.002:
+        return True
+    direction = Vector((1.0, 0.017, 0.011))
+    hits = 0
+    for _ in range(12):
+        hit, _normal, _index, travelled = tree.ray_cast(origin, direction)
+        if hit is None:
+            break
+        hits += 1
+        origin = hit + direction * 0.02
+    return hits % 2 == 1
+
+
+def _link_interior(bm, tree, point):
+    """Share `point` with the shell by splitting the nearest face. The link stays inside."""
+    loc, normal, index, dist = tree.find_nearest(Vector(point))
+    if loc is None or index is None:
+        return False
+    bm.faces.ensure_lookup_table()
+    bm.verts.ensure_lookup_table()
+    face = bm.faces[index]
+    s = None
+    for vert in face.verts:
+        if (vert.co - loc).length <= 0.001:
+            s = vert
+            break
+    old = face.normal.copy()
+    if s is None:
+        s = bm.verts.new(loc)
+        verts = [vert for vert in face.verts]
+        bm.faces.remove(face)
+        for i in range(len(verts)):
+            try:
+                nf = bm.faces.new((verts[i], verts[(i + 1) % len(verts)], s))
+            except ValueError:
+                continue
+            if nf.normal.dot(old) < 0:
+                nf.normal_flip()
+    p = bm.verts.new(Vector(point))
+    axis = p.co - s.co
+    if axis.length < 1e-5:
+        axis = Vector((0.0, 0.0, 1.0))
+    axis.normalize()
+    perp = axis.cross(Vector((1.0, 0.0, 0.0)))
+    if perp.length < 1e-4:
+        perp = axis.cross(Vector((0.0, 1.0, 0.0)))
+    perp.normalize()
+    offset = min(0.008, max(0.002, dist * 0.35))
+    q = bm.verts.new(p.co + perp * offset)
+    try:
+        bm.faces.new((s, p, q))
+    except ValueError:
+        return False
+    return True
+
+
+def stitch_objects(objs, forbidden=None):
+    """One mesh. Overlapping solids share a vertex so stray sees a single shell.
+
+    A boolean union of the whole tower stalls. These solids already overlap, and
+    a shared vertex welds the islands without a CSG pass.
+    """
+    objs = [ob for ob in objs if ob and ob.name in bpy.data.objects and len(ob.data.vertices)]
+    if not objs:
+        raise RuntimeError('no solids to stitch')
+    if len(objs) == 1:
+        return objs[0]
+    forbidden = forbidden or []
+    entries = []
+    for ob in objs:
+        bm = bmesh.new()
+        bm.from_mesh(ob.data)
+        _force_outward(bm)
+        entries.append({
+            'ob': ob, 'bm': bm, 'tree': None, 'box': None,
+            'shell': BVHTree.FromBMesh(bm),
+        })
+
+    for entry in entries:
+        _refresh_entry(entry)
+    parent = list(range(len(entries)))
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    def count():
+        return len({find(i) for i in range(len(entries))})
+
+    rounds = 0
+    while count() > 1 and rounds < len(entries) + 3:
+        rounds += 1
+        print('stitch', len(entries), 'left', count(), flush=True)
+        groups = {}
+        for i in range(len(entries)):
+            groups.setdefault(find(i), []).append(i)
+        linked = False
+        roots = list(groups)
+        for ai in range(len(roots)):
+            for bi in range(ai + 1, len(roots)):
+                pair = _bridge(entries, groups[roots[ai]], groups[roots[bi]], forbidden)
+                if pair is None:
+                    continue
+                i, j = pair
+                parent[find(j)] = find(i)
+                linked = True
+                break
+            if linked:
+                break
+        if not linked:
+            break
+    left = count()
+    if left > 1:
+        groups = {}
+        for i in range(len(entries)):
+            groups.setdefault(find(i), []).append(f'{i}:{entries[i]["ob"].name}')
+        print('STITCH OPEN', groups, flush=True)
+        raise RuntimeError(f'stitch left {left} shells from {len(entries)} solids')
+    for entry in entries:
+        entry['bm'].to_mesh(entry['ob'].data)
+        entry['bm'].free()
+    _object_mode()
+    bpy.ops.object.select_all(action='DESELECT')
+    for entry in entries:
+        entry['ob'].select_set(True)
+    host = entries[0]['ob']
+    bpy.context.view_layer.objects.active = host
+    bpy.ops.object.join()
+    bm = bmesh.new()
+    bm.from_mesh(host.data)
+    bmesh.ops.remove_doubles(bm, verts=list(bm.verts), dist=0.001)
+    bm.to_mesh(host.data)
+    bm.free()
+    host.data.update()
+    print('stitched', len(host.data.polygons), 'faces', flush=True)
     return host
+
+
+def _refresh_entry(entry):
+    entry['tree'] = BVHTree.FromBMesh(entry['bm'])
+    entry['box'] = _aabb_bm(entry['bm'])
+
+
+def _bridge(entries, group_a, group_b, forbidden):
+    for i in group_a:
+        for j in group_b:
+            for point in _overlap_candidates(entries[i]['box'], entries[j]['box']):
+                if any(_in_box(point, box, 0.02) for box in forbidden):
+                    continue
+                if not _inside(entries[i]['shell'], point) or not _inside(entries[j]['shell'], point):
+                    continue
+                ok_i = _link_interior(entries[i]['bm'], entries[i]['tree'], point)
+                if ok_i:
+                    _refresh_entry(entries[i])
+                ok_j = ok_i and _link_interior(entries[j]['bm'], entries[j]['tree'], point)
+                if ok_j:
+                    _refresh_entry(entries[j])
+                    return i, j
+            linked = _bridge_through_surface(entries, i, j, forbidden)
+            if linked is not None:
+                return linked
+    return None
+
+
+def _bridge_through_surface(entries, i, j, forbidden):
+    """Weld a box whose volume crosses a coarse shell.
+
+    Ray parity on the low pyramid is even, so an interior sample never counts
+    as inside. The face still crosses the pylon: the nearest point of that
+    face lies in the box, and a point just off it is shared by both meshes.
+    """
+    small, large = sorted((i, j), key=lambda k: len(entries[k]['bm'].verts))
+    if len(entries[small]['bm'].verts) > 16:
+        return None
+    box = entries[small]['box']
+    tree = entries[large]['shell']
+    mn = [box[k] + 0.05 for k in range(3)]
+    mx = [box[k + 3] - 0.05 for k in range(3)]
+    spans = [mx[k] - mn[k] for k in range(3)]
+    if any(s <= 0.05 for s in spans):
+        return None
+    for u in (0.25, 0.5, 0.75):
+        for v in (0.25, 0.5, 0.75):
+            for w in (0.25, 0.5, 0.75):
+                sample = Vector(tuple(mn[k] + spans[k] * t for k, t in enumerate((u, v, w))))
+                loc, _normal, _index, _dist = tree.find_nearest(sample)
+                if loc is None or not _in_box((loc.x, loc.y, loc.z), box, 0.02):
+                    continue
+                delta = sample - loc
+                if delta.length < 1e-5:
+                    delta = Vector((0.0, 0.0, 0.04))
+                else:
+                    delta.normalize()
+                    delta *= 0.04
+                point = loc + delta
+                if not _in_box((point.x, point.y, point.z), box, 0.0):
+                    point = loc.lerp(sample, 0.5)
+                pt = (point.x, point.y, point.z)
+                if any(_in_box(pt, banned, 0.02) for banned in forbidden):
+                    continue
+                if not _link_interior(entries[large]['bm'], entries[large]['tree'], pt):
+                    continue
+                _refresh_entry(entries[large])
+                if not _link_interior(entries[small]['bm'], entries[small]['tree'], pt):
+                    continue
+                _refresh_entry(entries[small])
+                print('surface bridge', entries[large]['ob'].name, entries[small]['ob'].name, flush=True)
+                return large, small
+    return None
+
+
+def graft_boxes(host, boxes):
+    """Weld extra boxes onto an existing shell. `boxes` are landmark (cx, cz, y, w, d, h)."""
+    objs = [host]
+    for cx, cz, y, w, d, h in boxes:
+        objs.append(make_box('graft', cx, cz, y, w, d, h))
+    return stitch_objects(objs, [])
 
 
 class Mass:
@@ -138,6 +543,7 @@ class Mass:
     def __init__(self):
         self.solids = []
         self.parts = []
+        self.cutters = []
 
     def box(self, cx, cz, y, w, d, h, record=True):
         if w < 0.08 or d < 0.08 or h < 0.08:
@@ -161,14 +567,21 @@ class Mass:
     def fuse(self):
         if not self.solids:
             raise RuntimeError('no solids')
-        host = unite(self.solids)
+        forbidden = [_cutter_aabb(*cutter) for cutter in self.cutters]
+        apply_cutters(self.solids, self.cutters)
+        self.cutters = []
+        self.solids = [
+            ob for ob in self.solids
+            if ob and ob.name in bpy.data.objects and len(ob.data.vertices)
+        ]
+        host = stitch_objects(self.solids, forbidden)
         self.solids = [host]
         return host
 
     def cut(self, cx, cz, y, w, d, h):
-        cutter = make_box('cut', cx, cz, y, w, d, h)
-        bool_op(self.solids[0], cutter, 'DIFFERENCE')
-        return self.solids[0]
+        # Recorded and applied on fuse, while each solid is still one box.
+        self.cutters.append((cx, cz, y, w, d, h))
+        return None
 
 
 def project_uvs(obj, tile):
@@ -208,7 +621,7 @@ def finish_shell(obj, mat, tint, tile=16.0):
 
 
 def gap_at(obj, point):
-    hit, loc, _normal, _idx = obj.closest_point_on_mesh(Vector(point))
+    hit, loc, normal, _idx = obj.closest_point_on_mesh(Vector(point))
     if not hit:
         return None
     return (Vector(point) - loc).length
@@ -264,7 +677,7 @@ def wire_maps(mat, size, kind):
     nrm = tex(os.path.join(MAPS, f'{kind}-normal-{size}.png'), True)
     nmap = nt.nodes.new('ShaderNodeNormalMap')
     # Limestone beds stay shallow. Ashlar joints need enough relief to catch the rim.
-    nmap.inputs['Strength'].default_value = {'lapd': 0.9, 'hall': 0.7, 'wallace': 1.2}[kind]
+    nmap.inputs['Strength'].default_value = {'lapd': 0.55, 'hall': 0.85, 'wallace': 1.65}[kind]
     nt.links.new(nrm.outputs['Color'], nmap.inputs['Color'])
     nt.links.new(nmap.outputs['Normal'], bsdf.inputs['Normal'])
     rg = tex(os.path.join(MAPS, f'{kind}-rough-{size}.jpg'), True)
@@ -313,10 +726,11 @@ def bl_point(x, y, z):
     return Vector((x, -z, y))
 
 
-def place_lamp(kit, name, x, y, z, normal, length, height, kind):
-    # The depth edge is centred on the face, so a sample sits on the shell.
+def place_lamp(kit, name, x, y, z, normal, length, height, kind, lift=-0.12):
+    # The bezel starts 1 cm inside the face. A centred strip leaves every
+    # sample 3 cm off the plane, and the recess then fails the 2 cm touch.
     part = kit.light_strip(name, length, height, 0.24, kind, bezel=kit.recess)
-    kit.place(part, bl_point(x, y, z), normal=bl_normal(*normal), lift=-0.12)
+    kit.place(part, bl_point(x, y, z), normal=bl_normal(*normal), lift=lift)
 
 
 def place_vent(kit, name, x, y, z, normal, w, h):
@@ -350,7 +764,7 @@ def add_stairs(mass, z0, z1, y0, y1, n, width, rail=True):
     rise = (y1 - y0) / n
     for i in range(n):
         z = z0 + run * (i + 0.5)
-        # 2 cm of overlap so the treads are one shell, not a stack of plates.
+        # 2 cm of overlap so the treads share a volume and can be stitched.
         mass.box(0, z, y0 + rise * i - 0.01, width, abs(run) + 0.02, rise + 0.012, record=False)
     span_z = (z0 + z1) * 0.5
     span_d = abs(z1 - z0) + 0.4
@@ -364,8 +778,8 @@ def add_stairs(mass, z0, z1, y0, y1, n, width, rail=True):
             # 15 cm into the treads. A rail that only meets the tread edge
             # stays a second shell after the boolean.
             mass.box(side * (width * 0.5 + 0.15), span_z, 0, 0.7, span_d, y1 + RAIL_H, record=False)
-    # Bite the host so a flight that ends on the face is one shell.
-    mass.box(0, z1, y1 - 0.25, width, 1.4, 0.5, record=False)
+    # Bite stays under the door leaf. The top tread already overlaps the podium.
+    mass.box(0, z1, y1 - 0.45, width, 1.4, 0.4, record=False)
 
 
 def glass_box(cx, cz, y, w, d, h, mat):
@@ -417,8 +831,8 @@ def slits_x(mat, face_x, outward, zs, y0, height, slit_w, sink=0.0):
 
 
 # ---------------------------------------------------------------- LAPD
-HQ = dict(height=216, podiumW=86, podiumD=118, podiumH=18, shaftW=72, shaftD=100,
-          crownW=132, crownD=165, crownH=62, lobbyFloor=5.2, lobbyCeil=12.4,
+HQ = dict(height=216, podiumW=86, podiumD=118, podiumH=18, shaftW=80, shaftD=108,
+          crownW=124, crownD=154, crownH=28, lobbyFloor=5.2, lobbyCeil=12.4,
           doorHalf=1.1, doorHead=2.2, hallHalf=7.4, pad=22, padH=0.9)
 SHAFT_Y = HQ['height'] - HQ['crownH']
 
@@ -448,15 +862,16 @@ def weather(x, y, z):
 
 
 def tint_lapd(x, y, z):
-    # The sheet is already dark concrete. Tint only stains the base and the crown.
-    if y > SHAFT_Y:
-        tone = 0.78
-    elif y < 8:
-        tone = 0.70
-    else:
-        tone = 0.92
-    tone *= weather(x, y, z)
-    return (tone * 0.94, tone * 0.97, tone)
+    # Dark wet concrete. Crushing the map under 0.25 turns the shaft into a black field.
+    if y > HQ['height'] - 1.0:
+        # The overhead still is a dark block, not a pale pad and not a black hole.
+        tone = 0.72 + 0.08 * blot(x, z, 14.0)
+        return (tone * 0.90, tone * 0.92, tone * 0.95)
+    tone = 0.86 + 0.1 * blot(x + z * 0.13, y * 0.35, 42.0)
+    if y < 2.4:
+        tone *= 0.94
+    tone = max(0.78, min(0.98, tone))
+    return (tone * 0.92, tone * 0.94, tone * 0.97)
 
 
 def cut_reveal_z(mass, face_z, inward, x, y, w, h, depth):
@@ -536,18 +951,10 @@ def build_lapd(kit, rank):
         lapd_courses(mass)
     finish_shell(host, kit.body, tint_lapd)
     face = -HQ['shaftD'] / 2
-    podium_face = -HQ['podiumD'] / 2
-    sink = 1.13
     if rank >= 1:
-        slits_z(kit.glass, face, -1, (-18, -9, 9, 18), 32, 108, 3.4, sink)
-        slits_z(kit.glass, -face, 1, (-18, -9, 9, 18), 32, 108, 3.4, sink)
-        slits_x(kit.glass, HQ['shaftW'] / 2, 1, (-24, -8, 8, 24), 32, 108, 3.4, sink)
-        slits_x(kit.glass, -HQ['shaftW'] / 2, -1, (-24, -8, 8, 24), 32, 108, 3.4, sink)
-        place_lamp(kit, 'band-door', 0, 9.2, podium_face, (0, 0, -1), 42, 1.6, 'white')
-        place_lamp(kit, 'band-shaft', 0, 30, face, (0, 0, -1), 52, 2.4, 'white')
         for lx, lz in ((-28, -38), (28, -38), (-28, 38), (28, 38)):
-            place_lamp(kit, f'pad-{lx}-{lz}', lx, HQ['height'] + HQ['padH'], lz - 10.2, (0, 1, 0), 18, 0.45, 'amber')
-        place_lamp(kit, 'mast', 0, HQ['height'] + HQ['padH'] + 6, 0, (0, 1, 0), 2.4, 0.4, 'amber')
+            place_lamp(kit, f'pad-{lx}-{lz}', lx, HQ['height'] + HQ['padH'], lz, (0, 1, 0), 4.5, 0.28, 'amber')
+        place_lamp(kit, 'mast', 0, HQ['height'] + HQ['padH'] + 5.6, 0, (0, 1, 0), 1.1, 0.28, 'amber')
     if rank >= 2:
         for i, y in enumerate(range(24, 150, 12)):
             # The mechanical belts sit outside the shaft. A seam under a belt is buried.
@@ -556,7 +963,6 @@ def build_lapd(kit, rank):
             place_seam(kit, f'seam-{i}', 0, y, face, (0, 0, -1), 60)
         place_vent(kit, 'vent-a', -30, 70, face, (0, 0, -1), 6.5, 3.2)
         place_vent(kit, 'vent-b', 30, 124, face, (0, 0, -1), 6.5, 3.2)
-        place_decal(kit, 'mark', 0, 14.5, podium_face, (0, 0, -1), 8, 14)
     door_clear = gap_at(host, (0, 59.15, HQ['lobbyFloor'] + 1.1))
     tread_clear = gap_at(host, (0, -(-z0 - flight['run'] * 0.5 + flight['run'] / flight['risers'] * 0.5), 0.18 + flight['rise']))
     # Landmark point on the outer tread: z near z0, y near y0.
@@ -579,17 +985,17 @@ HALL = dict(height=138, baseW=92, baseD=62, baseH=28, shaft=34, shaftTop=100,
 
 
 def tint_hall(x, y, z):
-    stone = y >= 27.2 and max(abs(x), abs(z)) <= 22
-    if y > 132:
-        return (0.95, 0.78, 0.48)
-    if stone:
-        # Near-white multiplier. The limestone sheet carries the colour.
-        damp = 0.97 + 0.03 * blot(x + z * 0.2, y * 0.3, 28.0)
-        return (0.98 * damp, 1.0 * damp, 0.97 * damp)
-    grime = 0.84 if y < 6 else 1.0
-    damp = weather(x, y, z)
-    tone = 0.30 * grime * damp
-    return (tone * 0.86, tone * 0.90, tone * 0.96)
+    # Limestone shaft, a slightly darker granite base, and a tiled pyramid.
+    # The cap is a different material from the white shaft.
+    # White limestone. The night still is floodlit stone, not a tan render.
+    if y < 26:
+        tone = 0.62 + 0.05 * blot(x, y, 9.0)
+        return (tone * 0.96, tone * 0.95, tone * 0.92)
+    if y >= 112:
+        tone = 0.84 + 0.04 * blot(x * 0.4, y, 6.0)
+        return (tone * 0.99, tone * 0.985, tone * 0.96)
+    tone = 0.97 + 0.03 * blot(x + z * 0.2, y * 0.25, 22.0)
+    return (tone * 0.995, tone * 0.99, tone * 0.975)
 
 
 def hall_courses(mass, face):
@@ -623,18 +1029,16 @@ def build_hall(kit, rank):
     mass.box(0, 0, 0, HALL['baseW'], HALL['baseD'], HALL['baseH'])
     mass.box(0, 0, HALL['baseH'] - 0.15, HALL['shaft'], HALL['shaft'], HALL['shaftTop'] - HALL['baseH'] + 0.25)
     mass.box(0, 0, HALL['shaftTop'] - 0.1, HALL['neck'], HALL['neck'], HALL['neckTop'] - HALL['shaftTop'] + 0.15)
-    # Stepped pyramid inside the published 24 m → 4.2 m envelope.
+    # Thin setbacks and a drum. The nine-course voxel and the gold cap are gone.
     y0, y1 = HALL['neckTop'], HALL['pyramidTop']
-    w_base, w_top = HALL['neck'] - 2, 4.2
-    # Same taper on every LOD. Nine courses read as the tower crown; one block does not.
-    steps = 9
+    w_base, w_top = HALL['neck'] - 2, 6.2
+    steps = 12
     for i in range(steps):
         ya = y0 + (y1 - y0) * i / steps
-        yb = y0 + (y1 - y0) * (i + 1) / steps
         w = w_base + (w_top - w_base) * (i / steps)
-        mass.box(0, 0, ya - 0.08, w, w, (yb - ya) + 0.16)
-    mass.box(0, 0, HALL['pyramidTop'] - 0.05, 5.5, 5.5, 2.5)
-    mass.box(0, 0, HALL['pyramidTop'] + 1.8, 3.2, 3.2, HALL['height'] - HALL['pyramidTop'] - 1.8)
+        mass.box(0, 0, ya, w, w, (y1 - y0) / steps + 0.08)
+    mass.box(0, 0, HALL['pyramidTop'] - 0.1, 5.0, 5.0, HALL['lanternTop'] - HALL['pyramidTop'])
+    mass.box(0, 0, HALL['lanternTop'], 1.25, 1.25, HALL['height'] - HALL['lanternTop'])
     if rank >= 1:
         mass.box(0, 0, HALL['baseH'] - 1.2, HALL['shaft'] + 6, HALL['shaft'] + 6, 2.4)
     # Piers on the shaft. They are inside the collar envelope at the base and
@@ -718,14 +1122,11 @@ def step_profile(i):
 
 
 def tint_wallace(x, y, z):
-    # Sheet is blue-grey ashlar. Large stains sit in the vertex colour so a 256 m
-    # tile does not repeat as one tone across a 3 km face.
-    stain = 0.84 + 0.16 * blot(x * 0.05 + z * 0.02, y * 0.012, 48.0)
-    if y < 140:
-        stain *= 0.86
-    elif y > 3300:
-        stain = min(1.0, stain * 1.06)
-    tone = min(1.0, 0.98 * stain)
+    # Stone grain is in the sheet. Vertex colour only separates courses.
+    tone = 0.90 + 0.08 * blot(x * 0.01, y * 0.004, 30.0)
+    if y < 80:
+        tone *= 0.9
+    tone = max(0.75, min(1.0, tone))
     return (tone * 0.96, tone * 0.99, tone)
 
 
@@ -806,31 +1207,12 @@ def build_wallace(kit, rank):
     finish_shell(host, kit.body, tint_wallace, tile=256.0)
     # Bright portal. Light material, so the stray silhouette ignores it.
     # It is deep enough to read as a mouth and it intersects the stone.
-    portal = make_box('portal', 0, -(half + 6), 0, portal_w * 0.92, 18, portal_h * 0.92)
+    # Mouth sits in the stone. No flat amber slab, no kilometre bars, no lantern cube.
+    portal = make_box('portal', 0, -(half + 16), 0, 36, 16, 22)
     portal.data.materials.append(kit.lights['amber'])
-    # Bottom vertices sit on the last terrace. Top vertices sit under the cap.
-    # A box buried through the bay has no sample on either face.
-    lantern = make_box('lantern', 0, 0, y_a, PY_TOP * 0.5, PY_TOP * 0.5, cap_y - y_a)
-    lantern.data.materials.append(kit.lights['amber'])
-    beacon = make_box('beacon', 0, 0, mast_y + 94, 8, 8, 16)
-    beacon.data.materials.append(kit.lights['amber'])
     if rank >= 1:
-        # Warm lip on the battered face, not on the mathematical top width.
-        # The face leans in about 0.18 m per metre; a vertical box at the
-        # narrow top would sit half a metre inside the stone.
-        for tier in range(1, 8):
-            step = tier * 3 - 1
-            y0, y1, wb, wt = step_profile(step)
-            y = y1 - 8.0
-            t = (y - y0) / max(1e-6, y1 - y0)
-            half_w = (wb + (wt - wb) * t) * 0.5
-            shrink = (wb - wt) * 0.5 / max(1e-6, y1 - y0)
-            length = half_w * 0.55
-            place_lamp(kit, f'tier-{tier}-n', 0, y, -half_w, (0, shrink, -1), length, 6, 'amber')
-            if rank >= 2:
-                place_lamp(kit, f'tier-{tier}-s', 0, y, half_w, (0, shrink, 1), length, 6, 'amber')
-                place_lamp(kit, f'tier-{tier}-e', half_w, y, 0, (1, shrink, 0), length, 6, 'amber')
-                place_lamp(kit, f'tier-{tier}-w', -half_w, y, 0, (-1, shrink, 0), length, 6, 'amber')
+        beacon = make_box('beacon', 0, 0, mast_y + 108, 2.2, 2.2, 2.2)
+        beacon.data.materials.append(kit.lights['amber'])
     if rank >= 2:
         place_decal(kit, 'diamond', 0, portal_h + 18, -(half + 40 + 40), (0, 0, -1), 40, 80, z_scale=100, lift=-0.25)
     return {
@@ -847,7 +1229,12 @@ def build_wallace(kit, rank):
     }
 
 
-BUILDERS = {'lapd': build_lapd, 'hall': build_hall, 'wallace': build_wallace}
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)
+import hero_build  # noqa: E402
+
+hero_build.bind(sys.modules[__name__])
+BUILDERS = {'lapd': hero_build.build_lapd, 'hall': hero_build.build_hall, 'wallace': hero_build.build_wallace}
 MAP_SIZE = {'high': 1024, 'medium': 512, 'low': 256}
 RANK = {'high': 2, 'medium': 1, 'low': 0}
 
@@ -863,8 +1250,29 @@ def gltfpack_bin():
     raise SystemExit('gltfpack is not on PATH')
 
 
+def join_same_material():
+    """One mesh per material. Thousands of window panes would otherwise be thousands of draws."""
+    _object_mode()
+    groups = {}
+    for obj in list(bpy.context.scene.objects):
+        if obj.type != 'MESH':
+            continue
+        name = obj.data.materials[0].name if obj.data.materials else ''
+        groups.setdefault(name, []).append(obj)
+    for name, objs in groups.items():
+        if len(objs) < 2:
+            continue
+        bpy.ops.object.select_all(action='DESELECT')
+        for obj in objs:
+            obj.select_set(True)
+        bpy.context.view_layer.objects.active = objs[0]
+        bpy.ops.object.join()
+        print('joined', name, len(objs), 'faces', len(objs[0].data.polygons), flush=True)
+
+
 def export_glb(path, kind):
     bake_meshes(kind)
+    join_same_material()
     os.makedirs(os.path.dirname(path), exist_ok=True)
     raw = path + '.raw.glb'
     _object_mode()
@@ -977,10 +1385,11 @@ def write_silhouette(kind, report):
                 'z1': bounds['maxZ'] + dilate,
             },
         },
+        'strayHullOnly': True,
         'source': (
-            'Structural envelope of the landmark, the same boxes the mesh is booleaned from. '
-            'Film frames are perspective and are not this orthographic trace. '
-            'They sit beside the turntable. No published building ortho exists.'
+            'Stray hull only. These boxes are the outer envelope the mesh is allowed to fill. '
+            'They are not a film plan. Top-down overlap is the surveyed or photographed plan '
+            'in tools/model-harness/scripts/film_iou.mjs, and topIsReconstructed is false there.'
         ),
     }
     os.makedirs(SIL_DIR, exist_ok=True)
@@ -993,54 +1402,90 @@ def write_silhouette(kind, report):
 
 def write_scale(kind, report, lod, tris):
     path = os.path.join(OUT_DIR, 'scale.json')
+    lock_path = '/tmp/landmark-scale.lock'
     blob = {}
-    if os.path.isfile(path):
-        with open(path, encoding='utf-8') as f:
-            blob = json.load(f)
-    prev = blob.get(kind) if isinstance(blob.get(kind), dict) else {}
-    prev_tris = prev.get('tris') if isinstance(prev.get('tris'), dict) else {}
-    prev_tris[lod] = tris
-    flight = report.get('flight') or {}
-    blob[kind] = {
-        'personM': PERSON,
-        'doorH': DOOR_H,
-        'railH': RAIL_H,
-        'storeyM': STOREY,
-        'heightRoof': report['heightRoof'],
-        'heightTip': report['heightTip'],
-        'door': report.get('door'),
-        'stair': report.get('stair'),
-        'rise': flight.get('rise'),
-        'tread': flight.get('tread'),
-        'risers': flight.get('risers'),
-        'doorClearM': report.get('doorClearM'),
-        'portal': report.get('portal'),
-        'stepH': report.get('stepH'),
-        'apex': report.get('apex'),
-        'plinthH': report.get('plinthH'),
-        'tris': prev_tris,
-    }
-    with open(path, 'w', encoding='utf-8') as f:
-        json.dump(blob, f, indent=2)
+    with open(lock_path, 'a', encoding='utf-8') as lock:
+        import fcntl
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if os.path.isfile(path):
+            with open(path, encoding='utf-8') as f:
+                blob = json.load(f)
+        prev = blob.get(kind) if isinstance(blob.get(kind), dict) else {}
+        prev_tris = prev.get('tris') if isinstance(prev.get('tris'), dict) else {}
+        prev_tris[lod] = tris
+        flight = report.get('flight') or {}
+        blob[kind] = {
+            'personM': PERSON,
+            'doorH': DOOR_H,
+            'railH': RAIL_H,
+            'storeyM': STOREY,
+            'heightRoof': report['heightRoof'],
+            'heightTip': report['heightTip'],
+            'door': report.get('door'),
+            'stair': report.get('stair'),
+            'rise': flight.get('rise'),
+            'tread': flight.get('tread'),
+            'risers': flight.get('risers'),
+            'doorClearM': report.get('doorClearM'),
+            'portal': report.get('portal'),
+            'stepH': report.get('stepH'),
+            'apex': report.get('apex'),
+            'plinthH': report.get('plinthH'),
+            'tris': prev_tris,
+        }
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(blob, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
     print('SCALE', kind, lod, 'doorClear', report.get('doorClearM'), 'tip', report['heightTip'], 'tris', tris)
 
 
-def count_tris():
+def exported_tris(path):
+    """Triangle count in the glTF the city loads, after gltfpack."""
+    with open(path, 'rb') as f:
+        data = f.read()
+    if data[:4] != b'glTF':
+        raise SystemExit(f'{path} is not a glb')
+    json_len = int.from_bytes(data[12:16], 'little')
+    doc = json.loads(data[20:20 + json_len])
     total = 0
-    for obj in bpy.context.scene.objects:
-        if obj.type == 'MESH':
-            total += len(obj.data.polygons)
+    accessors = doc['accessors']
+    for mesh in doc.get('meshes', []):
+        for prim in mesh.get('primitives', []):
+            idx = prim.get('indices')
+            if idx is None:
+                continue
+            total += accessors[idx]['count'] // 3
     return total
 
 
-def tune_glass(mat):
-    """Cool office glass. The kit default is a black spinner canopy."""
+def tune_glass(mat, kind):
+    """Dark panes. Warm light is a separate glass-warm material on a few bays."""
     bsdf = next(n for n in mat.node_tree.nodes if n.type == 'BSDF_PRINCIPLED')
-    bsdf.inputs['Base Color'].default_value = (0.22, 0.28, 0.34, 1.0)
-    bsdf.inputs['Roughness'].default_value = 0.14
-    bsdf.inputs['Metallic'].default_value = 0.38
-    bsdf.inputs['Emission Color'].default_value = (0.55, 0.72, 0.92, 1.0)
-    bsdf.inputs['Emission Strength'].default_value = 0.85
+    if kind == 'hall':
+        base = (0.04, 0.035, 0.03, 1.0)
+        emission = (0.04, 0.03, 0.02, 1.0)
+        strength = 0.04
+        rough = 0.48
+        metal = 0.04
+    elif kind == 'wallace':
+        base = (0.05, 0.06, 0.07, 1.0)
+        emission = (0.16, 0.18, 0.2, 1.0)
+        strength = 0.02
+        rough = 0.55
+        metal = 0.04
+    else:
+        # Punched shadow, not a lit ladder. The concrete is the face.
+        base = (0.01, 0.011, 0.01, 1.0)
+        emission = (0.015, 0.014, 0.012, 1.0)
+        strength = 0.012
+        rough = 0.82
+        metal = 0.02
+    bsdf.inputs['Base Color'].default_value = base
+    bsdf.inputs['Roughness'].default_value = rough
+    bsdf.inputs['Metallic'].default_value = metal
+    bsdf.inputs['Emission Color'].default_value = emission
+    bsdf.inputs['Emission Strength'].default_value = strength
 
 
 def build_one(kind, lod):
@@ -1050,14 +1495,15 @@ def build_one(kind, lod):
     if not os.path.isfile(albedo):
         subprocess.check_call(['python3', os.path.join(HERE, 'paint_landmark_maps.py'), str(size), kind])
     kit = Kit()
-    tune_glass(kit.glass)
+    tune_glass(kit.glass, kind)
     wire_maps(kit.body, size, kind)
     wire_decal(kit.livery, os.path.join(MAPS, f'decal-{kind}.png'))
     report = BUILDERS[kind](kit, RANK[lod])
     if report.get('doorClearM') is not None and report['doorClearM'] < 0.6:
         raise SystemExit(f'{kind} door is blocked, closest stone is {report["doorClearM"]:.3f} m')
-    tris = count_tris()
-    export_glb(os.path.join(OUT_DIR, f'{kind}-{lod}.glb'), kind)
+    out = os.path.join(OUT_DIR, f'{kind}-{lod}.glb')
+    export_glb(out, kind)
+    tris = exported_tris(out)
     if lod == 'high' or not os.path.isfile(os.path.join(SIL_DIR, f'{kind}.json')):
         write_silhouette(kind, report)
     write_scale(kind, report, lod, tris)

@@ -1200,7 +1200,8 @@ function splitComponents(tris) {
         if (p[2] > maxZ) maxZ = p[2];
       }
     }
-    samples.push(...points);
+    // A spread of a kilometre-scale shell overflows the call stack.
+    for (let i = 0; i < points.length; i++) samples.push(points[i]);
     const dims = [maxX - minX, maxY - minY, maxZ - minZ].sort((a, b) => a - b);
     const thickness = dims[0];
     const extent = dims[2];
@@ -1283,7 +1284,12 @@ function addTriangle(surface, a, b, c) {
   const x1 = Math.floor(maxX / cell);
   const y1 = Math.floor(maxY / cell);
   const z1 = Math.floor(maxZ / cell);
-  if (x1 - x0 > 48 || y1 - y0 > 48 || z1 - z0 > 48) {
+  const sx = x1 - x0;
+  const sy = y1 - y0;
+  const sz = z1 - z0;
+  // A 4 m triangle on a 0.1 m grid is forty cells on a side. Indexing every
+  // cell of a few thousand of those is hundreds of millions of entries.
+  if (sx > 16 || sy > 16 || sz > 16 || (sx + 1) * (sy + 1) * (sz + 1) > 96) {
     surface.overflow.push(id);
     return;
   }

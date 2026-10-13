@@ -106,124 +106,180 @@ def save_maps(kind, size, albedo, rough, normal):
     print('maps', kind, size)
 
 
-def paint_lapd(size, tile=16.0):
-    """Dark board-formed concrete. Hairline vertical joints on one pour, not a panel grid."""
+def paint_lapd(size, tile=7.2):
+    """Board-formed concrete. Boards are grain, not a panel colour. The pour is the 3.6 m floor."""
     albedo = Image.new('RGB', (size, size))
     rough = Image.new('L', (size, size))
     normal = Image.new('RGB', (size, size))
     apx, rpx, npx = albedo.load(), rough.load(), normal.load()
-    boards = bands(17, 4, 0.88, 1.14)
-    lifts = bands(3, 8, 0.85, 1.2)
+    sheet_w, sheet_h = 1.22, 2.44
     height = [[0.0] * size for _ in range(size)]
     for y in range(size):
         row = height[y]
-        v = y / size
-        _li, lv, lw = locate(v, lifts)
+        ym = (y / size) * tile
+        sy = int(ym / sheet_h)
+        ly = ym - sy * sheet_h
+        pour = min(ym % 3.6, 3.6 - (ym % 3.6)) < 0.045
         for x in range(size):
-            u = x / size
-            _bi, bu, bw = locate(u, boards)
-            cloud = noise2(u, v, 3, 3)
-            grit = hash2(x // 2, y // 2)
+            xm = (x / size) * tile
+            sx = int(xm / sheet_w)
+            lx = xm - sx * sheet_w
+            seam = lx < 0.008 or lx > sheet_w - 0.008 or ly < 0.008 or ly > sheet_h - 0.008
+            tie = abs((lx % 0.61) - 0.305) < 0.012 and abs((ly % 1.22) - 0.4) < 0.012
+            sheet = hash2(sx + 3, sy + 11)
             grain = hash2(x, y)
-            stain = noise2(u + 0.13, v, 8, 2)
-            pit = noise2(u + 0.2, v + 0.2, 18, 18)
-            seam = groove(bu, bw, tile, 0.03)
-            lift = groove(lv, lw, tile, 0.03) * 0.25
-            drip = max(0.0, stain - 0.62) * 1.8
-            base = 72 + cloud * 30 + (pit - 0.5) * 20 + (grit - 0.5) * 14 + (grain - 0.5) * 7
-            base -= seam * 10 + lift * 5 + drip * 26
+            # Horizontal board grain. A sine across the sheet paints arch blotches.
+            board = hash2(sx + 9, int(ly * 90.0) + sy * 5)
+            grit = noise2(xm * 2.4, ym * 2.4, 11, 11)
+            stain = noise2(xm * 0.35, ym * 0.2, 4, 2)
+            # Charcoal you can see. A 1.2 m form seam at full depth reads as roof tile.
+            base = 72 + (sheet - 0.5) * 8 + (grain - 0.5) * 5 + (grit - 0.5) * 6 + (board - 0.5) * 7
+            if stain > 0.88:
+                base -= 8
+            if seam:
+                base -= 3
+            if pour:
+                base -= 6
+            if tie:
+                base -= 4
             base = clamp(base)
-            apx[x, y] = (clamp(base * 0.90), clamp(base * 0.93), clamp(base * 0.96))
-            rpx[x, y] = clamp(150 + seam * 14 + drip * 22 + pit * 16 - cloud * 12)
-            h = 0.46 + (cloud - 0.5) * 0.12 + (pit - 0.5) * 0.12
-            h -= seam * 0.07 + lift * 0.03 + drip * 0.1
-            row[x] = h
-    write_normal(height, npx, 5.2)
+            apx[x, y] = (clamp(base * 0.96), clamp(base * 0.98), clamp(base * 1.0))
+            rpx[x, y] = clamp(176 + (1.0 - grit) * 16 + (4 if seam else 0) + (6 if pour else 0))
+            hgt = 0.52 + (board - 0.8) * 0.03 + (grit - 0.5) * 0.02
+            if seam:
+                hgt -= 0.012
+            if pour:
+                hgt -= 0.03
+            if tie:
+                hgt -= 0.02
+            row[x] = hgt
+    write_normal(height, npx, 2.2)
     save_maps('lapd', size, albedo, rough, normal)
 
 
-def paint_hall(size, tile=16.0):
-    """Honed limestone. Pits and clouds, not a tile grid, so the shaft stays one pale mass."""
+def paint_hall(size, tile=4.0):
+    """Coursed limestone. Bed joints and staggered perpends, not blotchy clouds."""
     albedo = Image.new('RGB', (size, size))
     rough = Image.new('L', (size, size))
     normal = Image.new('RGB', (size, size))
     apx, rpx, npx = albedo.load(), rough.load(), normal.load()
+    course = 0.48
+    stone = 1.05
     height = [[0.0] * size for _ in range(size)]
     for y in range(size):
         row = height[y]
-        v = y / size
+        ym = (y / size) * tile
+        cy = int(ym / course)
+        ly = ym - cy * course
+        bed = ly < 0.016 or ly > course - 0.016
+        shift = (stone * 0.5) if (cy % 2) else 0.0
         for x in range(size):
-            u = x / size
-            cloud = noise2(u, v, 4, 4)
-            mid = noise2(u + 0.17, v + 0.31, 9, 9)
-            pit = noise2(u + 0.4, v + 0.08, 17, 17)
-            grain = hash2(x, y)
-            grit = hash2(x // 2, y // 2)
-            pocket = max(0.0, 0.38 - pit) * 2.2
-            base = 186 + cloud * 30 + (mid - 0.5) * 20 + (pit - 0.5) * 14
-            base += (grit - 0.5) * 8 + (grain - 0.5) * 5
-            base -= pocket * 26
+            xm = (x / size) * tile + shift
+            cx = int(xm / stone)
+            lx = xm - cx * stone
+            perp = lx < 0.014 or lx > stone - 0.014
+            block = hash2(cx + 5, cy + 9)
+            speckle = hash2(x, y)
+            base = 232 + (block - 0.5) * 14 + (speckle - 0.5) * 3
+            if bed:
+                base -= 36
+            elif perp:
+                base -= 20
             base = clamp(base)
-            apx[x, y] = (clamp(base * 1.0), clamp(base * 0.988), clamp(base * 0.96))
-            rpx[x, y] = clamp(96 + pocket * 40 + (1.0 - cloud) * 22 + pit * 12)
-            h = 0.5 + (cloud - 0.5) * 0.14 + (mid - 0.5) * 0.08
-            h -= pocket * 0.28
+            apx[x, y] = (clamp(base * 0.995), clamp(base * 0.99), clamp(base * 0.975))
+            rpx[x, y] = clamp(92 + (1.0 - block) * 16 + (28 if bed else 0) + (14 if perp else 0))
+            h = 0.55 + (block - 0.5) * 0.04
+            if bed:
+                h -= 0.2
+            elif perp:
+                h -= 0.1
             row[x] = h
-    write_normal(height, npx, 4.6)
+    write_normal(height, npx, 7.5)
     save_maps('hall', size, albedo, rough, normal)
 
 
-def paint_wallace(size, tile=256.0):
-    """Coursed blue-grey ashlar. Large blocks read at orbit; smaller stones read up close."""
+def _ashlar_rows(tile):
+    """Tall irregular beds. Equal courses with a half-shift are a brick bond."""
+    rows = []
+    y = 0.0
+    i = 0
+    while y < tile + 2.0 and i < 48:
+        h = 5.5 + hash2(i, 4) * 11.0
+        if hash2(i, 8) > 0.84:
+            h *= 1.7
+        rows.append((y, y + h, i))
+        y += h
+        i += 1
+    return rows
+
+
+def _ashlar_stones(row_i, tile):
+    stones = []
+    x = (hash2(row_i, 2) - 0.5) * 14.0
+    k = 0
+    while x < tile + 16.0 and k < 48:
+        w = 7.0 + hash2(row_i, k + 6) * 16.0
+        if hash2(row_i + 3, k) > 0.88:
+            w *= 1.65
+        stones.append((x, x + w, k))
+        x += w
+        k += 1
+    return stones
+
+
+def paint_wallace(size, tile=120.0):
+    """Irregular blue-grey ashlar. Stones differ in both directions, nearly flush."""
     albedo = Image.new('RGB', (size, size))
     rough = Image.new('L', (size, size))
     normal = Image.new('RGB', (size, size))
     apx, rpx, npx = albedo.load(), rough.load(), normal.load()
-    macro_u = bands(4, 21, 0.75, 1.45)
-    macro_v = bands(5, 22, 0.7, 1.5)
-    micros = {}
-    for mc in range(len(macro_v) - 1):
-        for ms in range(len(macro_u) - 1):
-            micros[(mc, ms)] = (
-                bands(5 + int(hash2(mc, ms) * 3), 200 + mc * 8 + ms, 0.7, 1.4),
-                bands(3 + int(hash2(ms, mc + 2) * 3), 400 + mc * 8 + ms, 0.65, 1.5),
-                hash2(mc + 4, ms + 9),
-            )
+    rows = _ashlar_rows(tile)
+    stones = [_ashlar_stones(i, tile) for i in range(len(rows))]
     height = [[0.0] * size for _ in range(size)]
     for y in range(size):
         row = height[y]
-        v = y / size
-        mc, mv, mh = locate(v, macro_v)
+        ym = (y / size) * tile
+        y0, y1, cy = rows[0]
+        for a, b, i in rows:
+            if a <= ym < b or i == len(rows) - 1:
+                y0, y1, cy = a, b, i
+                if ym < b:
+                    break
+        course_h = max(2.0, y1 - y0)
+        ly = ym - y0
+        near_bed = ly < 0.38 or ly > course_h - 0.38
         for x in range(size):
-            u = x / size
-            ms, mu, mw = locate(u + (0.5 if mc % 2 else 0.0), macro_u)
-            courses, stones, bond = micros[(mc, ms)]
-            sc, sv, sh = locate(mv, courses)
-            ss, su, sw = locate(mu + bond, stones)
-            panel = hash2(mc + 1, ms + 3)
-            block = hash2(mc * 13 + sc, ms * 9 + ss)
-            grit = hash2(x // 2, y // 2)
-            streak = noise2(u, v, 11, 3)
-            pit = noise2(u + 0.15, v + 0.3, 16, 16)
-            drip = max(0.0, streak - 0.66) * 1.5
-            macro_g = max(groove(mv, mh, tile, 2.4), groove(mu, mw, tile, 2.4))
-            micro_g = max(
-                groove(sv, sh * mh, tile, 0.9),
-                groove(su, sw * mw, tile, 0.9),
-            )
-            # A broad stain keeps the 256 m repeat from reading as one pasted tile.
-            patch = noise2(u + 0.07, v + 0.2, 2, 2)
-            fine = noise2(u, v, 26, 26)
-            base = 86 + panel * 46 + (block - 0.5) * 32 + (patch - 0.5) * 16
-            base += (pit - 0.5) * 14 + (fine - 0.5) * 16 + (grit - 0.5) * 8
-            base -= drip * 28 + macro_g * 32 + micro_g * 16
+            xm = (x / size) * tile
+            sx0, sx1, sk = stones[cy][0]
+            for a, b, k in stones[cy]:
+                if a <= xm < b or k == len(stones[cy]) - 1:
+                    sx0, sx1, sk = a, b, k
+                    if xm < b:
+                        break
+            lx = xm - sx0
+            stone_w = max(2.0, sx1 - sx0)
+            # A tall stone skips the bed, so the joint does not run the full course.
+            tall = hash2(sk + 11, cy) > 0.74
+            bed = near_bed and not tall
+            perp = lx < 0.32 or lx > stone_w - 0.32
+            block = hash2(sk + 5, cy * 3 + 9)
+            mineral = noise2(xm * 0.009, ym * 0.007, 4, 2)
+            stain = noise2(xm * 0.003, ym * 0.004, 3, 7)
+            base = 108 + (block - 0.5) * 88 + (mineral - 0.5) * 26
+            if stain > 0.78:
+                base -= 18
+            if hash2(sk + 2, cy + 6) > 0.92:
+                base -= 26
+            if bed or perp:
+                base -= 28
             base = clamp(base)
-            apx[x, y] = (clamp(base * 0.84), clamp(base * 0.93), clamp(base * 1.04))
-            rpx[x, y] = clamp(132 + (1.0 - panel) * 24 + macro_g * 36 + micro_g * 18 + drip * 16)
-            h = 0.5 + (panel - 0.5) * 0.16 + (block - 0.5) * 0.1
-            h -= macro_g * 0.55 + micro_g * 0.28 + drip * 0.08
-            row[x] = h
-    write_normal(height, npx, 5.0)
+            apx[x, y] = (clamp(base * 0.70), clamp(base * 0.80), clamp(base * 0.92))
+            rpx[x, y] = clamp(132 + (1.0 - block) * 24 + (18 if bed or perp else 0))
+            hgt = 0.55 + (block - 0.5) * 0.04
+            if bed or perp:
+                hgt -= 0.08
+            row[x] = hgt
+    write_normal(height, npx, 4.6)
     save_maps('wallace', size, albedo, rough, normal)
 
 

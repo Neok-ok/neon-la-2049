@@ -1,42 +1,53 @@
 {
+  "alignment": "uniform scale and translation, no non-uniform stretch",
+  "photo": true,
+  "note": "Overlap with the traced tower in lapd-roof.jpg. lapd-top is the plan against that oblique still. No cleaner published plan was in the reference set.",
   "views": {
-    "side": {
-      "iou": 0.9992774503319941,
-      "intersection": 342981,
-      "union": 343229,
-      "onlyRef": 109,
-      "onlyModel": 139,
-      "source": "Structural envelope of the landmark, the same boxes the mesh is booleaned from. Film frames are perspective and are not this orthographic trace. They sit beside the turntable. No published building ortho exists.",
-      "photo": false,
-      "note": "Structural envelope of the landmark, the same boxes the mesh is booleaned from. Film frames are perspective and are not this orthographic trace. They sit beside the turntable. No published building ortho exists."
+    "lapd-aerial": {
+      "iou": 0.6921776919362627,
+      "scale": 1.0075247524752478,
+      "translation": [
+        -33.383434050349905,
+        2.9664954473874587
+      ],
+      "ref": "lapd-aerial-ref.pgm",
+      "still": "lapd-roof.jpg, the film overhead of the LAPD tower. The two lamps are a spinner and are not the roof. The mask is the brighter tower under them. The frame is an oblique aerial, not an orthographic plan. No cleaner published plan of this roof was in the reference set.",
+      "camera": {
+        "eye": [
+          18,
+          260,
+          -210
+        ],
+        "target": [
+          0,
+          150,
+          -10
+        ]
+      },
+      "note": "High front aerial, matching lapd-roof.jpg. The still is oblique. An orthographic plan is a different picture and is not this score."
     },
-    "front": {
-      "iou": 0.99907520481842,
-      "intersection": 252795,
-      "union": 253029,
-      "onlyRef": 78,
-      "onlyModel": 156,
-      "source": "Structural envelope of the landmark, the same boxes the mesh is booleaned from. Film frames are perspective and are not this orthographic trace. They sit beside the turntable. No published building ortho exists.",
-      "photo": false,
-      "note": "Structural envelope of the landmark, the same boxes the mesh is booleaned from. Film frames are perspective and are not this orthographic trace. They sit beside the turntable. No published building ortho exists."
-    },
-    "top": {
-      "iou": 0.999635329768386,
-      "intersection": 309756,
-      "union": 309869,
-      "onlyRef": 0,
-      "onlyModel": 113,
-      "source": "Structural envelope of the landmark, the same boxes the mesh is booleaned from. Film frames are perspective and are not this orthographic trace. They sit beside the turntable. No published building ortho exists.",
-      "photo": false,
-      "note": "Structural envelope of the landmark, the same boxes the mesh is booleaned from. Film frames are perspective and are not this orthographic trace. They sit beside the turntable. No published building ortho exists."
+    "lapd-top": {
+      "iou": 0.8100474277255838,
+      "scale": 1.00256157635468,
+      "translation": [
+        -36.58656916452513,
+        0.35103903340971954
+      ],
+      "ref": "lapd-aerial-ref.pgm",
+      "still": "lapd-roof.jpg, the film overhead of the LAPD tower. The two lamps are a spinner and are not the roof. The mask is the brighter tower under them. The frame is an oblique aerial, not an orthographic plan. No cleaner published plan of this roof was in the reference set.",
+      "camera": {
+        "eye": [
+          0,
+          500,
+          0
+        ],
+        "target": [
+          0,
+          160,
+          0
+        ]
+      },
+      "note": "Orthographic top of the model against the same aerial still. The still shows the shaft face as well as the roof, so this number is the plan-versus-oblique disagreement."
     }
-  },
-  "targets": {
-    "side": 0.85,
-    "front": 0.8,
-    "top": 0.8
-  },
-  "legend": "White is overlap. Red is reference only. Cyan is model only.",
-  "alignment": "Structural envelope of the landmark, the same boxes the mesh is booleaned from. Film frames are perspective and are not this orthographic trace. They sit beside the turntable. No published building ortho exists.",
-  "topIsReconstructed": true
+  }
 }
