@@ -1,4 +1,5 @@
 // Self-driving weather state machine (Markov chain with timed, cross-faded transitions).
+import { params } from '../core/params';
 import { Rng, trueRandomSeed, visualUnit } from '../core/rng';
 
 export type WeatherId = 'clear' | 'overcast' | 'drizzle' | 'rain' | 'downpour' | 'storm' | 'fog' | 'smog' | 'snow' | 'sleet';
@@ -104,7 +105,8 @@ export class Weather {
     const snowTarget = p.snow > 0.2 ? 1 : 0;
     const snowRate = snowTarget ? 0.006 * p.snow : 0.003 + p.rain * 0.02;
     this.snowCover += (snowTarget - this.snowCover) * Math.min(1, snowRate * dt);
-    this.windDir += (Math.sin(performance.now() * 0.00003) * 0.02) * dt;
+    // Capture holds the wind vector. The sine is wall-clock, so a frozen sim dt is not enough.
+    if (!params.capture) this.windDir += (Math.sin(performance.now() * 0.00003) * 0.02) * dt;
   }
 
   get label(): string {

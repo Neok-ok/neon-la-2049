@@ -98,6 +98,15 @@ for (const r of rows) {
   lines.push(`| ${r.id} | ${r.view} | ${r.quality} | ${result} | ${r.ratio == null ? '' : pct(r.ratio)} | ${r.frameMs ?? ''} | ${r.draws ?? ''} | ${r.tris ?? ''} | ${r.lod0 ?? ''} |`);
 }
 lines.push('', 'Measurements are reported only. There is no frame-time gate.', '');
+const waiting = rows.filter((r) => r.pending && r.pending !== 'idle');
+if (!waiting.length) {
+  lines.push('Every capture was idle before the 60s settle cap.', '');
+} else {
+  lines.push('Streamer checks still pending at capture (the settle does not wait on isIdle):', '');
+  lines.push('| Shot | View | Quality | Check |', '|---|---|---|---|');
+  for (const r of waiting) lines.push(`| ${r.id} | ${r.view} | ${r.quality} | ${r.pending} |`);
+  lines.push('');
+}
 if (slowest) lines.push(`Slowest shard captured in ${slowest}s.`);
 if (failed.length || missing > 0) {
   lines.push('', 'Diff images are in the `visual-diff-report` artifact under `diff/`.');

@@ -1,7 +1,7 @@
 # Visual regression
 
 A fixed set of deep-link camera shots, compared to committed baselines on every pull request.
-The suite does not change how the city looks. `?seed=` is the only runtime hook, and it does nothing unless the URL sets it.
+The suite does not change how the city looks in normal play. `?seed=` and `?capture=1` are the runtime hooks, and neither does anything unless the URL sets it.
 
 ## What is captured
 
@@ -16,6 +16,7 @@ Each shot is rendered twice:
 | Time | `time=22.5` (night), sim clock held at 48 seconds |
 | Weather | `weather=rain`, frozen |
 | Seed | `seed=2049` |
+| Capture | `capture=1` (freeze time and wind, then stop streaming) |
 | Backend | WebGL2 on SwiftShader (`webgl=1`) |
 | Device scale | 1, so the image is the CSS viewport |
 
@@ -86,4 +87,6 @@ Diffs and `report.md` are uploaded as the `visual-diff-report` artifact. The job
 
 ## Seed hook
 
-`?seed=` calls `pinVisualSeed` before the weather, precipitation, traffic and environment map are built. Those RNGs then come from the seed instead of `crypto` / `Math.random`, and the sim clock stays at 48 seconds so rain, signs, beacons and the ocean do not advance. A pinned seed also holds the storm camera shiver at its start pose, and it keeps the memory governor from shrinking the loaded set, so the street and chase cameras can sit still. Streaming for that seed stops at 6 km of silhouettes and 1.5 km of full chunks: a night-rain frame cannot see the rest of the basin, and waiting on it is what kept Financial Ultra from going idle. Unseeded play still loads the full tier radii. Omit the parameter and play is unchanged. `freeze=1` still freezes the day/night and weather machine on top of that.
+`?seed=` calls `pinVisualSeed` before the weather, precipitation, traffic and environment map are built. Those RNGs then come from the seed instead of `crypto` / `Math.random`, and the sim clock stays at 48 seconds so rain, signs, beacons and the ocean do not advance. A pinned seed also holds the storm camera shiver at its start pose, and it keeps the memory governor from shrinking the loaded set, so the street and chase cameras can sit still. Streaming for that seed stops at 6 km of silhouettes and 1.5 km of full chunks. Unseeded play still loads the full tier radii. Omit the parameter and play is unchanged. `freeze=1` still freezes the day/night and weather machine on top of that.
+
+`?capture=1` is the visual-suite flag. It freezes the sim clock and the wind vector, builds the nearest meshes on the main thread (so the set does not depend on worker timing), then stops streaming and unloading. The runner waits until that lock, the camera, and the far districts are ready, or about 60 seconds, whichever comes first. It then grabs the canvas anyway. If a streamer check is still open — jobs, the ready queue, held far-district detail, a lod mismatch, or a stuck slot — the report names that check and the first slot. A pending check is not a failure. The pixel diff is.

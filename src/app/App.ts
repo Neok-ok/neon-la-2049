@@ -245,7 +245,7 @@ export class App {
 
     const weather = (params.weather && params.weather in WEATHER ? params.weather : 'rain') as WeatherId;
     this.atmosphere = new Atmosphere(this.scene, { hours: params.time ?? 22, weather });
-    if (params.freeze) {
+    if (params.freeze || params.capture) {
       this.atmosphere.dayNight.frozen = true;
       this.atmosphere.weather.frozen = true;
     }
@@ -522,9 +522,9 @@ export class App {
 
   /** Drop far detail, then mips, then resolution, before the tab is killed. */
   private govern(frameMs: number): void {
-    // A pinned seed must not let the memory governor shrink and regrow the
-    // loaded set, or isIdle never stays true.
-    if (params.seed !== undefined) return;
+    // A pinned seed or a capture must not let the memory governor shrink and
+    // regrow the loaded set.
+    if (params.seed !== undefined || params.capture) return;
     const heap = (performance as { memory?: { usedJSHeapSize?: number } }).memory?.usedJSHeapSize ?? 0;
     const gpu = (this.renderer.info.memory?.total ?? 0) + this.rtBytes();
     const jsRatio = this.budget.jsHeapBytes > 0 ? heap / this.budget.jsHeapBytes : 0;
@@ -619,15 +619,15 @@ export class App {
     if (this.input.wasPressed('KeyP')) this.togglePhoto();
     if (this.photoMod?.active && this.input.wasPressed('Escape')) this.exitPhoto();
     const photoOn = this.photoMod?.active ?? false;
-    const seeded = params.seed !== undefined;
-    const simDt = photoOn || seeded ? 0 : dt;
+    const still = params.seed !== undefined || params.capture;
+    const simDt = photoOn || still ? 0 : dt;
     if (this.frames === 0) {
       this.loopStart = performance.now();
       this.boot.firstFrameMs = this.loopStart - this.startMs;
     } else if (this.frames > 2 && !photoOn) {
       this.sessionWorstMs = Math.max(this.sessionWorstMs, raw * 1000);
     }
-    if (seeded) this.elapsed = VISUAL_CLOCK_SEC;
+    if (still) this.elapsed = VISUAL_CLOCK_SEC;
     else if (!photoOn) this.elapsed += dt;
     this.frames++;
 
@@ -1103,6 +1103,9 @@ export class App {
       app: this,
       isIdle: () => this.frames > 10 && this.streamer.isIdle(),
       idleReport: () => ({ ...this.streamer.idleReport(), pressure: this.pressure.level }),
+      captureHeld: () => this.streamer.isCaptureHeld(),
+      captureReport: () => this.streamer.captureReport(),
+      holdCapture: () => this.streamer.holdCapture(),
       memory: () => this.overlaySample(),
       budget: () => this.budget,
       pressure: () => this.pressure,

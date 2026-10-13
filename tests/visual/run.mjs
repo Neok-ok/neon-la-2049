@@ -27,6 +27,7 @@ import {
   VIEWS,
   assertCatalog,
   fileName,
+  formatPending,
   queryFor,
   shots,
   takeShard,
@@ -197,15 +198,14 @@ async function settle(page) {
     window.__camStill = 0;
     window.__cam = null;
   });
-  const settleDeadline = Date.now() + 720_000;
-  let ready = false;
+  // Capture locks streaming itself. This cap only stops the runner from waiting
+  // on isIdle; a shot that is still streaming is grabbed anyway.
+  const settleDeadline = Date.now() + 60_000;
   let polls = 0;
   let last = '';
   while (Date.now() < settleDeadline) {
     const s = await page.evaluate(() => {
       const nla = window.__nla;
-      const idle = !!(nla?.isIdle?.() && nla.stats().queryPending === 0);
-      window.__idleN = idle ? (window.__idleN || 0) + 1 : 0;
       const c = nla?.app?.camera;
       if (!c) return { ready: false };
       const p = [c.position.x, c.position.y, c.position.z, c.rotation.x, c.rotation.y, c.rotation.z];
@@ -219,9 +219,9 @@ async function settle(page) {
         window.__camStill = moved < 0.03 ? (window.__camStill || 0) + 1 : 0;
       }
       const st = nla.stats();
+      const locked = !!nla.captureHeld?.();
       return {
-        ready: window.__idleN >= 3 && window.__camStill >= 6 && !!nla.app?.farApplied,
-        idleN: window.__idleN,
+        ready: window.__camStill >= 6 && !!nla.app?.farApplied && locked,
         camStill: window.__camStill,
         moved: Math.round(moved * 1000) / 1000,
         lod0: st.lod0,
@@ -232,26 +232,34 @@ async function settle(page) {
         frame: Math.round(st.frameMs),
         frames: nla.app?.frames,
         far: !!nla.app?.farApplied,
+        locked,
         err: window.__grabErr || '',
         block: nla.idleReport?.() ?? null,
       };
     });
     if (s.ready) {
-      ready = true;
       trace(`settled lod0=${s.lod0} draws=${s.draws} frame=${s.frame}ms frames=${s.frames}`);
       break;
     }
     const b = s.block;
     const why = b
-      ? ` mis=${b.mismatch} stuck=${b.stuck} held=${b.held} sse=${b.sse ? 1 : 0} p=${b.pressure} cap=${Number.isFinite(b.farCap) ? Math.round(b.farCap) : 'inf'} ${b.sample || ''}`
+      ? ` locked=${s.locked ? 1 : 0} mis=${b.mismatch} stuck=${b.stuck} held=${b.held} sse=${b.sse ? 1 : 0} p=${b.pressure} cap=${Number.isFinite(b.farCap) ? Math.round(b.farCap) : 'inf'} ${b.sample || ''}`
       : '';
-    last = `idle=${s.idleN} cam=${s.camStill} far=${s.far ? 1 : 0} lod0=${s.lod0} q=${s.queue} fly=${s.inflight} pend=${s.pending} draws=${s.draws} frame=${s.frame}ms frames=${s.frames}${why}`;
-    if (polls % 8 === 0) trace(`wait ${last} ${s.err}`);
+    last = `cam=${s.camStill} far=${s.far ? 1 : 0} lod0=${s.lod0} q=${s.queue} fly=${s.inflight} pend=${s.pending} draws=${s.draws} frame=${s.frame}ms frames=${s.frames}${why}`;
+    if (polls % 4 === 0) trace(`wait ${last} ${s.err}`);
     polls++;
     await sleep(400);
   }
-  if (!ready) throw new Error(`timed out waiting for the city to settle (${last})`);
+  const report = await page.evaluate(() => {
+    const nla = window.__nla;
+    if (!nla) return null;
+    if (nla.captureHeld?.()) return nla.captureReport?.() ?? nla.idleReport?.() ?? null;
+    return nla.holdCapture?.() ?? nla.idleReport?.() ?? null;
+  });
+  const label = formatPending(report);
+  trace(`pending ${label}${last ? ` after ${last}` : ''}`);
   await page.evaluate(() => document.getElementById('loading')?.remove());
+  return label;
 }
 
 async function readStats(page) {
@@ -280,6 +288,22 @@ function pct(ratio) {
   return `${(ratio * 100).toFixed(3)}%`;
 }
 
+function pendingLines(rows) {
+  const waiting = rows.filter((r) => r.pending && r.pending !== 'idle');
+  if (!waiting.length) {
+    return ['Every capture was idle before the 60s settle cap.', ''];
+  }
+  const lines = [
+    'Streamer checks still pending at capture (the settle does not wait on isIdle):',
+    '',
+    '| Shot | View | Quality | Check |',
+    '|---|---|---|---|',
+  ];
+  for (const r of waiting) lines.push(`| ${r.id} | ${r.view} | ${r.quality} | ${r.pending} |`);
+  lines.push('');
+  return lines;
+}
+
 function markdown(rows, started) {
   const failed = rows.filter((r) => !r.ok);
   const lines = [
@@ -300,6 +324,7 @@ function markdown(rows, started) {
     lines.push(`| ${r.id} | ${r.view} | ${r.quality} | ${result} | ${r.ratio == null ? '' : pct(r.ratio)} | ${r.frameMs ?? ''} | ${r.draws ?? ''} | ${r.tris ?? ''} | ${r.lod0 ?? ''} |`);
   }
   lines.push('', 'Measurements are reported only. There is no frame-time gate.', '');
+  lines.push(...pendingLines(rows));
   lines.push(`Captured in ${((Date.now() - started) / 1000).toFixed(0)}s.`);
   if (failed.length) {
     lines.push('', 'Diff images are in the `visual-diff-report` artifact under `diff/`.');
@@ -338,10 +363,11 @@ async function grabCanvas(page, dest) {
 }
 
 async function captureOne(page, dest) {
-  await settle(page);
+  const pending = await settle(page);
   mkdirSync(dirname(dest), { recursive: true });
   await grabCanvas(page, dest);
-  return readStats(page);
+  const stats = await readStats(page);
+  return { stats, pending };
 }
 
 function trace(line) {
@@ -401,7 +427,7 @@ async function main() {
     const t0 = Date.now();
     try {
       trace(`start ${name}`);
-      const stats = await captureOne(page, actual);
+      const { stats, pending } = await captureOne(page, actual);
       const bad = assertShotStats(stats, quality);
       if (bad) throw new Error(bad);
       if (repeat > 1) {
@@ -436,6 +462,7 @@ async function main() {
         tris: stats.triangles != null ? Math.round(stats.triangles) : null,
         lod0: stats.lod0 ?? null,
         cam: stats.cam ?? null,
+        pending,
         seconds: Math.round((Date.now() - t0) / 100) / 10,
       };
       rows.push(row);

@@ -9,8 +9,8 @@ import { reducedMotion } from './reducedMotion';
 let clock = 0;
 
 export function advanceShake(dt: number): void {
-  // A pinned visual seed holds the shiver at its start pose so a capture can settle.
-  if (params.seed !== undefined) return;
+  // A pinned visual seed or a capture holds the shiver at its start pose.
+  if (params.seed !== undefined || params.capture) return;
   clock += Math.max(0, dt);
 }
 

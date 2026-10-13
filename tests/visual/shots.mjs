@@ -35,6 +35,7 @@ const COMMON = [
   ['hud', '0'],
   ['webgl', '1'],
   ['refl', '0'],
+  ['capture', '1'],
 ];
 
 function xz(lat, lon) {
@@ -140,7 +141,7 @@ export function assertCatalog() {
     ids.add(shot.id);
     if (!shot.district || !shot.at || !shot.mode) errors.push(`${shot.id} is missing district, at, or mode`);
     const href = queryFor(shot, 'medium');
-    for (const key of ['seed=2049', 'time=22.5', 'weather=rain', 'freeze=1', 'webgl=1', 'ui=0']) {
+    for (const key of ['seed=2049', 'time=22.5', 'weather=rain', 'freeze=1', 'webgl=1', 'ui=0', 'capture=1']) {
       if (!href.includes(key)) errors.push(`${shot.id} link missing ${key}`);
     }
   }
@@ -154,6 +155,23 @@ export function assertCatalog() {
     if (!shots.some((s) => s.tag === tag)) errors.push(`missing landmark shot ${tag}`);
   }
   if (errors.length) throw new Error(errors.join('\n'));
+}
+
+/**
+ * Which isIdle check was still open when a capture locked the city.
+ * `idle` means jobs, ready, held detail, and lod mismatch were all clear.
+ */
+export function formatPending(report) {
+  if (!report) return 'no report';
+  if (report.idle) return 'idle';
+  const parts = [];
+  if (report.jobs) parts.push(`jobs=${report.jobs}`);
+  if (report.ready) parts.push(`ready=${report.ready}`);
+  if (report.held) parts.push(`held=${report.held}`);
+  if (report.mismatch) parts.push(`mismatch=${report.mismatch}`);
+  if (report.stuck) parts.push(`stuck=${report.stuck}`);
+  if (report.sample) parts.push(report.sample);
+  return parts.join(' ');
 }
 
 /** `1/4` keeps shots 0, 4, 8, … so a CI matrix can share one catalog. */
