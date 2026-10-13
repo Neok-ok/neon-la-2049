@@ -6,6 +6,7 @@ import {
   BufferAttribute, BufferGeometry, Box3, Group, InstancedBufferAttribute, InstancedMesh, Matrix4, Mesh, PlaneGeometry,
   Quaternion, Sphere, Vector3, type Object3D, type Scene,
 } from 'three/webgpu';
+import { params } from '../../core/params';
 import type { QualitySettings } from '../../core/quality';
 import { geometryBytes } from '../../core/memory/estimate';
 import { estimateStreamingBytes, fitRadii } from '../../core/memory/residency';
@@ -15,6 +16,8 @@ import { DistrictHlod } from './hlod';
 import type { ChunkWorkerRequest, ChunkWorkerResponse } from '../fabric/chunk.worker';
 import { BLOCK_STRIDE, SIGN_STRIDE } from '../fabric/mesher';
 import { chunkNeedsFarDetail, farDetailsReady } from '../../districts/detailGate';
+import { generateFabric } from '../fabric/generator';
+import { buildChunkArrays } from '../fabric/mesher';
 import { getCityMaterial } from '../materials/cityMaterial';
 import { getSignMaterial } from '../materials/signMaterial';
 import { getLayout } from '../layout';
@@ -31,6 +34,12 @@ export const CHUNK = 500;
 export const SUPER = 2000;
 const PER = SUPER / CHUNK;
 const AABB_TOP = 260;
+/**
+ * Nearest meshes a capture is allowed to build. After that, streaming and
+ * unloading stop even if farther slots are still wanted. The leftover want
+ * is the check a capture reports instead of waiting on isIdle.
+ */
+const CAPTURE_MESH_CAP = 48;
 
 interface Slot {
   key: string;
@@ -147,6 +156,10 @@ export class ChunkStreamer {
         this.jobs.delete(e.data.id);
         if (!job) return;
         this.stats.lastGenMs = e.data.ms;
+        if (this.captureHeld) {
+          if (job.slot.pendingLod === job.lod) job.slot.pendingLod = -1;
+          return;
+        }
         if (job.slot.want === job.lod && job.cap === this.buildingCap) this.enqueueReady(job, e.data);
         else if (job.slot.pendingLod === job.lod && job.cap === this.buildingCap) job.slot.pendingLod = -1;
       };
@@ -197,6 +210,22 @@ export class ChunkStreamer {
 
   /** LOD0 results waiting on far-district prop modules. */
   private detailHeld: Array<{ job: Job; res: ChunkWorkerResponse }> = [];
+  /** Capture has locked the city: no new requests, no uploads, no eviction. */
+  private captureHeld = false;
+  /** Meshes generated for this capture. Stops the initial load at CAPTURE_MESH_CAP. */
+  private captureBuilt = 0;
+  /** idleReport taken at the moment streaming stopped. */
+  private captureSnapshot: {
+    idle: boolean;
+    jobs: number;
+    ready: number;
+    held: number;
+    mismatch: number;
+    stuck: number;
+    farCap: number;
+    sse: boolean;
+    sample: string;
+  } | null = null;
   private readonly requestScratch: Slot[] = [];
   private readonly billboardScratch: HologramSpec[] = [];
   private policy: StreamPolicy = { ...OPEN_POLICY };
@@ -210,12 +239,115 @@ export class ChunkStreamer {
 
   /** True when nothing is queued or in flight (used by screenshot automation). */
   isIdle(): boolean {
-    if (this.jobs.size > 0 || this.ready.length > 0 || this.detailHeld.length > 0) return false;
+    return this.idleReport().idle;
+  }
+
+  /**
+   * Why a capture is still waiting. `stuck` slots want a LOD that nothing is
+   * fetching: the pending flag matches the want, but no job and no queued result.
+   */
+  idleReport(): {
+    idle: boolean;
+    jobs: number;
+    ready: number;
+    held: number;
+    mismatch: number;
+    stuck: number;
+    farCap: number;
+    sse: boolean;
+    sample: string;
+  } {
+    const pending = new Set<Slot>();
+    for (const job of this.jobs.values()) pending.add(job.slot);
+    const queued = new Set<Slot>();
+    for (const item of this.ready) queued.add(item.job.slot);
+    for (const item of this.detailHeld) queued.add(item.job.slot);
+    let mismatch = 0;
+    let stuck = 0;
+    let sample = '';
+    const note = (slot: Slot) => {
+      if (slot.want < 0 || slot.shownLod === slot.want) return;
+      mismatch++;
+      const owned = pending.has(slot) || queued.has(slot);
+      if (!owned && slot.pendingLod === slot.want) stuck++;
+      if (!sample) {
+        sample = `${slot.key} want ${slot.want} shown ${slot.shownLod} pend ${slot.pendingLod}${owned ? ' owned' : ''}`;
+      }
+    };
     for (const s of this.supers.values()) {
-      if (s.far.want >= 0 && s.far.shownLod !== s.far.want) return false;
-      if (s.children) for (const c of s.children) if (c.want >= 0 && c.shownLod !== c.want) return false;
+      note(s.far);
+      if (s.children) for (const c of s.children) note(c);
     }
-    return true;
+    const idle = this.jobs.size === 0 && this.ready.length === 0 && this.detailHeld.length === 0 && mismatch === 0;
+    return {
+      idle,
+      jobs: this.jobs.size,
+      ready: this.ready.length,
+      held: this.detailHeld.length,
+      mismatch,
+      stuck,
+      farCap: this.farCap,
+      sse: this.memory.sse,
+      sample,
+    };
+  }
+
+  isCaptureHeld(): boolean {
+    return this.captureHeld;
+  }
+
+  /** The streamer check that was still open when capture locked the city. */
+  captureReport(): {
+    idle: boolean;
+    jobs: number;
+    ready: number;
+    held: number;
+    mismatch: number;
+    stuck: number;
+    farCap: number;
+    sse: boolean;
+    sample: string;
+  } {
+    return this.captureSnapshot ?? this.idleReport();
+  }
+
+  /**
+   * Stop requesting, uploading, and unloading. In-flight results are dropped
+   * so a late worker cannot change the picture. The snapshot is the check
+   * that had not gone idle yet.
+   */
+  holdCapture(): {
+    idle: boolean;
+    jobs: number;
+    ready: number;
+    held: number;
+    mismatch: number;
+    stuck: number;
+    farCap: number;
+    sse: boolean;
+    sample: string;
+  } {
+    if (this.captureHeld && this.captureSnapshot) return this.captureSnapshot;
+    const snapshot = this.idleReport();
+    this.captureSnapshot = snapshot;
+    this.captureHeld = true;
+    this.ready.length = 0;
+    this.detailHeld.length = 0;
+    for (const job of this.jobs.values()) {
+      if (job.slot.pendingLod === job.lod) job.slot.pendingLod = -1;
+    }
+    this.jobs.clear();
+    for (let i = 0; i < this.busy.length; i++) this.busy[i] = 0;
+    this.stats.inFlight = 0;
+    this.stats.readyQueue = 0;
+    return snapshot;
+  }
+
+  /** Build one capture mesh on the main thread so the set does not depend on worker timing. */
+  private captureMesh(slot: Slot, lod: number): ChunkWorkerResponse {
+    const fab = generateFabric(this.layout, slot.x0, slot.z0, slot.size);
+    const arrays = buildChunkArrays(this.layout, fab, slot.x0, slot.z0, slot.size, lod, this.buildingCap);
+    return { id: 0, ...arrays, ms: 0 };
   }
 
   private mkSlot(key: string, x0: number, z0: number, size: number): Slot {
@@ -314,6 +446,12 @@ export class ChunkStreamer {
 
   /** `foci[0]` is the camera; extra points (e.g. the next cinematic shot) are streamed in too. */
   update(foci: readonly Vector3[]): void {
+    if (params.capture && this.captureHeld) {
+      this.stats.inFlight = 0;
+      this.stats.readyQueue = 0;
+      this.stats.uploads = 0;
+      return;
+    }
     const q = this.quality;
     const view = this.viewRadii();
     const R = view.far;
@@ -430,19 +568,37 @@ export class ChunkStreamer {
 
     // dispatch
     requests.sort((a, b) => a.dist - b.dist);
-    for (const slot of requests) {
-      if (slot.pendingLod === slot.want) continue;
-      const wi = this.freeWorker();
-      if (wi < 0) break;
-      const id = this.nextId++;
-      const job: Job = { slot, lod: slot.want, cap: this.buildingCap };
-      this.jobs.set(id, job);
-      slot.pendingLod = slot.want;
-      this.busy[wi]++;
-      const req: ChunkWorkerRequest = {
-        id, x0: slot.x0, z0: slot.z0, size: slot.size, lod: slot.want, detailCap: this.buildingCap,
-      };
-      this.workers[wi].postMessage(req);
+    if (params.capture) {
+      // Main thread, nearest first, so the shown set does not depend on which worker finished.
+      const room = CAPTURE_MESH_CAP - this.captureBuilt;
+      if (room > 0 && this.ready.length === 0 && this.detailHeld.length === 0) {
+        let n = 0;
+        const limit = Math.min(q.uploadsPerFrame, room);
+        for (const slot of requests) {
+          if (n >= limit) break;
+          if (slot.pendingLod === slot.want) continue;
+          const job: Job = { slot, lod: slot.want, cap: this.buildingCap };
+          slot.pendingLod = slot.want;
+          this.ready.push({ job, res: this.captureMesh(slot, slot.want) });
+          this.captureBuilt++;
+          n++;
+        }
+      }
+    } else {
+      for (const slot of requests) {
+        if (slot.pendingLod === slot.want) continue;
+        const wi = this.freeWorker();
+        if (wi < 0) break;
+        const id = this.nextId++;
+        const job: Job = { slot, lod: slot.want, cap: this.buildingCap };
+        this.jobs.set(id, job);
+        slot.pendingLod = slot.want;
+        this.busy[wi]++;
+        const req: ChunkWorkerRequest = {
+          id, x0: slot.x0, z0: slot.z0, size: slot.size, lod: slot.want, detailCap: this.buildingCap,
+        };
+        this.workers[wi].postMessage(req);
+      }
     }
     this.stats.inFlight = this.jobs.size;
 
@@ -460,7 +616,8 @@ export class ChunkStreamer {
     const sliceStart = performance.now();
     const layout = this.layout;
     while (budget > 0 && read < this.ready.length) {
-      if (uploaded > 0 && performance.now() - sliceStart > 8) break;
+      // Capture uploads a fixed count. The time slice would drop a different tail on a slower machine.
+      if (!params.capture && uploaded > 0 && performance.now() - sliceStart > 8) break;
       const t0 = performance.now();
       const item = this.ready[read];
       read++;
@@ -497,8 +654,13 @@ export class ChunkStreamer {
     if (uploaded > this.stats.uploadPeak) this.stats.uploadPeak = uploaded;
     this.stats.uploadMs = uploadMs;
     this.stats.readyQueue = this.ready.length + this.detailHeld.length;
+    if (params.capture && !this.captureHeld && farDetailsReady()
+      && this.ready.length === 0 && this.detailHeld.length === 0 && this.jobs.size === 0) {
+      if (this.idleReport().idle || this.captureBuilt >= CAPTURE_MESH_CAP) this.holdCapture();
+    }
     const cam = foci[0];
-    if (cam) this.settleBudget(cam, q.farRadius);
+    // Capture keeps every mesh it showed. The governor's eviction is for live play.
+    if (cam && !params.capture) this.settleBudget(cam, q.farRadius);
   }
 
   private viewRadii(): { far: number; near: number; lod0: number; sse: boolean } {
@@ -506,14 +668,28 @@ export class ChunkStreamer {
     const p = this.policy;
     const estimate = estimateStreamingBytes(q.farRadius, q.nearRadius, q.lod0Radius);
     const tight = estimate > p.maxGeometryBytes || p.farScale < 0.999 || p.sseScale > 1.001 || this.farCap < q.farRadius;
-    if (!tight) return { far: q.farRadius, near: q.nearRadius, lod0: q.lod0Radius, sse: false };
     const farWant = Math.min(q.farRadius * p.farScale, this.farCap);
-    const fit = fitRadii(
-      { far: farWant, near: Math.min(q.nearRadius, farWant), lod0: Math.min(q.lod0Radius, q.nearRadius, farWant) },
-      p.maxGeometryBytes,
-      Math.min(q.lod0Radius, p.floorLod0),
-    );
-    return { ...fit, sse: true };
+    const open = !tight
+      ? { far: q.farRadius, near: q.nearRadius, lod0: q.lod0Radius, sse: false }
+      : {
+        ...fitRadii(
+          { far: farWant, near: Math.min(q.nearRadius, farWant), lod0: Math.min(q.lod0Radius, q.nearRadius, farWant) },
+          p.maxGeometryBytes,
+          Math.min(q.lod0Radius, p.floorLod0),
+        ),
+        sse: true,
+      };
+    if (params.seed === undefined) return open;
+    // isIdle waits until every wanted chunk is showing. A night-rain capture
+    // cannot see the far basin, and that 14 km ring is what kept Financial
+    // Ultra from going idle. Full detail stays inside 1.5 km; silhouettes stop
+    // at 6 km. Unseeded play keeps the tier radii.
+    return {
+      ...open,
+      far: Math.min(open.far, 6000),
+      near: Math.min(open.near, 1500),
+      lod0: Math.min(open.lod0, 1500),
+    };
   }
 
   private suspendExterior(): void {

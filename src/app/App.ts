@@ -1,6 +1,7 @@
 // Top-level wiring: renderer, scene, streaming city, landmarks, traffic, atmosphere, cameras, UI, audio.
 import { MathUtils, NoToneMapping, PerspectiveCamera, Scene, Timer, Vector2, Vector3, WebGPURenderer } from 'three/webgpu';
 import { params } from '../core/params';
+import { pinVisualSeed, VISUAL_CLOCK_SEC } from '../core/rng';
 import { autoTier, probeDevice, settingsFor, stepAutoGuard, storedTier, storeTier, TIERS, type QualitySettings, type Tier } from '../core/quality';
 import { Atmosphere } from '../atmosphere/Atmosphere';
 import { setCityWindowDetail } from '../world/materials/cityMaterial';
@@ -198,6 +199,7 @@ export class App {
   }
 
   async init(): Promise<void> {
+    pinVisualSeed(params.seed);
     const hints = await readUaHints();
     if (hints.platform || hints.model) {
       this.budget = detectBudget({
@@ -243,7 +245,7 @@ export class App {
 
     const weather = (params.weather && params.weather in WEATHER ? params.weather : 'rain') as WeatherId;
     this.atmosphere = new Atmosphere(this.scene, { hours: params.time ?? 22, weather });
-    if (params.freeze) {
+    if (params.freeze || params.capture) {
       this.atmosphere.dayNight.frozen = true;
       this.atmosphere.weather.frozen = true;
     }
@@ -350,6 +352,7 @@ export class App {
     if (params.mem) mountMemoryOverlay(() => this.overlaySample());
     this.buildPipeline();
     this.boot.initMs = performance.now() - this.startMs;
+    if (params.frame) await this.applyNamedFrame(params.frame);
     this.timer.connect(document);
     r.setAnimationLoop((t) => this.frame(t));
   }
@@ -519,6 +522,9 @@ export class App {
 
   /** Drop far detail, then mips, then resolution, before the tab is killed. */
   private govern(frameMs: number): void {
+    // A pinned seed or a capture must not let the memory governor shrink and
+    // regrow the loaded set.
+    if (params.seed !== undefined || params.capture) return;
     const heap = (performance as { memory?: { usedJSHeapSize?: number } }).memory?.usedJSHeapSize ?? 0;
     const gpu = (this.renderer.info.memory?.total ?? 0) + this.rtBytes();
     const jsRatio = this.budget.jsHeapBytes > 0 ? heap / this.budget.jsHeapBytes : 0;
@@ -613,14 +619,16 @@ export class App {
     if (this.input.wasPressed('KeyP')) this.togglePhoto();
     if (this.photoMod?.active && this.input.wasPressed('Escape')) this.exitPhoto();
     const photoOn = this.photoMod?.active ?? false;
-    const simDt = photoOn ? 0 : dt;
+    const still = params.seed !== undefined || params.capture;
+    const simDt = photoOn || still ? 0 : dt;
     if (this.frames === 0) {
       this.loopStart = performance.now();
       this.boot.firstFrameMs = this.loopStart - this.startMs;
     } else if (this.frames > 2 && !photoOn) {
       this.sessionWorstMs = Math.max(this.sessionWorstMs, raw * 1000);
     }
-    if (!photoOn) this.elapsed += dt;
+    if (still) this.elapsed = VISUAL_CLOCK_SEC;
+    else if (!photoOn) this.elapsed += dt;
     this.frames++;
 
     if (this.started && !photoOn) this.handleKeys();
@@ -949,6 +957,59 @@ export class App {
     this.applyFar();
   }
 
+  /**
+   * `?frame=name:kind` runs one authored debug camera before the first painted frame.
+   * Walk deep links otherwise snap to the nearest open spot and a fixed pitch, which
+   * leaves some district cameras inside a wall. Omitted, play is unchanged.
+   */
+  private async applyNamedFrame(spec: string): Promise<void> {
+    const w = window as Window & { __nlaFrame?: string; __nlaFrameError?: string };
+    const split = spec.indexOf(':');
+    const name = split < 0 ? '' : spec.slice(0, split);
+    const kind = split < 0 ? '' : spec.slice(split + 1);
+    const method: Record<string, string> = {
+      market: 'marketView',
+      mega: 'megaView',
+      dtla: 'dtlaView',
+      civic: 'civicView',
+      broadway: 'broadwayView',
+      k: 'kView',
+      arts: 'artsView',
+      coast: 'coastView',
+      wallace: 'wallaceView',
+      lakewood: 'lakewoodView',
+      southla: 'southLaView',
+      westside: 'westsideView',
+      basin: 'basinView',
+      southeast: 'southeastView',
+      southbay: 'southBayView',
+      hollywood: 'hollywoodView',
+      lax: 'laxView',
+      harbor: 'harborView',
+      longbeach: 'longBeachView',
+      eastla: 'eastLaView',
+    };
+    const fn = (this.debugApi() as unknown as Record<string, (kind: string) => unknown>)[method[name] ?? ''];
+    if (!fn) {
+      w.__nlaFrameError = `unknown frame ${spec}`;
+      console.warn(w.__nlaFrameError);
+      return;
+    }
+    try {
+      const result = await fn(kind);
+      if (result === false) {
+        w.__nlaFrameError = `frame ${spec} was not applied`;
+        console.warn(w.__nlaFrameError);
+        return;
+      }
+    } catch (err) {
+      w.__nlaFrameError = err instanceof Error ? err.message : String(err);
+      console.warn(`frame ${spec} failed`, err);
+      return;
+    }
+    w.__nlaFrame = spec;
+  }
+
   /** Debug / automation hooks (screenshots, console). */
   private loadPhoto(): Promise<PhotoMode> {
     if (this.photoMod) return Promise.resolve(this.photoMod);
@@ -1041,6 +1102,10 @@ export class App {
     return {
       app: this,
       isIdle: () => this.frames > 10 && this.streamer.isIdle(),
+      idleReport: () => ({ ...this.streamer.idleReport(), pressure: this.pressure.level }),
+      captureHeld: () => this.streamer.isCaptureHeld(),
+      captureReport: () => this.streamer.captureReport(),
+      holdCapture: () => this.streamer.holdCapture(),
       memory: () => this.overlaySample(),
       budget: () => this.budget,
       pressure: () => this.pressure,
@@ -1513,6 +1578,8 @@ export class App {
       stats: () => ({
         ...this.streamer.stats,
         fps: this.hud.fps,
+        simTime: this.elapsed,
+        seed: params.seed ?? null,
         frameMs: this.hud.frameMs,
         worstMs: this.hud.worstMs,
         backend: this.backend,
