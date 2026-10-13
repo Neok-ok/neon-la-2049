@@ -249,6 +249,35 @@ async function boot(quality) {
         motion: motion == null ? null : Math.round(motion * 100) / 100,
       };
     };
+    // Step the camera back along the view so a group at the edge stays in
+    // frame for the next stride, without leaving the locked walker.
+    H.padGroup = (index, extra) => {
+      const a = app();
+      const me = people().find((p) => p.i === index);
+      if (!me || !extra) return { ok: false };
+      const cam = a.camera.position;
+      const dx = cam.x - me.x;
+      const dz = cam.z - me.z;
+      const len = Math.hypot(dx, dz) || 1;
+      const px = cam.x + (dx / len) * extra;
+      const pz = cam.z + (dz / len) * extra;
+      const gy = a.query.groundHeight(px, pz);
+      if (!clearSpot(px, pz, gy)) return { ok: false, reason: 'blocked' };
+      const dist = Math.hypot(me.x - px, me.z - pz) || 1;
+      const yaw = Math.atan2(me.x - px, -(me.z - pz));
+      const pitch = Math.atan2((me.y + 1.15 * me.s) - (gy + 1.7), dist);
+      const w = a.cams.walk;
+      w.pos.set(px, gy, pz);
+      w.heading = yaw;
+      w.pitch = pitch;
+      a.camera.position.set(px, gy + 1.7, pz);
+      a.camera.rotation.set(pitch, -yaw, 0, 'YXZ');
+      a.camera.updateMatrixWorld();
+      const head = ndc(me.x, me.y + 1.72 * me.s, me.z);
+      const feet = ndc(me.x, me.y + 0.04, me.z);
+      if (!head || !feet || feet.y < -0.92 || head.y > 0.92) return { ok: false, reason: 'offscreen' };
+      return { ok: true, dist: Math.round(dist * 10) / 10 };
+    };
     H.pump = () => {
       const a = app();
       const w = a.cams.walk;
@@ -811,18 +840,21 @@ async function boot(quality) {
       // The scale pass aims at the middle of that span and then keeps the
       // candidate whose crown sits highest, so the head is up in the signs
       // instead of stopping with a run of floors above it.
-      const lookY = hem + spec.h * (scale ? 0.44 : 0.40);
+      // The raised hand is about 64 m, above the 0.86 sample. Aim a little
+      // under that so the hand sits in the signs and the hem stays on the street.
+      const lookY = hem + spec.h * (scale ? 0.36 : 0.40);
       const sides = scale
-        ? [0.95, -0.95, 1.3, -1.3, 0.55, -0.55, 1.7, -1.7, 0.2, -0.2]
+        ? [0, 0.35, -0.35, 0.65, -0.65, 0.15, -0.15, Math.PI]
         : [0, Math.PI, 1.15, -1.15, 2.0, -2.0, 0.55, -0.55];
       let placed = null;
       let lastFit = null;
+      const reject = { clear: 0, blocked: 0, fit: 0, scale: 0 };
       const blades = scale ? signBlades(spec) : [];
       for (const side of sides) {
         const px = spec.x + (nx * Math.cos(side) + nz * Math.sin(side)) * dist;
         const pz = spec.z + (nz * Math.cos(side) - nx * Math.sin(side)) * dist;
         const gy = a.query.groundHeight(px, pz);
-        if (!clearSpot(px, pz, gy)) continue;
+        if (!clearSpot(px, pz, gy)) { reject.clear++; continue; }
         let blocked = false;
         for (let t = 0.15; t <= 0.7; t += 0.1) {
           const x = px + (spec.x - px) * t;
@@ -830,7 +862,7 @@ async function boot(quality) {
           const z = pz + (spec.z - pz) * t;
           if (a.query.insideSolid(x, y, z, 0.3, true)) blocked = true;
         }
-        if (blocked) continue;
+        if (blocked) { reject.blocked++; continue; }
         const eyeY = gy + 1.7;
         const yaw = Math.atan2(spec.x - px, -(spec.z - pz));
         const horiz = Math.hypot(spec.x - px, spec.z - pz) || 1;
@@ -843,7 +875,8 @@ async function boot(quality) {
         a.camera.rotation.set(pitch, -yaw, 0, 'YXZ');
         a.camera.updateMatrixWorld();
         const hemN = ndc(spec.x, hem + 0.6, spec.z);
-        const crownN = ndc(spec.x, hem + spec.h * 0.86, spec.z);
+        const topY = scale ? hem + 64.4 : hem + spec.h * 0.86;
+        const crownN = ndc(spec.x, topY, spec.z);
         const span = hemN && crownN ? crownN.y - hemN.y : 0;
         lastFit = {
           side,
@@ -856,11 +889,15 @@ async function boot(quality) {
           && hemN.y > -0.88 && crownN.y < 0.9
           && Math.abs(hemN.x) < 0.55 && Math.abs(crownN.x) < 0.55
           && span > 0.9 && span < 1.7;
-        if (!fits) continue;
+        if (!fits) { reject.fit++; continue; }
         let score = span;
         let beside = 0;
         if (scale) {
-          if (crownN.y < 0.58 || hemN.y > -0.48) continue;
+          // Hand in the upper sign band, hem low enough to meet the street,
+          // and the figure near the centre so the blades sit beside her.
+          if (crownN.y < 0.62 || crownN.y > 0.9 || hemN.y > -0.55 || Math.abs(side) > 0.7) {
+            reject.scale++; continue;
+          }
           const midX = (crownN.x + hemN.x) * 0.5;
           for (const s of blades) {
             const top = ndc(s.x, s.y + s.h * 0.5, s.z);
@@ -872,14 +909,14 @@ async function boot(quality) {
             if (gap > 0.05 && gap < 0.62 && tall > 0.12 && top.y > 0.05) beside += Math.min(s.h, 16);
           }
           // Crown high, hem low, a blade sign in the frame beside her.
-          score = crownN.y * 5 + span + Math.min(beside, 40) * 0.05 - Math.abs(midX) * 0.35;
+          score = crownN.y * 3 + (-hemN.y) * 2 + span + Math.min(beside, 40) * 0.04 - Math.abs(midX) * 0.5 - Math.abs(side) * 0.8;
         }
         if (!placed || score > placed.score) {
           placed = { px, pz, gy, eyeY, yaw, pitch, side, score, span, beside, hem: hemN.y, crown: crownN.y };
         }
         if (!scale) break;
       }
-      if (!placed) return { ok: false, reason: 'fit', lastFit };
+      if (!placed) return { ok: false, reason: 'fit', lastFit, reject, blades: blades.length };
       // An interior ride in the app frame teleports the walk camera into a
       // building between the evaluate and the screenshot, and the hero hides.
       if (a.interiors && !a.interiors.__noRide) {
@@ -928,8 +965,8 @@ async function boot(quality) {
       // Beside the hem, and a few metres toward the camera, so the 1.8 m
       // witness is not standing under the skirt. The lateral step puts them
       // next to the sign wall the scale frame is built around.
-      const fwd = beside ? 9 : 3.4;
-      const lat = beside ? 8 : 0;
+      const fwd = beside ? 6.5 : 3.4;
+      const lat = beside ? 4.2 : 0;
       const rx = -dz / len;
       const rz = dx / len;
       const x = spec.x + (dx / len) * fwd + rx * lat;
@@ -1665,6 +1702,17 @@ print(json.dumps({"feet": round(hit / max(1, n), 3), "frame": round(fw / max(1, 
         continue;
       }
     }
+    if (process.env.PAD) {
+      const padded = await page.evaluate(({ index, extra }) => window.__retry.padGroup(index, extra), {
+        index: who.i,
+        extra: Number(process.env.PAD),
+      });
+      note('pad', { id, tier, attempt, padded });
+      if (padded?.ok) {
+        await frames();
+        await page.screenshot({ path: tmp0, timeout: 180000, animations: 'disabled' });
+      }
+    }
     if (process.env.ARM_PHASE === '1') {
       const posed = await page.evaluate((index) => window.__retry.poseWalk(index, 0), who.i);
       note('arm phase', { id, tier, attempt, posed });
@@ -1753,7 +1801,8 @@ async function dancerStrip(name, id) {
     if (trial?.ok && trial.shown) order.push({ dist, trial });
   }
   if (scale) {
-    order.sort((a, b) => ((b.trial.crown || 0) - (a.trial.crown || 0)) || ((b.trial.beside || 0) - (a.trial.beside || 0)));
+    const rank = (t) => (t.crown || 0) * 3 + (-(t.hem || 0)) * 2 + (t.span || 0) + Math.min(t.beside || 0, 40) * 0.04 - Math.abs(t.side || 0) * 0.8;
+    order.sort((a, b) => rank(b.trial) - rank(a.trial));
   }
   for (const cand of order) {
     const dist = cand.dist;
