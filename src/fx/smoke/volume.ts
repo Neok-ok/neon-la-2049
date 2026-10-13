@@ -113,24 +113,23 @@ function volumeMaterial(): MeshBasicNodeMaterial {
       const t = clamp(height.div(max(volHeight, 1.0)), 0.0, 1.0);
       const cover = min(float(1.0), t.div(0.5));
       const lean = mag.mul(max(t, cover.mul(0.9)));
-      const twist = height.mul(0.008).add(U.time.mul(0.08));
+      const twist = height.mul(0.0045).add(U.time.mul(0.05));
       const n = mx_noise_float(vec3(
-        pos.x.mul(0.011).add(sin(height.mul(0.004)).mul(0.4)),
-        height.mul(0.007).add(U.time.mul(0.012)),
-        pos.z.mul(0.011).add(U.time.mul(0.02)),
+        pos.x.mul(0.018).add(sin(height.mul(0.006)).mul(0.7)),
+        height.mul(0.012).add(U.time.mul(0.02)),
+        pos.z.mul(0.018).add(cos(height.mul(0.005)).mul(0.7)),
       ));
       const n01 = n.mul(0.5).add(0.5);
-      const bulb = max(sin(height.mul(0.0065).add(0.4)), 0.0);
-      const bulb2 = max(sin(height.mul(0.013).add(1.7)), 0.0);
-      const pinch = mix(float(0.9), float(1.08), n01);
-      const radius = float(24.0).add(t.mul(8.0)).add(bulb.mul(9.0)).add(bulb2.mul(4.0)).mul(pinch);
-      const dx = rel.x.sub(wdx.mul(lean)).sub(cos(twist).mul(3.0));
-      const dz = rel.z.sub(wdz.mul(lean)).sub(sin(twist).mul(3.0));
+      const wave = sin(height.mul(0.011).add(0.5)).mul(0.5).add(0.5);
+      const pinch = mix(float(0.78), float(1.2), n01);
+      const radius = mix(float(14.0), float(40.0), wave).mul(pinch);
+      const dx = rel.x.sub(wdx.mul(lean)).sub(cos(twist).mul(9.0));
+      const dz = rel.z.sub(wdz.mul(lean)).sub(sin(twist).mul(9.0));
       const radial = sqrt(dx.mul(dx).add(dz.mul(dz)));
-      const column = smoothstep(radius, radius.mul(0.08), radial)
-        .mul(smoothstep(float(0.0), float(10.0), height))
-        .mul(smoothstep(volHeight, volHeight.mul(0.92), height))
-        .mul(mix(float(0.7), float(1.0), n01));
+      const column = smoothstep(radius, radius.mul(0.12), radial)
+        .mul(smoothstep(float(0.0), float(8.0), height))
+        .mul(smoothstep(volHeight, volHeight.mul(0.9), height))
+        .mul(mix(float(0.32), float(1.0), smoothstep(float(0.18), float(0.82), n01)));
       const gRad = sqrt(rel.x.mul(rel.x).add(rel.z.mul(rel.z)));
       const ground = smoothstep(volGroundR, volGroundR.mul(0.28), gRad)
         .mul(smoothstep(float(16.0), float(1.5), height))
@@ -140,10 +139,10 @@ function volumeMaterial(): MeshBasicNodeMaterial {
       const core = smoothstep(radius.mul(0.34), radius.mul(0.05), radial)
         .mul(smoothstep(float(4.0), float(18.0), height))
         .mul(smoothstep(float(70.0), float(18.0), height));
-      const ash = vec3(0.66, 0.67, 0.69).mul(9.5);
-      const warm = vec3(FLAME[0], FLAME[1], FLAME[2]).mul(core).mul(8.0);
+      const ash = vec3(0.64, 0.65, 0.67).mul(8.0);
+      const warm = vec3(FLAME[0], FLAME[1], FLAME[2]).mul(core).mul(6.0);
       const glow = ash.add(warm).add(scatter);
-      const tau = density.mul(stepLen).mul(0.0065).mul(live);
+      const tau = density.mul(stepLen).mul(0.004).mul(live);
       const gain = float(1.0).sub(exp(tau.negate()));
       acc.addAssign(tr.mul(glow).mul(gain));
       tr.mulAssign(exp(tau.negate()));
@@ -170,7 +169,7 @@ export function launchVolumeMesh(): Mesh {
   mesh = new Mesh(geo, mat);
   mesh.name = 'smoke-launch-volume';
   mesh.frustumCulled = false;
-  mesh.renderOrder = 3;
+  mesh.renderOrder = 8;
   mesh.visible = false;
   return mesh;
 }

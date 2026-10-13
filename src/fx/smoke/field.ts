@@ -623,11 +623,11 @@ export class SmokeField {
         if (dist < 4.2 || dist > 16) continue;
         list.push({
           x: e.x + wx * 0.05,
-          y: e.y + 0.7,
+          y: e.y + 1.15,
           z: e.z + wz * 0.05,
-          hx: 2.7,
-          hy: 0.62,
-          hz: 2.35,
+          hx: 2.5,
+          hy: 1.05,
+          hz: 2.2,
           ax: wx,
           ay: 0.2,
           az: wz,
@@ -645,7 +645,7 @@ export class SmokeField {
       });
       for (const t of tails) {
         if (list.length >= cap) break;
-        if (t.heavy === 2 && Math.abs(t.y - frame.camY) > 6) continue;
+        if (t.heavy === 2) continue;
         const dx = t.x - frame.camX;
         const dz = t.z - frame.camZ;
         const ahead = dx * Math.sin(frame.heading) + dz * -Math.cos(frame.heading);
@@ -695,7 +695,7 @@ function exhaustPuff(t: Tailpipe): PuffPlacement {
   const wide = spin ? 0.7 : truck ? 1.05 : 0.72;
   const tall = spin ? 1.15 : truck ? 1.55 : 1.15;
   const ax = -dirx;
-  const ay = 0.38;
+  const ay = 0.14;
   const az = -dirz;
   const al = Math.hypot(ax, ay, az) || 1;
   const ux = ax / al;
