@@ -64,19 +64,19 @@
   "dancer": {
     "medium": {
       "lod": "medium",
-      "triangles": 1344,
+      "triangles": 1536,
       "limitM": 0.64,
       "views": {
         "front": {
-          "iou": 0.7292,
+          "iou": 0.8148,
           "outsidePx": 0,
-          "meshPx": 37960,
+          "meshPx": 42873,
           "protrusion": false
         },
         "side": {
-          "iou": 0.7889,
+          "iou": 0.879,
           "outsidePx": 0,
-          "meshPx": 6228,
+          "meshPx": 6882,
           "protrusion": false
         }
       },
@@ -89,19 +89,19 @@
     },
     "high": {
       "lod": "high",
-      "triangles": 2768,
+      "triangles": 3096,
       "limitM": 0.64,
       "views": {
         "front": {
-          "iou": 0.7297,
+          "iou": 0.8149,
           "outsidePx": 0,
-          "meshPx": 38041,
+          "meshPx": 42890,
           "protrusion": false
         },
         "side": {
-          "iou": 0.7856,
+          "iou": 0.8723,
           "outsidePx": 0,
-          "meshPx": 6193,
+          "meshPx": 6867,
           "protrusion": false
         }
       },

@@ -193,8 +193,12 @@ async function boot(quality) {
             }
           }
         }
-        const x = agent.x + pull.ox;
-        const z = agent.z + pull.oz;
+        // The draw position is placeOnWalk(agent), not agent.x. Replacing the
+        // matrix with the path point teleports the walker out of the frame.
+        if (!pull.base) pull.base = {};
+        if (!pull.base[i]) pull.base[i] = { x: arr[b + 12], z: arr[b + 14] };
+        const x = pull.base[i].x + pull.ox;
+        const z = pull.base[i].z + pull.oz;
         arr[b + 12] = x;
         arr[b + 13] = a.query.groundHeight(x, z) + 0.162;
         arr[b + 14] = z;
@@ -206,6 +210,9 @@ async function boot(quality) {
       const c = a.crowd;
       const fn = c.__realUpdate || c.update.bind(c);
       fn(dt, x, z, a.query, a.quality, rain(), a.elapsed, a.cams.walk.heading);
+      // The sim just wrote a fresh draw position. Drop the cached base so the
+      // offset is applied to that position, not to an older snapshot.
+      if (window.__walkPull) window.__walkPull.base = null;
       applyWalkPull();
     }
     // The lens stands on the lit slab and the shoes are one curb streetward.
@@ -343,23 +350,38 @@ async function boot(quality) {
       const facade = facadeBeyond(p.x, p.z, ux, uz, p.y);
       const wall = nearestWall(p);
       const q = app().query;
-      let hit = 0;
-      for (let s = 0.4; s <= 14; s += 0.45) {
-        if (q.insideSolid(p.x + ux * s, p.y + 1.5, p.z + uz * s, 0.22, true)) {
-          hit = s;
-          break;
-        }
-      }
-      if (!hit) return { facade, wall: Math.round(wall * 10) / 10, span: 0, person: 0, beside: 1, hit: 0 };
-      const sx = -uz;
-      const sz = ux;
-      const baseX = p.x + ux * Math.max(0.3, hit - 0.35) + sx * 1.5;
-      const baseZ = p.z + uz * Math.max(0.3, hit - 0.35) + sz * 1.5;
-      const low = ndc(baseX, p.y + 0.15, baseZ);
-      const high = ndc(baseX, p.y + 3.6, baseZ);
       const head = ndc(p.x, p.y + 1.72 * p.s, p.z);
       const feet = ndc(p.x, p.y + 0.04, p.z);
       const person = head && feet ? Math.abs(head.y - feet.y) : 0;
+      // The wall is often beside the walker, not on the view ray. Take the
+      // nearest solid in any direction and measure that face on screen.
+      let hit = 0;
+      let hx = ux;
+      let hz = uz;
+      const dirs = [[ux, uz]];
+      for (let k = 0; k < 16; k++) {
+        const ang = (k / 16) * Math.PI * 2;
+        dirs.push([Math.sin(ang), Math.cos(ang)]);
+      }
+      for (const [dxs, dzs] of dirs) {
+        for (let s = 1.1; s <= 12; s += 0.55) {
+          if (q.insideSolid(p.x + dxs * s, p.y + 1.5, p.z + dzs * s, 0.22, true)) {
+            if (!hit || s < hit) {
+              hit = s;
+              hx = dxs;
+              hz = dzs;
+            }
+            break;
+          }
+        }
+      }
+      if (!hit) return { facade, wall: Math.round(wall * 10) / 10, span: 0, person: Math.round(person * 100) / 100, beside: 1, hit: 0 };
+      const sx = -hz;
+      const sz = hx;
+      const baseX = p.x + hx * Math.max(0.4, hit - 0.3) + sx * 1.2;
+      const baseZ = p.z + hz * Math.max(0.4, hit - 0.3) + sz * 1.2;
+      const low = ndc(baseX, p.y + 0.15, baseZ);
+      const high = ndc(baseX, p.y + 3.6, baseZ);
       const span = low && high ? Math.abs(high.y - low.y) : 0;
       const beside = low && head ? Math.abs(low.x - head.x) : 1;
       return {
@@ -370,6 +392,53 @@ async function boot(quality) {
         beside: Math.round(beside * 100) / 100,
         hit: Math.round(hit * 10) / 10,
       };
+    };
+    H.solo = (index) => {
+      const me = people().find((p) => p.i === index);
+      if (!me) return { ok: true };
+      const head = ndc(me.x, me.y + 1.4 * me.s, me.z);
+      let near = 0;
+      for (const p of people()) {
+        if (p.i === index) continue;
+        if (Math.hypot(p.x - me.x, p.z - me.z) > 2.4) continue;
+        const n = ndc(p.x, p.y + p.s, p.z);
+        if (n && head && Math.abs(n.x - head.x) < 0.16 && Math.abs(n.y - head.y) < 0.35) near += 1;
+      }
+      return { ok: near === 0, near };
+    };
+    H.besideCar = (index) => {
+      const me = people().find((p) => p.i === index);
+      if (!me) return { ok: false };
+      const head = ndc(me.x, me.y + 1.72 * me.s, me.z);
+      const feet = ndc(me.x, me.y + 0.04, me.z);
+      const person = head && feet ? Math.abs(head.y - feet.y) : 0;
+      const cam = app().camera.position;
+      const myD = Math.hypot(me.x - cam.x, me.z - cam.z);
+      let best = null;
+      app().scene.traverse((o) => {
+        if (!o.isInstancedMesh || (o.name !== 'ground-car' && o.name !== 'ground-van')) return;
+        const m = o.instanceMatrix.array;
+        for (let i = 0; i < Math.min(o.count, 100); i++) {
+          const x = m[i * 16 + 12];
+          const y = m[i * 16 + 13];
+          const z = m[i * 16 + 14];
+          if (x > 1e5) continue;
+          const dPerson = Math.hypot(x - me.x, z - me.z);
+          if (dPerson < 3.5 || dPerson > 14) continue;
+          const dCam = Math.hypot(x - cam.x, z - cam.z);
+          if (dCam < myD - 2.2) continue;
+          const roof = ndc(x, y + 1.45, z);
+          const tyre = ndc(x, y + 0.15, z);
+          if (!roof || !tyre) continue;
+          if (Math.abs(roof.x) > 0.82 || Math.abs(tyre.x) > 0.82) continue;
+          if (tyre.y < -0.88 || roof.y > 0.88) continue;
+          const h = Math.abs(roof.y - tyre.y);
+          if (person > 0 && (h < person * 0.45 || h > person * 1.7)) continue;
+          const score = Math.abs(dPerson - 7) + Math.abs(h - person);
+          if (!best || score < best.score) best = { score, d: Math.round(dPerson * 10) / 10, h: Math.round(h * 100) / 100, x: Math.round(roof.x * 100) / 100 };
+        }
+      });
+      return { ok: !!best, car: best, person: Math.round(person * 100) / 100 };
     };
     H.foreCar = (index) => {
       const me = people().find((p) => p.i === index);
@@ -1743,6 +1812,11 @@ async function shoot(id, tier, allowOpen) {
       await page.evaluate(() => window.__retry.release());
       continue;
     }
+    if (process.env.CAM_ON_WALK === '1' && placed.band !== 'walk' && attempt < attempts - 1) {
+      note('cam-off-walk', { id, tier, attempt, band: placed.band });
+      await page.evaluate(() => window.__retry.release());
+      continue;
+    }
     await page.evaluate(() => window.__retry.hold());
     await frames();
     const tmp0 = `${OUT}/.tmp-${id}-${tier}-f0.png`;
@@ -2130,6 +2204,28 @@ print(json.dumps({"beside": round(beside, 1), "below": round(below, 1)}))
         continue;
       }
     }
+    if (process.env.ORANGE_FLOOR === '1') {
+      const floor = spawnSync('python3', ['-c', `
+import json, sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert('RGB')
+w, h = im.size
+px = im.load()
+s = n = 0
+for y in range(int(h * 0.68), h, 3):
+    for x in range(int(w * 0.15), int(w * 0.85), 4):
+        r, g, b = px[x, y]
+        s += r - b
+        n += 1
+print(json.dumps({"warm": round(s / max(1, n), 1)}))
+`, tmp0], { encoding: 'utf8' });
+      const warm = floor.status === 0 ? JSON.parse(floor.stdout) : { warm: 0 };
+      note('orange-floor', { id, tier, attempt, ...warm });
+      if (warm.warm < 45 && attempt < attempts - 1) {
+        await page.evaluate(() => window.__retry.release());
+        continue;
+      }
+    }
     if (process.env.NO_FORE === '1') {
       const parked = await page.evaluate((index) => window.__retry.parkCloser(index), who.i);
       note('park-closer', { id, tier, attempt, parked });
@@ -2151,9 +2247,9 @@ print(json.dumps({"beside": round(beside, 1), "below": round(below, 1)}))
       const wall = await page.evaluate((index) => window.__retry.wallSpan(index), who.i);
       note('wall-span', { id, tier, attempt, wall });
       const person = wall?.person || 0;
-      const okWall = wall && wall.facade >= 1 && wall.hit > 0 && wall.hit <= 8
-        && person > 0.35 && wall.span >= person * 0.85
-        && wall.beside > 0.05 && wall.beside < 0.62;
+      const okWall = wall && wall.hit > 0 && wall.hit <= 8
+        && person > 0.35 && wall.span >= person * 0.75
+        && wall.beside > 0.04 && wall.beside < 0.7;
       if (!okWall && attempt < attempts - 1) {
         await page.evaluate(() => window.__retry.release());
         continue;
@@ -2170,6 +2266,22 @@ print(json.dumps({"beside": round(beside, 1), "below": round(below, 1)}))
     if (process.env.NO_FORE_CAR === '1') {
       const car = await page.evaluate((index) => window.__retry.foreCar(index), who.i);
       note('fore-car', { id, tier, attempt, car });
+      if (car && car.ok === false && attempt < attempts - 1) {
+        await page.evaluate(() => window.__retry.release());
+        continue;
+      }
+    }
+    if (process.env.SOLO === '1') {
+      const solo = await page.evaluate((index) => window.__retry.solo(index), who.i);
+      note('solo', { id, tier, attempt, solo });
+      if (solo && solo.ok === false && attempt < attempts - 1) {
+        await page.evaluate(() => window.__retry.release());
+        continue;
+      }
+    }
+    if (process.env.BESIDE_CAR === '1') {
+      const car = await page.evaluate((index) => window.__retry.besideCar(index), who.i);
+      note('beside-car', { id, tier, attempt, car });
       if (car && car.ok === false && attempt < attempts - 1) {
         await page.evaluate(() => window.__retry.release());
         continue;
@@ -2199,6 +2311,14 @@ print(json.dumps({"beside": round(beside, 1), "below": round(below, 1)}))
       note('arm phase', { id, tier, attempt, posed });
       await frames();
       await page.screenshot({ path: tmp0, timeout: 180000, animations: 'disabled' });
+      const still = await page.evaluate((index) => window.__retry.frameBox(index), who.i);
+      const span = still?.head && still?.feet ? Math.abs(still.head.y - still.feet.y) : 0;
+      const mid = still?.head && still?.feet ? Math.abs((still.head.x + still.feet.x) * 0.5) : 1;
+      note('still', { id, tier, attempt, span: Math.round(span * 100) / 100, mid: Math.round(mid * 100) / 100 });
+      if (!still?.head || span < 0.4 || mid > 0.48 || still.feet.y < -0.92) {
+        await page.evaluate(() => window.__retry.release());
+        continue;
+      }
     }
     if (process.env.NO_EDGE === '1') {
       const edge = spawnSync('python3', ['-c', `

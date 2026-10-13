@@ -47,17 +47,17 @@ def _inside(y, thick, bias=0.0):
 def _bone_body(y):
     # Cuts sit in the slots, so one skirt step is one bone and the sway
     # does not shear a band.
-    if y < 11.2:
+    if y < 18.25:
         return BI['skirtL']
-    if y < 22.8:
+    if y < 30.05:
         return BI['skirtM']
-    if y < 36.0:
+    if y < 38.25:
         return BI['skirtU']
     if y < 42:
         return BI['hip']
     if y < 47:
         return BI['waist']
-    if y < 53:
+    if y < 50.9:
         return BI['chest']
     return BI['head']
 
@@ -128,14 +128,14 @@ def build_dancer(lod='high'):
     step = 1.15 if lod == 'medium' else 0.7
     segs = 8 if lod == 'medium' else 10
     body = DANCER_BIND['body']
-    # Three skirt steps, a torso, and a diamond head. Each slot is about
-    # 2.4 m: a street camera still sees the steps, and the dress stays one
-    # figure instead of a stack of separated signs. The head and the raised
-    # hand stay their own parts.
+    # Three skirt steps and a torso. The slots are 0.9 m, a hem line from
+    # the street, not a hole a sign can show through. The 13.2 m flare at
+    # 21.6 m sits inside the middle step. The head and the raised hand stay
+    # their own parts. The hand still ends at 64.4 m.
     skirts = (
-        (0.2, 9.6, 1),
-        (12.0, 21.2, 1),
-        (23.6, 34.0, 1),
+        (0.2, 17.8, 1),
+        (18.7, 29.6, 1),
+        (30.5, 37.8, 1),
     )
     for y0, y1, part in skirts:
         _loft_band(mesh, body, y0, y1, segs, part, _bone_body, PINK, _body_z, step)
@@ -146,9 +146,10 @@ def build_dancer(lod='high'):
                 lambda _y: BI['veil'], CORE, (0.0, 0.0, 1.0, 1.0),
                 y_extra=_samples(veil, step),
             )
-    _loft_band(mesh, body, 36.6, 50.6, segs, 1, _bone_body, PINK, _body_z, step)
+    _loft_band(mesh, body, 38.7, 50.4, segs, 1, _bone_body, PINK, _body_z, step)
     # Part 5 is the diamond, so the hero shader can lift it off the pink body.
-    _loft_band(mesh, body, 53.2, 59.2, max(6, segs - 2), 5, lambda _y: BI['head'], PINK, _body_z, step * 0.8)
+    # One metre of neck keeps the head a separate part without floating it.
+    _loft_band(mesh, body, 51.4, 59.2, max(6, segs - 2), 5, lambda _y: BI['head'], PINK, _body_z, step * 0.8)
     loft(
         mesh, DANCER_BIND['armUp'], lambda y: _inside(y, 0.7, 0.05), max(4, segs // 2), 2,
         lambda _y: BI['armUp'], CORE, (0.0, 0.0, 1.0, 1.0),
