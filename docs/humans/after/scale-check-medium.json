@@ -5,7 +5,8 @@
     "crownM": 1.8,
     "doorH": 2.2,
     "headroom": 0.4,
-    "ratio": 1.21,
+    "ratio": 1.258,
+    "span": 0.514,
     "band": "none",
     "carRoofM": null,
     "carDepthM": null
@@ -15,19 +16,21 @@
     "door": "hollywood-lobby:strip",
     "crownM": 1.8,
     "doorH": 2.4,
-    "headroom": 0.622,
+    "headroom": 0.666,
     "ratio": 1.326,
+    "span": 0.487,
     "band": "walk",
     "carRoofM": 1.466,
-    "carDepthM": 0.455
+    "carDepthM": 1.225
   },
   {
     "id": "civic-center",
     "door": "lapd-hq",
     "crownM": 1.8,
     "doorH": 2.2,
-    "headroom": 0.4,
-    "ratio": 1.243,
+    "headroom": 0.623,
+    "ratio": 1.086,
+    "span": 0.952,
     "band": "none",
     "carRoofM": null,
     "carDepthM": null
@@ -38,7 +41,8 @@
     "crownM": 1.8,
     "doorH": 2.35,
     "headroom": 0.55,
-    "ratio": 1.298,
+    "ratio": 1.263,
+    "span": 0.486,
     "band": "none",
     "carRoofM": null,
     "carDepthM": null
@@ -49,7 +53,8 @@
     "crownM": 1.8,
     "doorH": 2.35,
     "headroom": 0.55,
-    "ratio": 1.298,
+    "ratio": 1.263,
+    "span": 0.486,
     "band": "none",
     "carRoofM": null,
     "carDepthM": null
@@ -60,7 +65,8 @@
     "crownM": 1.8,
     "doorH": 2.2,
     "headroom": 0.4,
-    "ratio": 1.191,
+    "ratio": 1.263,
+    "span": 0.486,
     "band": "outside",
     "carRoofM": null,
     "carDepthM": null
@@ -71,7 +77,8 @@
     "crownM": 1.8,
     "doorH": 2.3,
     "headroom": 0.5,
-    "ratio": 1.269,
+    "ratio": 1.263,
+    "span": 0.486,
     "band": "none",
     "carRoofM": null,
     "carDepthM": null
@@ -82,7 +89,8 @@
     "crownM": 1.8,
     "doorH": 2.4,
     "headroom": 0.6,
-    "ratio": 1.328,
+    "ratio": 1.263,
+    "span": 0.486,
     "band": "none",
     "carRoofM": null,
     "carDepthM": null
@@ -93,9 +101,26 @@
     "crownM": 1.8,
     "doorH": 2.5,
     "headroom": 0.7,
-    "ratio": 1.387,
+    "ratio": 1.263,
+    "span": 0.486,
     "band": "none",
     "carRoofM": null,
     "carDepthM": null
+  },
+  {
+    "id": "k-megablock",
+    "tier": "medium",
+    "ok": true,
+    "door": "k-lobby:street",
+    "kind": "interior",
+    "band": "none",
+    "crownM": 1.8,
+    "doorH": 2.35,
+    "headroom": 0.4,
+    "ratio": 1.259,
+    "span": 0.504,
+    "car": null,
+    "road": false,
+    "tried": []
   }
 ]

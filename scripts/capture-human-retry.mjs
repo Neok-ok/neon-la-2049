@@ -2461,9 +2461,58 @@ async function boot(quality) {
         const shellTop = door.kind === 'interior' ? door.y0 + 3.3 : door.y1;
         const cam = a.camera;
         const poses = [];
+        const tally = {};
+        const bump = (k) => { tally[k] = (tally[k] || 0) + 1; };
+        if (door.id === 'lapd-hq') {
+          const spec = await import('/src/districts/civic-center/spec.ts');
+          const mark = layout.landmarkById('lapd-hq');
+          const yawL = spec.yawOf(mark.bearingDeg);
+          const doorLz = -spec.HQ.podiumD / 2 - 0.2;
+          for (const back of [1.5, 2.1, 2.8]) {
+            for (const side of [2.2, -2.2]) {
+              const personLz = doorLz - 0.35;
+              const camLz = doorLz - back;
+              const [sx, sz] = spec.localToWorld(mark.x, mark.z, yawL, side, personLz);
+              const [px, pz] = spec.localToWorld(mark.x, mark.z, yawL, side * 0.82, camLz);
+              const personGy = spec.treadTop(spec.STAIR, personLz);
+              const camGy = spec.treadTop(spec.STAIR, camLz);
+              if (q.insideSolid(sx, personGy + 0.9, sz, 0.16, true)) { bump('c-solid-p'); continue; }
+              if (q.insideSolid(px, camGy + 1.2, pz, 0.22, true)) { bump('c-solid-c'); continue; }
+              const eye = camGy + 1.55;
+              const vlen = Math.hypot(sx - px, sz - pz) || 1;
+              const yaw = Math.atan2(sx - px, -(sz - pz));
+              const pitch = Math.atan2((personGy + 0.85) - eye, vlen);
+              cam.position.set(px, eye, pz);
+              cam.rotation.set(pitch, -yaw, 0, 'YXZ');
+              cam.updateMatrixWorld();
+              const sill = ndc(door.x, door.y0 + 0.06, door.z);
+              const head = ndc(door.x, door.y1 - 0.05, door.z);
+              const feet = ndc(sx, personGy + 0.02, sz);
+              const crown = ndc(sx, personGy + 1.8, sz);
+              if (!sill || !head || !feet || !crown) { bump('c-ndc'); continue; }
+              const pSpan = crown.y - feet.y;
+              const dSpan = head.y - sill.y;
+              const ratio = dSpan / Math.max(0.05, pSpan);
+              tally.sample = { span: r3(pSpan), ratio: r3(ratio), feet: r3(feet.y), crown: r3(crown.y), head: r3(head.y), gap: r3(Math.abs(crown.x - head.x)) };
+              if (pSpan < 0.38 || pSpan > 1.05) { bump('c-span'); continue; }
+              if (ratio < 1.05 || ratio > 1.5) { bump('c-ratio'); continue; }
+              if (head.y < crown.y + 0.02 || head.y > 0.88) { bump('c-lintel'); continue; }
+              if (feet.y < -0.7 || feet.y > -0.12 || crown.y > 0.55) { bump('c-frame'); continue; }
+              const gap = Math.abs(crown.x - head.x);
+              if (gap < 0.04 || gap > 0.72) { bump('c-gap'); continue; }
+              poses.push({
+                score: 6 - Math.abs(ratio - 1.22) * 3 - Math.abs(pSpan - 0.46) * 2,
+                px, pz, gy: camGy, eye, yaw, pitch, latSign: side > 0 ? -1 : 1,
+                dist: 1.5, street: back, road: false,
+                ratio, pSpan, dSpan, gap, sill, head, feet, crown,
+                stand: { x: sx, z: sz, gy: personGy, out: 0.4, side, band: 'none' },
+              });
+            }
+          }
+        }
         // Closer, and more square to the opening, so the walker and the
         // surround share the frame instead of a long shot down an empty lot.
-        for (const stand of stands) {
+        if (door.id !== 'lapd-hq') for (const stand of stands) {
           let road = false;
           for (const d of [4, 6.5, 9, 12]) {
             for (const s of [1, -1]) {
@@ -2477,21 +2526,30 @@ async function boot(quality) {
           }
           for (const dist of [1.8, 2.5, 3.3, 4.2]) {
             for (const latSign of [1, -1]) {
-              for (const street of [2.0, 2.8, 3.8, 5.0]) {
+              for (const street of [1.2, 1.8, 2.6, 3.6, 4.8]) {
                 const px = stand.x + ax * latSign * dist + ux * street;
                 const pz = stand.z + az * latSign * dist + uz * street;
                 const camOut = (px - door.x) * ux + (pz - door.z) * uz;
-                if (camOut < 1.6) continue;
-                const gy = surfaceY(px, pz, stand.gy);
-                if (gy == null || Math.abs(gy - stand.gy) > 0.85) continue;
-                if (q.insideSolid(px, gy + 1.3, pz, 0.28, true)) continue;
+                if (camOut < 1.15) { bump('out'); continue; }
+                q.fabricAt(px, pz);
+                let gy = q.groundHeight(px, pz);
+                if (Math.abs(gy - stand.gy) > 0.55) {
+                  gy = null;
+                  for (let drop = 0; drop <= 3.4 && gy == null; drop += 0.12) {
+                    const y = stand.gy - drop;
+                    if (q.insideSolid(px, y, pz, 0.05, true) && !q.insideSolid(px, y + 0.4, pz, 0.14, true)) gy = y + 0.02;
+                  }
+                }
+                if (gy == null) { bump('height'); continue; }
+                if (q.insideSolid(px, gy + 1.3, pz, 0.28, true)) { bump('solid'); continue; }
                 const vx = stand.x - px;
                 const vz = stand.z - pz;
                 const vlen = Math.hypot(vx, vz) || 1;
                 const towardWall = -((vx / vlen) * ux + (vz / vlen) * uz);
-                if (towardWall < 0.62) continue;
-                if (!line(px, pz, stand.x, stand.z, Math.min(gy, stand.gy))) continue;
-                if (!line(px, pz, door.x, door.z, Math.min(gy, stand.gy))) continue;
+                if (towardWall < 0.62) { bump('toward'); continue; }
+                const dropped = stand.gy - gy > 0.35;
+                if (!dropped && !line(px, pz, stand.x, stand.z, Math.min(gy, stand.gy))) { bump('line-person'); continue; }
+                if (!dropped && !line(px, pz, door.x, door.z, Math.min(gy, stand.gy))) { bump('line-door'); continue; }
                 const eye = gy + 1.35;
                 const yaw = Math.atan2(stand.x - px, -(stand.z - pz));
                 const pitch = Math.atan2((stand.gy + 1.7) - eye, vlen);
@@ -2502,25 +2560,27 @@ async function boot(quality) {
                 const head = ndc(door.x, shellTop - 0.05, door.z);
                 const feet = ndc(stand.x, stand.gy + 0.02, stand.z);
                 const crown = ndc(stand.x, stand.gy + 1.8, stand.z);
-                if (!sill || !head || !feet || !crown) continue;
+                if (!sill || !head || !feet || !crown) { bump('ndc'); continue; }
                 const pSpan = crown.y - feet.y;
                 const dSpan = head.y - sill.y;
-                if (pSpan < 0.42 || pSpan > 0.58) continue;
-                if (dSpan < 0.4) continue;
+                if (pSpan < 0.42 || pSpan > 0.58) { bump('span'); continue; }
+                if (dSpan < 0.4) { bump('dspan'); continue; }
                 const ratio = dSpan / pSpan;
-                if (ratio < 1.12 || ratio > 1.42) continue;
-                if (head.y > 0.86 || head.y < crown.y + 0.03) continue;
+                if (ratio < 1.12 || ratio > 1.42) { bump('ratio'); continue; }
+                if (head.y > 0.86 || head.y < crown.y + 0.03) { bump('lintel'); continue; }
                 const footDrop = sill.y - feet.y;
-                if (footDrop < -0.05 || footDrop > 0.2) continue;
+                if (footDrop < -0.05 || footDrop > 0.2) { bump('feet'); continue; }
                 const gap = Math.abs(crown.x - head.x);
-                if (gap < 0.05 || gap > 0.34) continue;
-                if (Math.abs(crown.x) > 0.5 || Math.abs(head.x) > 0.62) continue;
-                if (feet.y < -0.82 || feet.y > -0.38 || crown.y > 0.22) continue;
+                if (gap < 0.05 || gap > 0.34) { bump('gap'); continue; }
+                if (Math.abs(crown.x) > 0.5 || Math.abs(head.x) > 0.62) { bump('x'); continue; }
+                if (feet.y < -0.9 || feet.y > 0.15 || crown.y > 0.72) { bump('frame'); continue; }
                 // Look across the opening. Same-side lenses hide the walker
-                // behind the near jamb.
+                // behind the near jamb. Prefer the feet low so the street
+                // does not fill the frame; a landing may have to sit higher.
                 const across = Math.sign(stand.side) !== latSign ? 0.55 : 0;
                 let score = 2.4 - Math.abs(pSpan - 0.5) * 6 - Math.abs(ratio - 1.26) * 5;
                 score -= Math.abs(footDrop - 0.05) * 2 + Math.abs(gap - 0.14) * 2;
+                score -= Math.abs(feet.y + 0.55) * 1.4;
                 score += towardWall * 0.4 + (road ? 0.3 : 0) + across;
                 poses.push({
                   score, px, pz, gy, eye, yaw, pitch, latSign, dist, street, road,
@@ -2553,7 +2613,7 @@ async function boot(quality) {
           break;
         }
         if (!pose) {
-          tried.push({ id: door.id, reason: poses.length ? 'blocked' : 'no-pose', stands: stands.length, poses: poses.length });
+          tried.push({ id: door.id, reason: poses.length ? 'blocked' : 'no-pose', stands: stands.length, poses: poses.length, standY: r3(stands[0].gy), tally });
           continue;
         }
         const person = pose.stand;
