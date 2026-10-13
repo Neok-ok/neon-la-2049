@@ -115,7 +115,6 @@ function puffMaterial(): MeshBasicNodeMaterial {
 
     T.Loop(5, ({ i }: { i: unknown }) => {
       const live = step(float(i).add(0.5), puffSteps);
-      pos.addAssign(dir.mul(stepLen).mul(live));
       const rel = pos.sub(center);
       const n = mx_noise_float(pos.mul(0.85).add(vec3(
         U.time.mul(0.22).add(seed.mul(3.0)),
@@ -126,40 +125,42 @@ function puffMaterial(): MeshBasicNodeMaterial {
       const clumps = smoothstep(float(0.22), float(0.8), n01);
 
       const yb = rel.y.add(half.y);
-      const discR = max(p2.w, 0.4);
+      const discR = max(p2.w, 0.4).mul(mix(float(0.78), float(1.08), n01));
       const horiz = sqrt(rel.x.mul(rel.x).add(rel.z.mul(rel.z)));
-      const sheet = smoothstep(discR, discR.mul(0.28), horiz)
-        .mul(smoothstep(half.y.mul(1.85), half.y.mul(0.15), yb))
-        .mul(smoothstep(float(-0.02), float(0.06), yb))
-        .mul(mix(float(0.15), float(1.0), clumps));
+      const sheet = smoothstep(discR, discR.mul(0.22), horiz)
+        .mul(smoothstep(half.y.mul(2.05), half.y.mul(0.28), yb))
+        .mul(smoothstep(float(0.0), half.y.mul(0.22), yb))
+        .mul(mix(float(0.28), float(1.0), clumps));
 
       const along = dot(rel, axis);
       const radial = length(rel.sub(axis.mul(along)));
       const u = clamp(along.div(halfLen).mul(0.5).add(0.5), 0.0, 1.0);
-      const tubeR = mix(p2.w, p2.w.mul(1.85), u).mul(mix(float(0.78), float(1.2), n01));
-      const wake = smoothstep(tubeR, tubeR.mul(0.2), radial)
-        .mul(smoothstep(float(0.0), float(0.12), u))
-        .mul(smoothstep(float(1.0), float(0.72), u))
-        .mul(mix(float(0.12), float(1.0), clumps));
+      const tubeR = mix(p2.w, p2.w.mul(1.7), u).mul(mix(float(0.82), float(1.15), n01));
+      const wake = smoothstep(tubeR, tubeR.mul(0.15), radial)
+        .mul(smoothstep(float(0.0), float(0.08), u))
+        .mul(smoothstep(float(1.0), float(0.62), u))
+        .mul(mix(float(0.35), float(1.0), clumps));
 
-      const density = sheet.mul(hole).add(wake.mul(exhaust).mul(mix(float(0.7), float(1.35), drive)));
-      const ash = vec3(0.78, 0.8, 0.82).mul(hole).mul(8.0)
-        .add(vec3(0.72, 0.73, 0.75).mul(exhaust).mul(13.0));
-      const mouth = smoothstep(float(0.45), float(0.0), u).mul(exhaust);
-      const warm = vec3(0.85, 0.55, 0.32).mul(mouth).mul(6.0);
-      const glow = ash.add(warm).add(scatter.mul(hole.mul(0.5).add(exhaust)));
-      const sigma = mix(float(0.7), float(1.15), exhaust);
+      const density = sheet.mul(hole).add(wake.mul(exhaust).mul(mix(float(0.75), float(1.25), drive)));
+      const ash = vec3(0.74, 0.76, 0.78).mul(hole).mul(7.5)
+        .add(vec3(0.7, 0.71, 0.73).mul(exhaust).mul(16.0));
+      const mouth = smoothstep(float(0.4), float(0.0), u).mul(exhaust);
+      const warm = vec3(0.82, 0.52, 0.3).mul(mouth).mul(5.0);
+      const glow = ash.add(warm).add(scatter.mul(hole.mul(0.45).add(exhaust.mul(0.35))));
+      const sigma = mix(float(0.32), float(0.72), exhaust);
       const tau = density.mul(stepLen).mul(sigma).mul(live);
       const gain = float(1.0).sub(exp(tau.negate()));
       acc.addAssign(tr.mul(glow).mul(gain));
       tr.mulAssign(exp(tau.negate()));
+      pos.addAssign(dir.mul(stepLen).mul(live));
     });
 
     const dist = length(center.sub(cameraPosition));
-    const fogA = exp(fogDepth(cameraPosition, center).mul(-1.6));
-    const close = smoothstep(float(0.8), float(2.0), dist);
-    const farHole = smoothstep(float(24.0), float(8.0), dist);
-    const farWake = smoothstep(float(40.0), float(10.0), dist);
+    const fogK = mix(float(-1.3), float(-0.45), exhaust);
+    const fogA = exp(fogDepth(cameraPosition, center).mul(fogK));
+    const close = smoothstep(float(1.2), float(3.2), dist);
+    const farHole = smoothstep(float(22.0), float(7.0), dist);
+    const farWake = smoothstep(float(64.0), float(14.0), dist);
     const far = mix(farHole, farWake, exhaust);
     const rain = mix(float(1.0), float(1.15), puffRain.mul(exhaust));
     const a = float(1.0).sub(tr).mul(close).mul(far).mul(fogA).mul(smoothstep(0.05, 0.35, span));

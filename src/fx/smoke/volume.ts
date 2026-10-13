@@ -19,8 +19,8 @@ import { VOLUME_STEPS } from './tiers';
 
 const T = TSL as any;
 const {
-  Fn, cameraPosition, clamp, cos, exp, float, fract, length, max, min, mix,
-  mx_noise_float, normalize, positionWorld, screenUV, sin, smoothstep,
+  Fn, cameraPosition, clamp, cos, exp, float, length, max, min, mix,
+  mx_noise_float, normalize, positionWorld, sin, smoothstep,
   sqrt, step, vec2, vec3, vec4,
 } = T;
 
@@ -97,10 +97,9 @@ function volumeMaterial(): MeshBasicNodeMaterial {
 
     const acc = vec3(0, 0, 0).toVar();
     const tr = float(1).toVar();
-    const jitter = fract(sin(dotScreen(screenUV)).mul(43758.5453));
-    const pos = origin.add(dir.mul(tStart.add(stepLen.mul(jitter.mul(0.8))))).toVar();
+    const pos = origin.add(dir.mul(tStart.add(stepLen.mul(0.5)))).toVar();
     const mid = origin.add(dir.mul(tStart.add(span.mul(0.42))));
-    const scatter = practicalInscatter(mid).mul(0.1);
+    const scatter = practicalInscatter(mid).mul(0.08);
 
     const wsp = max(length(vec2(volWind.x, volWind.z)), 0.001);
     const wdx = volWind.x.div(wsp);
@@ -109,48 +108,46 @@ function volumeMaterial(): MeshBasicNodeMaterial {
 
     T.Loop(6, ({ i }: { i: unknown }) => {
       const live = step(float(i).add(0.5), volSteps);
-      pos.addAssign(dir.mul(stepLen).mul(live));
       const rel = pos.sub(volBase);
       const height = rel.y.add(volHalf.y);
       const t = clamp(height.div(max(volHeight, 1.0)), 0.0, 1.0);
       const cover = min(float(1.0), t.div(0.5));
       const lean = mag.mul(max(t, cover.mul(0.9)));
-      const twist = height.mul(0.01).add(U.time.mul(0.1));
-      const warp = vec3(
-        sin(height.mul(0.02).add(U.time.mul(0.25))).mul(6.0),
-        sin(pos.x.mul(0.008)).mul(3.0),
-        cos(height.mul(0.016).add(U.time.mul(0.18))).mul(6.0),
-      );
-      const n = mx_noise_float(pos.add(warp).mul(0.04).add(vec3(U.time.mul(0.03), U.time.mul(0.016), 0.0)));
+      const twist = height.mul(0.008).add(U.time.mul(0.08));
+      const n = mx_noise_float(vec3(
+        pos.x.mul(0.011).add(sin(height.mul(0.004)).mul(0.4)),
+        height.mul(0.007).add(U.time.mul(0.012)),
+        pos.z.mul(0.011).add(U.time.mul(0.02)),
+      ));
       const n01 = n.mul(0.5).add(0.5);
       const bulb = max(sin(height.mul(0.0065).add(0.4)), 0.0);
-      const bulb2 = max(sin(height.mul(0.014).add(1.7)), 0.0);
-      const pinch = mix(float(0.74), float(1.16), n01);
-      const radius = float(22.0).add(t.mul(8.0)).add(bulb.mul(10.0)).add(bulb2.mul(5.0)).mul(pinch);
-      const dx = rel.x.sub(wdx.mul(lean)).sub(cos(twist).mul(4.0));
-      const dz = rel.z.sub(wdz.mul(lean)).sub(sin(twist).mul(4.0));
+      const bulb2 = max(sin(height.mul(0.013).add(1.7)), 0.0);
+      const pinch = mix(float(0.9), float(1.08), n01);
+      const radius = float(24.0).add(t.mul(8.0)).add(bulb.mul(9.0)).add(bulb2.mul(4.0)).mul(pinch);
+      const dx = rel.x.sub(wdx.mul(lean)).sub(cos(twist).mul(3.0));
+      const dz = rel.z.sub(wdz.mul(lean)).sub(sin(twist).mul(3.0));
       const radial = sqrt(dx.mul(dx).add(dz.mul(dz)));
-      const clumps = smoothstep(float(0.2), float(0.78), n01);
-      const column = smoothstep(radius, radius.mul(0.16), radial)
-        .mul(smoothstep(float(0.0), float(12.0), height))
-        .mul(smoothstep(volHeight, volHeight.mul(0.9), height))
-        .mul(mix(float(0.05), float(1.0), clumps));
+      const column = smoothstep(radius, radius.mul(0.08), radial)
+        .mul(smoothstep(float(0.0), float(10.0), height))
+        .mul(smoothstep(volHeight, volHeight.mul(0.92), height))
+        .mul(mix(float(0.7), float(1.0), n01));
       const gRad = sqrt(rel.x.mul(rel.x).add(rel.z.mul(rel.z)));
-      const ground = smoothstep(volGroundR, volGroundR.mul(0.2), gRad)
-        .mul(smoothstep(float(24.0), float(1.6), height))
-        .mul(smoothstep(float(-1.0), float(1.4), height))
-        .mul(mix(float(0.18), float(1.0), clumps));
-      const density = min(column.add(ground.mul(0.85)), float(1.2)).mul(volDensity);
-      const core = smoothstep(float(16.0), float(2.2), radial)
-        .mul(smoothstep(float(2.0), float(14.0), height))
-        .mul(smoothstep(float(52.0), float(16.0), height));
-      const ash = vec3(0.7, 0.71, 0.73).mul(12.0);
-      const warm = vec3(FLAME[0], FLAME[1], FLAME[2]).mul(core).mul(14.0);
+      const ground = smoothstep(volGroundR, volGroundR.mul(0.28), gRad)
+        .mul(smoothstep(float(16.0), float(1.5), height))
+        .mul(smoothstep(float(-1.0), float(1.2), height))
+        .mul(mix(float(0.55), float(1.0), n01));
+      const density = min(column.add(ground.mul(0.4)), float(1.05)).mul(volDensity);
+      const core = smoothstep(radius.mul(0.34), radius.mul(0.05), radial)
+        .mul(smoothstep(float(4.0), float(18.0), height))
+        .mul(smoothstep(float(70.0), float(18.0), height));
+      const ash = vec3(0.66, 0.67, 0.69).mul(9.5);
+      const warm = vec3(FLAME[0], FLAME[1], FLAME[2]).mul(core).mul(8.0);
       const glow = ash.add(warm).add(scatter);
-      const tau = density.mul(stepLen).mul(0.03).mul(live);
+      const tau = density.mul(stepLen).mul(0.0065).mul(live);
       const gain = float(1.0).sub(exp(tau.negate()));
       acc.addAssign(tr.mul(glow).mul(gain));
       tr.mulAssign(exp(tau.negate()));
+      pos.addAssign(dir.mul(stepLen).mul(live));
     });
 
     const a = float(1.0).sub(tr);
@@ -160,10 +157,6 @@ function volumeMaterial(): MeshBasicNodeMaterial {
     return vec4(acc.mul(thin).mul(hit), outA);
   })();
   return m;
-}
-
-function dotScreen(uv: any): any {
-  return uv.x.mul(12.9898).add(uv.y.mul(78.233));
 }
 
 export function launchVolumeMesh(): Mesh {

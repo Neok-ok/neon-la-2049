@@ -595,7 +595,7 @@ export class SmokeField {
     volWind.value.set(wx, 0, wz);
     volEngine.value.set(drive.x, drive.y + 10, drive.z);
     volHeight.value = colH;
-    volGroundR.value = 58;
+    volGroundR.value = 44;
     volBound.value = 86;
     const fade = drive.burning ? 1 : Math.max(0, 1 - Math.max(0, drive.age - 36) / 110);
     volDensity.value = fade;
@@ -620,20 +620,20 @@ export class SmokeField {
       for (let i = 0; i < n; i++) {
         const e = holes[i]!;
         const dist = Math.hypot(e.x - frame.camX, e.z - frame.camZ);
-        if (dist > 22) continue;
+        if (dist < 4.2 || dist > 16) continue;
         list.push({
-          x: e.x + wx * 0.06,
-          y: e.y + 0.5,
-          z: e.z + wz * 0.06,
-          hx: 2.6,
-          hy: 0.48,
-          hz: 2.3,
+          x: e.x + wx * 0.05,
+          y: e.y + 0.7,
+          z: e.z + wz * 0.05,
+          hx: 2.7,
+          hy: 0.62,
+          hz: 2.35,
           ax: wx,
-          ay: 0.15,
+          ay: 0.2,
           az: wz,
           mode: 0,
           seed: fract(e.x * 0.17 + e.z * 0.31),
-          radius: 2.15,
+          radius: 2.25,
         });
       }
     }
@@ -649,7 +649,7 @@ export class SmokeField {
         const dx = t.x - frame.camX;
         const dz = t.z - frame.camZ;
         const ahead = dx * Math.sin(frame.heading) + dz * -Math.cos(frame.heading);
-        if (ahead < -4 || dx * dx + dz * dz > 34 * 34) continue;
+        if (ahead < -6 || dx * dx + dz * dz > 48 * 48) continue;
         list.push(exhaustPuff(t));
       }
     }
@@ -691,20 +691,20 @@ function exhaustPuff(t: Tailpipe): PuffPlacement {
   const dirz = sp > 0.2 ? fz / sp : 1;
   const truck = t.heavy === 1;
   const spin = t.heavy === 2;
-  const len = spin ? 5.5 : truck ? 6.4 : 4.4;
-  const wide = spin ? 0.55 : truck ? 0.7 : 0.48;
-  const tall = spin ? 0.7 : truck ? 0.85 : 0.55;
+  const len = spin ? 8.0 : truck ? 10.5 : 7.6;
+  const wide = spin ? 0.7 : truck ? 1.05 : 0.72;
+  const tall = spin ? 1.15 : truck ? 1.55 : 1.15;
   const ax = -dirx;
-  const ay = 0.16;
+  const ay = 0.38;
   const az = -dirz;
   const al = Math.hypot(ax, ay, az) || 1;
   const ux = ax / al;
   const uy = ay / al;
   const uz = az / al;
   const half = len * 0.5;
-  const cx = t.x + ux * half * 0.85;
-  const cy = t.y + 0.2 + uy * half * 0.85;
-  const cz = t.z + uz * half * 0.85;
+  const cx = t.x + ux * half * 1.15;
+  const cy = t.y + 0.45 + uy * half * 1.15;
+  const cz = t.z + uz * half * 1.15;
   return {
     x: cx,
     y: cy,
@@ -717,7 +717,7 @@ function exhaustPuff(t: Tailpipe): PuffPlacement {
     az: uz * half,
     mode: 1 + Math.min(1, Math.max(0, t.drive)) * 0.45,
     seed: fract(t.x * 0.13 + t.z * 0.27 + t.y * 0.05),
-    radius: truck ? 0.42 : spin ? 0.36 : 0.28,
+    radius: truck ? 0.78 : spin ? 0.55 : 0.58,
   };
 }
 
