@@ -167,8 +167,9 @@ def paint_hall(size, tile=4.0):
     rough = Image.new('L', (size, size))
     normal = Image.new('RGB', (size, size))
     apx, rpx, npx = albedo.load(), rough.load(), normal.load()
-    course = 0.72
-    stone = 1.35
+    # Tall ashlar. A 0.72 m course with a half-shift reads as brick bond.
+    course = 1.9
+    stone = 2.7
     height = [[0.0] * size for _ in range(size)]
     for y in range(size):
         row = height[y]
@@ -176,7 +177,7 @@ def paint_hall(size, tile=4.0):
         cy = int(ym / course)
         ly = ym - cy * course
         bed = ly < 0.055 or ly > course - 0.055
-        shift = (stone * 0.5) if (cy % 2) else 0.0
+        shift = (stone * 0.37) if (cy % 3 == 1) else 0.0
         for x in range(size):
             xm = (x / size) * tile + shift
             cx = int(xm / stone)
@@ -184,21 +185,21 @@ def paint_hall(size, tile=4.0):
             perp = lx < 0.05 or lx > stone - 0.05
             block = hash2(cx + 5, cy + 9)
             speckle = hash2(x, y)
-            base = 208 + (block - 0.5) * 34 + (speckle - 0.5) * 8
+            base = 216 + (block - 0.5) * 16 + (speckle - 0.5) * 5
             if bed:
-                base -= 78
+                base -= 36
             elif perp:
-                base -= 46
+                base -= 18
             base = clamp(base)
             apx[x, y] = (clamp(base * 0.995), clamp(base * 0.99), clamp(base * 0.975))
             rpx[x, y] = clamp(92 + (1.0 - block) * 16 + (28 if bed else 0) + (14 if perp else 0))
             h = 0.55 + (block - 0.5) * 0.04
             if bed:
-                h -= 0.2
+                h -= 0.08
             elif perp:
-                h -= 0.1
+                h -= 0.04
             row[x] = h
-    write_normal(height, npx, 7.5)
+    write_normal(height, npx, 3.2)
     save_maps('hall', size, albedo, rough, normal)
 
 

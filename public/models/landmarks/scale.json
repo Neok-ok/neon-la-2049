@@ -78,15 +78,15 @@
     "rise": 0.172,
     "tread": 0.29,
     "risers": 20,
-    "doorClearM": 1.099999908967448,
+    "doorClearM": 1.0999999089674481,
     "portal": null,
     "stepH": null,
     "apex": null,
     "plinthH": null,
     "tris": {
-      "high": 27276,
-      "medium": 6444,
-      "low": 3312
+      "high": 27300,
+      "medium": 6468,
+      "low": 3048
     }
   },
   "wallace": {

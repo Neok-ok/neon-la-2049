@@ -788,28 +788,31 @@ def build_hall(kit, rank):
     half_n = neck * 0.5
     slot_y = shaft_top + 0.9
     slot_h = neck_top - shaft_top - 2.1
+    # Wider than the pier, so a three-quarter view still sees the opening.
+    bay, pier = 3.6, 0.92
     posts = []
-    cursor = -(half_n - 1.8)
-    while cursor <= half_n - 1.7:
-        posts.append(cursor)
-        cursor += 2.4
+    cursor = -(half_n - 2.2)
+    while cursor <= half_n - 2.1:
+        posts.append(round(cursor, 3))
+        cursor += bay
+    inset = pier * 0.5
     for i in range(len(posts) - 1):
-        a = posts[i] + 0.42
-        b = posts[i + 1] - 0.42
-        if b - a < 0.55:
+        a = posts[i] + inset
+        b = posts[i + 1] - inset
+        if b - a < 0.8:
             continue
         mid = (a + b) * 0.5
         span = b - a
         for face in (half_n, -half_n):
             outward = 1 if face > 0 else -1
             # Deep slots. A shallow groove reads as a scratch, not a colonnade.
-            mass.cut(mid, face - outward * 0.7, slot_y, span, 2.6, slot_h)
-            mass.cut(face - outward * 0.7, mid, slot_y, 2.6, span, slot_h)
+            mass.cut(mid, face - outward * 0.9, slot_y, span, 3.2, slot_h)
+            mass.cut(face - outward * 0.9, mid, slot_y, 3.2, span, slot_h)
     # Square terraces. A smooth hip reads as a roof, and an open drum reads as a well.
     pyr0 = neck_top - 0.15
     span0 = neck - 0.8
     span1 = 7.6
-    n_steps = 8
+    n_steps = 12
     rise = (pyramid_top - pyr0) / n_steps
     for i in range(n_steps):
         y0 = pyr0 + rise * i
@@ -950,29 +953,47 @@ def _hall_facade(kit, metal, tint, tile, rank, pitch, face, outward, axis, span,
 
 
 def _colonnade(parts, kit, metal, tint, tile, rank, y0, y1, half):
-    # Columns under the pyramid, on the neck. The glass is the slot behind them.
-    step = 2.4
+    # Piers under the pyramid. The dark pane sits just behind them, not at the
+    # back of a two-metre slot, or a three-quarter view only sees stone cheeks.
+    step, pier = 3.6, 0.92
     height = y1 - y0
     xs = []
-    x = -(half - 1.8)
-    while x <= half - 1.7:
+    x = -(half - 2.2)
+    while x <= half - 2.1:
         xs.append(round(x, 3))
         x += step
     for face, outward in ((half, 1), (-half, -1)):
-        cz, d = _span_z(face, outward, 0.01, 0.85)
+        cz, d = _span_z(face, outward, 0.02, 0.95)
         _rec(parts, 0, cz, y0, (half - 1.2) * 2, d, height)
         for x in xs:
-            _body(x, cz, y0, 1.05, d, height, tint, tile, kit.body)
+            _body(x, cz, y0, pier, d, height, tint, tile, kit.body)
     zs = []
-    z = -(half - 1.8)
-    while z <= half - 1.7:
+    z = -(half - 2.2)
+    while z <= half - 2.1:
         zs.append(round(z, 3))
         z += step
     for face, outward in ((half, 1), (-half, -1)):
-        cx, w = _span_x(face, outward, 0.01, 0.85)
+        cx, w = _span_x(face, outward, 0.02, 0.95)
         _rec(parts, cx, 0, y0, w, (half - 1.2) * 2, height)
         for z in zs:
-            _body(cx, z, y0, w, 1.05, height, tint, tile, kit.body)
+            _body(cx, z, y0, w, pier, height, tint, tile, kit.body)
+    if rank < 1:
+        return
+    gap = step - pier
+    pane_w = gap + 0.24
+    warm = _warm_glass()
+    for i in range(len(xs) - 1):
+        mid = (xs[i] + xs[i + 1]) * 0.5
+        pane = warm if i % 5 == 1 else kit.glass
+        for face, outward in ((half, 1), (-half, -1)):
+            cz, d = _span_z(face, outward, 0.42, 0.78)
+            _glass(mid, cz, y0 + 0.35, pane_w, d, height - 0.7, pane)
+    for i in range(len(zs) - 1):
+        mid = (zs[i] + zs[i + 1]) * 0.5
+        pane = warm if i % 5 == 3 else kit.glass
+        for face, outward in ((half, 1), (-half, -1)):
+            cx, w = _span_x(face, outward, 0.42, 0.78)
+            _glass(cx, mid, y0 + 0.35, w, pane_w, height - 0.7, pane)
 
 
 # ---------------------------------------------------------------- Wallace
