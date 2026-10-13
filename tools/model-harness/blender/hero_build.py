@@ -211,9 +211,9 @@ def build_lapd(kit, rank):
             # Short and thick. A long bezel on the crown fails the thin-part gate.
             _crown_lamp(kit, f'pad-{lx}-{lz}', lx, Q['height'] + Q['padH'], lz)
         _crown_lamp(kit, 'mast', 0, mast_top - 0.15, 0)
-        # Two short sconces on the jambs. A bar across the door is the old white band.
-        H.place_lamp(kit, 'door-l', -4.4, Q['lobbyFloor'] + 2.6, face, (0, 0, -1), 0.7, 0.18, 'amber', -0.12)
-        H.place_lamp(kit, 'door-r', 4.4, Q['lobbyFloor'] + 2.6, face, (0, 0, -1), 0.7, 0.18, 'amber', -0.12)
+        # Sconces beside the 2.2 m leaf. A bar across the door is the old white band.
+        H.place_lamp(kit, 'door-l', -4.4, Q['lobbyFloor'] + 1.5, face, (0, 0, -1), 0.55, 1.6, 'amber', -0.08)
+        H.place_lamp(kit, 'door-r', 4.4, Q['lobbyFloor'] + 1.5, face, (0, 0, -1), 0.55, 1.6, 'amber', -0.08)
     flush_detail()
     door_clear = H.gap_at(host, (0, 59.15, Q['lobbyFloor'] + 1.1))
     return {
@@ -222,7 +222,7 @@ def build_lapd(kit, rank):
         'doorClearM': door_clear,
         'heightTip': mast_top,
         'heightRoof': Q['height'],
-        'door': {'min': [-1.0, 5.35, -59.35], 'max': [1.0, 7.25, -58.85]},
+        'door': {'min': [-1.1, 5.2, -59.4], 'max': [1.1, 7.4, -58.7]},
         'stair': {
             'z0': z0, 'z1': z1, 'y0': 0.18, 'y1': Q['lobbyFloor'],
             **flight, 'rail': H.RAIL_H, 'width': 30,
@@ -719,6 +719,20 @@ def _wing_roofs(Q, shaft, wing_h):
         hip.data.materials.append(clay)
 
 
+def _add_drum(mass, y, radius, height, sides):
+    bm = bmesh.new()
+    bmesh.ops.create_cone(
+        bm, cap_ends=True, segments=sides,
+        radius1=radius, radius2=radius * 0.9, depth=height,
+    )
+    bmesh.ops.translate(bm, verts=list(bm.verts), vec=(0.0, 0.0, y + height * 0.5))
+    mass.solids.append(H.mesh_of(bm, 'hall-drum'))
+    mass.parts.append({
+        'type': 'box', 'cx': 0.0, 'cz': 0.0, 'y': y,
+        'w': radius * 2, 'd': radius * 2, 'h': height,
+    })
+
+
 def _colonnade_lamps(kit, Q):
     # Short sconces on the shaft, just under the columns, so the colonnade is lit.
     y = Q['shaftTop'] - 1.1
@@ -801,10 +815,9 @@ def build_hall(kit, rank):
         y0 = pyr0 + rise * i
         span = span0 + (span1 - span0) * (i / float(n_steps))
         mass.box(0, 0, y0, span, span, rise + 0.2)
-    # Closed white lantern. A slot cut here leaves a loose chip on the cap.
-    lantern_h = Q['lanternTop'] - pyramid_top
-    mass.box(0, 0, pyramid_top - 0.1, 6.4, 6.4, lantern_h + 0.24)
-    mass.box(0, 0, Q['lanternTop'], 1.15, 1.15, Q['height'] - Q['lanternTop'])
+    # Round lantern on the top terrace. A square cap reads as a gold box.
+    _add_drum(mass, pyramid_top - 0.35, 2.15, (Q['lanternTop'] - pyramid_top) + 0.7, 16)
+    mass.box(0, 0, Q['lanternTop'], 0.7, 0.7, Q['height'] - Q['lanternTop'])
     # Pier relief sits outside the stone. The collar is the envelope, not extra stone.
     _rec(mass.parts, 0, 0, 0, Q['baseW'] + 2.6, Q['baseD'] + 2.6, base_h + 0.6)
     _rec(mass.parts, 0, 0, base_h + 1.2, shaft + 2.6, shaft + 2.6, shaft_top - base_h)
@@ -851,7 +864,7 @@ def build_hall(kit, rank):
         'doorClearM': door_clear,
         'heightTip': Q['height'],
         'heightRoof': pyramid_top,
-        'door': {'min': [-1.0, 3.75, 30.7], 'max': [1.0, 5.65, 31.35]},
+        'door': {'min': [-1.1, 3.6, 30.5], 'max': [1.1, 5.8, 31.4]},
         'stair': {
             'z0': z0, 'z1': z1, 'y0': 0.16, 'y1': 3.6,
             **flight, 'rail': H.RAIL_H, 'width': 22,

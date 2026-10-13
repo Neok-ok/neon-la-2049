@@ -240,12 +240,13 @@ async function loadGlb(url: string): Promise<Group> {
       if (target.kind === 'lapd' || target.kind === 'wallace') std.side = DoubleSide;
       if (mesh.geometry.getAttribute('color')) std.vertexColors = true;
       if (name.includes('deck-stone')) {
-        std.color = new Color(0.68, 0.72, 0.78);
+        // Pale metal, not a blown white plane. Pad squares have to survive the top shot.
+        std.color = new Color(0.46, 0.49, 0.54);
         std.map = null;
         std.normalMap = null;
         std.roughnessMap = null;
-        std.roughness = 0.36;
-        std.metalness = 0.48;
+        std.roughness = 0.58;
+        std.metalness = 0.18;
         std.vertexColors = false;
       }
       if (name.includes('light-') && std.emissive) {
@@ -322,15 +323,17 @@ function shotsFor(kind: Kind, box: Box3): Shot[] {
   const sign = entranceSign(kind);
   const front = new Vector3(0.15, 0.22, sign);
   const quarter = kind === 'lapd'
-    ? new Vector3(0.72, 0.26, 0.55)
+    ? new Vector3(0.72, 0.26, -0.55)
     : new Vector3(0.85, 0.32, sign * 0.7);
   const side = new Vector3(1, 0.16, 0.04);
   const above = new Vector3(0.04, 1, sign * 0.08);
   const upTop = new Vector3(0, 0, sign);
-  const doorY = kind === 'lapd' ? 36 : kind === 'hall' ? 16 : 120;
-  const doorZ = kind === 'lapd' ? -78 : kind === 'hall' ? 42 : -1860;
+  const doorY = kind === 'lapd' ? 7.2 : kind === 'hall' ? 16 : 120;
+  const doorZ = kind === 'lapd' ? -60 : kind === 'hall' ? 42 : -1860;
   const door = new Vector3(0, doorY, doorZ);
-  const doorRadius = kind === 'wallace' ? 780 : kind === 'lapd' ? 92 : 42;
+  const doorRadius = kind === 'wallace' ? 780 : kind === 'lapd' ? 16 : 42;
+  const doorFov = kind === 'lapd' ? 40 : kind === 'wallace' ? 36 : 34;
+  const doorDir = kind === 'lapd' ? new Vector3(0.22, 0.06, sign) : kind === 'wallace' ? new Vector3(0.22, 0.05, sign * 0.97) : front;
   const crownY = kind === 'wallace' ? 3360 : kind === 'hall' ? 118 : 186;
   const crown = new Vector3(0, crownY, 0);
   const crownRadius = kind === 'wallace' ? 380 : kind === 'hall' ? 32 : 62;
@@ -346,11 +349,11 @@ function shotsFor(kind: Kind, box: Box3): Shot[] {
   };
   return [
     { label: 'night · three-quarter', light: 'night', angle: '34', pose: whole(quarter) },
-    { label: 'night · entrance', light: 'night', angle: 'entrance', pose: (c) => aim(c, kind === 'wallace' ? new Vector3(0.22, 0.05, sign * 0.97) : front, kind === 'wallace' ? new Vector3(0, 46, -1564) : door, kind === 'wallace' ? 248 : doorRadius, kind === 'wallace' ? 36 : 34) },
+    { label: 'night · entrance', light: 'night', angle: 'entrance', pose: (c) => aim(c, doorDir, kind === 'wallace' ? new Vector3(0, 46, -1564) : door, kind === 'wallace' ? 248 : doorRadius, doorFov) },
     { label: 'night · side', light: 'night', angle: 'side', pose: whole(side) },
     { label: 'night · top', light: 'night', angle: 'top', pose: whole(above, 26, upTop, plan) },
     { label: 'rim · three-quarter', light: 'rim', angle: '34', pose: whole(quarter) },
-    { label: 'rim · entrance', light: 'rim', angle: 'entrance', pose: (c) => aim(c, kind === 'wallace' ? new Vector3(0.22, 0.05, sign * 0.97) : front, kind === 'wallace' ? new Vector3(0, 46, -1564) : door, kind === 'wallace' ? 248 : doorRadius, kind === 'wallace' ? 36 : 34) },
+    { label: 'rim · entrance', light: 'rim', angle: 'entrance', pose: (c) => aim(c, doorDir, kind === 'wallace' ? new Vector3(0, 46, -1564) : door, kind === 'wallace' ? 248 : doorRadius, doorFov) },
     { label: 'rim · crown', light: 'rim', angle: 'crown', pose: (c) => aim(c, new Vector3(0.72, -0.28, sign * 0.82), crown, crownRadius, 30) },
     { label: 'rim · top', light: 'rim', angle: 'top', pose: whole(above, 26, upTop, plan) },
     { label: 'studio · facade', light: 'studio', angle: 'facade', pose: (c) => aim(c, new Vector3(0.2, 0.05, sign), wall, wallRadius, 28) },
@@ -751,6 +754,16 @@ function addFlight(parent: Group, x: number, y: number, z: number, toward: numbe
   addBox(parent, 0.08, n * rise + RAIL_H, run, x + 0.86, y, z + toward * (run * 0.5), rail);
 }
 
+async function parkSpinner(scene: Scene, x: number, y: number, z: number, yaw: number): Promise<void> {
+  const loader = new GLTFLoader();
+  loader.setMeshoptDecoder(MeshoptDecoder);
+  await MeshoptDecoder.ready;
+  const gltf = await loader.loadAsync('/models/spinner/spinner-low.glb');
+  gltf.scene.position.set(x, y, z);
+  gltf.scene.rotation.y = yaw;
+  scene.add(gltf.scene);
+}
+
 function gauge(parent: Group, x: number, y: number, z: number, toward: number, stairX: number, stairZ: number): void {
   const cloth = concrete(0x3c4558);
   const skin = concrete(0xc2a588);
@@ -771,14 +784,14 @@ function gauge(parent: Group, x: number, y: number, z: number, toward: number, s
   addBox(parent, 0.42, 0.05, 0.08, poleX, y + PERSON_M, z, paint);
   addBox(parent, 0.62, 0.05, 0.08, poleX, y + STOREY_M, z, paint);
   addBox(parent, LANE_M, 0.04, 1.6, x + 4.3, y, z, lane);
-  addFlight(parent, stairX, y, stairZ, toward);
+  if (stairX !== 0 || stairZ !== 0) addFlight(parent, stairX, y, stairZ, toward);
 }
 
 function scaleStand(kind: Kind): { look: Vector3; wide: Vector3; person: Vector3; toward: number; stairX: number; stairZ: number } {
   if (kind === 'lapd') {
-    // The figure stands in the lower third. The door and the podium share that frame.
-    const person = new Vector3(16, 0, -74);
-    return { person, look: new Vector3(2, 3.2, -64), wide: new Vector3(0, 100, -20), toward: 1, stairX: 18, stairZ: -68 };
+    // On the apron, aimed at the 2.2 m leaf so the cut and the flight share the frame.
+    const person = new Vector3(5.2, 0, -71);
+    return { person, look: new Vector3(1.2, 4.6, -63), wide: new Vector3(8, 168, -12), toward: 1, stairX: 16, stairZ: -74 };
   }
   if (kind === 'hall') {
     // Close on the porch so the person, the door and the flight are readable.
@@ -787,7 +800,8 @@ function scaleStand(kind: Kind): { look: Vector3; wide: Vector3; person: Vector3
   }
   // Outside the jamb, on the 3.6 m street courses. The figure stands between the camera and the wall.
   const person = new Vector3(196, 0, -1626);
-  return { person, look: new Vector3(192, 2.4, -1612), wide: new Vector3(0, 1200, -400), toward: 1, stairX: 184, stairZ: -1634 };
+  // No flight on this mesh. A stair gauge here invented the 0.17 m rise.
+  return { person, look: new Vector3(192, 2.4, -1612), wide: new Vector3(0, 1200, -400), toward: 1, stairX: 0, stairZ: 0 };
 }
 
 async function renderScale(
@@ -807,11 +821,14 @@ async function renderScale(
   ground.rotation.x = -Math.PI / 2;
   ground.position.y = box.min.y - 0.02;
   scene.add(ground);
+  if (kind === 'lapd') await parkSpinner(scene, 28, 217.05, -38, 0.4);
+  // Beside the figure, on the apron in front of the stone. The wide shot cannot resolve 5.45 m.
+  if (kind === 'wallace') await parkSpinner(scene, 186, 0, -1628, 0.5);
   const hemi = new HemisphereLight(0xd0d4dc, 0x8a8e94, kind === 'wallace' ? 0.5 : 0.85);
   scene.add(hemi);
   const sign = entranceSign(kind);
   const key = new DirectionalLight(0xffffff, kind === 'wallace' ? 1.5 : 3.4);
-  key.position.set(30, 80, sign * 120);
+  key.position.set(30, kind === 'lapd' ? 320 : 80, sign * 120);
   key.target.position.set(0, kind === 'wallace' ? 200 : 20, 0);
   scene.add(key, key.target);
   const fill = new DirectionalLight(0xe4e8ee, 1.6);
@@ -823,8 +840,11 @@ async function renderScale(
     `${kind} · person ${PERSON_M} m · door ${DOOR_H}×${DOOR_W} m · storey ${STOREY_M} m · lane ${LANE_M} m`
     + ` · building H ${size.y.toFixed(1)} m · ${tris} tris`;
   const labels = document.getElementById('labels')!;
+  const scaleNote = kind === 'wallace'
+    ? `person ${PERSON_M} m · door ${DOOR_H}×${DOOR_W} m · storey ${STOREY_M} m · lane ${LANE_M} m · spinner 5.45 m`
+    : `person ${PERSON_M} m · door ${DOOR_H}×${DOOR_W} m · storey ${STOREY_M} m · lane ${LANE_M} m · stair rise 0.17 m`;
   for (const name of [
-    `person ${PERSON_M} m · door ${DOOR_H}×${DOOR_W} m · storey ${STOREY_M} m · lane ${LANE_M} m · stair rise 0.17 m`,
+    scaleNote,
     'whole building · same figure',
   ]) {
     const cell = document.createElement('div');
@@ -840,11 +860,16 @@ async function renderScale(
     : kind === 'lapd'
       ? new Vector3(0.8, 0.04, -0.6)
       : new Vector3(0.12, 0.02, -0.99);
-  const closeRadius = kind === 'wallace' ? 8 : kind === 'hall' ? 14 : 12;
-  const closeFov = kind === 'wallace' ? 38 : kind === 'hall' ? 44 : 46;
+  const closeRadius = kind === 'wallace' ? 11 : kind === 'hall' ? 14 : 10;
+  const closeFov = kind === 'wallace' ? 40 : kind === 'hall' ? 44 : 42;
   aim(close, closeDir, stand.look, closeRadius, closeFov);
   const wide = new PerspectiveCamera(28, cellW / cellH, 0.2, 20000);
-  aim(wide, new Vector3(0.55, 0.28, entranceSign(kind) * 0.8), stand.wide, kind === 'wallace' ? 2200 : box.getSize(new Vector3()).y * 0.7, 28);
+  const wideDir = kind === 'lapd'
+    ? new Vector3(0.38, 0.82, -0.48)
+    : new Vector3(0.55, 0.28, entranceSign(kind) * 0.8);
+  const wideRadius = kind === 'wallace' ? 2200 : kind === 'lapd' ? box.getSize(new Vector3()).y * 0.92 : box.getSize(new Vector3()).y * 0.7;
+  const wideFov = kind === 'lapd' ? 34 : 28;
+  aim(wide, wideDir, stand.wide, wideRadius, wideFov);
   renderer.setSize(cellW * 2, cellH, false);
   renderer.setScissorTest(true);
   renderer.setClearColor(0xc5c7ca, 1);
