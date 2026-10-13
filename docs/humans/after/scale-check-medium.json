@@ -1,0 +1,101 @@
+[
+  {
+    "id": "financial-megatowers",
+    "door": "b1-gate",
+    "crownM": 1.8,
+    "doorH": 2.2,
+    "headroom": 0.4,
+    "ratio": 1.21,
+    "band": "none",
+    "carRoofM": null,
+    "carDepthM": null
+  },
+  {
+    "id": "hollywood",
+    "door": "hollywood-lobby:strip",
+    "crownM": 1.8,
+    "doorH": 2.4,
+    "headroom": 0.622,
+    "ratio": 1.326,
+    "band": "walk",
+    "carRoofM": 1.466,
+    "carDepthM": 0.455
+  },
+  {
+    "id": "civic-center",
+    "door": "lapd-hq",
+    "crownM": 1.8,
+    "doorH": 2.2,
+    "headroom": 0.4,
+    "ratio": 1.243,
+    "band": "none",
+    "carRoofM": null,
+    "carDepthM": null
+  },
+  {
+    "id": "south-la-megablocks",
+    "door": "south-la-laundry:yard",
+    "crownM": 1.8,
+    "doorH": 2.35,
+    "headroom": 0.55,
+    "ratio": 1.298,
+    "band": "none",
+    "carRoofM": null,
+    "carDepthM": null
+  },
+  {
+    "id": "lakewood-megablocks",
+    "door": "lakewood-shop:yard",
+    "crownM": 1.8,
+    "doorH": 2.35,
+    "headroom": 0.55,
+    "ratio": 1.298,
+    "band": "none",
+    "carRoofM": null,
+    "carDepthM": null
+  },
+  {
+    "id": "arts-district",
+    "door": "arts-foundry:dock",
+    "crownM": 1.8,
+    "doorH": 2.2,
+    "headroom": 0.4,
+    "ratio": 1.191,
+    "band": "outside",
+    "carRoofM": null,
+    "carDepthM": null
+  },
+  {
+    "id": "southeast-industrial",
+    "door": "southeast-pump:yard",
+    "crownM": 1.8,
+    "doorH": 2.3,
+    "headroom": 0.5,
+    "ratio": 1.269,
+    "band": "none",
+    "carRoofM": null,
+    "carDepthM": null
+  },
+  {
+    "id": "south-bay-refineries",
+    "door": "south-bay-control:yard",
+    "crownM": 1.8,
+    "doorH": 2.4,
+    "headroom": 0.6,
+    "ratio": 1.328,
+    "band": "none",
+    "carRoofM": null,
+    "carDepthM": null
+  },
+  {
+    "id": "harbor",
+    "door": "harbor-control:quay",
+    "crownM": 1.8,
+    "doorH": 2.5,
+    "headroom": 0.7,
+    "ratio": 1.387,
+    "band": "none",
+    "carRoofM": null,
+    "carDepthM": null
+  }
+]

@@ -2299,6 +2299,457 @@ async function boot(quality) {
       if (parked?.ok) pick.car = { name: parked.name, parked: true, x: parked.x, z: parked.z, n: parked.n };
       return { ok: true, dist: pick.dist, lat: pick.lat, doorN: pick.doorN, car: pick.car, person: pick.person, parked, planted };
     };
+    // A 1.80 m walker beside a 2.0–2.4 m door, on the sidewalk, with a car in the
+    // lane at the same depth. The scale frames were failing because the walker
+    // stood on a blank wall or the car sat closer than they did.
+    H.frameScale = async (districtId) => {
+      const a = app();
+      const q = a.query;
+      const layout = q.layout;
+      const far = await import('/src/app/farDistricts.ts');
+      await far.farDistrictsPromise;
+      const interiors = await import('/src/districts/interior-index.ts');
+      await interiors.farInteriorsReady;
+      a.interiors?.adoptNew?.(q);
+      if (a.interiors && !a.interiors.__noRide) {
+        a.interiors.__noRide = true;
+        a.interiors.consumeRide = () => null;
+      }
+      const anchors = [];
+      const api = await import('/src/world/interiors/api.ts');
+      for (const spec of api.allInteriors()) {
+        for (const d of spec.doors) {
+          if (!d.exterior) continue;
+          const b = d.box;
+          const h = b.y1 - b.y0;
+          if (h < 2 || h > 2.55) continue;
+          const here = layout.districtAt(b.x, b.z);
+          if (!here || here.id !== districtId) continue;
+          let ox = b.x - spec.volume.x;
+          let oz = b.z - spec.volume.z;
+          const len = Math.hypot(ox, oz) || 1;
+          ox /= len;
+          oz /= len;
+          anchors.push({
+            id: `${spec.id}:${d.id}`, kind: 'interior',
+            x: b.x, z: b.z, y0: b.y0, y1: b.y1,
+            ox, oz, ax: -oz, az: ox,
+          });
+        }
+      }
+      const parts = await import('/src/world/buildings/parts.ts');
+      const placeMod = await import('/src/world/buildings/place.ts');
+      const geo = await import('/src/world/geo.ts');
+      const { hashString } = await import('/src/core/rng.ts');
+      for (const [id, kind] of [['b1-gate', 'hero-gate'], ['b1-step', 'hero-step']]) {
+        const l = layout.landmarkById(id);
+        if (!l) continue;
+        const here = layout.districtAt(l.x, l.z);
+        if (!here || here.id !== districtId) continue;
+        const w = l.baseWidth;
+        const depth = l.baseDepth ?? w * 0.7;
+        const placed = placeMod.placeHero(kind, w, depth, l.height, (hashString(id) % 1000) / 1000);
+        const door = parts.doorFace(placed.draft);
+        if (!door) continue;
+        const [sx, sz] = geo.bearingToDir(l.bearingDeg);
+        const [tx, tz] = geo.bearingToDir(l.bearingDeg + 90);
+        const x = l.x + sx * door.s + tx * door.t;
+        const z = l.z + sz * door.s + tz * door.t;
+        const ground = layout.heightAt(x, z);
+        anchors.push({
+          id, kind: 'hero',
+          x, z, y0: ground, y1: ground + parts.DOOR_H,
+          ox: -sx, oz: -sz, ax: tx, az: tz,
+        });
+      }
+      if (districtId === 'civic-center') {
+        const civic = await import('/src/districts/civic-center/spec.ts');
+        const l = layout.landmarkById('lapd-hq');
+        if (l) {
+          const yaw = civic.yawOf(l.bearingDeg);
+          const [x, z] = civic.localToWorld(l.x, l.z, yaw, 0, -civic.HQ.podiumD / 2 - 0.2);
+          const y0 = civic.HQ.lobbyFloor;
+          const [ox, oz] = civic.localToWorld(0, 0, yaw, 0, -1);
+          const [ax, az] = civic.localToWorld(0, 0, yaw, 1, 0);
+          anchors.push({
+            id: 'lapd-hq', kind: 'civic',
+            x, z, y0, y1: y0 + civic.HQ.doorHead,
+            ox, oz, ax, az,
+          });
+        }
+      }
+      a.scene.traverse((o) => {
+        if (o.name !== 'arch-door-leaf') return;
+        o.updateWorldMatrix(true, false);
+        const e = o.matrixWorld.elements;
+        const x = e[12];
+        const y = e[13];
+        const z = e[14];
+        const here = layout.districtAt(x, z);
+        if (!here || here.id !== districtId) return;
+        if (anchors.some((n) => Math.hypot(n.x - x, n.z - z) < 3)) return;
+        const len = Math.hypot(e[8], e[10]) || 1;
+        anchors.push({
+          id: 'leaf', kind: 'leaf',
+          x, z, y0: y, y1: y + 2.2,
+          ox: e[8] / len, oz: e[10] / len, ax: e[0], az: e[2],
+        });
+      });
+      if (!anchors.length) return { ok: false, reason: 'no-door' };
+      const r3 = (v) => Math.round(v * 1000) / 1000;
+      const surfaceY = (x, z, hint) => {
+        q.fabricAt(x, z);
+        const gy = q.groundHeight(x, z);
+        if (Math.abs(gy - hint) <= 0.45) return gy;
+        if (!q.insideSolid(x, hint + 0.45, z, 0.12, true)) {
+          for (const below of [0.08, 0.25, 0.45]) {
+            if (q.insideSolid(x, hint - below, z, 0.04, true)) return hint;
+          }
+        }
+        return null;
+      };
+      let best = null;
+      const tried = [];
+      for (const door of anchors) {
+        q.fabricAt(door.x, door.z);
+        let ux = door.ox;
+        let uz = door.oz;
+        const ul = Math.hypot(ux, uz) || 1;
+        ux /= ul;
+        uz /= ul;
+        let ax = door.ax;
+        let az = door.az;
+        const al = Math.hypot(ax, az) || 1;
+        ax /= al;
+        az /= al;
+        const open = (dirx, dirz) => {
+          let n = 0;
+          for (const d of [1.4, 2.4, 3.6]) {
+            const x = door.x + dirx * d;
+            const z = door.z + dirz * d;
+            const gy = surfaceY(x, z, door.y0);
+            if (gy == null) continue;
+            if (!q.insideSolid(x, gy + 1.15, z, 0.15, true)) n++;
+          }
+          return n;
+        };
+        if (open(ux, uz) === 0 && open(-ux, -uz) > 0) { ux = -ux; uz = -uz; }
+        let person = null;
+        // Beside the jamb, almost on the door plane. A metre in front of the
+        // opening makes a 1.80 m walker read as tall as a 2.2 m lintel.
+        for (const out of [0.45, 0.75, 1.15, 1.6, 0.28]) {
+          for (const side of [1.35, -1.35, 1.7, -1.7, 0.9, -0.9]) {
+            const x = door.x + ux * out + ax * side;
+            const z = door.z + uz * out + az * side;
+            const gy = surfaceY(x, z, door.y0);
+            if (gy == null) continue;
+            if (gy + 1.8 > door.y1 - 0.08) continue;
+            if (q.insideSolid(x, gy + 0.9, z, 0.16, true)) continue;
+            const cls = classify(x, z, Math.atan2(ax, az));
+            if (cls?.band === 'road') continue;
+            person = { x, z, gy, out, side, band: cls?.band || 'none' };
+            break;
+          }
+          if (person) break;
+        }
+        if (!person) {
+          tried.push({ id: door.id, reason: 'no-stand' });
+          continue;
+        }
+        let road = false;
+        for (const d of [4, 6.5, 9, 12]) {
+          for (const s of [1, -1]) {
+            const x = person.x + ux * d + ax * s * 2;
+            const z = person.z + uz * d + az * s * 2;
+            const gy = q.groundHeight(x, z);
+            if (Math.abs(gy - person.gy) > 0.6) continue;
+            const cls = classify(x, z, 0);
+            if (cls?.band === 'road') road = true;
+          }
+        }
+        const cam = a.camera;
+        let pose = null;
+        // Stand in the street, off to one side, looking back at the wall so the
+        // doorway and the walker share the frame. A lens aimed down the block
+        // leaves the opening on a side wall and the walker small in the lane.
+        for (const dist of [2.6, 3.4, 4.4, 5.4]) {
+          for (const latSign of [1, -1]) {
+            for (const street of [2.2, 3.2, 4.6, 6.2]) {
+              const px = person.x + ax * latSign * dist + ux * street;
+              const pz = person.z + az * latSign * dist + uz * street;
+              const gy = surfaceY(px, pz, person.gy);
+              if (gy == null || Math.abs(gy - person.gy) > 0.55) continue;
+              if (q.insideSolid(px, gy + 1.3, pz, 0.28, true)) continue;
+              const vx = person.x - px;
+              const vz = person.z - pz;
+              const vlen = Math.hypot(vx, vz) || 1;
+              const towardWall = -((vx / vlen) * ux + (vz / vlen) * uz);
+              if (towardWall < 0.48) continue;
+              if (!line(px, pz, person.x, person.z, Math.min(gy, person.gy))) continue;
+              if (!line(px, pz, door.x, door.z, Math.min(gy, person.gy))) continue;
+              const eye = gy + 1.48;
+              const yaw = Math.atan2(person.x - px, -(person.z - pz));
+              const horiz = vlen;
+              const pitch = Math.atan2((person.gy + 1.15) - eye, horiz);
+              cam.position.set(px, eye, pz);
+              cam.rotation.set(pitch, -yaw, 0, 'YXZ');
+              cam.updateMatrixWorld();
+              const sill = ndc(door.x, door.y0 + 0.08, door.z);
+              const head = ndc(door.x, door.y1 - 0.04, door.z);
+              const feet = ndc(person.x, person.gy + 0.02, person.z);
+              const crown = ndc(person.x, person.gy + 1.8, person.z);
+              if (!sill || !head || !feet || !crown) continue;
+              const pSpan = crown.y - feet.y;
+              const dSpan = head.y - sill.y;
+              const ideal = (door.y1 - door.y0) / 1.8;
+              if (pSpan < 0.36 || pSpan > 0.64) continue;
+              if (dSpan < pSpan * (ideal - 0.08) || dSpan > pSpan * (ideal + 0.16)) continue;
+              if (head.y - crown.y < 0.04) continue;
+              if (Math.abs(feet.y - sill.y) > 0.07) continue;
+              const gap = Math.abs(crown.x - head.x);
+              if (gap < 0.04 || gap > 0.22) continue;
+              if (Math.abs(crown.x) > 0.42 || Math.abs(head.x) > 0.55) continue;
+              if (feet.y < -0.82 || feet.y > -0.02 || crown.y > 0.62) continue;
+              const ratio = dSpan / pSpan;
+              let score = 4 + pSpan * 3 - Math.abs(ratio - (door.y1 - door.y0) / 1.8) * 4;
+              score -= Math.abs(feet.y - sill.y) * 5 + Math.abs(gap - 0.1) * 3;
+              score += towardWall;
+              if (!pose || score > pose.score) {
+                pose = {
+                  score, px, pz, gy, eye, yaw, pitch, latSign, dist, street, road,
+                  ratio, pSpan, dSpan, gap,
+                  sill, head, feet, crown,
+                };
+              }
+            }
+          }
+        }
+        if (!pose) {
+          tried.push({ id: door.id, reason: 'no-pose', band: person.band });
+          continue;
+        }
+        cam.position.set(pose.px, pose.eye, pose.pz);
+        cam.rotation.set(pose.pitch, -pose.yaw, 0, 'YXZ');
+        cam.updateMatrixWorld();
+        const ce = cam.matrixWorld.elements;
+        let rx = ce[0];
+        let rz = ce[2];
+        const rl = Math.hypot(rx, rz) || 1;
+        rx /= rl; rz /= rl;
+        let car = null;
+        if (pose.road) {
+          // Opposite the camera along the facade, in the lane, so the sedan
+          // sits beside the walker instead of between the lens and the door.
+          const alongSign = -pose.latSign;
+          for (const along of [2.4, 3.6, 4.8, 1.4]) {
+            for (const out of [3.2, 4.4, 5.6, 6.8]) {
+              const x = person.x + ux * out + ax * alongSign * along;
+              const z = person.z + uz * out + az * alongSign * along;
+              const gy = q.groundHeight(x, z);
+              if (Math.abs(gy - person.gy) > 0.4) continue;
+              if (q.insideSolid(x, gy + 0.8, z, 0.3, true)) continue;
+              const cls = classify(x, z, 0);
+              if (cls?.band !== 'road') continue;
+              const dCar = Math.hypot(x - pose.px, z - pose.pz);
+              const dMe = Math.hypot(person.x - pose.px, person.z - pose.pz);
+              if (Math.abs(dCar - dMe) > 2.1) continue;
+              const roof = ndc(x, gy + 1.35, z);
+              const tyre = ndc(x, gy + 0.12, z);
+              if (!roof || !tyre || !pose.feet || !pose.crown) continue;
+              if (Math.abs(tyre.y - pose.feet.y) > 0.1) continue;
+              const h = Math.abs(roof.y - tyre.y);
+              if (h < pose.pSpan * 0.5 || h > pose.pSpan * 0.92) continue;
+              const overlap = roof.x > Math.min(pose.crown.x, pose.feet.x) - 0.02
+                && roof.x < Math.max(pose.crown.x, pose.feet.x) + 0.02;
+              if (overlap) continue;
+              if (Math.abs(roof.x) > 0.86) continue;
+              const depth = Math.abs(dCar - dMe);
+              if (!car || depth < car.depth) car = { x, z, y: gy + 0.02, depth, h, roof, tyre };
+            }
+          }
+          if (!car) {
+            for (const along of [1.2, 2.8, 4.2]) {
+              for (const out of [2.4, 4.0, 5.5, 7.2]) {
+                const x = person.x + ux * out + ax * alongSign * along;
+                const z = person.z + uz * out + az * alongSign * along;
+                const gy = q.groundHeight(x, z);
+                if (Math.abs(gy - person.gy) > 0.7) continue;
+                if (q.insideSolid(x, gy + 0.7, z, 0.25, true)) continue;
+                const cls = classify(x, z, 0);
+                if (cls?.band !== 'road') continue;
+                const dCar = Math.hypot(x - pose.px, z - pose.pz);
+                const dMe = Math.hypot(person.x - pose.px, person.z - pose.pz);
+                if (dCar + 0.4 < dMe * 0.82) continue;
+                const roof = ndc(x, gy + 1.35, z);
+                const tyre = ndc(x, gy + 0.12, z);
+                if (!roof || !tyre) continue;
+                if (Math.abs(tyre.y - pose.feet.y) > 0.16) continue;
+                const h = Math.abs(roof.y - tyre.y);
+                if (h < pose.pSpan * 0.4 || h > pose.pSpan * 1.02) continue;
+                if (Math.abs(roof.x - pose.crown.x) < 0.06) continue;
+                if (Math.abs(roof.x) > 0.9) continue;
+                const depth = Math.abs(dCar - dMe);
+                if (!car || depth < car.depth) car = { x, z, y: gy + 0.02, depth, h, roof, tyre };
+              }
+            }
+          }
+        }
+        if (pose.road && !car) {
+          tried.push({ id: door.id, reason: 'door-only', ratio: r3(pose.ratio) });
+        }
+        const score = pose.score - (car ? car.depth * 0.35 : 1.4);
+        if (!best || score > best.score) {
+          best = { score, door, person, pose, car, ux, uz, ax, az };
+        }
+      }
+      if (!best) return { ok: false, reason: 'none', tried: tried.slice(0, 8), anchors: anchors.length };
+      const { door, person, pose, car } = best;
+      const w = a.cams.walk;
+      w.pos.set(pose.px, pose.gy, pose.pz);
+      w.heading = pose.yaw;
+      w.pitch = pose.pitch;
+      window.__dancerPose = { x: pose.px, y: pose.eye, z: pose.pz, yaw: pose.yaw, pitch: pose.pitch };
+      window.__pinDancerCam = () => {
+        const p = window.__dancerPose;
+        if (!p) return;
+        a.cams.walk.pos.set(p.x, p.y - 1.52, p.z);
+        a.cams.walk.heading = p.yaw;
+        a.cams.walk.pitch = p.pitch;
+        a.camera.position.set(p.x, p.y, p.z);
+        a.camera.rotation.set(p.pitch, -p.yaw, 0, 'YXZ');
+        a.camera.updateMatrixWorld();
+      };
+      window.__pinDancerCam();
+      H.hold();
+      window.__pinDancerCam();
+      const c = a.crowd;
+      const mesh = c.mesh;
+      const agent = c.agents[0];
+      const yaw = Math.atan2(best.ax, best.az);
+      const sc = 1;
+      const cos = Math.cos(yaw);
+      const sin = Math.sin(yaw);
+      const arr = mesh.instanceMatrix.array;
+      arr[0] = cos * sc; arr[1] = 0; arr[2] = -sin * sc; arr[3] = 0;
+      arr[4] = 0; arr[5] = sc; arr[6] = 0; arr[7] = 0;
+      arr[8] = sin * sc; arr[9] = 0; arr[10] = cos * sc; arr[11] = 0;
+      arr[12] = person.x; arr[13] = person.gy; arr[14] = person.z; arr[15] = 1;
+      mesh.count = 1;
+      mesh.instanceMatrix.needsUpdate = true;
+      if (agent) {
+        agent.x = person.x; agent.z = person.z; agent.yaw = yaw;
+        agent.height = 1.8; agent.cycle = 0.08; agent.hold = true;
+      }
+      const phase = 0.08;
+      window.__scalePlant = { phase };
+      const motion = c.motionAttr?.array;
+      if (motion) {
+        motion[0] = phase; motion[1] = 1; motion[2] = 0; motion[3] = 0;
+        c.motionAttr.needsUpdate = true;
+      }
+      const style = mesh.geometry.getAttribute('iStyle');
+      const extra = mesh.geometry.getAttribute('iExtra');
+      const coat = mesh.geometry.getAttribute('iCoat');
+      if (style) { style.setXYZW(0, 0, 0, 0, 0); style.needsUpdate = true; }
+      if (extra) { extra.setXYZW(0, 1, 1, 0, 1); extra.needsUpdate = true; }
+      if (coat) { coat.setXYZ(0, 0.32, 0.18, 0.16); coat.needsUpdate = true; }
+      let parked = null;
+      if (car) {
+        a.camera.updateMatrixWorld();
+        const ce = a.camera.matrixWorld.elements;
+        let rx = ce[0];
+        let rz = ce[2];
+        const rl = Math.hypot(rx, rz) || 1;
+        rx /= rl; rz /= rl;
+        let src = null;
+        a.scene.traverse((o) => {
+          if (!src && o.isInstancedMesh && o.name === 'ground-car') src = o;
+        });
+        if (src) {
+          let proof = src.userData.doorProof;
+          if (!proof || proof.userData.srcGeo !== src.geometry) {
+            if (proof) { a.scene.remove(proof); proof.geometry.dispose(); }
+            const geoCar = src.geometry.clone();
+            geoCar.computeBoundingBox();
+            const color = geoCar.getAttribute('color');
+            const emit = geoCar.getAttribute('emit');
+            if (color && emit) {
+              for (let i = 0; i < color.count; i++) {
+                if (emit.getX(i) < 0.5) color.setXYZ(i, 0.72, 0.74, 0.78);
+              }
+              color.needsUpdate = true;
+            }
+            let sample = null;
+            a.scene.traverse((o) => {
+              if (!sample && o.isMesh && !o.isInstancedMesh) sample = o;
+            });
+            if (sample) {
+              proof = new sample.constructor(geoCar, src.material);
+              proof.name = 'scale-car-proof';
+              proof.frustumCulled = false;
+              proof.userData.srcGeo = src.geometry;
+              a.scene.add(proof);
+              src.userData.doorProof = proof;
+            }
+          }
+          if (proof) {
+            const back = a.camera.position.clone().set(0, 0, -1);
+            const aim = a.camera.position.clone().set(rx, 0, rz);
+            if (aim.lengthSq() < 1e-6) aim.set(1, 0, 0);
+            aim.normalize();
+            proof.position.set(car.x, car.y, car.z);
+            proof.quaternion.setFromUnitVectors(back, aim);
+            proof.scale.set(1, 1, 1);
+            proof.visible = true;
+            proof.updateMatrix();
+            const bb = proof.geometry.boundingBox;
+            const roofM = bb ? bb.max.y - bb.min.y : 1.47;
+            parked = { roofM: r3(roofM), depth: r3(car.depth) };
+          }
+        }
+        a.scene.traverse((o) => {
+          if (!o.isInstancedMesh) return;
+          if (o.name === 'traffic-pools' || (o.name && o.name.startsWith('ground-'))) {
+            o.count = 0;
+            o.visible = false;
+          }
+        });
+      }
+      a.interiors?.update?.(0.05, 'walk', pose.px, pose.eye, pose.pz, 1);
+      const headroom = door.y1 - (person.gy + 1.8);
+      return {
+        ok: true,
+        door: door.id,
+        kind: door.kind,
+        band: person.band,
+        crownM: 1.8,
+        doorH: r3(door.y1 - door.y0),
+        headroom: r3(headroom),
+        ratio: r3(pose.ratio),
+        span: r3(pose.pSpan),
+        car: parked,
+        road: pose.road,
+        tried: tried.slice(0, 6),
+      };
+    };
+    H.scaleQuarter = () => {
+      const planted = window.__scalePlant;
+      if (!planted) return { ok: false };
+      planted.phase = (planted.phase + 0.25) % 1;
+      const c = app().crowd;
+      const motion = c.motionAttr?.array;
+      if (motion) {
+        motion[0] = planted.phase;
+        motion[1] = 1;
+        motion[2] = 0;
+        motion[3] = 0;
+        c.motionAttr.needsUpdate = true;
+      }
+      const agent = c.agents[0];
+      if (agent) agent.cycle = planted.phase;
+      window.__pinDancerCam?.();
+      return { ok: true, phase: Math.round(planted.phase * 100) / 100 };
+    };
     window.__retry = H;
   });
 }
@@ -3122,6 +3573,36 @@ print(json.dumps({"left": tall(0, int(w*0.07)), "right": tall(int(w*0.93), w)}))
   return false;
 }
 
+async function settleFrames(n) {
+  for (let i = 0; i < n; i++) await frames();
+}
+
+async function scaleDistrict(id, fn, kinds, tier) {
+  try { await go(fn, kinds[0]); } catch (err) {
+    note('go fail', { id, err: String(err).slice(0, 140) });
+  }
+  await page.evaluate(() => window.__retry.pump());
+  const framed = await page.evaluate((districtId) => window.__retry.frameScale(districtId), id);
+  note('scale frame', { id, tier, framed });
+  if (!framed?.ok) {
+    note('SCALE FAIL', { id, tier, reason: framed?.reason, tried: framed?.tried });
+    return { id, tier, ...framed };
+  }
+  await settleFrames(18);
+  await page.evaluate(() => window.__retry.pour());
+  await page.evaluate(() => window.__pinDancerCam?.());
+  for (let f = 0; f < 4; f++) {
+    if (f > 0) {
+      const stepped = await page.evaluate(() => window.__retry.scaleQuarter());
+      note('scale quarter', { id, tier, f, stepped });
+    }
+    await frames();
+    await page.evaluate(() => window.__pinDancerCam?.());
+    await page.screenshot({ path: `${OUT}/${id}-${tier}-f${f}.png`, timeout: 180000, animations: 'disabled' });
+  }
+  return { id, tier, ...framed };
+}
+
 async function district(id, fn, kinds, tier) {
   if (process.env.STREET_ANCHOR === '1') {
     try { await go(fn, kinds[0]); } catch { /* the street search loads its own block */ }
@@ -3250,6 +3731,15 @@ async function runTier(tier) {
   }
   if (DOOR_ONLY) {
     await doorShot(tier);
+    return;
+  }
+  if (process.env.SCALE_ONLY === '1') {
+    const checks = [];
+    for (const [id, fn, kinds] of DISTRICTS) {
+      if (ONLY.size && !ONLY.has(id)) continue;
+      checks.push(await scaleDistrict(id, fn, kinds, tier));
+    }
+    writeFileSync(`${OUT}/scale-check-${tier}.json`, JSON.stringify(checks, null, 2) + '\n');
     return;
   }
   for (const [id, fn, kinds] of DISTRICTS) {
