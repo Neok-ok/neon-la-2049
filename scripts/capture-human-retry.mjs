@@ -2460,7 +2460,7 @@ async function boot(quality) {
         }
         const shellTop = door.kind === 'interior' ? door.y0 + 3.3 : door.y1;
         const cam = a.camera;
-        let pose = null;
+        const poses = [];
         // Closer, and more square to the opening, so the walker and the
         // surround share the frame instead of a long shot down an empty lot.
         for (const stand of stands) {
@@ -2505,7 +2505,7 @@ async function boot(quality) {
                 if (!sill || !head || !feet || !crown) continue;
                 const pSpan = crown.y - feet.y;
                 const dSpan = head.y - sill.y;
-                if (pSpan < 0.44 || pSpan > 0.7) continue;
+                if (pSpan < 0.42 || pSpan > 0.58) continue;
                 if (dSpan < 0.4) continue;
                 const ratio = dSpan / pSpan;
                 if (ratio < 1.12 || ratio > 1.42) continue;
@@ -2516,30 +2516,53 @@ async function boot(quality) {
                 if (gap < 0.05 || gap > 0.34) continue;
                 if (Math.abs(crown.x) > 0.5 || Math.abs(head.x) > 0.62) continue;
                 if (feet.y < -0.72 || feet.y > -0.14 || crown.y > 0.5) continue;
-                let score = pSpan * 5 - Math.abs(ratio - 1.26) * 5;
+                // Look across the opening. Same-side lenses hide the walker
+                // behind the near jamb.
+                const across = Math.sign(stand.side) !== latSign ? 0.55 : 0;
+                let score = 2.4 - Math.abs(pSpan - 0.5) * 6 - Math.abs(ratio - 1.26) * 5;
                 score -= Math.abs(footDrop - 0.05) * 2 + Math.abs(gap - 0.14) * 2;
-                score += towardWall * 0.5 + (road ? 0.35 : 0);
-                if (!pose || score > pose.score) {
-                  pose = {
-                    score, px, pz, gy, eye, yaw, pitch, latSign, dist, street, road,
-                    ratio, pSpan, dSpan, gap,
-                    sill, head, feet, crown, stand,
-                  };
-                }
+                score += towardWall * 0.4 + (road ? 0.3 : 0) + across;
+                poses.push({
+                  score, px, pz, gy, eye, yaw, pitch, latSign, dist, street, road,
+                  ratio, pSpan, dSpan, gap,
+                  sill, head, feet, crown, stand,
+                });
               }
             }
           }
         }
+        poses.sort((a, b) => b.score - a.score);
+        let pose = null;
+        const THREE = await import('three');
+        const raycaster = new THREE.Raycaster();
+        const rayOrigin = new THREE.Vector3();
+        const rayDir = new THREE.Vector3();
+        for (const cand of poses.slice(0, 10)) {
+          let blocked = false;
+          for (const y of [cand.stand.gy + 1.6, cand.stand.gy + 1.05, cand.stand.gy + 0.4]) {
+            rayOrigin.set(cand.px, cand.eye, cand.pz);
+            rayDir.set(cand.stand.x - cand.px, y - cand.eye, cand.stand.z - cand.pz);
+            const dist = rayDir.length() || 1;
+            rayDir.multiplyScalar(1 / dist);
+            raycaster.set(rayOrigin, rayDir);
+            raycaster.far = dist * 0.78;
+            const hits = raycaster.intersectObject(a.scene, true);
+            if (hits.some((h) => h.object?.visible && h.object.name !== 'scale-car-proof' && h.distance < dist * 0.7)) {
+              blocked = true;
+              break;
+            }
+          }
+          if (blocked) continue;
+          a.interiors?.update?.(0.05, 'walk', cand.px, cand.eye, cand.pz, 0);
+          if (a.interiors?.stats?.interiorOccluded) continue;
+          pose = cand;
+          break;
+        }
         if (!pose) {
-          tried.push({ id: door.id, reason: 'no-pose', stands: stands.length });
+          tried.push({ id: door.id, reason: poses.length ? 'blocked' : 'no-pose', stands: stands.length, poses: poses.length });
           continue;
         }
         const person = pose.stand;
-        a.interiors?.update?.(0.05, 'walk', pose.px, pose.eye, pose.pz, 0);
-        if (a.interiors?.stats?.interiorOccluded) {
-          tried.push({ id: door.id, reason: 'inside', ratio: r3(pose.ratio) });
-          continue;
-        }
         cam.position.set(pose.px, pose.eye, pose.pz);
         cam.rotation.set(pose.pitch, -pose.yaw, 0, 'YXZ');
         cam.updateMatrixWorld();
@@ -2575,6 +2598,16 @@ async function boot(quality) {
                 && roof.x < Math.max(pose.crown.x, pose.feet.x) + 0.02;
               if (overlap) continue;
               if (Math.abs(roof.x) > 0.86) continue;
+              const toX = pose.px - x;
+              const toZ = pose.pz - z;
+              const tlen = Math.hypot(toX, toZ) || 1;
+              if (dCar - 0.95 < dMe * 0.78) continue;
+              const lx = rx * 0.4 + (toX / tlen) * 0.6;
+              const lz = rz * 0.4 + (toZ / tlen) * 0.6;
+              const llen = Math.hypot(lx, lz) || 1;
+              const nose = ndc(x + (lx / llen) * 2, gy + 0.7, z + (lz / llen) * 2);
+              const tail = ndc(x - (lx / llen) * 2, gy + 0.7, z - (lz / llen) * 2);
+              if (nose && tail && Math.abs(nose.x - tail.x) > 0.48) continue;
               const depth = Math.abs(dCar - dMe);
               if (!car || depth < car.depth) car = { x, z, y: gy + 0.02, depth, h, roof, tyre };
             }
@@ -2600,6 +2633,16 @@ async function boot(quality) {
                 if (h < pose.pSpan * 0.4 || h > pose.pSpan * 1.02) continue;
                 if (Math.abs(roof.x - pose.crown.x) < 0.06) continue;
                 if (Math.abs(roof.x) > 0.9) continue;
+                const toX = pose.px - x;
+                const toZ = pose.pz - z;
+                const tlen = Math.hypot(toX, toZ) || 1;
+                if (dCar - 0.95 < dMe * 0.72) continue;
+                const lx = rx * 0.4 + (toX / tlen) * 0.6;
+                const lz = rz * 0.4 + (toZ / tlen) * 0.6;
+                const llen = Math.hypot(lx, lz) || 1;
+                const nose = ndc(x + (lx / llen) * 2, gy + 0.7, z + (lz / llen) * 2);
+                const tail = ndc(x - (lx / llen) * 2, gy + 0.7, z - (lz / llen) * 2);
+                if (nose && tail && Math.abs(nose.x - tail.x) > 0.52) continue;
                 const depth = Math.abs(dCar - dMe);
                 if (!car || depth < car.depth) car = { x, z, y: gy + 0.02, depth, h, roof, tyre };
               }
@@ -2706,7 +2749,13 @@ async function boot(quality) {
           }
           if (proof) {
             const back = a.camera.position.clone().set(0, 0, -1);
-            const aim = a.camera.position.clone().set(rx, 0, rz);
+            const toCam = a.camera.position.clone();
+            toCam.x -= car.x;
+            toCam.z -= car.z;
+            toCam.y = 0;
+            if (toCam.lengthSq() < 1e-6) toCam.set(0, 0, 1);
+            toCam.normalize();
+            const aim = a.camera.position.clone().set(rx * 0.42 + toCam.x * 0.58, 0, rz * 0.42 + toCam.z * 0.58);
             if (aim.lengthSq() < 1e-6) aim.set(1, 0, 0);
             aim.normalize();
             proof.position.set(car.x, car.y, car.z);
