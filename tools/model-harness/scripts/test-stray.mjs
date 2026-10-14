@@ -1,6 +1,7 @@
 // The round-10 spinner shipped with fins, a roof rod, and a rear slab.
 // This asserts that mesh fails the stray gate, and that the shipping tiers pass it.
-import { check, housedWheels } from './stray.mjs';
+import { readFileSync } from 'node:fs';
+import { check, housedWheels, loadGlb } from './stray.mjs';
 
 const FIXTURE = 'tools/model-harness/fixtures/spinner-round10-high.glb';
 const SHIPPING = ['high', 'medium', 'low'].map((lod) => `public/models/spinner/spinner-${lod}.glb`);
@@ -58,4 +59,50 @@ for (const { kind, file } of TRAFFIC) {
     fail(`${file} failed stray gate: protrusion ${report.maxProtrusionM} m, ${report.strayRegions} regions (${regions.join(', ')}), loose ${report.loose.length}, thin ${report.thin.length} ${JSON.stringify(sample)}`);
   }
   console.log(`${file} pass · protrusion ${report.maxProtrusionM} m`);
+}
+
+const scale = JSON.parse(readFileSync('public/models/landmarks/scale.json', 'utf8'));
+for (const kind of ['lapd', 'hall', 'wallace']) {
+  for (const lod of ['high', 'medium', 'low']) {
+    const file = `public/models/landmarks/${kind}-${lod}.glb`;
+    const report = await check(file, undefined, { kind });
+    if (!report.pass) {
+      const sample = [...report.loose, ...report.thin].slice(0, 4);
+      const regions = report.views
+        .filter((view) => view.strayRegions)
+        .slice(0, 4)
+        .map((view) => `${view.id}:${view.maxProtrusionM}`);
+      fail(`${file} failed stray gate: protrusion ${report.maxProtrusionM} m, ${report.strayRegions} regions (${regions.join(', ')}), loose ${report.loose.length}, thin ${report.thin.length} ${JSON.stringify(sample)}`);
+    }
+    const { triangles } = loadGlb(file);
+    let maxY = -Infinity;
+    const door = scale[kind].door;
+    let blocked = 0;
+    for (const tri of triangles) {
+      for (const index of [tri.i0, tri.i1, tri.i2]) {
+        const o = index * 3;
+        const x = tri.verts[o];
+        const y = tri.verts[o + 1];
+        const z = tri.verts[o + 2];
+        if (y > maxY) maxY = y;
+        if (!door) continue;
+        const shrink = 0.08;
+        if (
+          x > door.min[0] + shrink && x < door.max[0] - shrink
+          && y > door.min[1] + shrink && y < door.max[1] - shrink
+          && z > door.min[2] + shrink && z < door.max[2] - shrink
+        ) blocked += 1;
+      }
+    }
+    const tip = scale[kind].heightTip;
+    const tol = kind === 'wallace' ? 1 : 0.35;
+    if (Math.abs(maxY - tip) > tol) {
+      fail(`${file} tip ${maxY.toFixed(2)} m is not the published ${tip} m`);
+    }
+    if (blocked) fail(`${file} has ${blocked} vertices inside the door opening`);
+    if (kind !== 'wallace' && !(scale[kind].doorClearM >= 0.6)) {
+      fail(`${file} door clear is ${scale[kind].doorClearM} m`);
+    }
+    console.log(`${file} pass · protrusion ${report.maxProtrusionM} m · tip ${maxY.toFixed(2)} m`);
+  }
 }

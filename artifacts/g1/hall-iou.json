@@ -1,0 +1,53 @@
+{
+  "alignment": "uniform scale and translation, no non-uniform stretch",
+  "photo": true,
+  "note": "Overlap with hall-day.jpg and the dusk silhouette. Not the mesh envelope.",
+  "views": {
+    "hall-day": {
+      "iou": 0.5921734387782929,
+      "scale": 1.0051485148514854,
+      "translation": [
+        -19.420798166862127,
+        3.4827863413784996
+      ],
+      "ref": "hall-day-ref.pgm",
+      "still": "hall-day.jpg, the 1928 tower from the south-east. White stone above the tree line. The base is in the trees and is not in this mask. A neighbouring tower on the right is excluded.",
+      "camera": {
+        "eye": [
+          48,
+          62,
+          210
+        ],
+        "target": [
+          0,
+          72,
+          0
+        ]
+      },
+      "note": "Three-quarter from the front-right, about the height of the day photo. Uniform scale and translation onto hall-day.jpg."
+    },
+    "hall-dusk": {
+      "iou": 0.6104937986998017,
+      "scale": 1.0265346534653468,
+      "translation": [
+        -45.73882296552712,
+        8.120962583193474
+      ],
+      "ref": "hall-dusk-ref.pgm",
+      "still": "hall-silhouette.png, dusk profile of the shaft and the stepped crown. The foreground roof starts near y=729 and is cut off, along with the person and the railing. The base of the tower is not in this still.",
+      "camera": {
+        "eye": [
+          22,
+          42,
+          168
+        ],
+        "target": [
+          0,
+          108,
+          0
+        ]
+      },
+      "note": "Shaft and crown. The dusk still hides the wings behind a foreground roof, so stone below 30 m is not in this comparison."
+    }
+  }
+}

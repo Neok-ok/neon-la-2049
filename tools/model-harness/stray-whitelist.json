@@ -78,6 +78,11 @@
       "reason": "Canopy glass bedded in the roof."
     },
     {
+      "material": "metal",
+      "allowGapM": 0.1,
+      "reason": "Metal window frames, pad lips and lantern trim bedded in the landmark."
+    },
+    {
       "material": "trim",
       "maxExtentM": 0.45,
       "reason": "Shoulder crease. A bright line on the skin, in short pieces. A longer trim bar is a panel and is not excused."

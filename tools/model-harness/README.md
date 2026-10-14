@@ -193,3 +193,34 @@ PAGE=tools/model-harness/turntable/vehicle.html \
 ```
 
 The vehicle sheet is a front three-quarter, a side, a rear three-quarter and a top view, in rim-lit night and in studio. A 1.80 m figure, a 3.60 m lane and a 2.20 × 1.00 m door stand next to the mesh.
+
+## Landmarks
+
+`tools/model-harness/blender/build_landmarks.py` builds the LAPD block, the jacketed City Hall, and the Wallace pyramid. The kit is the same `parts.py`. Maps are an original trim sheet painted by `paint_landmark_maps.py`. Nothing in the mesh is a downloaded model.
+
+```bash
+blender --background --python tools/model-harness/blender/build_landmarks.py -- --only lapd --lod high
+```
+
+Outputs:
+
+| File | What it is |
+|---|---|
+| `public/models/landmarks/lapd-{high,medium,low}.glb` | LAPD headquarters. High is the full dress. Medium drops the vents and the decal. Low is the shell, the stair and the door. |
+| `public/models/landmarks/hall-{high,medium,low}.glb` | City Hall. Same split. |
+| `public/models/landmarks/wallace-{high,medium,low}.glb` | Wallace pyramid. High adds grooves and tier lamps. Low is the steps, the portal and the lantern. |
+| `public/models/landmarks/scale.json` | Published metres: person 1.80, door 2.20 × 1.00, storey 3.60, the civic flights, the pyramid portal. |
+| `tools/model-harness/silhouettes/{lapd,hall,wallace}.json` | Structural envelope the mesh is booleaned from. Film frames are perspective and are not this trace. |
+
+Film stills stay in `tools/model-harness/.refs/` and are gitignored. The contact sheet is `turntable/building.html`.
+
+```bash
+PAGE=tools/model-harness/turntable/building.html \
+  SRC=lapd TITLE="LAPD HQ" MODE=sheet \
+  OUT=artifacts/g1/lapd-after.png \
+  npm run turntable
+```
+
+`SRC=legacy:lapd` (or `hall`, `wallace`) draws the previous box mass. `MODE` is `sheet`, `silhouette`, `scale`, or `closeups`. Close-ups are 1280 × 1024. The sheet puts the gitignored still beside the top view.
+
+`npm run stray` checks the nine landmark files for protrusion, loose islands and thin plates, and checks the door opening and the mast tip against `scale.json`. Civic touch stays at 2 cm. The Wallace mesh is about 3.6 km across, so its touch tolerance is 8 cm to cover 16-bit position snap. Spinner thresholds are unchanged.

@@ -1,0 +1,55 @@
+{
+  "done": true,
+  "error": null,
+  "size": {
+    "x": 3200.3875051696,
+    "y": 3610.000088664,
+    "z": 3200.3875051696
+  },
+  "tris": 95067,
+  "mode": "sheet",
+  "tiles": [
+    {
+      "label": "night · three-quarter",
+      "light": "night",
+      "angle": "34"
+    },
+    {
+      "label": "night · entrance",
+      "light": "night",
+      "angle": "entrance"
+    },
+    {
+      "label": "night · side",
+      "light": "night",
+      "angle": "side"
+    },
+    {
+      "label": "night · top",
+      "light": "night",
+      "angle": "top"
+    },
+    {
+      "label": "rim · three-quarter",
+      "light": "rim",
+      "angle": "34"
+    },
+    {
+      "label": "rim · entrance",
+      "light": "rim",
+      "angle": "entrance"
+    },
+    {
+      "label": "rim · crown",
+      "light": "rim",
+      "angle": "crown"
+    },
+    {
+      "label": "rim · top",
+      "light": "rim",
+      "angle": "top"
+    }
+  ],
+  "panels": [],
+  "scale": null
+}

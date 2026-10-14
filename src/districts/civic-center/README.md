@@ -18,8 +18,8 @@ Sector 5 central. The real LAPD block and the real City Hall, on the downtown 38
 
 ## What was built
 
-* **LAPD.** Podium 86 × 118 × 18 m, shaft 72 × 100 m, crown 132 × 165 × 62 m, roof at 216 m. Stair 30 m wide, 32 risers, on local −Z (toward City Hall). Lobby is a 17 m recess: floor 5.2 m, ceiling 12.4 m, desk, six columns, two barriers, a directory. Four 22 m pads. Hover altitude 222.5 m. Switch distances 520 / 1,900 m before `landmarkLod`.
-* **City Hall.** Jacketed base 92 × 62 × 28 m, pale shaft 34 m to 100 m, neck to 114 m, pyramid to 132 m, lamp to 138 m. Stair on local +Z. Switch distances 420 / 1,500 m.
+* **LAPD.** Podium 86 × 118 × 18 m, shaft 72 × 100 m, crown 132 × 165 × 62 m, roof at 216 m. Stair 30 m wide, 30 risers, on local −Z (toward City Hall). Lobby floor 5.2 m, ceiling 12.4 m. Four 22 m pads. Hover altitude 222.5 m. Switch distances 520 / 1,900 m before `landmarkLod`. The picture is `public/models/landmarks/lapd-{high,medium,low}.glb`. Colliders, signs and beacons stay here.
+* **City Hall.** Jacketed base 92 × 62 × 28 m, pale shaft 34 m to 100 m, neck to 114 m, pyramid to 132 m, lamp to 138 m. Stair on local +Z, 20 risers. Switch distances 420 / 1,500 m. The picture is `public/models/landmarks/hall-{high,medium,low}.glb`.
 * **Mall.** Fabric suppressed from 100 m past LAPD to 52 m short of City Hall, 40 m off the axis. A landmark slab paves the gap.
 * **Pads.** `lapd-pad-a` and `b` are the plaza-side approaches (the hero shot uses `a`). `c` and `d` use the far side. `lapd-pad-circuit` is a slow loop over the deck. Open lanes: `altBias` 0, fade 70 m, police 1. Avenues keep `altBias` 7 and fade 220 m. `hold-lapd` is untouched.
 * **Words.** Atlas cells only: SECTOR 5 (`phraseSeed(39)`), 2049 (`phraseSeed(62)`), BASELINE on the shaft, PAPER ONLY beside the directory. No seal, no department wordmark. The lobby is still a soffit.
@@ -32,10 +32,7 @@ Street-prop caps: low 320 / 8 / 24, medium 800 / 24 / 56, high 1,800 / 48 / 110,
 
 Measured with a Vite SSR pass over `generateFabric` and the two builders (CPU geometry; SwiftShader is not involved):
 
-| Mesh | LOD0 | LOD1 | LOD2 | Colliders |
-|---|---|---|---|---|
-| LAPD HQ | 2,472 | 662 | 42 | 58 |
-| City Hall | 730 | 240 | 60 | 36 |
+Triangle counts for the glTF shells are in `public/models/landmarks/scale.json`. Ultra and high use the high file. Medium and low use the lighter files. The forecourt and the court stay on the shared city material.
 
 | Chunk | Civic blocks | Boxes | Triangles (×10) | Signs |
 |---|---|---|---|---|

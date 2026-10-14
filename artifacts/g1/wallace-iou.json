@@ -1,0 +1,30 @@
+{
+  "alignment": "uniform scale and translation, no non-uniform stretch",
+  "photo": true,
+  "note": "Overlap with the left pyramid in wallace-bts.jpg. No verified overhead of the Wallace pyramids was found.",
+  "views": {
+    "wallace-face": {
+      "iou": 0.6112861736334405,
+      "scale": 1.0316417910447764,
+      "translation": [
+        -8.669296101818887,
+        -26.113398974549952
+      ],
+      "ref": "wallace-face-ref.pgm",
+      "still": "wallace-bts.jpg, the Weta miniature, left pyramid only. The still is a low oblique of one face, cropped through the base. It is not a top view. No verified overhead of the Wallace pyramids was found in the Weta workshop notes or the published stills searched for this pass.",
+      "camera": {
+        "eye": [
+          180,
+          220,
+          -2600
+        ],
+        "target": [
+          0,
+          1700,
+          -700
+        ]
+      },
+      "note": "Low oblique of the entrance face, cropped the way wallace-bts.jpg crops one pyramid. There is no verified top-down still."
+    }
+  }
+}

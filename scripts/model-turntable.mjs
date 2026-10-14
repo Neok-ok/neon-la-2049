@@ -31,15 +31,16 @@ const url = new URL(PAGE, BASE);
 url.searchParams.set('src', SRC);
 url.searchParams.set('title', TITLE);
 url.searchParams.set('mode', MODE);
+if (process.env.BLIND === '1') url.searchParams.set('blind', '1');
 await page.goto(url.href, { waitUntil: 'domcontentloaded', timeout: 180_000 });
-await page.waitForFunction(() => window.__harness && (window.__harness.done || window.__harness.error), null, { timeout: 180_000 });
+await page.waitForFunction(() => window.__harness && (window.__harness.done || window.__harness.error), null, { timeout: 480_000 });
 const harness = await page.evaluate(() => window.__harness);
 if (!harness?.done) {
   console.error(JSON.stringify({ harness, errors }, null, 2));
   await browser.close();
   process.exit(1);
 }
-if (MODE === 'sheet') {
+if (MODE === 'sheet' && process.env.BLIND !== '1') {
   await page.waitForFunction(() => {
     const imgs = [...document.querySelectorAll('#labels img')];
     return imgs.length > 0 && imgs.every((img) => img.complete && img.naturalWidth > 0);

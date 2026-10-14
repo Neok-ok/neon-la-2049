@@ -1,0 +1,21 @@
+{
+  "done": true,
+  "error": null,
+  "size": {
+    "x": 3200.3875051696,
+    "y": 3610.000088664,
+    "z": 3200.3875051696
+  },
+  "tris": 95067,
+  "mode": "scale",
+  "tiles": [],
+  "panels": [],
+  "scale": {
+    "person": 1.8,
+    "doorH": 2.2,
+    "doorW": 1,
+    "storey": 3.6,
+    "lane": 3.5,
+    "height": 3610.000088664
+  }
+}

@@ -18,12 +18,21 @@ const FRUSTUM_PATH = join(HARNESS, 'silhouettes', 'frustum.json');
 const OBLIQUE_PPM = 80;
 const OBLIQUE_HALF = 3.8;
 const VOXEL = 0.02;
+const LANDMARK_KINDS = new Set(['lapd', 'hall', 'wallace']);
 
 export async function check(glbPath, whitelistPath = join(HARNESS, 'stray-whitelist.json'), options = {}) {
   await MeshoptDecoder.ready;
   const spec = JSON.parse(readFileSync(whitelistPath, 'utf8'));
+  const landmark = options.kind && LANDMARK_KINDS.has(options.kind)
+    ? buildLandmarkReference(options.kind)
+    : null;
   // Spinner boxes describe K's drums and skirt. They must not excuse a traffic car.
-  if (options.kind) {
+  if (landmark) {
+    spec.justified = options.justified ?? landmark.justified;
+    // A 3.6 km mesh at 16-bit positions snaps by about 5 cm. Civic meshes
+    // snap by a few millimetres and keep the 2 cm rule.
+    if (options.kind === 'wallace') spec.touchM = 0.08;
+  } else if (options.kind) {
     const traffic = JSON.parse(readFileSync(join(HARNESS, 'stray-traffic.json'), 'utf8'));
     spec.justified = options.justified ?? traffic[options.kind] ?? [];
   }
@@ -41,7 +50,11 @@ export async function check(glbPath, whitelistPath = join(HARNESS, 'stray-whitel
   let frustum;
   let refs;
   let length = lengthM;
-  if (options.kind) {
+  if (landmark) {
+    frustum = landmark.frustum;
+    refs = landmark.refs;
+    if (!length) length = landmark.lengthM;
+  } else if (options.kind) {
     const built = buildTrafficReference(options.kind);
     frustum = built.frustum;
     refs = built.refs;
@@ -87,7 +100,7 @@ function round(n) {
   return Math.round(n * 1000) / 1000;
 }
 
-function loadGlb(path) {
+export function loadGlb(path) {
   const data = readFileSync(path);
   const jsonLen = data.readUInt32LE(12);
   const json = JSON.parse(data.subarray(20, 20 + jsonLen).toString('utf8'));
@@ -343,6 +356,123 @@ function paintCircle(frame, cx, cy, radius) {
       if (dx * dx + dy * dy <= r2) mask[row + x] = 255;
     }
   }
+}
+
+function partCorners(part) {
+  const corners = [];
+  if (part.type === 'frustum') {
+    for (const [w, d, y] of [[part.w0, part.d0, part.y], [part.w1, part.d1, part.y + part.h]]) {
+      for (const sx of [-1, 1]) {
+        for (const sz of [-1, 1]) {
+          corners.push([part.cx + sx * w * 0.5, y, part.cz + sz * d * 0.5]);
+        }
+      }
+    }
+    return corners;
+  }
+  for (const sx of [-1, 1]) {
+    for (const sy of [0, 1]) {
+      for (const sz of [-1, 1]) {
+        corners.push([
+          part.cx + sx * part.w * 0.5,
+          part.y + sy * part.h,
+          part.cz + sz * part.d * 0.5,
+        ]);
+      }
+    }
+  }
+  return corners;
+}
+
+function blankFrame(x0, x1, y0, y1, ppm) {
+  const w = Math.max(1, Math.round((x1 - x0) * ppm));
+  const h = Math.max(1, Math.round((y1 - y0) * ppm));
+  return {
+    mask: new Uint8Array(w * h),
+    w,
+    h,
+    ppm,
+    x0,
+    y1,
+    bounds: { x0, x1, z0: y0, z1: y1 },
+    mode: 'xz',
+  };
+}
+
+function paintProjected(frame, corners, project) {
+  let u0 = Infinity;
+  let u1 = -Infinity;
+  let v0 = Infinity;
+  let v1 = -Infinity;
+  for (const p of corners) {
+    const [u, v] = project(p);
+    if (u < u0) u0 = u;
+    if (u > u1) u1 = u;
+    if (v < v0) v0 = v;
+    if (v > v1) v1 = v;
+  }
+  paintRect(frame, u0, v0, u1, v1);
+}
+
+function dilateMask(mask, w, h, radiusPx) {
+  if (!(radiusPx >= 0.5)) return mask;
+  const r = Math.ceil(radiusPx);
+  const r2 = radiusPx * radiusPx;
+  const out = new Uint8Array(mask.length);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (!mask[y * w + x]) continue;
+      const yLo = Math.max(0, y - r);
+      const yHi = Math.min(h - 1, y + r);
+      const xLo = Math.max(0, x - r);
+      const xHi = Math.min(w - 1, x + r);
+      for (let yy = yLo; yy <= yHi; yy++) {
+        const dy = yy - y;
+        const row = yy * w;
+        for (let xx = xLo; xx <= xHi; xx++) {
+          const dx = xx - x;
+          if (dx * dx + dy * dy <= r2) out[row + xx] = 255;
+        }
+      }
+    }
+  }
+  return out;
+}
+
+function buildLandmarkReference(kind) {
+  const file = join(HARNESS, 'silhouettes', `${kind}.json`);
+  const spec = JSON.parse(readFileSync(file, 'utf8'));
+  const b = spec.bounds;
+  const pad = spec.pad ?? 8;
+  const ppm = spec.ppm;
+  const side = blankFrame(-(b.maxZ + pad), -(b.minZ - pad), b.minY - pad, b.maxY + pad, ppm);
+  const front = blankFrame(b.minX - pad, b.maxX + pad, b.minY - pad, b.maxY + pad, ppm);
+  const top = blankFrame(-(b.maxZ + pad), -(b.minZ - pad), -(b.maxX + pad), -(b.minX - pad), ppm);
+  const views = [
+    [side, (p) => [-p[2], p[1]]],
+    [front, (p) => [p[0], p[1]]],
+    [top, (p) => [-p[2], -p[0]]],
+  ];
+  for (const part of spec.parts) {
+    const corners = partCorners(part);
+    for (const [frame, project] of views) paintProjected(frame, corners, project);
+  }
+  const dilatePx = (spec.dilateM ?? 0.55) * ppm;
+  for (const frame of [side, front, top]) {
+    frame.mask = dilateMask(frame.mask, frame.w, frame.h, dilatePx);
+  }
+  const frustum = {
+    ppm,
+    side: { x0: side.x0, x1: side.x0 + side.w / ppm, z0: side.y1 - side.h / ppm, z1: side.y1 },
+    front: { x0: front.x0, x1: front.x0 + front.w / ppm, z0: front.y1 - front.h / ppm, z1: front.y1 },
+    top: { x0: top.x0, x1: top.x0 + top.w / ppm, y0: top.y1 - top.h / ppm, y1: top.y1 },
+  };
+  return {
+    frustum,
+    refs: { side, front, top, ppm, oblique: spec.oblique },
+    lengthM: spec.lengthM,
+    justified: spec.justified,
+  };
 }
 
 function buildTrafficReference(kind) {
@@ -1070,7 +1200,8 @@ function splitComponents(tris) {
         if (p[2] > maxZ) maxZ = p[2];
       }
     }
-    samples.push(...points);
+    // A spread of a kilometre-scale shell overflows the call stack.
+    for (let i = 0; i < points.length; i++) samples.push(points[i]);
     const dims = [maxX - minX, maxY - minY, maxZ - minZ].sort((a, b) => a - b);
     const thickness = dims[0];
     const extent = dims[2];
@@ -1153,7 +1284,12 @@ function addTriangle(surface, a, b, c) {
   const x1 = Math.floor(maxX / cell);
   const y1 = Math.floor(maxY / cell);
   const z1 = Math.floor(maxZ / cell);
-  if (x1 - x0 > 48 || y1 - y0 > 48 || z1 - z0 > 48) {
+  const sx = x1 - x0;
+  const sy = y1 - y0;
+  const sz = z1 - z0;
+  // A 4 m triangle on a 0.1 m grid is forty cells on a side. Indexing every
+  // cell of a few thousand of those is hundreds of millions of entries.
+  if (sx > 16 || sy > 16 || sz > 16 || (sx + 1) * (sy + 1) * (sz + 1) > 96) {
     surface.overflow.push(id);
     return;
   }

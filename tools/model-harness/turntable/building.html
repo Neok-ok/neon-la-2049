@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="data:,">
+    <title>Landmark turntable</title>
+    <style>
+      html, body { margin: 0; background: #07080c; }
+      #sheet { background: #101218; color: #e8e4dc; font: 14px/1.3 ui-sans-serif, system-ui, sans-serif; }
+      header { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 10px 14px 8px; }
+      header strong { font-size: 18px; letter-spacing: 0.02em; }
+      #dims { text-align: right; }
+      #frame { position: relative; }
+      canvas { display: block; }
+      #labels { position: absolute; inset: 0; pointer-events: none; }
+      #labels .cell { position: relative; }
+      #labels span {
+        position: absolute; left: 8px; bottom: 8px;
+        background: rgba(0, 0, 0, 0.62); padding: 2px 7px; border-radius: 2px;
+      }
+      #labels img {
+        position: absolute; top: 0; right: 0; height: 100%;
+        object-fit: contain; background: #07080c;
+        border-left: 1px solid rgba(255,255,255,0.16);
+      }
+      #labels em {
+        position: absolute; right: 6px; bottom: 6px; font-style: normal; font-size: 11px;
+        background: rgba(0, 0, 0, 0.62); padding: 1px 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="sheet">
+      <header>
+        <strong id="title">landmark</strong>
+        <span id="dims"></span>
+      </header>
+      <div id="frame">
+        <canvas id="view"></canvas>
+        <div id="labels"></div>
+      </div>
+    </div>
+    <script type="module" src="./building-turntable.ts"></script>
+  </body>
+</html>
