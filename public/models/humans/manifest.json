@@ -1,0 +1,80 @@
+{
+  "crowd": {
+    "bones": [
+      "pelvis",
+      "spine",
+      "chest",
+      "head",
+      "thighL",
+      "shinL",
+      "footL",
+      "thighR",
+      "shinR",
+      "footR",
+      "armUL",
+      "armFL",
+      "handL",
+      "armUR",
+      "armFR",
+      "handR",
+      "coat",
+      "hood",
+      "bag",
+      "umbrella"
+    ],
+    "clips": [
+      "stand",
+      "walk",
+      "walkNarrow",
+      "walkWide",
+      "umbrellaIdle",
+      "umbrellaWalk",
+      "queue",
+      "gaze",
+      "vendor"
+    ],
+    "frames": 16,
+    "stride": 1.42,
+    "palette": {
+      "width": 120,
+      "height": 144,
+      "min": -1.5,
+      "max": 2.5,
+      "file": "crowd-palette.bin"
+    },
+    "parts": {
+      "torso": 0,
+      "head": 1,
+      "legL": 2,
+      "legR": 3,
+      "armL": 4,
+      "armR": 5,
+      "coat": 6,
+      "canopy": 7,
+      "shaft": 8,
+      "hood": 9,
+      "hat": 10,
+      "bag": 11,
+      "shortCoat": 12,
+      "rainArm": 15,
+      "respirator": 16
+    }
+  },
+  "dancer": {
+    "frames": 32,
+    "period": 5.235987755983333,
+    "palette": {
+      "width": 66,
+      "height": 32,
+      "min": -8.0,
+      "max": 8.0,
+      "file": "dancer-palette.bin"
+    }
+  },
+  "textures": {
+    "atlas": "crowd-atlas.ktx2",
+    "atlasFallback": "crowd-atlas.png",
+    "mask": "dancer-mask.ktx2",
+    "maskFallback": "dancer-mask.png"
+  }
+}

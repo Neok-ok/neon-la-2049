@@ -210,6 +210,23 @@ function paintOf(id: 'car' | 'hauler', kind: string): { color: Color; emit: numb
   return { color: id === 'hauler' ? BODY.hauler : BODY.car, emit: 0 };
 }
 
+// gltfpack stores positions as uint16 with the decode scale on the node.
+// applyMatrix4 writes the transformed floats back into that array, and uint16
+// wraps them to 0 / 65535, so the baked car collapses. Expand to float32 first.
+function asFloat32(geo: BufferGeometry, name: string): void {
+  const attr = geo.getAttribute(name);
+  if (!attr || attr.array instanceof Float32Array) return;
+  const item = attr.itemSize;
+  const out = new Float32Array(attr.count * item);
+  for (let i = 0; i < attr.count; i++) {
+    const o = i * item;
+    out[o] = attr.getX(i);
+    if (item > 1) out[o + 1] = attr.getY(i);
+    if (item > 2) out[o + 2] = attr.getZ(i);
+  }
+  geo.setAttribute(name, new Float32BufferAttribute(out, item));
+}
+
 function bake(root: Object3D, id: 'car' | 'hauler'): BufferGeometry {
   root.updateWorldMatrix(true, true);
   const parts: BufferGeometry[] = [];
@@ -217,6 +234,8 @@ function bake(root: Object3D, id: 'car' | 'hauler'): BufferGeometry {
     const mesh = obj as Mesh;
     if (!mesh.isMesh) return;
     const src = mesh.geometry.clone();
+    asFloat32(src, 'position');
+    asFloat32(src, 'normal');
     src.applyMatrix4(mesh.matrixWorld);
     const paint = paintOf(id, kindOf(mesh));
     parts.push(tag(src, paint.color, paint.emit));
