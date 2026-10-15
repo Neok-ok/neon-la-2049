@@ -18,7 +18,10 @@ const shots = [
   {
     name: 'launch',
     weather: 'clear',
-    go: async () => { await window.__nla.laxView('burn'); },
+    go: async () => {
+      await window.__nla.laxView('burn');
+      window.__nla.smokeView('launch');
+    },
     ready: (sm) => sm.warm <= 16 && sm.launch >= 60,
   },
   {
@@ -134,14 +137,27 @@ async function settle(page, shot) {
   // SwiftShader delivers few timers while the page is busy. Step the sim here so
   // the plume has aged before the still, instead of photographing the first puffs.
   page.setDefaultTimeout(180000);
-  await page.evaluate(async () => {
+  log(`  pump ${shot.name}`);
+  await page.evaluate(async (name) => {
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-    for (let i = 0; i < 8; i++) {
-      if (typeof window.__k1Pump === 'function') window.__k1Pump(1);
-      await wait(0);
+    const pump = async (n) => {
+      for (let i = 0; i < n; i++) {
+        if (typeof window.__k1Pump === 'function') window.__k1Pump(1);
+        await wait(0);
+      }
+    };
+    await pump(8);
+    if (name === 'launch') {
+      window.__nla.smokeView('launch');
+      await pump(3);
     }
     window.__k1Frames = false;
-  });
+  }, shot.name);
+  log(`  pumped ${shot.name}`);
+  if (shot.name === 'traffic') {
+    const posed = await page.evaluate(() => window.__nla.smokeView('exhaust'));
+    log(`  pose traffic ${posed}`);
+  }
   const deadline = Date.now() + 20000;
   let last = '';
   while (Date.now() < deadline) {
@@ -196,7 +212,9 @@ for (const tier of TIERS) {
     });
     const t0 = Date.now();
     try {
+      log(`${tier} ${shot.name} boot`);
       await boot(page, tier);
+      log(`${tier} ${shot.name} settle`);
       const snap = await settle(page, shot);
       await page.evaluate(() => document.getElementById('loading')?.remove());
       await sleep(600);

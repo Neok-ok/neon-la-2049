@@ -73,7 +73,7 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       // cuts a quad into a triangle.
       const edge = float(1).sub(smoothstep(float(0.48), float(0.9), rad));
       const torn = mix(n.r, n.r.mul(float(0.8).add(n.g.mul(0.35))), smokeDetail);
-      const grain = float(0.76).add(n.g.mul(0.42));
+      const grain = float(0.58).add(n.g.mul(0.62));
       const shape = pow(max(torn.mul(edge).mul(grain), float(0)), float(0.9));
       const size = max(puff.w, float(0.4));
       const sceneD = linearDepth(viewportDepthTexture());

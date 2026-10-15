@@ -64,8 +64,8 @@ function buildCanvas(): HTMLCanvasElement {
           const n2 = fbm(u * 6.2 + 2, v * 6.2, seed * 9 + 3);
           const r = Math.hypot(u - 0.5, v - 0.5) * 2;
           // Filled body, noisy edge. Thin wisps disappear on a night sky.
-          const distorted = r + (n - 0.5) * 0.32 + (n2 - 0.5) * 0.1;
-          const body = 1 - smooth(0.5, 1.16, distorted);
+          const distorted = r + (n - 0.5) * 0.48 + (n2 - 0.5) * 0.16;
+          const body = 1 - smooth(0.42, 1.22, distorted);
           const core = 1 - smooth(0.02, 0.5, r);
           let a = Math.max(body * (0.78 + 0.22 * n2), core * 0.42);
           const g = a * smooth(0.22, 0.75, n2);

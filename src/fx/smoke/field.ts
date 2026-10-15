@@ -16,25 +16,26 @@ import { launchStretchAxis, SmokePool, type Wind } from './sim';
 import { PUFF_CAP, PUFF_DETAIL, PUFF_SCALE, aliveBudget } from './tiers';
 import { KIND_NAME, type Mouth, type Puff, type SmokeSnapshot } from './types';
 import {
-  exhaustPose, gatherMouths, stallPose, streetSteamPose, type SmokePose, type Tailpipe,
+  exhaustPose, gatherMouths, launchPose, stallPose, streetSteamPose, type SmokePose, type Tailpipe,
 } from './anchors';
 
 const TINT: Record<(typeof KIND_NAME)[number], [number, number, number]> = {
-  launch: [0.55, 0.52, 0.48],
+  launch: [0.48, 0.45, 0.42],
   ground: [0.32, 0.3, 0.28],
-  stack: [0.34, 0.32, 0.3],
+  stack: [0.4, 0.38, 0.35],
   vent: [0.72, 0.75, 0.78],
   grate: [0.78, 0.8, 0.84],
   stall: [0.84, 0.78, 0.68],
-  exhaust: [0.58, 0.6, 0.62],
+  exhaust: [0.52, 0.5, 0.48],
 };
 
 /** How much practical light this kind takes. Exhaust stays a grey trail. */
 function lampOf(kind: number): number {
-  if (kind === 6) return 0.08;
-  if (kind === 0 || kind === 1) return 0.08;
-  if (kind === 2) return 0.45;
-  return 0.28;
+  if (kind === 6) return 0.05;
+  if (kind === 0 || kind === 1) return 0.06;
+  if (kind === 2) return 0.55;
+  if (kind === 4 || kind === 3) return 0.42;
+  return 0.22;
 }
 
 const WARM_FRAMES = 14;
@@ -56,6 +57,8 @@ export class SmokeField {
   private tier: Tier;
   private cap = 0;
   private warmLeft = WARM_FRAMES;
+  /** Capture holds a fixed step after the warm so a reframe still grows a trail. */
+  private holdStep = false;
   private gatherAt = -1;
   private lastX = 0;
   private lastZ = 0;
@@ -74,8 +77,8 @@ export class SmokeField {
     scene.add(this.root);
     this.mountMesh(PUFF_CAP[tier]);
     steamCardGain.value = 0;
-    setLaunchColumnCover(0.12);
-    setFlareSmokeCover(0.42);
+    setLaunchColumnCover(0);
+    setFlareSmokeCover(0.62);
     smokeDetail.value = PUFF_DETAIL[tier];
   }
 
@@ -99,9 +102,15 @@ export class SmokeField {
     setFlareSmokeCover(1);
   }
 
-  pose(kind: 'stall' | 'exhaust' | 'street', layout: CityLayout): SmokePose | null {
+  seal(): void {
+    this.warmLeft = 0;
+    this.holdStep = true;
+  }
+
+  pose(kind: 'stall' | 'exhaust' | 'street' | 'launch', layout: CityLayout): SmokePose | null {
     if (kind === 'stall') return stallPose(layout);
     if (kind === 'street') return streetSteamPose(layout);
+    if (kind === 'launch') return launchPose(layout);
     return exhaustPose(layout, this.tails);
   }
 
@@ -118,7 +127,8 @@ export class SmokeField {
     if (tier !== this.tier) this.setTier(tier);
     this.tails = tails as Tailpipe[];
     const cam = camera.position;
-    const jumped = this.hasCam && Math.hypot(cam.x - this.lastX, cam.z - this.lastZ) > 80;
+    const moved = this.hasCam ? Math.hypot(cam.x - this.lastX, cam.z - this.lastZ) : 0;
+    const jumped = moved > 120;
     this.hasCam = true;
     if (jumped) {
       this.pool.clear();
@@ -129,14 +139,14 @@ export class SmokeField {
     this.lastX = cam.x;
     this.lastZ = cam.z;
     const now = performance.now();
-    if (this.gatherAt < 0 || now - this.gatherAt > 400 || jumped) {
+    if (this.gatherAt < 0 || now - this.gatherAt > 400 || moved > 5 || jumped) {
       this.mouths = gatherMouths(layout, cam.x, cam.y, cam.z, this.tier, tails);
       this.gatherAt = now;
     }
     const wind: Wind = { dir: windDir, speed: windSpeed, rain };
     this.windDir = windDir;
     const sub = this.warmLeft > 0 ? 16 : 1;
-    const stepDt = this.warmLeft > 0 ? 1 / 30 : Math.min(Math.max(dt, 0), 0.05);
+    const stepDt = this.warmLeft > 0 || this.holdStep ? 1 / 30 : Math.min(Math.max(dt, 0), 0.05);
     const plume = readLaunchPlume();
     camera.getWorldDirection(this.camDir);
     this.forward.x = this.camDir.x;
@@ -261,15 +271,18 @@ export class SmokeField {
       let heat = p.heat;
       if (p.kind === 0) heat *= Math.max(0, 1 - u * 0.85);
       if (p.kind === 2) {
-        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 14));
+        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 28));
         heat *= Math.max(0, 1 - h);
       }
       if (p.kind === 0) {
-        const edge = Math.min(1, Math.abs(p.offS) / 40);
-        lifeA = Math.min(0.96, lifeA * (0.82 + (1 - edge) * 0.38));
-        size *= 0.84 + edge * 0.42;
-        size = Math.min(size, Math.max(4, dist * 0.1));
-        if (dist < 28) lifeA *= Math.min(1, Math.max(0, (dist - 10) / 18));
+        const edge = Math.min(1, Math.abs(p.offS) / 36);
+        lifeA = Math.min(0.86, lifeA * (0.7 + (1 - edge) * 0.45));
+        size *= 0.82 + edge * 0.22;
+        size = Math.min(size, Math.max(6, dist * 0.11));
+        if (dist < 22) lifeA *= Math.min(1, Math.max(0, (dist - 8) / 14));
+      } else if (p.kind === 2) {
+        const h = Math.max(0, p.y - p.floor);
+        size *= 0.72 + 0.55 * Math.abs(Math.sin(h * 0.16 + p.seed * 8));
       } else if (p.kind === 1) {
         size = Math.min(size, Math.max(4, dist * 0.14));
       }
@@ -287,8 +300,8 @@ export class SmokeField {
       const rgb = TINT[name];
       let shadeK = p.shade;
       if (p.kind === 2) {
-        const band = Math.floor(Math.max(0, p.y - p.floor) / 3.2);
-        shadeK *= 0.48 + ((band * 3) % 5) / 5 * 0.9;
+        const band = Math.floor(Math.max(0, p.y - p.floor) / 4.2);
+        shadeK *= 0.42 + ((band * 3) % 5) / 5 * 0.95;
       }
       tint[o] = rgb[0] * shadeK;
       tint[o + 1] = rgb[1] * shadeK;
@@ -312,20 +325,20 @@ export class SmokeField {
   private stretchOf(p: Puff): { x: number; y: number; z: number; w: number } {
     const jitter = 0.82 + p.seed * 0.36;
     if (p.kind === 0) {
-      return { x: this.plumeUp.x, y: this.plumeUp.y, z: this.plumeUp.z, w: 1.12 * jitter };
+      return { x: this.plumeUp.x, y: this.plumeUp.y, z: this.plumeUp.z, w: 1.35 * jitter };
     }
     if (p.kind === 6) {
       const L = Math.hypot(p.vx, p.vz);
-      if (L > 0.15) return { x: p.vx / L, y: 0.04, z: p.vz / L, w: 1.55 * jitter };
-      return { x: 0, y: 1, z: 0, w: 1.1 };
+      if (L > 0.15) return { x: p.vx / L, y: 0.05, z: p.vz / L, w: 2.05 * jitter };
+      return { x: 0, y: 1, z: 0, w: 1.2 };
     }
     if (p.kind === 2) {
-      const wx = Math.cos(this.windDir) * 0.22;
-      const wz = Math.sin(this.windDir) * 0.22;
-      return { x: wx, y: 1, z: wz, w: 1.35 * jitter };
+      const wx = Math.cos(this.windDir) * 0.28;
+      const wz = Math.sin(this.windDir) * 0.28;
+      return { x: wx, y: 1, z: wz, w: 1.22 * jitter };
     }
-    if (p.kind === 5) return { x: 0, y: 1, z: 0, w: 1.35 * jitter };
-    return { x: 0, y: 1, z: 0, w: 1.15 * jitter };
+    if (p.kind === 5) return { x: 0, y: 1, z: 0, w: 1.85 * jitter };
+    return { x: 0, y: 1, z: 0, w: 1.2 * jitter };
   }
 
   snapshot(): SmokeSnapshot {

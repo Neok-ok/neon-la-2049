@@ -63,47 +63,9 @@ function flameFrame(plume: LaunchPlume, cam: Xyz): FlameFrame {
   return { len, halfH, cx, cy, cz, sx, sy, sz, ux, uy, uz, tx, ty, tz };
 }
 
-/** Card up, so launch billboards stretch along the plume instead of sitting as discs. */
-export function launchStretchAxis(cam: Xyz): Xyz {
-  const plume = readLaunchPlume();
-  if (!plume.live) return { x: 0, y: 1, z: 0 };
-  const frame = flameFrame(plume, cam);
-  return { x: frame.ux, y: frame.uy, z: frame.uz };
-}
-
-function viewFacing(p: Xyz, cam: Xyz, fwd: Xyz): number {
-  const dx = p.x - cam.x;
-  const dy = p.y - cam.y;
-  const dz = p.z - cam.z;
-  const dist = Math.hypot(dx, dy, dz) || 1;
-  return (dx * fwd.x + dy * fwd.y + dz * fwd.z) / dist;
-}
-
-/** Spread along every part of the card that faces the camera, so the ribbon ends stay covered. */
-function alongInView(plume: LaunchPlume, frame: FlameFrame, cam: Xyz, fwd: Xyz, rng: Rng): number {
-  const good: number[] = [];
-  let bestA = 0.35;
-  let best = -2;
-  for (let n = 0; n < 28; n++) {
-    const a = 0.03 + (n / 27) * 0.9;
-    const f = viewFacing(flamePoint(plume, frame, a), cam, fwd);
-    if (f > best) { best = f; bestA = a; }
-    if (f > 0.8) good.push(a);
-  }
-  if (good.length && rng.next() < 0.62) {
-    const i = Math.min(good.length - 1, Math.floor(rng.next() * good.length));
-    return good[i]!;
-  }
-  return Math.min(0.96, Math.max(0.03, bestA + (rng.next() * 2 - 1) * 0.3));
-}
-
-function flamePoint(plume: LaunchPlume, frame: FlameFrame, along: number): Xyz {
-  const kY = along * 2 - 1;
-  return {
-    x: frame.cx + frame.ux * kY * frame.halfH + plume.leanX * along,
-    y: frame.cy + frame.uy * kY * frame.halfH,
-    z: frame.cz + frame.uz * kY * frame.halfH + plume.leanZ * along,
-  };
+/** World up. The column is vertical on the pad, and the billboard falls back when that axis points at the camera. */
+export function launchStretchAxis(_cam: Xyz): Xyz {
+  return { x: 0, y: 1, z: 0 };
 }
 
 function approach(current: number, target: number, dt: number, tau: number): number {
@@ -148,30 +110,22 @@ export class SmokePool {
     let z = m.z + Math.sin(ang) * rad;
     let heat = m.heat;
     if (plume && plume.live && m.kind === KIND.launch) {
-      const frame = flameFrame(plume, cam);
-      const card = Math.max(18, plume.halfW * 1.8);
-      // Discrete billows. A uniform fill averages into the flame's rectangle.
-      const clusters = 18;
+      // World-vertical column on the pad. The flame card leans toward the
+      // camera, so riding that card parks the smoke beside the nozzle.
+      const clusters = 16;
       const cluster = Math.floor(r.next() * clusters);
-      let along = (cluster + 0.2 + r.next() * 0.45) / clusters;
-      const visible = alongInView(plume, frame, cam, fwd, r);
-      if (r.next() < 0.35) along = visible;
-      along = Math.min(0.94, Math.max(0.04, along));
+      const along = Math.min(0.96, Math.max(0.01, (cluster + r.next() * 0.55) / clusters));
       p.along = along;
-      const sign = (cluster & 1) ? 1 : -1;
-      const core = r.next() < 0.52;
-      // Core covers the flame. Shell billows sit past the card edge so the
-      // silhouette is smoke, not the rectangle.
-      p.offS = core
-        ? (r.next() * 2 - 1) * card * 0.5
-        : sign * card * (0.95 + r.next() * 0.75) + (r.next() * 2 - 1) * card * 0.06;
-      p.offD = card * (0.05 + r.next() * (core ? 0.14 : 0.22));
-      const axis = flamePoint(plume, frame, along);
-      x = axis.x + frame.sx * p.offS + frame.tx * p.offD;
-      y = axis.y + frame.sy * p.offS + frame.ty * p.offD;
-      z = axis.z + frame.sz * p.offS + frame.tz * p.offD;
-      const axial = 1 - Math.min(1, Math.abs(p.offS) / (card * 0.85 + 1));
-      heat = axial * (core ? 0.14 : 0.04) * (1 - along * 0.65);
+      const lobe = cluster * 2.4;
+      const reach = 2.5 + along * along * 22;
+      const jitter = (3 + along * 9) * (0.35 + r.next() * 0.65);
+      p.offS = Math.cos(lobe) * reach * 0.55 + (r.next() * 2 - 1) * jitter;
+      p.offD = Math.sin(lobe) * reach * 0.55 + (r.next() * 2 - 1) * jitter;
+      x = plume.x + p.offS;
+      y = plume.base + along * 440;
+      z = plume.z + p.offD;
+      const edge = Math.min(1, Math.hypot(p.offS, p.offD) / (reach + 4));
+      heat = (1 - edge) * 0.62 * (1 - along * 0.55);
     }
     p.x = x;
     p.y = y;
@@ -199,33 +153,38 @@ export class SmokePool {
       : m.aspect * (0.62 + r.next() * 0.85);
     p.rise = m.rise;
     p.wind = m.wind;
-    p.shade = m.kind === KIND.exhaust ? 0.62 + r.next() * 0.28
-      : m.kind === KIND.launch ? 0.4 + r.next() * 0.6
-        : m.kind === KIND.stack ? 0.35 + r.next() * 0.6
-          : 0.72 + r.next() * 0.28;
-    if (m.kind === KIND.launch) {
-      const band = Math.floor(p.along * 18);
-      p.shade = 0.3 + ((band * 5 + 3) % 10) / 9 * 0.7;
-      const core = Math.abs(p.offS) < 34;
-      if (core) {
-        p.alpha = Math.min(0.94, p.alpha * 1.12);
-        p.size0 *= 0.9;
-        p.size1 *= 0.88;
-      } else {
-        p.alpha = Math.min(0.88, p.alpha * 0.95);
-        p.size0 *= 1.35;
-        p.size1 *= 1.55;
-        p.shade = Math.min(1, p.shade + 0.12);
-      }
+    p.shade = m.kind === KIND.exhaust ? 0.55 + r.next() * 0.35
+      : m.kind === KIND.launch ? 0.45 + r.next() * 0.4
+        : m.kind === KIND.stack ? 0.32 + r.next() * 0.55
+          : 0.62 + r.next() * 0.3;
+    if (m.kind === KIND.launch && plume && plume.live) {
+      const edge = Math.min(1, Math.hypot(p.offS, p.offD) / (8 + p.along * 24));
+      const band = Math.floor(p.along * 16);
+      p.shade = (0.82 - edge * 0.4) * (0.7 + ((band * 5 + 2) % 7) / 9);
+      p.heat = (1 - edge) * 0.72 * (1 - p.along * 0.5);
+      const grow = 0.55 + p.along * 1.15;
+      p.size0 *= grow;
+      p.size1 *= grow;
+      p.alpha = Math.min(0.9, p.alpha * (edge < 0.5 ? 1.2 : 0.95));
+    }
+    if (m.kind === KIND.stack) {
+      const band = Math.floor(r.next() * 8);
+      const ang = (band * 0.9 + r.next() * 0.6) ;
+      const rad = 0.6 + (band % 3) * 1.8 + r.next() * 1.4;
+      p.y = m.y + band * 4.2 + r.next() * 1.6;
+      p.x = m.x + Math.cos(ang) * rad;
+      p.z = m.z + Math.sin(ang) * rad;
+      p.shade = 0.28 + ((band * 3) % 5) / 5 * 0.62;
+      if (band < 2) p.heat = Math.max(p.heat, 0.55);
     }
     if (m.kind === KIND.stall) {
-      const filament = Math.floor(r.next() * 3);
-      const ang = filament * (Math.PI * 2 / 3) + 0.4;
-      p.ox = m.x + Math.cos(ang) * 0.11;
-      p.oz = m.z + Math.sin(ang) * 0.11;
+      const filament = Math.floor(r.next() * 5);
+      const ang = filament * (Math.PI * 2 / 5) + 0.3;
+      p.ox = m.x + Math.cos(ang) * 0.09;
+      p.oz = m.z + Math.sin(ang) * 0.09;
       p.x = p.ox;
       p.z = p.oz;
-      p.y = m.y + r.next() * 0.05;
+      p.y = m.y + r.next() * 0.04;
     }
     if (m.kind === KIND.ground && plume && plume.live) {
       const rr = 6 + Math.sqrt(r.next()) * 16;
@@ -282,7 +241,7 @@ export class SmokePool {
         p.vz = p.vz * Math.exp(-dt * 0.35) + wobZ * dt;
         p.vy = approach(p.vy, 0.05 * (1 - u), dt, 0.28);
       } else if (p.kind === KIND.grate || p.kind === KIND.vent) {
-        const spread = 0.16 + u * (p.kind === KIND.grate ? 0.85 : 0.4);
+        const spread = 0.04 + u * u * (p.kind === KIND.grate ? 0.42 : 0.22);
         const ax = p.ox + Math.sin(phase + p.age * 0.5) * spread;
         const az = p.oz + Math.cos(phase * 1.31 + p.age * 0.38) * spread * 0.75;
         p.vx = approach(p.vx, (ax - p.x) * 1.5 + wx * p.wind, dt, 0.32);
@@ -310,49 +269,35 @@ export class SmokePool {
     list.length = w;
   }
 
-  /** Keep the puff inside the flame card's volume as it drifts up and outward. */
-  private placeOnRibbon(p: Puff, plume: LaunchPlume, cam: Xyz, fwd: Xyz): void {
+  /** Hold a vertical column on the pad. Lobes drift, the nozzle stays put. */
+  private placeOnRibbon(p: Puff, plume: LaunchPlume, cam: Xyz, _fwd: Xyz): void {
     const frame = flameFrame(plume, cam);
     const u = Math.min(1, p.age / Math.max(0.2, p.life));
-    let along = Math.min(0.96, p.along + u * 0.012);
-    const card = Math.max(18, plume.halfW * 1.8);
-    const lobe = Math.sin(p.age * 0.4 + p.seed * 19) * card * 0.02;
-    const offS = p.offS + lobe;
-    const offD = Math.max(card * 0.04, p.offD);
-    const place = (a: number) => {
-      const axis = flamePoint(plume, frame, a);
-      p.x = axis.x + frame.sx * offS + frame.tx * offD;
-      p.y = axis.y + frame.sy * offS + frame.ty * offD;
-      p.z = axis.z + frame.sz * offS + frame.tz * offD;
-    };
-    place(along);
-    if (viewFacing(p, cam, fwd) < 0.82) {
-      along = p.along;
-      place(along);
-    }
-    for (let i = 0; i < 3 && Math.hypot(p.x - cam.x, p.y - cam.y, p.z - cam.z) < 20; i++) {
-      along = Math.min(0.97, along + 0.04);
-      place(along);
-    }
+    const along = Math.min(0.98, p.along + u * 0.02);
+    const wob = Math.sin(p.age * 0.45 + p.seed * 17) * (1.5 + along * 4);
+    p.y = plume.base + along * 440;
+    p.x = plume.x + p.offS + wob + frame.tx * (3 + along * 4);
+    p.z = plume.z + p.offD + Math.cos(p.age * 0.4 + p.seed * 11) * (1.2 + along * 3) + frame.tz * (3 + along * 4);
+    if (Math.hypot(p.x - cam.x, p.y - cam.y, p.z - cam.z) < 18) p.y += 24;
   }
 
   private holdStack(p: Puff, dt: number, u: number, wind: Wind): void {
-    // Same lean the flare sprite uses. Zero at the mouth, full at the tip,
-    // so the column starts in the flame instead of beside it.
+    // Same lean the flare sprite uses, zero at the mouth. Height lobes
+    // push the column into billows instead of a smooth capsule.
     const lean = 1.5 + Math.min(12, Math.max(0, wind.speed)) * 0.55;
     const rise = Math.max(0, p.y - p.floor);
-    const lift = Math.min(1.35, rise / 18);
+    const lift = Math.min(1.8, rise / 16);
     const ox = p.ox + Math.cos(wind.dir) * lean * lift;
     const oz = p.oz + Math.sin(wind.dir) * lean * lift;
-    const dx = p.x - ox;
-    const dz = p.z - oz;
-    const dist = Math.hypot(dx, dz) || 0.001;
-    const lobe = 0.5 + p.seed * 5.5;
-    const limit = lobe * (0.4 + lift * 0.55) + u * 0.6;
-    const k = 1 - Math.exp(-dt * (dist > limit ? 2.4 : 1.5));
-    const clamped = dist > limit ? limit : dist;
-    p.x += (ox + (dx / dist) * clamped - p.x) * k;
-    p.z += (oz + (dz / dist) * clamped - p.z) * k;
+    const px = -Math.sin(wind.dir);
+    const pz = Math.cos(wind.dir);
+    const bulge = Math.sin(rise * 0.15 + 0.4) * (3.2 + lift * 8);
+    const personal = (p.seed - 0.5) * (2.2 + lift * 4.5);
+    const tx = ox + px * (bulge + personal);
+    const tz = oz + pz * (bulge + personal * 0.65);
+    const k = 1 - Math.exp(-dt * (1.3 + u));
+    p.x += (tx - p.x) * k;
+    p.z += (tz - p.z) * k;
   }
 
   kindCount(kind: KindId): number {
