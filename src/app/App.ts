@@ -1063,7 +1063,9 @@ export class App {
     // A present in the middle of the warm changes the pass state, and the next
     // present then links every mesh that was warmed against the old one.
     // The bar stays up until the opening stream is idle and its programs are in.
-    const opening = !!this.loadingEl;
+    // Capture draws the finished scene immediately. The bar is not the gate there,
+    // and waiting on it left every screenshot with an empty frame.
+    const opening = !!this.loadingEl && !params.capture;
     const openingReady = !opening || (
       this.farApplied && !this.farTask && !!this.streamer?.isIdle() && !this.passPending()
     );
