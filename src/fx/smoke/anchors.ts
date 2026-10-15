@@ -131,15 +131,15 @@ export function gatherMouths(
     const base = plume.base;
     out.push(mouth({
       x: plume.x, y: base + 4, z: plume.z, kind: KIND.launch, weight: 1, life: 8,
-      size0: 18, size1: 42, heat: 0.4, radius: 6,
+      size0: 14, size1: 34, heat: 0.4, radius: 6,
       rise: 4, spread: 0.4, floor: base, wind: 0.02,
-      turb: 1.2, aspect: 0.96, alpha: 0.52,
+      turb: 1.2, aspect: 0.96, alpha: 0.62,
     }));
     out.push(mouth({
-      x: plume.x, y: base + 2, z: plume.z, kind: KIND.ground, weight: 1, life: 5.2,
-      size0: 14, size1: 30, heat: 0.1, radius: 8,
-      rise: 2.4, spread: 1.4, floor: base, wind: 0.1,
-      turb: 1.4, aspect: 0.82, alpha: 0.26,
+      x: plume.x, y: base + 2, z: plume.z, kind: KIND.ground, weight: 1, life: 4.2,
+      size0: 5, size1: 12, heat: 0.08, radius: 6,
+      rise: 1.6, spread: 0.8, floor: base, wind: 0.08,
+      turb: 0.6, aspect: 0.9, alpha: 0.16,
     }));
   }
   const stacks = flamesNear(x, z, 520, STACK_KEEP[tier]);

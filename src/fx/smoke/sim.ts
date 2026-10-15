@@ -113,17 +113,23 @@ export class SmokePool {
     let heat = m.heat;
     if (plume && plume.live && m.kind === KIND.launch) {
       const frame = flameFrame(plume, cam);
-      const along = 0.02 + r.next() * 0.96;
-      const sideR = Math.max(24, plume.halfW * 2.15);
-      const depthR = Math.max(10, plume.halfW * 0.72);
+      let along = 0.5;
+      let axis = flamePoint(plume, frame, along);
+      for (let n = 0; n < 8; n++) {
+        along = 0.04 + r.next() * 0.92;
+        axis = flamePoint(plume, frame, along);
+        const dist = Math.hypot(axis.x - cam.x, axis.y - cam.y, axis.z - cam.z);
+        if (dist > 180 && dist < 1600) break;
+      }
+      const sideR = Math.max(20, plume.halfW * 1.85);
+      const depthR = Math.max(8, plume.halfW * 0.55);
       p.along = along;
       p.offS = (r.next() * 2 - 1) * sideR * Math.sqrt(r.next());
       p.offD = (r.next() * 2 - 1) * depthR * Math.sqrt(r.next());
-      const axis = flamePoint(plume, frame, along);
       x = axis.x + frame.sx * p.offS + frame.tx * p.offD;
       y = axis.y + frame.sy * p.offS + frame.ty * p.offD;
       z = axis.z + frame.sz * p.offS + frame.tz * p.offD;
-      heat = Math.max(0, 1 - Math.abs(p.offS) / (sideR * 0.65)) * Math.max(0, 1 - along * 1.4) * 0.75;
+      heat = Math.max(0, 1 - Math.abs(p.offS) / (sideR * 0.7)) * 0.8;
     }
     p.x = x;
     p.y = y;
@@ -153,7 +159,7 @@ export class SmokePool {
       : m.kind === KIND.launch ? 0.5 + r.next() * 0.6
         : 0.34 + r.next() * 0.75;
     if (m.kind === KIND.ground && plume && plume.live) {
-      const rr = 14 + Math.sqrt(r.next()) * 34;
+      const rr = 6 + Math.sqrt(r.next()) * 16;
       const a2 = r.next() * Math.PI * 2;
       p.x = plume.x + Math.cos(a2) * rr;
       p.z = plume.z + Math.sin(a2) * rr;
