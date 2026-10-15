@@ -18,7 +18,7 @@ import {
 } from './anchors';
 
 const TINT: Record<(typeof KIND_NAME)[number], [number, number, number]> = {
-  launch: [0.4, 0.38, 0.36],
+  launch: [0.5, 0.48, 0.45],
   ground: [0.32, 0.3, 0.28],
   stack: [0.16, 0.15, 0.14],
   vent: [0.7, 0.73, 0.76],
@@ -256,8 +256,8 @@ export class SmokeField {
       if (p.kind === 0 || p.kind === 2) heat *= Math.max(0, 1 - u * 0.8);
       if (p.kind === 0) {
         const edge = Math.min(1, Math.abs(p.offS) / 46);
-        lifeA *= 1.08 - edge * 0.62;
-        size *= 0.7 + edge * 0.42;
+        lifeA *= 1.22 - edge * 0.48;
+        size *= 0.88 + edge * 0.32;
         size = Math.min(size, Math.max(5, dist * 0.13));
         if (dist < 28) lifeA *= Math.min(1, Math.max(0, (dist - 10) / 18));
       } else if (p.kind === 1) {
@@ -297,7 +297,7 @@ export class SmokeField {
   private stretchOf(p: Puff): { x: number; y: number; z: number; w: number } {
     const jitter = 0.82 + p.seed * 0.36;
     if (p.kind === 0) {
-      return { x: this.plumeUp.x, y: this.plumeUp.y, z: this.plumeUp.z, w: 1.65 * jitter };
+      return { x: this.plumeUp.x, y: this.plumeUp.y, z: this.plumeUp.z, w: 1.18 * jitter };
     }
     if (p.kind === 6) {
       const L = Math.hypot(p.vx, p.vz);
@@ -309,8 +309,8 @@ export class SmokeField {
       const wz = Math.sin(this.windDir) * 0.32;
       return { x: wx, y: 1, z: wz, w: 1.85 * jitter };
     }
-    if (p.kind === 5) return { x: 0, y: 1, z: 0, w: 2.15 * jitter };
-    return { x: 0, y: 1, z: 0, w: 1.4 * jitter };
+    if (p.kind === 5) return { x: 0, y: 1, z: 0, w: 2.05 * jitter };
+    return { x: 0, y: 1, z: 0, w: 1.65 * jitter };
   }
 
   snapshot(): SmokeSnapshot {

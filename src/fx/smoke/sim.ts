@@ -90,11 +90,11 @@ function alongInView(plume: LaunchPlume, frame: FlameFrame, cam: Xyz, fwd: Xyz, 
     if (f > best) { best = f; bestA = a; }
     if (f > 0.9) good.push(a);
   }
-  if (good.length) {
+  if (good.length && rng.next() < 0.34) {
     const i = Math.min(good.length - 1, Math.floor(rng.next() * good.length));
     return good[i]!;
   }
-  return bestA;
+  return Math.min(0.94, Math.max(0.04, bestA + (rng.next() * 2 - 1) * 0.16));
 }
 
 function flamePoint(plume: LaunchPlume, frame: FlameFrame, along: number): Xyz {
@@ -155,9 +155,9 @@ export class SmokePool {
       // Peaked across the card, with a few puffs past the edge for a ragged skirt.
       const g = (r.next() + r.next() + r.next()) / 3;
       const mid = g * 2 - 1;
-      const wide = r.next() < 0.28;
-      p.offS = mid * card * (wide ? 1.22 : 0.68);
-      p.offD = (r.next() * 1.2 - 0.2) * card * 0.22;
+      const wide = r.next() < 0.3;
+      p.offS = mid * card * (wide ? 1.38 : 0.95);
+      p.offD = (r.next() * 1.25 - 0.25) * card * 0.26;
       const axis = flamePoint(plume, frame, along);
       x = axis.x + frame.sx * p.offS + frame.tx * p.offD;
       y = axis.y + frame.sy * p.offS + frame.ty * p.offD;

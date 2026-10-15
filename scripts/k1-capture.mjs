@@ -82,13 +82,20 @@ async function pump(context) {
         console.error(message);
       }
     };
-    window.requestAnimationFrame = (cb) => window.setTimeout(() => {
-      if (!window.__k1Frames) {
-        window.__k1Held = cb;
-        return;
-      }
-      run(cb);
-    }, 16);
+    window.__k1Pump = (n) => {
+      const cb = window.__k1Held;
+      if (!cb) return 0;
+      const count = Math.max(0, n | 0);
+      for (let i = 0; i < count; i++) run(cb);
+      return count;
+    };
+    window.requestAnimationFrame = (cb) => {
+      window.__k1Held = cb;
+      return window.setTimeout(() => {
+        if (!window.__k1Frames) return;
+        run(cb);
+      }, 16);
+    };
     window.cancelAnimationFrame = (id) => window.clearTimeout(id);
     window.setInterval(() => {
       const held = window.__k1Held;
@@ -128,7 +135,19 @@ async function settle(page, shot) {
     await sleep(400);
     posed = await page.evaluate(() => window.__nla.smokeView('exhaust') === true);
   }
-  const deadline = Date.now() + 28000;
+  // SwiftShader delivers few timers while the page is busy. Step the sim here so
+  // the plume has aged before the still, instead of photographing the first puffs.
+  page.setDefaultTimeout(180000);
+  await page.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    for (let i = 0; i < 64; i++) {
+      if (typeof window.__k1Pump === 'function') window.__k1Pump(1);
+      const warm = window.__nla?.stats?.()?.smoke?.warm ?? 40;
+      if (i > 10 && warm <= 4 && window.__k1Held) break;
+      await wait(0);
+    }
+  });
+  const deadline = Date.now() + 20000;
   let last = '';
   while (Date.now() < deadline) {
     const s = await page.evaluate((name) => {
@@ -174,6 +193,7 @@ for (const tier of TIERS) {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
     await pump(ctx);
     const page = await ctx.newPage();
+    page.setDefaultTimeout(180000);
     const errors = [];
     page.on('pageerror', (e) => errors.push(String(e).slice(0, 400)));
     page.on('console', (m) => {

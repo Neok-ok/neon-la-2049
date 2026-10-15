@@ -48,10 +48,10 @@ function heroMouths(layout: CityLayout): Mouth[] {
       out.push(mouth({
         x: ox + fx * d + rx * side,
         y, z: oz + fz * d + rz * side,
-        kind: KIND.grate, weight: weight * 2, life: 2.5,
-        size0: 0.32, size1: 0.82, heat: 0.04, radius: 0.16,
-        rise: 1.5, spread: 0.06, floor: y - 0.05, wind: 0.05,
-        turb: 0.18, aspect: 1, alpha: 0.4,
+        kind: KIND.grate, weight: weight * 2, life: 2.8,
+        size0: 0.38, size1: 1.05, heat: 0.05, radius: 0.18,
+        rise: 1.65, spread: 0.07, floor: y - 0.05, wind: 0.05,
+        turb: 0.18, aspect: 1, alpha: 0.52,
       }));
     }
   };
@@ -130,10 +130,10 @@ export function gatherMouths(
   if (plume.live && plume.env > 0.04) {
     const base = plume.base;
     out.push(mouth({
-      x: plume.x, y: base + 4, z: plume.z, kind: KIND.launch, weight: 1, life: 6.6,
-      size0: 11, size1: 22, heat: 0.62, radius: 4,
+      x: plume.x, y: base + 4, z: plume.z, kind: KIND.launch, weight: 1, life: 6.2,
+      size0: 18, size1: 34, heat: 0.7, radius: 4,
       rise: 2, spread: 0.2, floor: base, wind: 0.02,
-      turb: 1.1, aspect: 1, alpha: 0.44,
+      turb: 1.1, aspect: 1, alpha: 0.58,
     }));
     out.push(mouth({
       x: plume.x, y: base + 2, z: plume.z, kind: KIND.ground, weight: 1, life: 4.2,
