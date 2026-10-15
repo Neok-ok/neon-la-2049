@@ -123,8 +123,8 @@ export class SmokeField {
     const plume = readLaunchPlume();
     if (stepDt > 0) {
       for (let i = 0; i < sub; i++) {
-        this.spawn(stepDt);
-        this.pool.step(stepDt, wind, plume);
+        this.spawn(stepDt, cam);
+        this.pool.step(stepDt, wind, plume, cam);
       }
     }
     if (this.warmLeft > 0) this.warmLeft--;
@@ -173,7 +173,7 @@ export class SmokeField {
     return list[list.length - 1]!;
   }
 
-  private spawn(dt: number): void {
+  private spawn(dt: number, cam: { x: number; y: number; z: number }): void {
     const cap = this.cap;
     const scale = PUFF_SCALE[this.tier];
     const groups = new Map<number, Mouth[]>();
@@ -194,7 +194,7 @@ export class SmokeField {
       let guard = 0;
       while (a >= 1 && guard++ < 64) {
         const mouth = this.pick(list, kind, wsum);
-        if (!this.pool.spawn(mouth, scale, cap, budget)) {
+        if (!this.pool.spawn(mouth, scale, cap, budget, cam)) {
           a = Math.min(a, 0.999);
           break;
         }

@@ -112,14 +112,18 @@ async function grab(page) {
     const diag = await page.evaluate(() => ({
       err: window.__k1Err || '',
       grab: !!window.__k1Grab,
-      png: (window.__k1Png || '').length,
+      png: window.__k1Png || '',
       canvas: (() => {
         const c = document.querySelector('canvas');
         return c ? `${c.width}x${c.height}` : 'none';
       })(),
       smoke: window.__nla?.stats?.()?.smoke ?? null,
     }));
-    log(`  canvas grab missed ${JSON.stringify(diag)}`);
+    if (diag.png.length > 1000 && diag.png.includes(',')) {
+      log(`  canvas grab late ${diag.png.length}b`);
+      return Buffer.from(diag.png.slice(diag.png.indexOf(',') + 1), 'base64');
+    }
+    log(`  canvas grab missed ${JSON.stringify({ ...diag, png: diag.png.length })}`);
     const session = await page.context().newCDPSession(page);
     const shot = await session.send('Page.captureScreenshot', { format: 'png' });
     await session.detach();
@@ -145,7 +149,7 @@ async function settle(page, shot) {
     }
     await page.evaluate(() => window.__nla.smokeView('exhaust'));
   }
-  const deadline = Date.now() + 120000;
+  const deadline = Date.now() + 90000;
   let last = '';
   while (Date.now() < deadline) {
     const s = await page.evaluate((name) => {
@@ -154,11 +158,11 @@ async function settle(page, shot) {
       if (!st || !sm) return { ok: false, why: 'no-smoke' };
       const cars = st.groundCars ?? 0;
       let ok = false;
-      if (name === 'launch') ok = sm.warm <= 12 && sm.launch >= 80;
-      else if (name === 'street') ok = sm.warm <= 12 && sm.grate >= 24;
-      else if (name === 'stall') ok = sm.warm <= 12 && sm.stall >= 12;
-      else if (name === 'refinery') ok = sm.warm <= 12 && sm.stack >= 24;
-      else if (name === 'traffic') ok = sm.warm <= 12 && sm.exhaust >= 8 && cars > 0;
+      if (name === 'launch') ok = sm.warm <= 24 && sm.launch >= 400;
+      else if (name === 'street') ok = sm.warm <= 24 && sm.grate >= 80;
+      else if (name === 'stall') ok = sm.warm <= 24 && sm.stall >= 30;
+      else if (name === 'refinery') ok = sm.warm <= 24 && sm.stack >= 80;
+      else if (name === 'traffic') ok = sm.warm <= 24 && sm.exhaust >= 40 && cars > 0;
       const cam = window.__nla?.app?.camera?.position;
       return {
         ok, cars, warm: sm.warm, launch: sm.launch, grate: sm.grate, stall: sm.stall,

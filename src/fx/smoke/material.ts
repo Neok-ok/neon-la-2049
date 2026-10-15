@@ -59,9 +59,10 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const auv = vec2(col.div(4.0), row.div(2.0)).add(suv.mul(vec2(0.25, 0.5)));
       const n = mask.sample(auv);
       const p = suv.sub(0.5);
-      const disc = smoothstep(float(0.86), float(0.22), length(p));
+      const blob = smoothstep(float(0.98), float(0.28), length(p));
       const detail = mix(float(1), n.g, smokeDetail);
-      const shape = pow(max(n.r.mul(detail).mul(disc), float(0)), float(1.05));
+      const torn = n.r.mul(detail);
+      const shape = pow(max(mix(blob, torn, float(0.66)), float(0)), float(1.12));
       const size = max(puff.w, float(0.4));
       const sceneD = linearDepth(viewportDepthTexture());
       const selfD = linearDepth();

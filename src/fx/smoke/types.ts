@@ -69,6 +69,11 @@ export interface Puff {
   oz: number;
   /** 0..1 brightness so some billows sit in shadow. */
   shade: number;
+  /** Fraction along the flame card. Launch only. */
+  along: number;
+  /** Metres across the flame card, and through it. Launch only. */
+  offS: number;
+  offD: number;
 }
 
 export interface SmokeSnapshot {
