@@ -10,29 +10,29 @@ import { visualSeed } from '../../core/rng';
 import { steamCardGain } from '../../districts/_shared/kit/materials';
 import { readLaunchPlume } from './bridge';
 import { smokeDetail, smokeMaterial } from './material';
-import { SmokePool, type Wind } from './sim';
+import { launchStretchAxis, SmokePool, type Wind } from './sim';
 import { PUFF_CAP, PUFF_DETAIL, PUFF_SCALE, aliveBudget } from './tiers';
-import { KIND_NAME, type Mouth, type SmokeSnapshot } from './types';
+import { KIND_NAME, type Mouth, type Puff, type SmokeSnapshot } from './types';
 import {
   exhaustPose, gatherMouths, stallPose, streetSteamPose, type SmokePose, type Tailpipe,
 } from './anchors';
 
 const TINT: Record<(typeof KIND_NAME)[number], [number, number, number]> = {
-  launch: [0.46, 0.44, 0.41],
-  ground: [0.38, 0.36, 0.34],
-  stack: [0.26, 0.24, 0.22],
-  vent: [0.78, 0.8, 0.83],
-  grate: [0.82, 0.84, 0.86],
-  stall: [0.9, 0.88, 0.82],
-  exhaust: [0.7, 0.72, 0.74],
+  launch: [0.4, 0.38, 0.36],
+  ground: [0.32, 0.3, 0.28],
+  stack: [0.16, 0.15, 0.14],
+  vent: [0.7, 0.73, 0.76],
+  grate: [0.74, 0.76, 0.8],
+  stall: [0.84, 0.78, 0.68],
+  exhaust: [0.32, 0.33, 0.35],
 };
 
 /** How much practical light this kind takes. Exhaust stays a grey trail. */
 function lampOf(kind: number): number {
-  if (kind === 6) return 0.48;
-  if (kind === 0 || kind === 1) return 0.42;
-  if (kind === 2) return 0.7;
-  return 0.94;
+  if (kind === 6) return 0.18;
+  if (kind === 0 || kind === 1) return 0.1;
+  if (kind === 2) return 0.9;
+  return 0.62;
 }
 
 const WARM_FRAMES = 40;
@@ -44,6 +44,7 @@ export class SmokeField {
   private puff!: InstancedBufferAttribute;
   private shade!: InstancedBufferAttribute;
   private tint!: InstancedBufferAttribute;
+  private move!: InstancedBufferAttribute;
   private geo!: PlaneGeometry;
   private order: number[] = [];
   private mouths: Mouth[] = [];
@@ -56,6 +57,9 @@ export class SmokeField {
   private gatherAt = -1;
   private lastX = 0;
   private lastZ = 0;
+  private hasCam = false;
+  private windDir = 0;
+  private readonly plumeUp = { x: 0, y: 1, z: 0 };
   private readonly camDir = new Vector3();
   private readonly forward = { x: 0, y: 0, z: -1 };
 
@@ -108,7 +112,8 @@ export class SmokeField {
     if (tier !== this.tier) this.setTier(tier);
     this.tails = tails as Tailpipe[];
     const cam = camera.position;
-    const jumped = Math.hypot(cam.x - this.lastX, cam.z - this.lastZ) > 80;
+    const jumped = this.hasCam && Math.hypot(cam.x - this.lastX, cam.z - this.lastZ) > 80;
+    this.hasCam = true;
     if (jumped) {
       this.pool.clear();
       this.kindAcc.fill(0);
@@ -123,6 +128,7 @@ export class SmokeField {
       this.gatherAt = now;
     }
     const wind: Wind = { dir: windDir, speed: windSpeed, rain };
+    this.windDir = windDir;
     const sub = this.warmLeft > 0 ? 6 : 1;
     const stepDt = this.warmLeft > 0 ? 1 / 30 : Math.min(Math.max(dt, 0), 0.05);
     const plume = readLaunchPlume();
@@ -130,6 +136,10 @@ export class SmokeField {
     this.forward.x = this.camDir.x;
     this.forward.y = this.camDir.y;
     this.forward.z = this.camDir.z;
+    const axis = launchStretchAxis(cam);
+    this.plumeUp.x = axis.x;
+    this.plumeUp.y = axis.y;
+    this.plumeUp.z = axis.z;
     if (stepDt > 0) {
       for (let i = 0; i < sub; i++) {
         this.spawn(stepDt, cam, this.forward);
@@ -144,18 +154,22 @@ export class SmokeField {
     this.puff = new InstancedBufferAttribute(new Float32Array(cap * 4), 4);
     this.shade = new InstancedBufferAttribute(new Float32Array(cap * 4), 4);
     this.tint = new InstancedBufferAttribute(new Float32Array(cap * 4), 4);
+    this.move = new InstancedBufferAttribute(new Float32Array(cap * 4), 4);
     this.puff.setUsage(DynamicDrawUsage);
     this.shade.setUsage(DynamicDrawUsage);
     this.tint.setUsage(DynamicDrawUsage);
+    this.move.setUsage(DynamicDrawUsage);
     const puff = this.puff;
     const shade = this.shade;
     const tint = this.tint;
+    const move = this.move;
     if (this.geo) resources.release(this.geo);
     this.geo = resources.geometry(() => {
       const g = new PlaneGeometry(1, 1);
       g.setAttribute('iPuff', puff);
       g.setAttribute('iShade', shade);
       g.setAttribute('iTint', tint);
+      g.setAttribute('iMove', move);
       return g;
     }, { label: 'smoke-puffs', owner: 'smoke' });
     const prev = this.mesh;
@@ -228,6 +242,7 @@ export class SmokeField {
     const puff = this.puff.array as Float32Array;
     const shade = this.shade.array as Float32Array;
     const tint = this.tint.array as Float32Array;
+    const move = this.move.array as Float32Array;
     for (let i = 0; i < n; i++) {
       const p = list[this.order[i]!]!;
       const u = p.age / p.life;
@@ -240,10 +255,10 @@ export class SmokeField {
       let heat = p.heat;
       if (p.kind === 0 || p.kind === 2) heat *= Math.max(0, 1 - u * 0.8);
       if (p.kind === 0) {
-        const edge = Math.min(1, Math.abs(p.offS) / 48);
-        lifeA *= 0.7 + edge * 0.4;
-        size *= 0.82 + edge * 0.4;
-        size = Math.min(size, Math.max(6, dist * 0.18));
+        const edge = Math.min(1, Math.abs(p.offS) / 46);
+        lifeA *= 1.08 - edge * 0.62;
+        size *= 0.7 + edge * 0.42;
+        size = Math.min(size, Math.max(5, dist * 0.13));
         if (dist < 28) lifeA *= Math.min(1, Math.max(0, (dist - 10) / 18));
       } else if (p.kind === 1) {
         size = Math.min(size, Math.max(4, dist * 0.14));
@@ -264,12 +279,38 @@ export class SmokeField {
       tint[o + 1] = rgb[1] * p.shade;
       tint[o + 2] = rgb[2] * p.shade;
       tint[o + 3] = p.aspect;
+      const stretch = this.stretchOf(p);
+      move[o] = stretch.x;
+      move[o + 1] = stretch.y;
+      move[o + 2] = stretch.z;
+      move[o + 3] = stretch.w;
     }
     this.puff.needsUpdate = true;
     this.shade.needsUpdate = true;
     this.tint.needsUpdate = true;
+    this.move.needsUpdate = true;
     this.mesh.count = n;
     this.mesh.visible = n > 0;
+  }
+
+  /** World axis the billboard stretches along, plus the stretch factor. */
+  private stretchOf(p: Puff): { x: number; y: number; z: number; w: number } {
+    const jitter = 0.82 + p.seed * 0.36;
+    if (p.kind === 0) {
+      return { x: this.plumeUp.x, y: this.plumeUp.y, z: this.plumeUp.z, w: 1.65 * jitter };
+    }
+    if (p.kind === 6) {
+      const L = Math.hypot(p.vx, p.vz);
+      if (L > 0.15) return { x: p.vx / L, y: 0.06, z: p.vz / L, w: 2.5 * jitter };
+      return { x: 0, y: 1, z: 0, w: 1.2 };
+    }
+    if (p.kind === 2) {
+      const wx = Math.cos(this.windDir) * 0.32;
+      const wz = Math.sin(this.windDir) * 0.32;
+      return { x: wx, y: 1, z: wz, w: 1.85 * jitter };
+    }
+    if (p.kind === 5) return { x: 0, y: 1, z: 0, w: 2.15 * jitter };
+    return { x: 0, y: 1, z: 0, w: 1.4 * jitter };
   }
 
   snapshot(): SmokeSnapshot {

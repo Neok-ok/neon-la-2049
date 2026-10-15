@@ -60,16 +60,17 @@ function buildCanvas(): HTMLCanvasElement {
         for (let px = 0; px < CELL; px++) {
           const u = (px + 0.5) / CELL;
           const v = (py + 0.5) / CELL;
-          const n = fbm(u * 3.1 + seed, v * 3.1, seed * 5);
-          const n2 = fbm(u * 6.4 + 2, v * 6.4, seed * 9 + 3);
-          const r = Math.hypot(u - 0.5, v - 0.5) * 2;
-          // Noise pushes the falloff in and out so the puff is a cloud, not a disc.
-          const distorted = r + (n - 0.5) * 0.72 + (n2 - 0.5) * 0.22;
-          const body = 1 - smooth(0.58, 1.18, distorted);
-          const core = 1 - smooth(0.05, 0.55, r);
-          let a = Math.max(body, core * 0.45);
-          a *= 0.64 + 0.36 * n2;
-          const g = smooth(0.25, 0.8, n2) * a;
+          const n = fbm(u * 3.2 + seed, v * 3.2, seed * 5);
+          const n2 = fbm(u * 7.1 + 2, v * 6.6, seed * 9 + 3);
+          const wx = (n - 0.5) * 0.46;
+          const wy = (n2 - 0.5) * 0.4;
+          const r = Math.hypot(u - 0.5 + wx, v - 0.5 + wy) * 2;
+          // A warped falloff with interior veins. No solid disc in the middle.
+          const dist = r * (0.72 + (n - 0.5) * 0.7);
+          let a = 1 - smooth(0.22, 1.08, dist);
+          a *= 0.58 + 0.42 * n2;
+          a *= 0.5 + 0.5 * smooth(0.32, 0.72, n);
+          const g = smooth(0.3, 0.78, n2) * a;
           const i = ((cy * CELL + py) * canvas.width + cx * CELL + px) * 4;
           const A = Math.max(0, Math.min(255, Math.round(a * 255)));
           data[i] = A;

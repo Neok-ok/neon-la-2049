@@ -1,5 +1,6 @@
 // Ground traffic on the shared street graph. One instanced draw per vehicle class.
-// Low tier draws light streaks only. Higher tiers keep real cars near the camera and streaks farther out.
+// Low tier draws light streaks. A positive street budget (smoke is live) also keeps a few
+// real cars so exhaust has a bumper. Higher tiers keep real cars near the camera.
 // Signals are clocks. Cars walk the graph, stop at a red line, and leave a gap. No physics.
 import {
   BoxGeometry, BufferGeometry, DynamicDrawUsage, Frustum, InstancedBufferAttribute, InstancedMesh, Matrix4, Sphere,
@@ -583,7 +584,9 @@ export class GroundTraffic {
     const step = Math.min(Math.max(dt, 0), 0.05);
     this.collect(g, cam.x, cam.z);
     const dens = this.query.layout.districtAt(cam.x, cam.z).traffic;
-    const wantS = tier === 'low' ? 0 : Math.round(streetBudget * Math.max(0, dens));
+    const wantS = tier === 'low'
+      ? Math.min(8, Math.max(0, Math.round(streetBudget)))
+      : Math.round(streetBudget * Math.max(0, dens));
     const wantF = tier === 'low' || !this.freewayPick.length ? 0 : freewayBudget;
     this.fill(this.street, wantS, false, g, cam.x, cam.z);
     this.fill(this.freeway, wantF, true, g, cam.x, cam.z);

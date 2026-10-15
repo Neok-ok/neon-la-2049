@@ -19,31 +19,31 @@ const shots = [
     name: 'launch',
     weather: 'clear',
     go: async () => { await window.__nla.laxView('burn'); },
-    ready: (sm) => sm.warm <= 12 && sm.launch >= 80,
+    ready: (sm) => sm.warm <= 16 && sm.launch >= 60,
   },
   {
     name: 'street',
     weather: 'rain',
     go: async () => { window.__nla.smokeView('street'); },
-    ready: (sm) => sm.warm <= 12 && sm.grate >= 24,
+    ready: (sm) => sm.warm <= 16 && sm.grate >= 28,
   },
   {
     name: 'stall',
     weather: 'rain',
     go: async () => { window.__nla.smokeView('stall'); },
-    ready: (sm) => sm.warm <= 12 && sm.stall >= 12,
+    ready: (sm) => sm.warm <= 16 && sm.stall >= 8,
   },
   {
     name: 'refinery',
     weather: 'clear',
     go: async () => { await window.__nla.southBayView('flare'); },
-    ready: (sm) => sm.warm <= 12 && sm.stack >= 24,
+    ready: (sm) => sm.warm <= 16 && sm.stack >= 36,
   },
   {
     name: 'traffic',
     weather: 'rain',
     go: async () => { window.__nla.trafficView('rain'); },
-    ready: (sm) => sm.warm <= 12 && sm.exhaust >= 8,
+    ready: (sm) => sm.warm <= 16 && sm.exhaust >= 12,
   },
 ];
 
@@ -117,16 +117,18 @@ async function boot(page, tier) {
 async function settle(page, shot) {
   await page.evaluate((weather) => window.__nla.setWeather(weather, true), shot.weather);
   await page.evaluate(shot.go);
+  let posed = shot.name !== 'traffic';
   if (shot.name === 'traffic') {
-    const carDeadline = Date.now() + 45000;
+    const carDeadline = Date.now() + 20000;
     while (Date.now() < carDeadline) {
       const cars = await page.evaluate(() => window.__nla.stats().groundCars ?? 0);
       if (cars > 0) break;
-      await sleep(400);
+      await sleep(300);
     }
-    await page.evaluate(() => window.__nla.smokeView('exhaust'));
+    await sleep(400);
+    posed = await page.evaluate(() => window.__nla.smokeView('exhaust') === true);
   }
-  const deadline = Date.now() + 80000;
+  const deadline = Date.now() + 28000;
   let last = '';
   while (Date.now() < deadline) {
     const s = await page.evaluate((name) => {
@@ -134,12 +136,13 @@ async function settle(page, shot) {
       const sm = st?.smoke;
       if (!st || !sm) return { ok: false, why: 'no-smoke' };
       const cars = st.groundCars ?? 0;
+      const aged = sm.warm <= 16;
       let ok = false;
-      if (name === 'launch') ok = sm.launch >= 400;
-      else if (name === 'street') ok = sm.grate >= 120;
-      else if (name === 'stall') ok = sm.stall >= 10;
-      else if (name === 'refinery') ok = sm.stack >= 180;
-      else if (name === 'traffic') ok = sm.exhaust >= 100 && cars > 0;
+      if (name === 'launch') ok = aged && sm.launch >= 60;
+      else if (name === 'street') ok = aged && sm.grate >= 28;
+      else if (name === 'stall') ok = aged && sm.stall >= 8;
+      else if (name === 'refinery') ok = aged && sm.stack >= 36;
+      else if (name === 'traffic') ok = aged && sm.exhaust >= 12 && cars > 0;
       const cam = window.__nla?.app?.camera?.position;
       return {
         ok, cars, warm: sm.warm, launch: sm.launch, grate: sm.grate, stall: sm.stall,
@@ -149,11 +152,11 @@ async function settle(page, shot) {
       };
     }, shot.name);
     last = JSON.stringify(s);
-    if (s.ok && (s.draws ?? 0) > 30 && (s.lod0 ?? 0) > 0) return s;
-    if (shot.name === 'traffic' && s.cars === 0 && s.warm <= 12) {
-      await page.evaluate(shot.go);
+    if (!posed && shot.name === 'traffic' && (s.cars ?? 0) > 0) {
+      posed = await page.evaluate(() => window.__nla.smokeView('exhaust') === true);
     }
-    await sleep(400);
+    if (s.ok && (s.draws ?? 0) > 30 && (s.lod0 ?? 0) > 0) return s;
+    await sleep(300);
   }
   log(`  wait timeout ${shot.name} ${last}`);
   return JSON.parse(last || '{}');
@@ -181,7 +184,7 @@ for (const tier of TIERS) {
       await boot(page, tier);
       const snap = await settle(page, shot);
       await page.evaluate(() => document.getElementById('loading')?.remove());
-      await sleep(1500);
+      await sleep(600);
       const png = await grab(page);
       const file = join(OUT, `k1-2026-10-15-${shot.name}-${tier}.png`);
       writeFileSync(file, png);
