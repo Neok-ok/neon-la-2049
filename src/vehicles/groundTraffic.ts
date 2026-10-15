@@ -104,7 +104,7 @@ export class GroundTraffic {
   /** 0..1 engine and tyre bed for the ambience bus. */
   bed = 0;
 
-  constructor(scene: import('three/webgpu').Scene, private query: CityQuery, maxStreet: number, maxFreeway: number) {
+  constructor(private scene: import('three/webgpu').Scene, private query: CityQuery, maxStreet: number, maxFreeway: number) {
     const cap = Math.max(1, maxStreet + maxFreeway);
     const material = vehicleMaterial();
     this.bodies = {
@@ -117,7 +117,7 @@ export class GroundTraffic {
     this.dress = createTrafficDress(query.layout);
     if (this.dress.trench) scene.add(this.dress.trench);
     if (this.dress.streaks) scene.add(this.dress.streaks);
-    for (const bin of this.dress.streetBins) scene.add(bin.mesh);
+    // Street bins are added only while the low tier is drawing them.
     this.buildSignals(scene);
     const poolGeo = new PlaneGeometry(1, 1);
     poolGeo.rotateX(-Math.PI / 2);
@@ -670,6 +670,11 @@ export class GroundTraffic {
         const n = low ? bin.total : 0;
         bin.mesh.count = n;
         bin.mesh.visible = n > 0;
+        if (low) {
+          if (!bin.mesh.parent) this.scene.add(bin.mesh);
+        } else if (bin.mesh.parent) {
+          bin.mesh.removeFromParent();
+        }
         if (!n || !bin.mesh.boundingSphere) continue;
         bins++;
         active += n;

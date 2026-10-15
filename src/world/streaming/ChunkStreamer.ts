@@ -21,7 +21,7 @@ import { buildChunkArrays } from '../fabric/mesher';
 import { getCityMaterial } from '../materials/cityMaterial';
 import { getSignMaterial } from '../materials/signMaterial';
 import { getLayout } from '../layout';
-import { buildDetails, type ChunkBlock } from '../detail/registry';
+import { buildDetails, buildNamedDetail, detailNames, type ChunkBlock } from '../detail/registry';
 import { hologramsFromSignBuffer } from '../holograms/fromSigns';
 import type { HologramSpec } from '../holograms/types';
 import { SIGN_RGB } from '../materials/signPalette';
@@ -226,6 +226,8 @@ export class ChunkStreamer {
     sse: boolean;
     sample: string;
   } | null = null;
+  /** LOD0 district props still to attach. Idle stays false until this is empty. */
+  private detailLater: Array<{ group: Group; blocks: ChunkBlock[]; names: string[]; index: number; x0: number; z0: number; size: number }> = [];
   private readonly requestScratch: Slot[] = [];
   private readonly billboardScratch: HologramSpec[] = [];
   private policy: StreamPolicy = { ...OPEN_POLICY };
@@ -278,7 +280,8 @@ export class ChunkStreamer {
       note(s.far);
       if (s.children) for (const c of s.children) note(c);
     }
-    const idle = this.jobs.size === 0 && this.ready.length === 0 && this.detailHeld.length === 0 && mismatch === 0;
+    const idle = this.jobs.size === 0 && this.ready.length === 0 && this.detailHeld.length === 0
+      && this.detailLater.length === 0 && mismatch === 0;
     return {
       idle,
       jobs: this.jobs.size,
@@ -354,7 +357,39 @@ export class ChunkStreamer {
     return { key, x0, z0, size, want: -1, shownLod: -1, shown: null, pendingLod: -1, dist: 0, panels: [], glows: null, bytes: 0 };
   }
 
+  private dropDetails(group: Group | null): void {
+    if (!group || !this.detailLater.length) return;
+    this.detailLater = this.detailLater.filter((job) => job.group !== group);
+  }
+
+  /** Attach a few LOD0 props. One district pass can be heavy, so live play does one slice per turn. */
+  private drainDetails(budgetMs: number): void {
+    const t0 = performance.now();
+    while (this.detailLater.length) {
+      const job = this.detailLater[0]!;
+      if (job.index >= job.names.length) {
+        this.detailLater.shift();
+        continue;
+      }
+      const name = job.names[job.index++]!;
+      const o = buildNamedDetail({
+        x0: job.x0, z0: job.z0, size: job.size, blocks: job.blocks, layout: this.layout, quality: this.quality,
+      }, name);
+      if (o) {
+        o.position.x -= job.x0;
+        o.position.z -= job.z0;
+        job.group.add(o);
+      }
+      if (job.index >= job.names.length) {
+        job.group.updateMatrixWorld(true);
+        this.detailLater.shift();
+      }
+      if (performance.now() - t0 > budgetMs) break;
+    }
+  }
+
   private disposeSlot(s: Slot): void {
+    if (s.shown) this.dropDetails(s.shown);
     if (s.shown) disposeGroup(s.shown);
     s.shown = null;
     s.shownLod = -1;
@@ -609,6 +644,7 @@ export class ChunkStreamer {
       this.detailHeld.length = 0;
     }
     this.ready.sort((a, b) => a.job.slot.dist - b.job.slot.dist);
+    if (!params.capture) this.drainDetails(8);
     let budget = q.uploadsPerFrame;
     let uploaded = 0;
     let uploadMs = 0;
@@ -641,6 +677,7 @@ export class ChunkStreamer {
         continue;
       }
       const g = this.buildGroup(slot, res, job.lod);
+      if (slot.shown) this.dropDetails(slot.shown);
       if (slot.shown) disposeGroup(slot.shown);
       slot.shown = g;
       slot.shownLod = job.lod;
@@ -653,7 +690,7 @@ export class ChunkStreamer {
     this.stats.uploads = uploaded;
     if (uploaded > this.stats.uploadPeak) this.stats.uploadPeak = uploaded;
     this.stats.uploadMs = uploadMs;
-    this.stats.readyQueue = this.ready.length + this.detailHeld.length;
+    this.stats.readyQueue = this.ready.length + this.detailHeld.length + this.detailLater.length;
     if (params.capture && !this.captureHeld && farDetailsReady()
       && this.ready.length === 0 && this.detailHeld.length === 0 && this.jobs.size === 0) {
       if (this.idleReport().idle || this.captureBuilt >= CAPTURE_MESH_CAP) this.holdCapture();
@@ -829,10 +866,16 @@ export class ChunkStreamer {
         const b = r.blocks;
         blocks.push({ cx: b[i], cz: b[i + 1], ax: b[i + 2], az: b[i + 3], la: b[i + 4], lb: b[i + 5], street: b[i + 6], districtIndex: b[i + 7], seed: b[i + 8], ground: b[i + 9] });
       }
-      for (const o of buildDetails({ x0: slot.x0, z0: slot.z0, size: slot.size, blocks, layout: this.layout, quality: this.quality })) {
-        o.position.x -= slot.x0;
-        o.position.z -= slot.z0;
-        g.add(o);
+      const ctx = { x0: slot.x0, z0: slot.z0, size: slot.size, blocks, layout: this.layout, quality: this.quality };
+      if (params.capture) {
+        for (const o of buildDetails(ctx)) {
+          o.position.x -= slot.x0;
+          o.position.z -= slot.z0;
+          g.add(o);
+        }
+      } else {
+        const names = detailNames(ctx);
+        if (names.length) this.detailLater.push({ group: g, blocks, names, index: 0, x0: slot.x0, z0: slot.z0, size: slot.size });
       }
     }
     g.updateMatrixWorld(true);

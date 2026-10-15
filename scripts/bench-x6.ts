@@ -92,6 +92,11 @@ expectTier('iphone webgpu stays medium', autoTier({ ...phone, webgpu: true, dpr:
 expectTier('iphone se', autoTier(dev({ gpu: 'Apple GPU', isIOS: true, isMobile: true, webgpu: false, cores: 4, dpr: 2, screenMin: 375 })).tier, 'low');
 expectTier('swiftshader', autoTier(dev({ gpu: 'Google SwiftShader' })).tier, 'low');
 expectTier('m3', autoTier(dev({ gpu: 'ANGLE (Apple, ANGLE Metal Renderer: Apple M3, Unspecified Version)' })).tier, 'high');
+expectTier('780M', autoTier(dev({ gpu: 'ANGLE (AMD, AMD Radeon 780M Graphics (0x000015BF) Direct3D11 vs_5_0 ps_5_0, D3D11)' })).tier, 'medium');
+expectTier('radeon graphics', autoTier(dev({ gpu: 'AMD Radeon(TM) Graphics' })).tier, 'medium');
+expectTier('rx 7900', autoTier(dev({ gpu: 'AMD Radeon RX 7900 XTX' })).tier, 'high');
+expectTier('rtx 4060', autoTier(dev({ gpu: 'NVIDIA GeForce RTX 4060 Laptop GPU' })).tier, 'high');
+if (autoTier(dev({ gpu: 'AMD Radeon 780M' })).tier === 'ultra') throw new Error('auto ultra');
 
 let guard = { tier: 'medium' as Tier, choice: 'auto' as const, elapsedMs: 9000, slowMs: 0, frameMs: 50 };
 let drops = 0;

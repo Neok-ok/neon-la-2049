@@ -12,7 +12,13 @@
   </head>
   <body>
     <canvas id="view" tabindex="0"></canvas>
-    <div class="loading" id="loading">Building Los Angeles…</div>
+    <div class="loading" id="loading" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Loading Los Angeles">
+      <div class="loading-card">
+        <p class="loading-kicker">Neon LA 2049</p>
+        <p class="loading-label" data-load-label>Start</p>
+        <div class="loading-track"><div class="loading-bar" data-load-bar></div></div>
+      </div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

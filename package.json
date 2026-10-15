@@ -16,6 +16,9 @@
     "screenshots": "node scripts/screenshots.mjs",
     "turntable": "node scripts/model-turntable.mjs",
     "stray": "node tools/model-harness/scripts/test-stray.mjs",
+    "quality:check": "node --experimental-strip-types scripts/quality-selfcheck.ts",
+    "coast:check": "node scripts/coast-index-selfcheck.mjs",
+    "load:check": "node scripts/load-budget.mjs",
     "visual": "node tests/visual/run.mjs",
     "visual:update": "node tests/visual/run.mjs --update",
     "visual:list": "node tests/visual/shots.mjs"

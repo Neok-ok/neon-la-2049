@@ -9,7 +9,7 @@ export { allLights, lightCensus, releaseChunk, resetRegistry, retainChunk, setEp
 export { DAY_EV, NIGHT_EV, authoredLift, currentEv, currentExposure, lockExposureEv, skyLux, stepExposure, sunLux } from './exposure.ts';
 export { LIGHT_TIERS } from './tiers.ts';
 export { authoredLiftU, practicalInscatter, practicalLit } from './shade.ts';
-export { lightingStats, parseTone, rebuildLightingPipeline, disposeLightingPipeline, releaseLightingTierTargets, rendererTone, setGradeExposure, syncLighting, type ToneId } from './runtime.ts';
+export { lightingStats, parseTone, rebuildLightingPipeline, warmLightingPipeline, compileLightingObject, compileLightingScene, renderLightingPass, presentLightingPipeline, disposeLightingPipeline, releaseLightingTierTargets, rendererTone, setGradeExposure, syncLighting, type ToneId } from './runtime.ts';
 export {
   setLightingResolutionScale, lightingResolutionScale, lightingMemory, watchLightingResolutionScale,
   type LightingMemory,

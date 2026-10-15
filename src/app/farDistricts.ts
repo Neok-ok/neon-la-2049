@@ -117,23 +117,37 @@ export const farDistrictsPromise: Promise<void> = Promise.all([
   console.error('far districts failed to load', err);
 });
 
-export function mountFarDistricts(parent: Object3D, layout: CityLayout, query: CityQuery): void {
+/** Mount far districts one install at a time. `pace` yields so the tab can paint. */
+export async function mountFarDistricts(
+  parent: Object3D,
+  layout: CityLayout,
+  query: CityQuery,
+  pace: (() => Promise<void>) | null = null,
+): Promise<void> {
   if (!mods || mounted) return;
   mounted = true;
-  mods.mountSoutheastFlares(parent, layout);
-  mods.mountSouthBayFlares(parent, layout);
-  mods.mountHarbor(parent, layout, query);
-  mods.mountLaunch(parent, layout);
-  mods.installLakewoodHolos(layout);
-  mods.installSouthLaHolos(layout);
-  mods.installHollywoodHolos(layout);
-  parent.add(mods.installLaxHolos(layout));
-  mods.installSouthBayHolos(layout);
-  mods.installHarborHolos(layout);
-  mods.installLongBeachHolos(layout);
-  mods.installEastLaHolos(layout);
-  const deck = mods.mountEastLaInterchanges(layout);
-  if (deck) parent.add(deck);
+  const steps: Array<() => void> = [
+    () => mods!.mountSoutheastFlares(parent, layout),
+    () => mods!.mountSouthBayFlares(parent, layout),
+    () => mods!.mountHarbor(parent, layout, query),
+    () => mods!.mountLaunch(parent, layout),
+    () => mods!.installLakewoodHolos(layout),
+    () => mods!.installSouthLaHolos(layout),
+    () => mods!.installHollywoodHolos(layout),
+    () => { parent.add(mods!.installLaxHolos(layout)); },
+    () => mods!.installSouthBayHolos(layout),
+    () => mods!.installHarborHolos(layout),
+    () => mods!.installLongBeachHolos(layout),
+    () => mods!.installEastLaHolos(layout),
+    () => {
+      const deck = mods!.mountEastLaInterchanges(layout);
+      if (deck) parent.add(deck);
+    },
+  ];
+  for (const step of steps) {
+    step();
+    if (pace) await pace();
+  }
 }
 
 export function sampleFarFrame(a: {
