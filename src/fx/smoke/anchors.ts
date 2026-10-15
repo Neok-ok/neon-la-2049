@@ -43,15 +43,15 @@ function heroMouths(layout: CityLayout): Mouth[] {
     const y = (lane?.y ?? layout.heightAt(ox, oz)) + 0.22;
     const rx = fz;
     const rz = -fx;
-    const vents: Array<[number, number]> = [[5, 2.6], [11, -2.4], [18, 2.2], [26, -1.8]];
+    const vents: Array<[number, number]> = [[10, 3.1], [17, -3.2], [25, 2.6]];
     for (const [d, side] of vents) {
       out.push(mouth({
         x: ox + fx * d + rx * side,
         y, z: oz + fz * d + rz * side,
-        kind: KIND.grate, weight, life: 4.6,
-        size0: 1.05, size1: 3.1, heat: 0.04, radius: 0.5,
-        rise: 2.15, spread: 0.35, floor: y - 0.15, wind: 0.16,
-        turb: 0.8, aspect: 1.35, alpha: 0.58,
+        kind: KIND.grate, weight, life: 3.3,
+        size0: 0.5, size1: 1.55, heat: 0.04, radius: 0.55,
+        rise: 1.55, spread: 0.4, floor: y - 0.15, wind: 0.14,
+        turb: 1.1, aspect: 1.2, alpha: 0.38,
       }));
     }
   };
@@ -67,17 +67,17 @@ function heroMouths(layout: CityLayout): Mouth[] {
     const dy = s.y - ground;
     if (near) {
       out.push(mouth({
-        x: s.x, y: s.y, z: s.z, kind: KIND.stall, weight: 5, life: 1.25,
-        size0: 0.18, size1: 0.55, heat: 0.2, radius: 0.1,
-        rise: 0.48, spread: 0.06, floor: ground, wind: 0.06,
-        turb: 0.15, aspect: 1.45, alpha: 0.86,
+        x: s.x, y: s.y, z: s.z, kind: KIND.stall, weight: 5, life: 1.05,
+        size0: 0.12, size1: 0.36, heat: 0.22, radius: 0.08,
+        rise: 0.42, spread: 0.05, floor: s.y - 0.05, wind: 0.05,
+        turb: 0.12, aspect: 1.55, alpha: 0.72,
       }));
     } else if (dy < 0.55) {
       out.push(mouth({
-        x: s.x, y: s.y, z: s.z, kind: KIND.grate, weight: 1.4, life: 3.2,
-        size0: 0.5, size1: 1.9, heat: 0.03, radius: 0.28,
-        rise: 1.45, spread: 0.2, floor: ground, wind: 0.3,
-        turb: 0.45, aspect: 1.55, alpha: 0.4,
+        x: s.x, y: s.y, z: s.z, kind: KIND.grate, weight: 1.1, life: 2.8,
+        size0: 0.4, size1: 1.3, heat: 0.03, radius: 0.32,
+        rise: 1.2, spread: 0.25, floor: ground, wind: 0.22,
+        turb: 0.7, aspect: 1.3, alpha: 0.32,
       }));
     } else if (dy < 2.6) {
       out.push(mouth({
@@ -148,9 +148,9 @@ export function gatherMouths(
     const ground = layout.heightAt(f.x, f.z);
     out.push(mouth({
       x: f.x, y: f.y + 0.35, z: f.z, kind: KIND.stack, weight: i === 0 ? 4 : 1, life: 8.4,
-      size0: 4.8, size1: 22, heat: 0.5, radius: 1.4,
-      rise: 7.4, spread: 0.35, floor: ground, wind: 0.28,
-      turb: 1.4, aspect: 1.1, alpha: 0.48,
+      size0: 4.2, size1: 16, heat: 0.5, radius: 1.3,
+      rise: 7.2, spread: 0.45, floor: ground, wind: 0.3,
+      turb: 1.8, aspect: 1.05, alpha: 0.36,
     }));
   }
   const reach = 90;
@@ -203,7 +203,7 @@ export function stallPose(layout: CityLayout): SmokePose | null {
   }
   const hx = Math.sin(cook.heading);
   const hz = -Math.cos(cook.heading);
-  const dist = 1.7;
+  const dist = 2.45;
   // Customer side, looking back at the pot. Behind the cook the frame is the street.
   const fx = pot.x + hx * dist;
   const fz = pot.z + hz * dist;
@@ -212,7 +212,7 @@ export function stallPose(layout: CityLayout): SmokePose | null {
   return {
     x: fx, y: eye, z: fz,
     heading: Math.atan2(pot.x - fx, -(pot.z - fz)),
-    pitch: Math.atan2((pot.y + 0.35) - eye, dist),
+    pitch: Math.atan2(pot.y - eye, dist),
     mode: 'walk',
     feet: { x: fx, y: ground, z: fz },
   };

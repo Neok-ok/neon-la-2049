@@ -214,8 +214,8 @@ export class SmokePool {
         p.vx = p.vx * Math.exp(-dt * 0.2) + wobX * dt;
         p.vz = p.vz * Math.exp(-dt * 0.2) + wobZ * dt;
       } else if (steam) {
-        const cap = p.kind === KIND.stall ? 0.4 : 2.1;
-        const spread = (p.kind === KIND.stall ? 0.1 : 0.3) + u * cap;
+        const cap = p.kind === KIND.stall ? 0.22 : 3.6;
+        const spread = (p.kind === KIND.stall ? 0.05 : 0.55) + u * cap;
         const ax = p.ox + Math.sin(phase + u * 2.2) * spread;
         const az = p.oz + Math.cos(phase * 1.17 + u * 1.5) * spread;
         p.vx = approach(p.vx, (ax - p.x) * 1.7 + wx * p.wind * 0.4, dt, 0.3);
