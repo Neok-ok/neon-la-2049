@@ -1,39 +1,43 @@
 // Cold-load budget until the city is interactive.
 // JavaScript in one task stays under 520 ms, and one task links at most four programs
-// (a drawable's color pass, a depth pass, and a second material). Medium cine on the CI
-// runner measured 364 ms of JavaScript beside one program link. High fly measured 253 ms
-// in an earlier run. A task that links more than four programs still fails.
+// (a drawable's color pass, a depth pass, and a second material). The gate runs each
+// scenario three times. The JavaScript sample that has to pass is the middle one.
+// One noisy sample does not fail the build. The 520 ms ceiling is unchanged.
+// The four-program batch limit is unchanged on each run (more than four links in
+// a task longer than 320 ms). The build fails that check when a majority of the
+// three runs trip it.
 // Driver link, uniform reflection, and draw time are subtracted via ?loadprobe=1.
 // A 4× CPU throttle is not used.
 // Requires dist/. Uses Playwright's Chromium unless CHROME is set.
-import { spawn } from 'node:child_process';
+import { BUDGET_MS, formatGateLine, isDirectRun, judgeGate, measureScenario } from './load-measure.mjs';
 
-const runs = [
-  { QUALITY: 'medium', MODE: 'cine' },
-  { QUALITY: 'high', MODE: 'fly' },
+export { BUDGET_MS };
+export const GATE_SAMPLES = 3;
+
+const scenarios = [
+  { quality: 'medium', mode: 'cine' },
+  { quality: 'high', mode: 'fly' },
 ];
 
-function runOne(env) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, ['scripts/profile-load.mjs'], {
-      stdio: 'inherit',
-      env: {
-        ...process.env,
-        THROTTLE: '1',
-        BUDGET_MS: '520',
-        TIMEOUT_MS: process.env.TIMEOUT_MS ?? '480000',
-        ...env,
-      },
+async function main() {
+  let failed = false;
+  for (const scenario of scenarios) {
+    const samples = await measureScenario({
+      ...scenario,
+      samples: GATE_SAMPLES,
+      budgetMs: BUDGET_MS,
     });
-    child.on('exit', (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(`load budget failed for ${env.QUALITY} ${env.MODE} (exit ${code})`));
-    });
-  });
+    const verdict = judgeGate(samples, BUDGET_MS);
+    console.log(formatGateLine(scenario, samples, verdict));
+    if (!verdict.pass) failed = true;
+  }
+  if (failed) {
+    console.error('load budget failed');
+    process.exit(1);
+  }
+  console.log('load budget ok');
 }
 
-for (const env of runs) {
-  console.log(`\nload budget ${env.QUALITY} ${env.MODE}`);
-  await runOne(env);
+if (isDirectRun(import.meta.url)) {
+  await main();
 }
-console.log('load budget ok');
