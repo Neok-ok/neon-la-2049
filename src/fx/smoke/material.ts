@@ -59,11 +59,11 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const auv = vec2(col.div(4.0), row.div(2.0)).add(suv.mul(vec2(0.25, 0.5)));
       const n = mask.sample(auv);
       const rad = length(suv.sub(0.5));
-      // edge0 < edge1. Corners of the quad (radius ~0.7) go fully clear.
-      const blob = smoothstep(float(0.05), float(0.42), rad).oneMinus();
+      // Wide soft disc. The corner of the unit quad is ~0.7, so it goes clear there.
+      const blob = smoothstep(float(0.16), float(0.64), rad).oneMinus();
       const detail = mix(float(1), n.g, smokeDetail);
       const torn = n.r.mul(detail).mul(blob);
-      const shape = pow(max(mix(blob, torn, float(0.55)), float(0)), float(1.08));
+      const shape = pow(max(mix(blob, torn, float(0.32)), float(0)), float(1.02));
       const size = max(puff.w, float(0.4));
       const sceneD = linearDepth(viewportDepthTexture());
       const selfD = linearDepth();
