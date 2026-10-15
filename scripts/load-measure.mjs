@@ -76,9 +76,12 @@ function rankKey(sample) {
   return sample.js;
 }
 
-// Middle sample after sorting by JavaScript time. Unmeasured runs sort last, so
-// they are the median only when at least half the runs did not finish.
+// JavaScript uses the middle sample after sorting by time. Unmeasured runs sort
+// last, so they are the median only when at least half the runs did not finish.
 // Even counts use the upper middle. The gate always passes three runs.
+// The four-program batch limit is unchanged on each run. One run can trip it
+// without failing the build. A majority of the runs must trip it before the
+// gate fails, which is the median of that boolean.
 export function judgeGate(samples, budgetMs = BUDGET_MS) {
   if (!Array.isArray(samples) || samples.length === 0) {
     throw new Error('load budget needs at least one sample');
@@ -86,12 +89,14 @@ export function judgeGate(samples, budgetMs = BUDGET_MS) {
   const decorated = samples.map((sample, index) => ({
     ...sample,
     index: sample.index ?? index + 1,
-    measured: sample.measured === true && Number.isFinite(sample.js) && (sample.batch ?? 0) >= 0 && sample.batch != null,
+    measured: sample.measured === true && Number.isFinite(sample.js) && sample.batch != null,
   }));
   const ranked = [...decorated].sort((a, b) => rankKey(a) - rankKey(b) || a.index - b.index);
   const chosen = ranked[Math.floor(ranked.length / 2)];
   const validJs = decorated.filter((sample) => sample.measured).map((sample) => sample.js);
-  const pass = chosen.measured && chosen.batch === 0 && chosen.js <= budgetMs;
+  const batchFails = decorated.filter((sample) => sample.measured && sample.batch > 0).length;
+  const batchMajority = batchFails * 2 > decorated.length;
+  const pass = chosen.measured && chosen.js <= budgetMs && !batchMajority;
   return {
     pass,
     chosen,
@@ -99,6 +104,7 @@ export function judgeGate(samples, budgetMs = BUDGET_MS) {
     max: validJs.length ? Math.max(...validJs) : null,
     median: chosen.measured ? chosen.js : null,
     budgetMs,
+    batchFails,
   };
 }
 
@@ -139,7 +145,8 @@ export function formatGateLine(scenario, samples, verdict) {
   const batch = samples.map((sample) => (sample.batch == null ? 'na' : String(sample.batch))).join(',');
   const interactive = samples.map((sample) => (sample.interactive ? '1' : '0')).join(',');
   const chosen = verdict.chosen?.index ?? 'na';
-  return `LOAD_GATE scenario="${label}" samples=${js} median=${formatMs(verdict.median)} min=${formatMs(verdict.min)} max=${formatMs(verdict.max)} limit=${verdict.budgetMs} batch=${batch} interactive=${interactive} chosen=${chosen} result=${verdict.pass ? 'pass' : 'fail'}`;
+  const batchFails = verdict.batchFails ?? 'na';
+  return `LOAD_GATE scenario="${label}" samples=${js} median=${formatMs(verdict.median)} min=${formatMs(verdict.min)} max=${formatMs(verdict.max)} limit=${verdict.budgetMs} batch=${batch} batchFails=${batchFails} interactive=${interactive} chosen=${chosen} result=${verdict.pass ? 'pass' : 'fail'}`;
 }
 
 function execQuiet(file, args) {

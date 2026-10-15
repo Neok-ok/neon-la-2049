@@ -1,12 +1,8 @@
 name: Load sample
 
+# Manual ten-run spread. Pull requests do not run this. The CI gate takes
+# the median of three samples itself.
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/load-sample.yml'
-      - 'scripts/load-measure.mjs'
-      - 'scripts/profile-load.mjs'
-      - 'src/**'
   workflow_dispatch:
     inputs:
       samples:

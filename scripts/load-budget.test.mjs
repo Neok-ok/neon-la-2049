@@ -59,25 +59,26 @@ test('520 ms on the median still passes', () => {
   assert.equal(verdict.median, 520);
 });
 
-test('a four-program batch on an outlier does not fail the median run', () => {
+test('one four-program batch does not fail the median JavaScript sample', () => {
   const verdict = judgeGate([
-    { index: 1, js: 100, interactive: true, batch: 1, measured: true },
-    { index: 2, js: 200, interactive: true, batch: 0, measured: true },
-    { index: 3, js: 300, interactive: true, batch: 0, measured: true },
+    { index: 1, js: 349, interactive: true, batch: 0, measured: true },
+    { index: 2, js: 618, interactive: true, batch: 0, measured: true },
+    { index: 3, js: 404, interactive: true, batch: 1, measured: true },
   ], 520);
   assert.equal(verdict.pass, true);
-  assert.equal(verdict.median, 200);
+  assert.equal(verdict.median, 404);
+  assert.equal(verdict.batchFails, 1);
 });
 
-test('a four-program batch on the median run still fails', () => {
+test('a majority of runs over the four-program limit still fails', () => {
   const verdict = judgeGate([
-    { index: 1, js: 100, interactive: true, batch: 0, measured: true },
+    { index: 1, js: 100, interactive: true, batch: 1, measured: true },
     { index: 2, js: 200, interactive: true, batch: 1, measured: true },
     { index: 3, js: 300, interactive: true, batch: 0, measured: true },
   ], 520);
   assert.equal(verdict.pass, false);
   assert.equal(verdict.median, 200);
-  assert.equal(verdict.chosen.batch, 1);
+  assert.equal(verdict.batchFails, 2);
 });
 
 test('an unmeasured outlier sorts above finished runs', () => {
@@ -167,7 +168,7 @@ test('gate line names the median and the verdict', () => {
   const line = formatGateLine({ quality: 'high', mode: 'fly' }, samples, verdict);
   assert.equal(
     line,
-    'LOAD_GATE scenario="high fly" samples=498,531,505 median=505 min=498 max=531 limit=520 batch=0,0,0 interactive=1,1,1 chosen=3 result=pass',
+    'LOAD_GATE scenario="high fly" samples=498,531,505 median=505 min=498 max=531 limit=520 batch=0,0,0 batchFails=0 interactive=1,1,1 chosen=3 result=pass',
   );
 });
 

@@ -1,11 +1,11 @@
 // Cold-load budget until the city is interactive.
 // JavaScript in one task stays under 520 ms, and one task links at most four programs
 // (a drawable's color pass, a depth pass, and a second material). The gate runs each
-// scenario three times and judges the median run, the one whose JavaScript time sits
-// in the middle. One noisy sample does not fail the build. The 520 ms ceiling and the
-// four-program batch limit are unchanged: the median run still fails when its
-// JavaScript exceeds 520 ms, or when it links more than four programs in a task
-// longer than 320 ms.
+// scenario three times. The JavaScript sample that has to pass is the middle one.
+// One noisy sample does not fail the build. The 520 ms ceiling is unchanged.
+// The four-program batch limit is unchanged on each run (more than four links in
+// a task longer than 320 ms). The build fails that check when a majority of the
+// three runs trip it.
 // Driver link, uniform reflection, and draw time are subtracted via ?loadprobe=1.
 // A 4× CPU throttle is not used.
 // Requires dist/. Uses Playwright's Chromium unless CHROME is set.
