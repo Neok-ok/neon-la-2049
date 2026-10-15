@@ -1,9 +1,10 @@
 // Cold-load profile. Headless Chromium, SwiftShader, optional CPU throttle.
 //   node scripts/profile-load.mjs
 // Env: BASE_URL, QUALITY (default high), MODE (default fly), THROTTLE (default 4),
-//      WEBGL=1, TIMEOUT_MS, BUDGET_MS (fail when a load task exceeds it)
+//      WEBGL=1, TIMEOUT_MS, BUDGET_MS (fail when a load task exceeds it),
+//      CHROME (Playwright's Chromium when unset)
 import { spawn } from 'node:child_process';
-import { existsSync, writeFileSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 
 const quality = process.env.QUALITY ?? 'high';
@@ -62,10 +63,8 @@ const preview = process.env.BASE_URL ? null : startPreview();
 const base = process.env.BASE_URL ?? preview.url;
 if (preview) await waitForServer(base);
 
-const chrome = process.env.CHROME
-  || (existsSync('/usr/local/bin/google-chrome') ? '/usr/local/bin/google-chrome' : undefined);
 const browser = await chromium.launch({
-  ...(chrome ? { executablePath: chrome } : {}),
+  executablePath: process.env.CHROME || undefined,
   headless: true,
   args: [
     '--disable-background-timer-throttling',
