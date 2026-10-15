@@ -48,10 +48,10 @@ function heroMouths(layout: CityLayout): Mouth[] {
       out.push(mouth({
         x: ox + fx * d + rx * side,
         y, z: oz + fz * d + rz * side,
-        kind: KIND.grate, weight, life: 3.3,
-        size0: 0.5, size1: 1.55, heat: 0.04, radius: 0.55,
-        rise: 1.55, spread: 0.4, floor: y - 0.15, wind: 0.14,
-        turb: 1.1, aspect: 1.2, alpha: 0.38,
+        kind: KIND.grate, weight, life: 3.1,
+        size0: 0.32, size1: 0.85, heat: 0.04, radius: 0.7,
+        rise: 1.35, spread: 0.55, floor: y - 0.15, wind: 0.12,
+        turb: 1.3, aspect: 3.4, alpha: 0.34,
       }));
     }
   };
@@ -69,15 +69,15 @@ function heroMouths(layout: CityLayout): Mouth[] {
       out.push(mouth({
         x: s.x, y: s.y, z: s.z, kind: KIND.stall, weight: 5, life: 1.05,
         size0: 0.12, size1: 0.36, heat: 0.22, radius: 0.08,
-        rise: 0.42, spread: 0.05, floor: s.y - 0.05, wind: 0.05,
-        turb: 0.12, aspect: 1.55, alpha: 0.72,
+        rise: 0.22, spread: 0.04, floor: s.y - 0.02, wind: 0.04,
+        turb: 0.1, aspect: 2.4, alpha: 0.7,
       }));
     } else if (dy < 0.55) {
       out.push(mouth({
         x: s.x, y: s.y, z: s.z, kind: KIND.grate, weight: 1.1, life: 2.8,
         size0: 0.4, size1: 1.3, heat: 0.03, radius: 0.32,
         rise: 1.2, spread: 0.25, floor: ground, wind: 0.22,
-        turb: 0.7, aspect: 1.3, alpha: 0.32,
+        turb: 0.7, aspect: 2.8, alpha: 0.32,
       }));
     } else if (dy < 2.6) {
       out.push(mouth({

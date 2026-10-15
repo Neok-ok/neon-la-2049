@@ -156,7 +156,9 @@ export class SmokePool {
     p.floor = m.floor;
     p.alpha = m.alpha * (0.75 + r.next() * 0.4);
     p.turb = m.turb;
-    p.aspect = m.aspect * (0.62 + r.next() * 0.85);
+    p.aspect = steamKind
+      ? m.aspect * (0.85 + r.next() * 0.35)
+      : m.aspect * (0.62 + r.next() * 0.85);
     p.rise = m.rise;
     p.wind = m.wind;
     p.shade = m.kind === KIND.exhaust ? 0.62 + r.next() * 0.45

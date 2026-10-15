@@ -17,7 +17,7 @@ export const ALIVE: Record<Tier, Record<(typeof KIND_NAME)[number], number>> = {
   low: { launch: 300, ground: 150, stack: 120, vent: 48, grate: 96, stall: 52, exhaust: 54 },
   medium: { launch: 540, ground: 240, stack: 240, vent: 100, grate: 170, stall: 84, exhaust: 130 },
   high: { launch: 1000, ground: 380, stack: 440, vent: 190, grate: 270, stall: 130, exhaust: 250 },
-  ultra: { launch: 1540, ground: 540, stack: 660, vent: 260, grate: 380, stall: 180, exhaust: 380 },
+  ultra: { launch: 1540, ground: 540, stack: 660, vent: 180, grate: 150, stall: 90, exhaust: 380 },
 };
 
 /** Puff scale. Low is softer and larger so the same sources still read. */
