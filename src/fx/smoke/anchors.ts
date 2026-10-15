@@ -48,10 +48,10 @@ function heroMouths(layout: CityLayout): Mouth[] {
       out.push(mouth({
         x: ox + fx * d + rx * side,
         y, z: oz + fz * d + rz * side,
-        kind: KIND.grate, weight: weight * 2, life: 2.8,
-        size0: 0.38, size1: 1.05, heat: 0.05, radius: 0.18,
-        rise: 1.65, spread: 0.07, floor: y - 0.05, wind: 0.05,
-        turb: 0.18, aspect: 1, alpha: 0.52,
+        kind: KIND.grate, weight: weight * 2, life: 2.6,
+        size0: 0.24, size1: 0.58, heat: 0.04, radius: 0.16,
+        rise: 1.35, spread: 0.1, floor: y - 0.05, wind: 0.06,
+        turb: 0.22, aspect: 1, alpha: 0.36,
       }));
     }
   };
@@ -130,10 +130,10 @@ export function gatherMouths(
   if (plume.live && plume.env > 0.04) {
     const base = plume.base;
     out.push(mouth({
-      x: plume.x, y: base + 4, z: plume.z, kind: KIND.launch, weight: 1, life: 6.2,
-      size0: 22, size1: 40, heat: 0.55, radius: 4,
+      x: plume.x, y: base + 4, z: plume.z, kind: KIND.launch, weight: 1, life: 6.4,
+      size0: 20, size1: 38, heat: 0.16, radius: 4,
       rise: 2, spread: 0.2, floor: base, wind: 0.02,
-      turb: 1.1, aspect: 1, alpha: 0.62,
+      turb: 1.1, aspect: 1, alpha: 0.74,
     }));
     out.push(mouth({
       x: plume.x, y: base + 2, z: plume.z, kind: KIND.ground, weight: 1, life: 4.2,
@@ -146,10 +146,10 @@ export function gatherMouths(
   for (let i = 0; i < stacks.length; i++) {
     const f = stacks[i]!;
     out.push(mouth({
-      x: f.x, y: f.y, z: f.z, kind: KIND.stack, weight: i === 0 ? 8 : 1, life: 8.5,
-      size0: 2.4, size1: 5.6, heat: 0.9, radius: 0.45,
-      rise: 6.8, spread: 0.22, floor: f.y, wind: 0.15,
-      turb: 0.7, aspect: 1, alpha: 0.4,
+      x: f.x, y: f.y, z: f.z, kind: KIND.stack, weight: i === 0 ? 8 : 1, life: 7.4,
+      size0: 1.7, size1: 4.0, heat: 0.55, radius: 0.4,
+      rise: 4.6, spread: 0.18, floor: f.y, wind: 0.12,
+      turb: 0.85, aspect: 1, alpha: 0.38,
     }));
   }
   const reach = 90;
@@ -164,13 +164,13 @@ export function gatherMouths(
     const t = tails[i]!;
     const heavy = t.heavy > 0;
     out.push(mouth({
-      x: t.x - t.fx * 0.55, y: t.y + 0.04, z: t.z - t.fz * 0.55, kind: KIND.exhaust, weight: 1,
-      life: heavy ? 2.0 : 1.55,
-      size0: heavy ? 0.32 : 0.22, size1: heavy ? 1.15 : 0.78, heat: 0.02,
-      radius: 0.08, rise: 0.18, spread: 0.06, floor: t.y - 0.2, wind: 0.01,
-      turb: 0.1, aspect: 1, alpha: 0.58,
-      vx: t.vx - t.fx * (heavy ? 2.2 : 3.0),
-      vz: t.vz - t.fz * (heavy ? 2.2 : 3.0),
+      x: t.x - t.fx * 0.75, y: t.y + 0.02, z: t.z - t.fz * 0.75, kind: KIND.exhaust, weight: 1,
+      life: heavy ? 2.15 : 1.65,
+      size0: heavy ? 0.16 : 0.11, size1: heavy ? 0.62 : 0.42, heat: 0.1,
+      radius: 0.05, rise: 0.05, spread: 0.04, floor: t.y - 0.25, wind: 0.01,
+      turb: 0.08, aspect: 1, alpha: 0.5,
+      vx: t.vx - t.fx * (heavy ? 3.2 : 4.0),
+      vz: t.vz - t.fz * (heavy ? 3.2 : 4.0),
       fx: t.fx, fz: t.fz,
     }));
   }

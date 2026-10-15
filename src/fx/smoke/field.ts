@@ -18,21 +18,21 @@ import {
 } from './anchors';
 
 const TINT: Record<(typeof KIND_NAME)[number], [number, number, number]> = {
-  launch: [0.62, 0.58, 0.52],
+  launch: [0.55, 0.52, 0.48],
   ground: [0.32, 0.3, 0.28],
-  stack: [0.16, 0.15, 0.14],
-  vent: [0.7, 0.73, 0.76],
-  grate: [0.74, 0.76, 0.8],
+  stack: [0.34, 0.32, 0.3],
+  vent: [0.72, 0.75, 0.78],
+  grate: [0.78, 0.8, 0.84],
   stall: [0.84, 0.78, 0.68],
-  exhaust: [0.48, 0.5, 0.52],
+  exhaust: [0.4, 0.42, 0.44],
 };
 
 /** How much practical light this kind takes. Exhaust stays a grey trail. */
 function lampOf(kind: number): number {
-  if (kind === 6) return 0.18;
-  if (kind === 0 || kind === 1) return 0.1;
-  if (kind === 2) return 0.9;
-  return 0.62;
+  if (kind === 6) return 0.05;
+  if (kind === 0 || kind === 1) return 0.08;
+  if (kind === 2) return 0.45;
+  return 0.28;
 }
 
 const WARM_FRAMES = 14;
@@ -253,12 +253,16 @@ export class SmokeField {
       let size = p.size0 + (p.size1 - p.size0) * Math.min(1, u / 0.55);
       let lifeA = fadeIn * fadeOut * p.alpha;
       let heat = p.heat;
-      if (p.kind === 0 || p.kind === 2) heat *= Math.max(0, 1 - u * 0.8);
+      if (p.kind === 0) heat *= Math.max(0, 1 - u * 0.85);
+      if (p.kind === 2) {
+        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 14));
+        heat *= Math.max(0, 1 - h);
+      }
       if (p.kind === 0) {
-        const edge = Math.min(1, Math.abs(p.offS) / 46);
-        lifeA *= 1.15 - edge * 0.28;
-        size *= 0.88 + edge * 0.32;
-        size = Math.min(size, Math.max(5, dist * 0.13));
+        const edge = Math.min(1, Math.abs(p.offS) / 40);
+        lifeA = Math.min(0.96, lifeA * (0.82 + (1 - edge) * 0.38));
+        size *= 0.84 + edge * 0.42;
+        size = Math.min(size, Math.max(4, dist * 0.1));
         if (dist < 28) lifeA *= Math.min(1, Math.max(0, (dist - 10) / 18));
       } else if (p.kind === 1) {
         size = Math.min(size, Math.max(4, dist * 0.14));
@@ -297,20 +301,20 @@ export class SmokeField {
   private stretchOf(p: Puff): { x: number; y: number; z: number; w: number } {
     const jitter = 0.82 + p.seed * 0.36;
     if (p.kind === 0) {
-      return { x: this.plumeUp.x, y: this.plumeUp.y, z: this.plumeUp.z, w: 1.05 * jitter };
+      return { x: this.plumeUp.x, y: this.plumeUp.y, z: this.plumeUp.z, w: 1.12 * jitter };
     }
     if (p.kind === 6) {
       const L = Math.hypot(p.vx, p.vz);
-      if (L > 0.15) return { x: p.vx / L, y: 0.06, z: p.vz / L, w: 2.5 * jitter };
-      return { x: 0, y: 1, z: 0, w: 1.2 };
+      if (L > 0.15) return { x: p.vx / L, y: 0.04, z: p.vz / L, w: 2.15 * jitter };
+      return { x: 0, y: 1, z: 0, w: 1.1 };
     }
     if (p.kind === 2) {
-      const wx = Math.cos(this.windDir) * 0.32;
-      const wz = Math.sin(this.windDir) * 0.32;
-      return { x: wx, y: 1, z: wz, w: 1.85 * jitter };
+      const wx = Math.cos(this.windDir) * 0.22;
+      const wz = Math.sin(this.windDir) * 0.22;
+      return { x: wx, y: 1, z: wz, w: 1.35 * jitter };
     }
-    if (p.kind === 5) return { x: 0, y: 1, z: 0, w: 2.05 * jitter };
-    return { x: 0, y: 1, z: 0, w: 1.65 * jitter };
+    if (p.kind === 5) return { x: 0, y: 1, z: 0, w: 1.9 * jitter };
+    return { x: 0, y: 1, z: 0, w: 1.15 * jitter };
   }
 
   snapshot(): SmokeSnapshot {

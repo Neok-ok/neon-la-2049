@@ -69,10 +69,12 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const auv = vec2(col.div(4.0), row.div(2.0)).add(suv.mul(vec2(0.25, 0.5)));
       const n = mask.sample(auv);
       const rad = length(suv.sub(0.5));
-      // The atlas is the puff. The radial term only kills the quad corners.
-      const edge = smoothstep(float(0.9), float(0.52), rad);
-      const torn = mix(n.r, n.r.mul(float(0.75).add(n.g.mul(0.4))), smokeDetail);
-      const shape = pow(max(torn.mul(edge), float(0)), float(0.82));
+      // Round falloff. A reversed smoothstep is undefined on SwiftShader and
+      // cuts a quad into a triangle.
+      const edge = float(1).sub(smoothstep(float(0.48), float(0.9), rad));
+      const torn = mix(n.r, n.r.mul(float(0.8).add(n.g.mul(0.35))), smokeDetail);
+      const grain = float(0.76).add(n.g.mul(0.42));
+      const shape = pow(max(torn.mul(edge).mul(grain), float(0)), float(0.9));
       const size = max(puff.w, float(0.4));
       const sceneD = linearDepth(viewportDepthTexture());
       const selfD = linearDepth();
