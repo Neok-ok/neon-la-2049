@@ -124,8 +124,8 @@ export class SmokePool {
         if (dist > 180 && dist < 1600) break;
       }
       const wide = Math.max(24, plume.halfW * 1.8);
-      const sideR = wide * 1.75;
-      const depthR = wide * 0.42;
+      const sideR = wide * 2.35;
+      const depthR = wide * 0.55;
       const sign = r.next() < 0.5 ? -1 : 1;
       p.along = along;
       p.offS = sign * (wide * 0.35 + (sideR - wide * 0.35) * r.next());
