@@ -131,9 +131,9 @@ export function gatherMouths(
     const base = plume.base;
     out.push(mouth({
       x: plume.x, y: base + 4, z: plume.z, kind: KIND.launch, weight: 1, life: 6.2,
-      size0: 18, size1: 34, heat: 0.7, radius: 4,
+      size0: 22, size1: 40, heat: 0.55, radius: 4,
       rise: 2, spread: 0.2, floor: base, wind: 0.02,
-      turb: 1.1, aspect: 1, alpha: 0.58,
+      turb: 1.1, aspect: 1, alpha: 0.62,
     }));
     out.push(mouth({
       x: plume.x, y: base + 2, z: plume.z, kind: KIND.ground, weight: 1, life: 4.2,

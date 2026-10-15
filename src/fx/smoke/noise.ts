@@ -60,17 +60,15 @@ function buildCanvas(): HTMLCanvasElement {
         for (let px = 0; px < CELL; px++) {
           const u = (px + 0.5) / CELL;
           const v = (py + 0.5) / CELL;
-          const n = fbm(u * 3.2 + seed, v * 3.2, seed * 5);
-          const n2 = fbm(u * 7.1 + 2, v * 6.6, seed * 9 + 3);
-          const wx = (n - 0.5) * 0.46;
-          const wy = (n2 - 0.5) * 0.4;
-          const r = Math.hypot(u - 0.5 + wx, v - 0.5 + wy) * 2;
-          // A warped falloff with interior veins. No solid disc in the middle.
-          const dist = r * (0.72 + (n - 0.5) * 0.7);
-          let a = 1 - smooth(0.22, 1.08, dist);
-          a *= 0.58 + 0.42 * n2;
-          a *= 0.5 + 0.5 * smooth(0.32, 0.72, n);
-          const g = smooth(0.3, 0.78, n2) * a;
+          const n = fbm(u * 3.1 + seed, v * 3.1, seed * 5);
+          const n2 = fbm(u * 6.2 + 2, v * 6.2, seed * 9 + 3);
+          const r = Math.hypot(u - 0.5, v - 0.5) * 2;
+          // Filled body, noisy edge. Thin wisps disappear on a night sky.
+          const distorted = r + (n - 0.5) * 0.62 + (n2 - 0.5) * 0.18;
+          const body = 1 - smooth(0.5, 1.16, distorted);
+          const core = 1 - smooth(0.02, 0.5, r);
+          let a = Math.max(body * (0.78 + 0.22 * n2), core * 0.42);
+          const g = a * smooth(0.22, 0.75, n2);
           const i = ((cy * CELL + py) * canvas.width + cx * CELL + px) * 4;
           const A = Math.max(0, Math.min(255, Math.round(a * 255)));
           data[i] = A;

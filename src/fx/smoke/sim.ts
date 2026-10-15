@@ -191,20 +191,19 @@ export class SmokePool {
       : m.aspect * (0.62 + r.next() * 0.85);
     p.rise = m.rise;
     p.wind = m.wind;
-    p.shade = m.kind === KIND.exhaust ? 0.42 + r.next() * 0.38
-      : m.kind === KIND.launch ? 0.22 + r.next() * 0.78
-        : m.kind === KIND.stack ? 0.28 + r.next() * 0.62
-          : 0.62 + r.next() * 0.38;
+    p.shade = m.kind === KIND.exhaust ? 0.55 + r.next() * 0.35
+      : m.kind === KIND.launch ? 0.58 + r.next() * 0.42
+        : m.kind === KIND.stack ? 0.4 + r.next() * 0.55
+          : 0.72 + r.next() * 0.28;
     if (m.kind === KIND.launch) {
       const roll = r.next();
-      if (roll < 0.42) {
-        p.size0 *= 0.52;
-        p.size1 *= 0.52;
-        p.shade *= 0.6;
-      } else if (roll > 0.84) {
-        p.size0 *= 1.28;
-        p.size1 *= 1.4;
-        p.alpha *= 0.55;
+      if (roll < 0.2) {
+        p.size0 *= 0.7;
+        p.size1 *= 0.7;
+      } else if (roll > 0.8) {
+        p.size0 *= 1.22;
+        p.size1 *= 1.3;
+        p.alpha *= 0.72;
       }
     }
     if (m.kind === KIND.stall) {

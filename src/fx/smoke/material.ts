@@ -16,7 +16,7 @@ const {
 } = T;
 
 /** Display-space body. 1 would paint the albedo at full exposure; soot sits under that. */
-export const smokeBody = uniform(0.5);
+export const smokeBody = uniform(0.66);
 /** Practicals tint the puff. Kept small so a sign does not blow the body to white. */
 export const smokeLamp = uniform(0.07);
 /** 0 low, 1 high/ultra. Mixes the second mask. */
@@ -70,9 +70,9 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const n = mask.sample(auv);
       const rad = length(suv.sub(0.5));
       // The atlas is the puff. The radial term only kills the quad corners.
-      const edge = smoothstep(float(0.98), float(0.58), rad);
-      const torn = mix(n.r, n.r.mul(float(0.4).add(n.g.mul(0.95))), smokeDetail);
-      const shape = pow(max(torn.mul(edge), float(0)), float(1.05));
+      const edge = smoothstep(float(0.9), float(0.52), rad);
+      const torn = mix(n.r, n.r.mul(float(0.75).add(n.g.mul(0.4))), smokeDetail);
+      const shape = pow(max(torn.mul(edge), float(0)), float(0.82));
       const size = max(puff.w, float(0.4));
       const sceneD = linearDepth(viewportDepthTexture());
       const selfD = linearDepth();

@@ -18,7 +18,7 @@ import {
 } from './anchors';
 
 const TINT: Record<(typeof KIND_NAME)[number], [number, number, number]> = {
-  launch: [0.5, 0.48, 0.45],
+  launch: [0.62, 0.58, 0.52],
   ground: [0.32, 0.3, 0.28],
   stack: [0.16, 0.15, 0.14],
   vent: [0.7, 0.73, 0.76],
@@ -35,7 +35,7 @@ function lampOf(kind: number): number {
   return 0.62;
 }
 
-const WARM_FRAMES = 40;
+const WARM_FRAMES = 14;
 
 export class SmokeField {
   readonly root: Group;
@@ -129,7 +129,7 @@ export class SmokeField {
     }
     const wind: Wind = { dir: windDir, speed: windSpeed, rain };
     this.windDir = windDir;
-    const sub = this.warmLeft > 0 ? 6 : 1;
+    const sub = this.warmLeft > 0 ? 16 : 1;
     const stepDt = this.warmLeft > 0 ? 1 / 30 : Math.min(Math.max(dt, 0), 0.05);
     const plume = readLaunchPlume();
     camera.getWorldDirection(this.camDir);
@@ -256,7 +256,7 @@ export class SmokeField {
       if (p.kind === 0 || p.kind === 2) heat *= Math.max(0, 1 - u * 0.8);
       if (p.kind === 0) {
         const edge = Math.min(1, Math.abs(p.offS) / 46);
-        lifeA *= 1.22 - edge * 0.48;
+        lifeA *= 1.15 - edge * 0.28;
         size *= 0.88 + edge * 0.32;
         size = Math.min(size, Math.max(5, dist * 0.13));
         if (dist < 28) lifeA *= Math.min(1, Math.max(0, (dist - 10) / 18));
@@ -297,7 +297,7 @@ export class SmokeField {
   private stretchOf(p: Puff): { x: number; y: number; z: number; w: number } {
     const jitter = 0.82 + p.seed * 0.36;
     if (p.kind === 0) {
-      return { x: this.plumeUp.x, y: this.plumeUp.y, z: this.plumeUp.z, w: 1.18 * jitter };
+      return { x: this.plumeUp.x, y: this.plumeUp.y, z: this.plumeUp.z, w: 1.05 * jitter };
     }
     if (p.kind === 6) {
       const L = Math.hypot(p.vx, p.vz);
