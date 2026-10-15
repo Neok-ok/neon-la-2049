@@ -199,7 +199,7 @@ export class SmokePool {
       : m.aspect * (0.62 + r.next() * 0.85);
     p.rise = m.rise;
     p.wind = m.wind;
-    p.shade = m.kind === KIND.exhaust ? 0.5 + r.next() * 0.35
+    p.shade = m.kind === KIND.exhaust ? 0.62 + r.next() * 0.28
       : m.kind === KIND.launch ? 0.4 + r.next() * 0.6
         : m.kind === KIND.stack ? 0.35 + r.next() * 0.6
           : 0.72 + r.next() * 0.28;
@@ -282,7 +282,7 @@ export class SmokePool {
         p.vz = p.vz * Math.exp(-dt * 0.35) + wobZ * dt;
         p.vy = approach(p.vy, 0.05 * (1 - u), dt, 0.28);
       } else if (p.kind === KIND.grate || p.kind === KIND.vent) {
-        const spread = 0.12 + u * (p.kind === KIND.grate ? 0.62 : 0.36);
+        const spread = 0.16 + u * (p.kind === KIND.grate ? 0.85 : 0.4);
         const ax = p.ox + Math.sin(phase + p.age * 0.5) * spread;
         const az = p.oz + Math.cos(phase * 1.31 + p.age * 0.38) * spread * 0.75;
         p.vx = approach(p.vx, (ax - p.x) * 1.5 + wx * p.wind, dt, 0.32);
@@ -347,8 +347,8 @@ export class SmokePool {
     const dx = p.x - ox;
     const dz = p.z - oz;
     const dist = Math.hypot(dx, dz) || 0.001;
-    const wob = Math.sin(p.seed * 12.3 + p.age * 0.8) * (0.4 + lift * 0.9);
-    const limit = 1.05 + lift * 3.6 + u * 1.1 + wob;
+    const lobe = 0.5 + p.seed * 5.5;
+    const limit = lobe * (0.4 + lift * 0.55) + u * 0.6;
     const k = 1 - Math.exp(-dt * (dist > limit ? 2.4 : 1.5));
     const clamped = dist > limit ? limit : dist;
     p.x += (ox + (dx / dist) * clamped - p.x) * k;

@@ -16,7 +16,7 @@ import { writeLaunchPlume } from '../../fx/smoke/bridge';
 
 const T = TSL as any;
 const {
-  Fn, attribute, vec3, vec4, normalize, cross, cameraPosition, sin, smoothstep, length, float, max, clamp, exp,
+  Fn, attribute, vec3, vec4, normalize, cross, cameraPosition, sin, smoothstep, length, float, max, clamp, exp, mix,
 } = T;
 
 const DUR = 36;
@@ -31,6 +31,13 @@ const launchGain = uniform(0);
 const launchTier = uniform(1);
 const launchWindX = uniform(0);
 const launchWindZ = uniform(0);
+/** 1 keeps the column card. Smoke turns it down so the plume is the particles. */
+const launchColumnCover = uniform(1);
+
+/** Dim the tall flame card while particle smoke is drawing. 1 leaves the card alone. */
+export function setLaunchColumnCover(amount: number): void {
+  launchColumnCover.value = amount;
+}
 
 let mesh: Mesh | null = null;
 let ctr: BufferAttribute | null = null;
@@ -85,7 +92,9 @@ function material(): MeshBasicNodeMaterial {
     const att = exp(fogDepth(cameraPosition, c.xyz).mul(fogK.negate()));
     const day = U.night.mul(0.55).add(0.45);
     const flick = sin(U.time.mul(13.0).add(k.z)).mul(0.05).add(1);
-    const a = col.mul(spread).mul(att).mul(day).mul(flick).mul(launchGain).mul(launchTier).mul(3.1);
+    const sheet = column.add(head);
+    const cover = mix(float(1), launchColumnCover, sheet);
+    const a = col.mul(spread).mul(att).mul(day).mul(flick).mul(launchGain).mul(launchTier).mul(3.1).mul(cover);
     return vec4(a, float(1));
   })();
   return m;

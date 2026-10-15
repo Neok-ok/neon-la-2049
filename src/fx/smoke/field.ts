@@ -8,6 +8,8 @@ import type { Tier } from '../../core/quality';
 import { resources } from '../../core/memory';
 import { visualSeed } from '../../core/rng';
 import { steamCardGain } from '../../districts/_shared/kit/materials';
+import { setLaunchColumnCover } from '../../districts/lax-spaceport/launch';
+import { setFlareSmokeCover } from '../../districts/_shared/refinery/flames';
 import { readLaunchPlume } from './bridge';
 import { smokeDetail, smokeMaterial } from './material';
 import { launchStretchAxis, SmokePool, type Wind } from './sim';
@@ -24,12 +26,12 @@ const TINT: Record<(typeof KIND_NAME)[number], [number, number, number]> = {
   vent: [0.72, 0.75, 0.78],
   grate: [0.78, 0.8, 0.84],
   stall: [0.84, 0.78, 0.68],
-  exhaust: [0.4, 0.42, 0.44],
+  exhaust: [0.58, 0.6, 0.62],
 };
 
 /** How much practical light this kind takes. Exhaust stays a grey trail. */
 function lampOf(kind: number): number {
-  if (kind === 6) return 0.05;
+  if (kind === 6) return 0.08;
   if (kind === 0 || kind === 1) return 0.08;
   if (kind === 2) return 0.45;
   return 0.28;
@@ -72,6 +74,8 @@ export class SmokeField {
     scene.add(this.root);
     this.mountMesh(PUFF_CAP[tier]);
     steamCardGain.value = 0;
+    setLaunchColumnCover(0.12);
+    setFlareSmokeCover(0.42);
     smokeDetail.value = PUFF_DETAIL[tier];
   }
 
@@ -91,6 +95,8 @@ export class SmokeField {
     if (this.geo) resources.release(this.geo);
     this.pool.clear();
     steamCardGain.value = 1;
+    setLaunchColumnCover(1);
+    setFlareSmokeCover(1);
   }
 
   pose(kind: 'stall' | 'exhaust' | 'street', layout: CityLayout): SmokePose | null {
@@ -279,9 +285,14 @@ export class SmokeField {
       shade[o + 3] = lifeA;
       const name = KIND_NAME[p.kind]!;
       const rgb = TINT[name];
-      tint[o] = rgb[0] * p.shade;
-      tint[o + 1] = rgb[1] * p.shade;
-      tint[o + 2] = rgb[2] * p.shade;
+      let shadeK = p.shade;
+      if (p.kind === 2) {
+        const band = Math.floor(Math.max(0, p.y - p.floor) / 3.2);
+        shadeK *= 0.48 + ((band * 3) % 5) / 5 * 0.9;
+      }
+      tint[o] = rgb[0] * shadeK;
+      tint[o + 1] = rgb[1] * shadeK;
+      tint[o + 2] = rgb[2] * shadeK;
       tint[o + 3] = p.aspect;
       const stretch = this.stretchOf(p);
       move[o] = stretch.x;
@@ -305,7 +316,7 @@ export class SmokeField {
     }
     if (p.kind === 6) {
       const L = Math.hypot(p.vx, p.vz);
-      if (L > 0.15) return { x: p.vx / L, y: 0.04, z: p.vz / L, w: 2.15 * jitter };
+      if (L > 0.15) return { x: p.vx / L, y: 0.04, z: p.vz / L, w: 1.55 * jitter };
       return { x: 0, y: 1, z: 0, w: 1.1 };
     }
     if (p.kind === 2) {
@@ -313,7 +324,7 @@ export class SmokeField {
       const wz = Math.sin(this.windDir) * 0.22;
       return { x: wx, y: 1, z: wz, w: 1.35 * jitter };
     }
-    if (p.kind === 5) return { x: 0, y: 1, z: 0, w: 1.9 * jitter };
+    if (p.kind === 5) return { x: 0, y: 1, z: 0, w: 1.35 * jitter };
     return { x: 0, y: 1, z: 0, w: 1.15 * jitter };
   }
 

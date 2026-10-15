@@ -48,10 +48,10 @@ function heroMouths(layout: CityLayout): Mouth[] {
       out.push(mouth({
         x: ox + fx * d + rx * side,
         y, z: oz + fz * d + rz * side,
-        kind: KIND.grate, weight: weight * 2, life: 2.6,
-        size0: 0.24, size1: 0.58, heat: 0.04, radius: 0.16,
-        rise: 1.35, spread: 0.1, floor: y - 0.05, wind: 0.06,
-        turb: 0.22, aspect: 1, alpha: 0.36,
+        kind: KIND.grate, weight: weight * 2, life: 2.1,
+        size0: 0.22, size1: 0.5, heat: 0.04, radius: 0.14,
+        rise: 0.9, spread: 0.12, floor: y - 0.05, wind: 0.08,
+        turb: 0.28, aspect: 1, alpha: 0.32,
       }));
     }
   };
@@ -67,10 +67,10 @@ function heroMouths(layout: CityLayout): Mouth[] {
     const dy = s.y - ground;
     if (near) {
       out.push(mouth({
-        x: s.x, y: s.y, z: s.z, kind: KIND.stall, weight: 5, life: 1.55,
-        size0: 0.07, size1: 0.2, heat: 0.14, radius: 0.04,
-        rise: 0.82, spread: 0.02, floor: s.y - 0.02, wind: 0.02,
-        turb: 0.06, aspect: 1, alpha: 0.46,
+        x: s.x, y: s.y, z: s.z,         kind: KIND.stall, weight: 5, life: 1.25,
+        size0: 0.05, size1: 0.13, heat: 0.12, radius: 0.03,
+        rise: 0.55, spread: 0.015, floor: s.y - 0.02, wind: 0.02,
+        turb: 0.04, aspect: 1, alpha: 0.5,
       }));
     } else if (dy < 0.55) {
       out.push(mouth({
@@ -147,9 +147,9 @@ export function gatherMouths(
     const f = stacks[i]!;
     out.push(mouth({
       x: f.x, y: f.y, z: f.z, kind: KIND.stack, weight: i === 0 ? 8 : 1, life: 7.4,
-      size0: 1.7, size1: 4.0, heat: 0.55, radius: 0.4,
-      rise: 4.6, spread: 0.18, floor: f.y, wind: 0.12,
-      turb: 0.85, aspect: 1, alpha: 0.38,
+      size0: 1.4, size1: 2.8, heat: 0.65, radius: 0.55,
+      rise: 3.4, spread: 0.3, floor: f.y, wind: 0.14,
+      turb: 1.3, aspect: 1, alpha: 0.3,
     }));
   }
   const reach = 90;
@@ -160,17 +160,18 @@ export function gatherMouths(
     for (const c of curbMouths(layout, x, z, tier)) out.push(c);
   }
   const tailKeep = tier === 'low' ? 4 : tier === 'medium' ? 6 : 8;
-  for (let i = 0; i < tails.length && i < tailKeep; i++) {
+    for (let i = 0; i < tails.length && i < tailKeep; i++) {
     const t = tails[i]!;
     const heavy = t.heavy > 0;
     out.push(mouth({
-      x: t.x - t.fx * 0.75, y: t.y + 0.02, z: t.z - t.fz * 0.75, kind: KIND.exhaust, weight: 1,
-      life: heavy ? 2.15 : 1.65,
-      size0: heavy ? 0.16 : 0.11, size1: heavy ? 0.62 : 0.42, heat: 0.1,
-      radius: 0.05, rise: 0.05, spread: 0.04, floor: t.y - 0.25, wind: 0.01,
-      turb: 0.08, aspect: 1, alpha: 0.5,
-      vx: t.vx - t.fx * (heavy ? 3.2 : 4.0),
-      vz: t.vz - t.fz * (heavy ? 3.2 : 4.0),
+      x: t.x - t.fx * 1.15, y: t.y + 0.08, z: t.z - t.fz * 1.15, kind: KIND.exhaust,
+      weight: i === 0 ? 2 : 1,
+      life: heavy ? 1.45 : 1.15,
+      size0: heavy ? 0.18 : 0.13, size1: heavy ? 0.55 : 0.4, heat: 0.06,
+      radius: 0.05, rise: 0.03, spread: 0.025, floor: t.y - 0.15, wind: 0.01,
+      turb: 0.05, aspect: 1, alpha: 0.44,
+      vx: t.vx - t.fx * (heavy ? 1.6 : 2.2),
+      vz: t.vz - t.fz * (heavy ? 1.6 : 2.2),
       fx: t.fx, fz: t.fz,
     }));
   }
@@ -205,11 +206,11 @@ export function streetSteamPose(layout: CityLayout): SmokePose | null {
   const vx = ox + fx * d + rx * side;
   const vz = oz + fz * d + rz * side;
   // Across the lane from the grate, so the column is the subject and the street sign is out of frame.
-  const px = ox + fx * d - rx * 2.4;
-  const pz = oz + fz * d - rz * 2.4;
+  const px = ox + fx * d - rx * 1.7;
+  const pz = oz + fz * d - rz * 1.7;
   const ground = layout.heightAt(px, pz);
-  const eye = ground + 1.55;
-  const lookY = layout.heightAt(vx, vz) + 1.45;
+  const eye = ground + 1.15;
+  const lookY = layout.heightAt(vx, vz) + 0.55;
   const dist = Math.hypot(vx - px, vz - pz) || 1;
   return {
     x: px, y: eye, z: pz,
@@ -253,8 +254,8 @@ export function stallPose(layout: CityLayout): SmokePose | null {
 export function exhaustPose(layout: CityLayout, tails: readonly Tailpipe[]): SmokePose | null {
   const t = tails[0];
   if (!t) return null;
-  const dist = 10.5;
-  const side = 3.1;
+  const dist = 7.2;
+  const side = 0.45;
   const rx = -t.fz;
   const rz = t.fx;
   const fx = t.x - t.fx * dist + rx * side;
