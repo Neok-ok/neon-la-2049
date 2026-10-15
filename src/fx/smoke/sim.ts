@@ -121,11 +121,12 @@ export class SmokePool {
         const dist = Math.hypot(axis.x - cam.x, axis.y - cam.y, axis.z - cam.z);
         if (dist > 180 && dist < 1600) break;
       }
-      const sideR = Math.max(20, plume.halfW * 1.85);
-      const depthR = Math.max(8, plume.halfW * 0.55);
+      const sideR = Math.max(28, plume.halfW * 3.4);
+      const depthR = Math.max(10, plume.halfW * 0.8);
+      const sign = r.next() < 0.5 ? -1 : 1;
       p.along = along;
-      p.offS = (r.next() * 2 - 1) * sideR * Math.sqrt(r.next());
-      p.offD = (r.next() * 2 - 1) * depthR * Math.sqrt(r.next());
+      p.offS = sign * sideR * (0.22 + 0.78 * r.next());
+      p.offD = (r.next() * 2 - 1) * depthR * r.next();
       x = axis.x + frame.sx * p.offS + frame.tx * p.offD;
       y = axis.y + frame.sy * p.offS + frame.ty * p.offD;
       z = axis.z + frame.sz * p.offS + frame.tz * p.offD;

@@ -228,7 +228,7 @@ export class SmokeField {
       let size = p.size0 + (p.size1 - p.size0) * Math.min(1, u / 0.65);
       let lifeA = fadeIn * fadeOut * p.alpha;
       if (p.kind === 0 || p.kind === 1) {
-        size = Math.min(size, Math.max(4, dist * 0.055));
+        size = Math.min(size, Math.max(6, dist * 0.09));
         if (dist < 90) lifeA *= Math.min(1, Math.max(0, (dist - 40) / 50));
       }
       const o = i * 4;
