@@ -164,13 +164,13 @@ export function gatherMouths(
     const t = tails[i]!;
     const heavy = t.heavy > 0;
     out.push(mouth({
-      x: t.x - t.fx * 0.35, y: t.y + 0.02, z: t.z - t.fz * 0.35, kind: KIND.exhaust, weight: 1,
-      life: heavy ? 1.45 : 1.1,
-      size0: heavy ? 0.16 : 0.1, size1: heavy ? 0.55 : 0.34, heat: 0.02,
-      radius: 0.05, rise: 0.12, spread: 0.04, floor: t.y - 0.2, wind: 0.01,
-      turb: 0.08, aspect: 1, alpha: 0.42,
-      vx: t.vx - t.fx * (heavy ? 2.4 : 3.4),
-      vz: t.vz - t.fz * (heavy ? 2.4 : 3.4),
+      x: t.x - t.fx * 0.55, y: t.y + 0.04, z: t.z - t.fz * 0.55, kind: KIND.exhaust, weight: 1,
+      life: heavy ? 2.0 : 1.55,
+      size0: heavy ? 0.32 : 0.22, size1: heavy ? 1.15 : 0.78, heat: 0.02,
+      radius: 0.08, rise: 0.18, spread: 0.06, floor: t.y - 0.2, wind: 0.01,
+      turb: 0.1, aspect: 1, alpha: 0.58,
+      vx: t.vx - t.fx * (heavy ? 2.2 : 3.0),
+      vz: t.vz - t.fz * (heavy ? 2.2 : 3.0),
       fx: t.fx, fz: t.fz,
     }));
   }

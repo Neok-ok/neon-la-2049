@@ -24,7 +24,7 @@ const TINT: Record<(typeof KIND_NAME)[number], [number, number, number]> = {
   vent: [0.7, 0.73, 0.76],
   grate: [0.74, 0.76, 0.8],
   stall: [0.84, 0.78, 0.68],
-  exhaust: [0.32, 0.33, 0.35],
+  exhaust: [0.48, 0.5, 0.52],
 };
 
 /** How much practical light this kind takes. Exhaust stays a grey trail. */
