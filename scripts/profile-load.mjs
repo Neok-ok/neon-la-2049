@@ -215,11 +215,13 @@ const classified = loadTasks.map((task) => {
 });
 const loadLongest = loadTasks.reduce((m, t) => Math.max(m, t.duration), 0);
 const jsWorst = classified.reduce((m, t) => Math.max(m, t.js), 0);
-const limit = budgetMs || 200;
+const jsLimit = budgetMs || 200;
 // One drawable can link a few passes (color, depth, and a second material).
 // More than four in one task means the frame compiled a batch of meshes.
-const batched = classified.filter((t) => t.links > 4 && t.duration > limit);
-const jsOver = classified.filter((t) => t.js > limit);
+// That gate stays at 320 ms when the JavaScript ceiling is raised above it.
+const batchLimit = Math.min(jsLimit, 320);
+const batched = classified.filter((t) => t.links > 4 && t.duration > batchLimit);
+const jsOver = classified.filter((t) => t.js > jsLimit);
 report.loadLongest = loadLongest;
 report.jsWorst = jsWorst;
 report.loadClassified = classified.slice(0, 16);
@@ -257,7 +259,7 @@ console.log('load tasks', JSON.stringify({
 }));
 const overBudget = budgetMs > 0 && (!interactive || jsOver.length > 0 || batched.length > 0);
 if (overBudget) {
-  console.error(`load budget failed: js ${jsWorst} ms, batched ${batched.length}, interactive ${interactive}, limit ${budgetMs} ms`);
+  console.error(`load budget failed: js ${jsWorst} ms, batched ${batched.length}, interactive ${interactive}, limit ${jsLimit} ms`);
   process.exit(1);
 }
 process.exit(0);
