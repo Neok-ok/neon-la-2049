@@ -17,6 +17,7 @@ export interface Xyz {
 
 interface FlameFrame {
   len: number;
+  halfH: number;
   cx: number;
   cy: number;
   cz: number;
@@ -38,9 +39,11 @@ interface FlameFrame {
  */
 function flameFrame(plume: LaunchPlume, cam: Xyz): FlameFrame {
   const len = Math.max(24, plume.head - plume.base);
+  // The wide column quad (launch.ts writeQuad 2). Its card is the ribbon in frame.
   const cx = plume.x;
-  const cy = plume.base + len * 0.5;
+  const cy = plume.base + len * 0.42;
   const cz = plume.z;
+  const halfH = len * 0.4;
   let tx = cam.x - cx;
   let ty = cam.y - cy;
   let tz = cam.z - cz;
@@ -57,16 +60,15 @@ function flameFrame(plume: LaunchPlume, cam: Xyz): FlameFrame {
   const ux = ty * sz - tz * sy;
   const uy = tz * sx - tx * sz;
   const uz = tx * sy - ty * sx;
-  return { len, cx, cy, cz, sx, sy, sz, ux, uy, uz, tx, ty, tz };
+  return { len, halfH, cx, cy, cz, sx, sy, sz, ux, uy, uz, tx, ty, tz };
 }
 
 function flamePoint(plume: LaunchPlume, frame: FlameFrame, along: number): Xyz {
   const kY = along * 2 - 1;
-  const halfH = frame.len * 0.5;
   return {
-    x: frame.cx + frame.ux * kY * halfH + plume.leanX * along,
-    y: frame.cy + frame.uy * kY * halfH,
-    z: frame.cz + frame.uz * kY * halfH + plume.leanZ * along,
+    x: frame.cx + frame.ux * kY * frame.halfH + plume.leanX * along,
+    y: frame.cy + frame.uy * kY * frame.halfH,
+    z: frame.cz + frame.uz * kY * frame.halfH + plume.leanZ * along,
   };
 }
 
@@ -121,11 +123,12 @@ export class SmokePool {
         const dist = Math.hypot(axis.x - cam.x, axis.y - cam.y, axis.z - cam.z);
         if (dist > 180 && dist < 1600) break;
       }
-      const sideR = Math.max(28, plume.halfW * 3.4);
-      const depthR = Math.max(10, plume.halfW * 0.8);
+      const wide = Math.max(24, plume.halfW * 1.8);
+      const sideR = wide * 1.75;
+      const depthR = wide * 0.42;
       const sign = r.next() < 0.5 ? -1 : 1;
       p.along = along;
-      p.offS = sign * sideR * (0.22 + 0.78 * r.next());
+      p.offS = sign * (wide * 0.35 + (sideR - wide * 0.35) * r.next());
       p.offD = (r.next() * 2 - 1) * depthR * r.next();
       x = axis.x + frame.sx * p.offS + frame.tx * p.offD;
       y = axis.y + frame.sy * p.offS + frame.ty * p.offD;
