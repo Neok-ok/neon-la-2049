@@ -1,8 +1,8 @@
 // Per-frame cluster upload, the HDR bloom chain, and the one sun shadow.
 import {
   ACESFilmicToneMapping, AgXToneMapping, CanvasTexture, EquirectangularReflectionMapping, NeutralToneMapping,
-  NoToneMapping, RenderPipeline, SRGBColorSpace, Vector3, type ToneMapping,
-  type DirectionalLight, type PerspectiveCamera, type Scene, type Texture, type WebGPURenderer,
+  NoToneMapping, QuadMesh, RenderPipeline, SRGBColorSpace, Vector3, type Object3D, type ToneMapping,
+  type DirectionalLight, type PerspectiveCamera, type RenderTarget, type Scene, type Texture, type WebGPURenderer,
 } from 'three/webgpu';
 import { acesFilmicToneMapping, agxToneMapping, neutralToneMapping, pass, uniform, vec4 } from 'three/tsl';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
@@ -20,6 +20,7 @@ import {
   authoredLiftU, bakedNits, clearShade, contactAmt, probeColor, probeStrength, writeHazeSlots, writeShadeSlots,
 } from './shade.ts';
 import { LIGHT_TIERS } from './tiers.ts';
+import { bootMark } from '../ui/loading';
 
 export type ToneId = 'agx' | 'aces' | 'neutral';
 
@@ -102,6 +103,7 @@ function toneNode(id: ToneId, color: unknown, exposure: unknown): unknown {
 
 /** Drop the bloom chain and its scene color target. Safe to call when none is live. */
 export function disposeLightingPipeline(): void {
+  bloomWarmed = false;
   bloomNode?.dispose();
   bloomNode = null;
   scenePass?.dispose();
@@ -137,6 +139,166 @@ export function rebuildLightingPipeline(
   const combined = (color as { add: (n: unknown) => unknown }).add(glow);
   pipeline = new RenderPipeline(renderer, vec4(toneNode(tone, combined, exposureU) as never, 1));
   return pipeline;
+}
+
+/**
+ * Link `object` into `target` with the renderer's current tone mapping.
+ * An offscreen target already drops the tone map. Forcing it here built a different program
+ * from the pass, and the first real frame linked every mesh again.
+ */
+export async function compileForTarget(
+  renderer: WebGPURenderer,
+  object: Object3D,
+  camera: PerspectiveCamera,
+  scene: Scene,
+  target: RenderTarget | null,
+): Promise<void> {
+  const prev = renderer.getRenderTarget();
+  if (target) renderer.setRenderTarget(target);
+  try {
+    await renderer.compileAsync(object, camera, scene);
+  } finally {
+    if (target) renderer.setRenderTarget(prev);
+  }
+}
+
+export function lightingPassTarget(): RenderTarget | null {
+  const pass = scenePass as { renderTarget?: RenderTarget } | null;
+  return pass?.renderTarget ?? null;
+}
+
+/**
+ * Draw the bloom scene pass the way the next frame will.
+ * One mesh at a time, so the link is not shared with the rest of the city.
+ * Returns false when this tier has no offscreen pass and the caller should render directly.
+ */
+export function renderLightingPass(renderer: WebGPURenderer): boolean {
+  const pass = scenePass as { updateBefore?: (frame: object) => void } | null;
+  if (!pass?.updateBefore) return false;
+  pass.updateBefore({ renderer });
+  return true;
+}
+
+/**
+ * Draw the scene pass, then the grade quad.
+ * `pipeline.render()` alone renders the scene from inside the quad, which links
+ * a second variant of every mesh. The pass stays muted while the quad runs.
+ */
+export function presentLightingPipeline(renderer: WebGPURenderer): boolean {
+  if (!pipeline) return false;
+  const pass = scenePass as { updateBefore?: (frame: object) => void; updateBeforeType?: string } | null;
+  pass?.updateBefore?.({ renderer });
+  const passType = pass?.updateBeforeType;
+  if (pass) pass.updateBeforeType = 'none';
+  try {
+    pipeline.render();
+  } finally {
+    if (pass && passType !== undefined) pass.updateBeforeType = passType;
+  }
+  return true;
+}
+
+/** Link the bloom scene pass one object at a time, in the pass's own target. */
+export function compileLightingScene(renderer: WebGPURenderer): Promise<void> {
+  const pass = scenePass as { compileAsync?: (r: WebGPURenderer) => Promise<void> } | null;
+  if (!pass?.compileAsync) return Promise.resolve();
+  return pass.compileAsync(renderer);
+}
+
+export async function compileLightingObject(
+  renderer: WebGPURenderer,
+  object: Object3D,
+  camera: PerspectiveCamera,
+  scene: Scene,
+): Promise<void> {
+  await compileForTarget(renderer, object, camera, scene, lightingPassTarget());
+}
+
+let bloomWarmed = false;
+
+interface BloomWarm {
+  updateBefore?: (frame: object) => void;
+  _nMips?: number;
+  _highPassFilterMaterial?: object | null;
+}
+
+/**
+ * Link each bloom draw on the same quad the pass uses.
+ * A full `updateBefore` links the high pass, every mip, and the composite in one task.
+ * Earlier draws in that function are skipped until their own step, so each task links one program.
+ */
+export async function warmBloomPasses(
+  renderer: WebGPURenderer,
+  bloom: object,
+  pace: (() => Promise<void>) | null = null,
+): Promise<void> {
+  const node = bloom as BloomWarm;
+  if (!node.updateBefore || !node._highPassFilterMaterial) return;
+  const passes = 1 + (node._nMips ?? 5) * 2 + 1;
+  const proto = QuadMesh.prototype as unknown as { render: (r: WebGPURenderer) => void };
+  const orig = proto.render;
+  let ordinal = 0;
+  let only = 0;
+  proto.render = function (this: unknown, r: WebGPURenderer) {
+    ordinal += 1;
+    if (ordinal !== only) return;
+    return orig.call(this, r);
+  };
+  // The high pass samples the scene color. Leaving the pass on FRAME renders
+  // every mesh that is already in the scene, and that one task links them all.
+  const pass = scenePass as { updateBeforeType?: string } | null;
+  const passType = pass?.updateBeforeType;
+  if (pass) pass.updateBeforeType = 'none';
+  try {
+    const frame = { renderer };
+    for (let step = 1; step <= passes; step++) {
+      ordinal = 0;
+      only = step;
+      const t0 = performance.now();
+      node.updateBefore(frame);
+      bootMark(`bloom ${step} ${Math.round(performance.now() - t0)}`);
+      if (pace) await pace();
+    }
+  } finally {
+    proto.render = orig;
+    if (pass && passType !== undefined) pass.updateBeforeType = passType;
+  }
+}
+
+/**
+ * Link the bloom scene pass, the grade quad, and each bloom mip one at a time.
+ * The first `pipeline.render()` would otherwise block on every program.
+ * `pace` yields between programs when the caller has a macrotask yield.
+ */
+export async function warmLightingPipeline(
+  renderer: WebGPURenderer,
+  _scene: Scene,
+  pace: (() => Promise<void>) | null = null,
+): Promise<void> {
+  void _scene;
+  // The scene itself is warmed one mesh at a time through renderLightingPass.
+  // compileAsync here built a different program from the real pass, and the
+  // first pipeline.render() then linked every mesh again.
+  const pass = scenePass as { updateBeforeType?: string } | null;
+  const glow = bloomNode as { updateBeforeType?: string } | null;
+  const passType = pass?.updateBeforeType;
+  const glowType = glow?.updateBeforeType;
+  if (pass) pass.updateBeforeType = 'none';
+  if (glow) glow.updateBeforeType = 'none';
+  try {
+    if (pipeline) {
+      const t0 = performance.now();
+      pipeline.render();
+      bootMark(`grade quad ${Math.round(performance.now() - t0)}`);
+      if (pace) await pace();
+    }
+  } finally {
+    if (pass && passType !== undefined) pass.updateBeforeType = passType;
+    if (glow && glowType !== undefined) glow.updateBeforeType = glowType;
+  }
+  if (bloomWarmed || !bloomNode) return;
+  await warmBloomPasses(renderer, bloomNode, pace);
+  bloomWarmed = true;
 }
 
 function paintEnvironment(sheen: number, W: number, H: number): CanvasTexture {

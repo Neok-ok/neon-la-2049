@@ -15,4 +15,8 @@ jobs:
       - run: npm ci
       - run: npm run memory:check
       - run: npm run stray
+      - run: npm run quality:check
       - run: npm run build
+      - run: npm run coast:check
+      - run: npx playwright install --with-deps chromium
+      - run: npm run load:check

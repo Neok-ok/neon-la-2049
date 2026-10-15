@@ -25,6 +25,7 @@ import { HalfFloatType, Matrix4, NearestFilter, NodeUpdateType, Vector2, Vector3
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import * as TSL from 'three/tsl';
 import { resources, runTracked } from '../core/memory';
+import { bootMark } from '../ui/loading';
 import { gradeById } from './grades';
 import { BOKEH } from './bokeh';
 import { CAPTURE_CAPS, dofDisc } from './limits';
@@ -77,6 +78,10 @@ export interface LensRig {
    * The pipeline's own pass updates are muted so a capture tile is not one frame behind.
    */
   present(renderer: object, pipeline: { render(): void }): void;
+  /** Compile each lens pass on its own turn, before the first present. */
+  warm(renderer: object, pace: (() => Promise<void>) | null, compileOutput?: () => void | Promise<void>): Promise<void>;
+  /** Color target the scene is drawn into. Mesh compiles have to use it. */
+  passTarget(): RenderTarget | null;
   dispose(): void;
 }
 
@@ -567,6 +572,42 @@ function finishRig(
       prevView.copy(camera.matrixWorldInverse);
       prevProj.copy(camera.projectionMatrix);
     },
+    passTarget() {
+      return (scenePass as { renderTarget?: RenderTarget }).renderTarget ?? null;
+    },
+    async warm(renderer, pace, compileOutput) {
+      const frame = { renderer };
+      // The scene pass is not drawn here. A full updateBefore would link every mesh
+      // in one task, and a compile against a stand-in quad does not match the pass
+      // the frame actually draws. App warms one mesh through that pass instead.
+      // The print's first build assigns each RTT fragment node. Doing that before the
+      // quads run is what links the real disc and blur programs instead of a default material.
+      const passType = scenePass.updateBeforeType;
+      const bloomType = bloomNode?.updateBeforeType;
+      scenePass.updateBeforeType = NodeUpdateType.NONE;
+      if (bloomNode) bloomNode.updateBeforeType = NodeUpdateType.NONE;
+      try {
+        if (compileOutput) await compileOutput();
+        if (pace) await pace();
+        const passes: Array<[string, { updateBefore?: (frame: object) => void }]> = [
+          ['prefilter', prefilter],
+          ['soft-h', softH],
+          ['soft', soft],
+          ['gather', gather],
+        ];
+        for (const [name, node] of passes) {
+          if (!node.updateBefore) continue;
+          const t0 = performance.now();
+          node.updateBefore(frame);
+          bootMark(`lens ${name} ${Math.round(performance.now() - t0)}`);
+          if (pace) await pace();
+        }
+      } finally {
+        scenePass.updateBeforeType = passType;
+        if (bloomNode && bloomType !== undefined) bloomNode.updateBeforeType = bloomType;
+      }
+      passesReady = true;
+    },
     present(renderer, pipeline) {
       const frame = { renderer };
       // The first build assigns the half-res quads. Their textures are filled on the explicit pass below.
@@ -575,17 +616,20 @@ function finishRig(
         gather.updateBefore(frame);
         passesReady = true;
       }
+      // One scene draw. The post quads sample that target. Leaving the pass on
+      // FRAME makes each RTT render the city again, and that second draw links
+      // every program the one-mesh warm never saw.
       scenePass.updateBefore(frame);
-      prefilter.updateBefore(frame);
-      softH.updateBefore(frame);
-      soft.updateBefore(frame);
-      gather.updateBefore(frame);
-      bloomNode?.updateBefore(frame);
       const passType = scenePass.updateBeforeType;
       const bloomType = bloomNode?.updateBeforeType;
       scenePass.updateBeforeType = NodeUpdateType.NONE;
       if (bloomNode) bloomNode.updateBeforeType = NodeUpdateType.NONE;
       try {
+        prefilter.updateBefore(frame);
+        softH.updateBefore(frame);
+        soft.updateBefore(frame);
+        gather.updateBefore(frame);
+        bloomNode?.updateBefore(frame);
         pipeline.render();
       } finally {
         scenePass.updateBeforeType = passType;

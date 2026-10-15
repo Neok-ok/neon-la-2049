@@ -217,19 +217,26 @@ function emitStreak(layout: CityLayout, g: StreetGraph, e: GraphEdge, t: number,
 }
 
 /** Downtown and Broadway keep the original combined step, so adding a basin lattice does not thin them. */
-function coreStreaks(layout: CityLayout, g: StreetGraph, edges: GraphEdge[], out: StreakSlot[]): void {
+function* coreStreaks(layout: CityLayout, g: StreetGraph, edges: GraphEdge[], out: StreakSlot[]): Generator<void> {
   let len = 0;
   for (const e of edges) len += e.length;
   const step = Math.max(26, (len * 2) / 7000);
+  let nEmit = 0;
   for (const e of edges) {
     if (e.length < step) continue;
     const n = Math.floor(e.length / step);
-    for (let i = 0; i < n; i++) emitStreak(layout, g, e, (i + 0.35) / n, e.length / n, i, out);
+    for (let i = 0; i < n; i++) {
+      emitStreak(layout, g, e, (i + 0.35) / n, e.length / n, i, out);
+      if ((++nEmit & 255) === 0) yield;
+    }
   }
 }
 
-/** Each later route gets its own cap. Short residential edges still receive a dash. */
-function routeStreaks(layout: CityLayout, g: StreetGraph, edges: GraphEdge[], out: StreakSlot[]): void {
+/**
+ * Each later route gets its own cap. Short residential edges still receive a dash.
+ * `acc` walks the whole route. A yield in the middle must not restart it.
+ */
+function* routeStreaks(layout: CityLayout, g: StreetGraph, edges: GraphEdge[], out: StreakSlot[]): Generator<void> {
   let len = 0;
   for (const e of edges) len += e.length;
   const step = Math.max(140, (len * 2) / 7000);
@@ -240,12 +247,13 @@ function routeStreaks(layout: CityLayout, g: StreetGraph, edges: GraphEdge[], ou
       emitStreak(layout, g, e, acc / e.length, Math.min(72, Math.max(26, e.length * 0.45)), i, out);
       acc += step;
       i++;
+      if ((i & 255) === 0) yield;
     }
     acc -= e.length;
   }
 }
 
-function streetStreaks(layout: CityLayout, g: StreetGraph, out: StreakSlot[]): void {
+function* streetStreaks(layout: CityLayout, g: StreetGraph, out: StreakSlot[]): Generator<void> {
   const core: GraphEdge[] = [];
   const extra = new Map<string, GraphEdge[]>();
   for (const e of g.edges) {
@@ -257,13 +265,31 @@ function streetStreaks(layout: CityLayout, g: StreetGraph, out: StreakSlot[]): v
       else extra.set(e.route, [e]);
     }
   }
-  coreStreaks(layout, g, core, out);
-  for (const edges of extra.values()) routeStreaks(layout, g, edges, out);
+  yield* coreStreaks(layout, g, core, out);
+  for (const edges of extra.values()) yield* routeStreaks(layout, g, edges, out);
 }
 
 const STREET_BIN = 2400;
 
-function fillStreaks(slots: StreakSlot[], material: MeshBasicNodeMaterial, name: string, cull: boolean): InstancedMesh {
+export interface StreakBin {
+  mesh: InstancedMesh;
+  total: number;
+}
+
+export interface TrafficDress {
+  trench: Mesh | null;
+  /** Freeway dashes, one mesh. Medium and up draw only these. */
+  streaks: InstancedMesh | null;
+  /** Street dashes split into tiles so off-screen ones are not submitted. Low tier only. */
+  streetBins: StreakBin[];
+  /** Instances that are freeway slots. Higher tiers draw only these. */
+  freewayStreaks: number;
+  streakTotal: number;
+}
+
+let dressCache: { layout: CityLayout; dress: TrafficDress } | null = null;
+
+function* fillStreaksPaced(slots: StreakSlot[], material: MeshBasicNodeMaterial, name: string, cull: boolean): Generator<void, InstancedMesh> {
   const geo = new PlaneGeometry(1.6, 14);
   geo.rotateX(-Math.PI / 2);
   geo.translate(0, 0, -7);
@@ -282,6 +308,7 @@ function fillStreaks(slots: StreakSlot[], material: MeshBasicNodeMaterial, name:
     _p.set(s.x, s.y, s.z);
     mesh.setMatrixAt(i, _m.compose(_p, _q, _s));
     data.set([s.phase, s.span, s.tail, 0], i * 4);
+    if ((i & 511) === 511) yield;
   }
   geo.setAttribute('iStreak', new InstancedBufferAttribute(data, 4));
   mesh.instanceMatrix.setUsage(StaticDrawUsage);
@@ -294,23 +321,7 @@ function fillStreaks(slots: StreakSlot[], material: MeshBasicNodeMaterial, name:
   return mesh;
 }
 
-export interface StreakBin {
-  mesh: InstancedMesh;
-  total: number;
-}
-
-export interface TrafficDress {
-  trench: Mesh | null;
-  /** Freeway dashes, one mesh. Medium and up draw only these. */
-  streaks: InstancedMesh | null;
-  /** Street dashes split into tiles so off-screen ones are not submitted. Low tier only. */
-  streetBins: StreakBin[];
-  /** Instances that are freeway slots. Higher tiers draw only these. */
-  freewayStreaks: number;
-  streakTotal: number;
-}
-
-export function createTrafficDress(layout: CityLayout): TrafficDress {
+function* buildTrafficDress(layout: CityLayout): Generator<void, TrafficDress> {
   const ribbon = new Ribbon();
   const freewaySlots: StreakSlot[] = [];
   for (const spec of freewayRoutes()) {
@@ -318,9 +329,10 @@ export function createTrafficDress(layout: CityLayout): TrafficDress {
     if (!line) continue;
     addTrench(layout, spec, ribbon);
     freewayStreaks(layout, spec, freewaySlots);
+    yield;
   }
   const streetSlots: StreakSlot[] = [];
-  streetStreaks(layout, streetGraph(layout), streetSlots);
+  yield* streetStreaks(layout, streetGraph(layout), streetSlots);
   const slots = freewaySlots.concat(streetSlots);
 
   let trench: Mesh | null = null;
@@ -335,7 +347,7 @@ export function createTrafficDress(layout: CityLayout): TrafficDress {
     trench.frustumCulled = false;
   }
   const material = streakMaterial();
-  const streaks = freewaySlots.length ? fillStreaks(freewaySlots, material, 'traffic-streaks', false) : null;
+  const streaks = freewaySlots.length ? yield* fillStreaksPaced(freewaySlots, material, 'traffic-streaks', false) : null;
   const groups = new Map<string, StreakSlot[]>();
   for (const s of streetSlots) {
     const key = `${Math.floor(s.x / STREET_BIN)},${Math.floor(s.z / STREET_BIN)}`;
@@ -345,11 +357,38 @@ export function createTrafficDress(layout: CityLayout): TrafficDress {
   }
   const streetBins: StreakBin[] = [];
   for (const list of groups.values()) {
-    const mesh = fillStreaks(list, material, 'traffic-streaks-street', true);
+    const mesh = yield* fillStreaksPaced(list, material, 'traffic-streaks-street', true);
     // Hidden until the low tier turns the tile on. The sphere was computed at full count.
     mesh.count = 0;
     mesh.visible = false;
     streetBins.push({ mesh, total: list.length });
+    yield;
   }
-  return { trench, streaks, streetBins, freewayStreaks: freewaySlots.length, streakTotal: slots.length };
+  const dress = { trench, streaks, streetBins, freewayStreaks: freewaySlots.length, streakTotal: slots.length };
+  dressCache = { layout, dress };
+  return dress;
+}
+
+function takeDress(layout: CityLayout): TrafficDress {
+  if (dressCache?.layout === layout) return dressCache.dress;
+  const gen = buildTrafficDress(layout);
+  let step = gen.next();
+  while (!step.done) step = gen.next();
+  return step.value;
+}
+
+/** Spread trench, streak, and instance builds. The sync constructor reads the cache. */
+export async function warmTrafficDress(layout: CityLayout, pace: () => Promise<void>): Promise<TrafficDress> {
+  if (dressCache?.layout === layout) return dressCache.dress;
+  const gen = buildTrafficDress(layout);
+  let step = gen.next();
+  while (!step.done) {
+    await pace();
+    step = gen.next();
+  }
+  return step.value;
+}
+
+export function createTrafficDress(layout: CityLayout): TrafficDress {
+  return takeDress(layout);
 }

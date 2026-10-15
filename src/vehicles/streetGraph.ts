@@ -90,13 +90,27 @@ export interface GraphPose {
 
 let cache: { layout: CityLayout; rev: number; graph: StreetGraph } | null = null;
 
-function addLattice(
+interface GraphParts {
+  nodes: GraphNode[];
+  idOf: Map<string, number>;
+  edges: GraphEdge[];
+  steps: number;
+}
+
+/** Yield the generator so a paced boot can return to the browser. The sync path just resumes. */
+function* paceStep(parts: GraphParts): Generator<void> {
+  parts.steps++;
+  if ((parts.steps & 255) === 0) yield;
+}
+
+function* addLattice(
   layout: CityLayout,
   spec: StreetLatticeSpec,
-  nodes: GraphNode[],
-  idOf: Map<string, number>,
-  edges: GraphEdge[],
-): void {
+  parts: GraphParts,
+): Generator<void> {
+  const nodes = parts.nodes;
+  const idOf = parts.idOf;
+  const edges = parts.edges;
   const [ax, az] = bearingToDir(spec.bearingDeg);
   const [bx, bz] = bearingToDir(spec.bearingDeg + 90);
   const districts = new Set(spec.districts);
@@ -135,6 +149,7 @@ function addLattice(
   };
   for (let j = spec.j0; j <= spec.j1; j++) {
     for (let i = spec.i0; i < spec.i1; i++) {
+      yield* paceStep(parts);
       const a = at(i, j);
       const b = at(i + 1, j);
       const district = keep((a.x + b.x) / 2, (a.z + b.z) / 2);
@@ -144,6 +159,7 @@ function addLattice(
   }
   for (let i = spec.i0; i <= spec.i1; i++) {
     for (let j = spec.j0; j < spec.j1; j++) {
+      yield* paceStep(parts);
       const a = at(i, j);
       const b = at(i, j + 1);
       const district = keep((a.x + b.x) / 2, (a.z + b.z) / 2);
@@ -160,7 +176,9 @@ function freewayOk(layout: CityLayout, x: number, z: number): boolean {
   return true;
 }
 
-function addFreeways(layout: CityLayout, nodes: GraphNode[], edges: GraphEdge[]): void {
+function* addFreeways(layout: CityLayout, parts: GraphParts): Generator<void> {
+  const nodes = parts.nodes;
+  const edges = parts.edges;
   for (const spec of freewayRoutes()) {
     if (!spec.vehicles) continue;
     const line = layout.freeways.find((f) => f.id === spec.id);
@@ -195,6 +213,7 @@ function addFreeways(layout: CityLayout, nodes: GraphNode[], edges: GraphEdge[])
       if (len < 1) continue;
       const n = Math.max(1, Math.ceil(len / step));
       for (let s = 0; s < n; s++) {
+        yield* paceStep(parts);
         const t = s / n;
         consider(ax + (bx - ax) * t, az + (bz - az) * t);
       }
@@ -204,15 +223,7 @@ function addFreeways(layout: CityLayout, nodes: GraphNode[], edges: GraphEdge[])
   }
 }
 
-/** Shared street and freeway graph. Cached on the layout and the registration revision. */
-export function streetGraph(layout: CityLayout): StreetGraph {
-  const rev = trafficRevision();
-  if (cache?.layout === layout && cache.rev === rev) return cache.graph;
-  const nodes: GraphNode[] = [];
-  const idOf = new Map<string, number>();
-  const edges: GraphEdge[] = [];
-  for (const spec of streetLattices()) addLattice(layout, spec, nodes, idOf, edges);
-  addFreeways(layout, nodes, edges);
+function* finishGraph(layout: CityLayout, rev: number, nodes: GraphNode[], edges: GraphEdge[]): Generator<void, StreetGraph> {
   const links: GraphLink[][] = nodes.map(() => []);
   for (const e of edges) {
     links[e.a]!.push({ edge: e.index, dir: 1 });
@@ -220,6 +231,7 @@ export function streetGraph(layout: CityLayout): StreetGraph {
   }
   const signal = new Uint8Array(nodes.length);
   for (let i = 0; i < nodes.length; i++) {
+    if ((i & 1023) === 0) yield;
     let a0 = false;
     let a1 = false;
     for (const link of links[i]!) {
@@ -238,6 +250,7 @@ export function streetGraph(layout: CityLayout): StreetGraph {
     const list = bins.get(key);
     if (list) list.push(n);
     else bins.set(key, [n]);
+    if ((n & 1023) === 0) yield;
   }
   const signalBins = new Map<string, number[]>();
   for (let n = 0; n < nodes.length; n++) {
@@ -251,6 +264,44 @@ export function streetGraph(layout: CityLayout): StreetGraph {
   const graph = { nodes, edges, links, signal, bins, signalBins };
   cache = { layout, rev, graph };
   return graph;
+}
+
+function* buildGraph(layout: CityLayout, rev: number): Generator<void, StreetGraph> {
+  const parts: GraphParts = { nodes: [], idOf: new Map(), edges: [], steps: 0 };
+  for (const spec of streetLattices()) yield* addLattice(layout, spec, parts);
+  yield* addFreeways(layout, parts);
+  return yield* finishGraph(layout, rev, parts.nodes, parts.edges);
+}
+
+function takeGraph(layout: CityLayout): StreetGraph {
+  const rev = trafficRevision();
+  if (cache?.layout === layout && cache.rev === rev) return cache.graph;
+  const gen = buildGraph(layout, rev);
+  let step = gen.next();
+  while (!step.done) step = gen.next();
+  return step.value;
+}
+
+/**
+ * Build the shared graph across turns. `pace` must yield a real macrotask
+ * (scheduler.yield or a timeout). A resolved promise does not split the task.
+ * The sync `streetGraph` call reads this cache.
+ */
+export async function warmStreetGraph(layout: CityLayout, pace: () => Promise<void>): Promise<StreetGraph> {
+  const rev = trafficRevision();
+  if (cache?.layout === layout && cache.rev === rev) return cache.graph;
+  const gen = buildGraph(layout, rev);
+  let step = gen.next();
+  while (!step.done) {
+    await pace();
+    step = gen.next();
+  }
+  return step.value;
+}
+
+/** Shared street and freeway graph. Cached on the layout and the registration revision. */
+export function streetGraph(layout: CityLayout): StreetGraph {
+  return takeGraph(layout);
 }
 
 /** Previous name. Spinners and older calls use this. It is the same graph. */
