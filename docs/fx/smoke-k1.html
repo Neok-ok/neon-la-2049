@@ -28,7 +28,22 @@
   <p>Graphics tier is how the plume is drawn. The memory budget is how much stays resident. Ultra stays selectable on a phone and does not allocate the ultra particle buffer on a low device. Rules: <a href="../perf/MEMORY-RULES.html">MEMORY-RULES.html</a>.</p>
 
   <h2>What is in the picture</h2>
-  <p>Nothing from this pass. Billboard cards, the ray-marched prototypes, and the lit soft shells are all behind flags in <code>src/fx/smoke/flags.ts</code>, and every flag is off. A poor still does not go into the city. The flame ribbon in <code>launch.ts</code> is unchanged. Kit steam gain stays 0. The survey those shells were built from is <a href="smoke-research.md">smoke-research.md</a>.</p>
+  <p>Nothing from this pass. After the rebase onto the load-responsiveness work, a live soft-plume path was built in <code>src/fx/smoke/live.ts</code>: one instanced quad, one 64² noise texture, wind lean, and fewer cards on medium and low. Three fresh critics scored the stills below 7, so <code>SMOKE_LIVE</code> stays off. Billboard cards, the ray march, and the lit shells stay off too. Kit steam is left alone while the live path is off. The survey is <a href="smoke-research.md">smoke-research.md</a>.</p>
+  <h2>Critics, 15 October 2026</h2>
+  <p>Stills from the live path, SwiftShader, night. The yellow stacked rings in the market and the pink framed mark at the stall are hologram signs, and the critics were told that. Scores are 1–10.</p>
+  <table>
+    <thead><tr><th>Still</th><th>Realism</th><th>Technical</th><th>Film</th></tr></thead>
+    <tbody>
+      <tr><td>Launch, ultra</td><td>4</td><td>3</td><td>4</td></tr>
+      <tr><td>Launch, low</td><td>2</td><td>3</td><td>3</td></tr>
+      <tr><td>Market rain</td><td>3</td><td>4</td><td>4</td></tr>
+      <tr><td>Stall</td><td>1</td><td>1</td><td>2</td></tr>
+      <tr><td>Refinery stack</td><td>2</td><td>2</td><td>2</td></tr>
+      <tr><td>Traffic exhaust</td><td>1</td><td>1</td><td>2</td></tr>
+      <tr><td>Overall</td><td>2</td><td>2</td><td>3</td></tr>
+    </tbody>
+  </table>
+  <p>The launch reads as a smooth sheet beside the flame. Low thins to a puff. Street steam is a haze or missing. The stack does not sit on the flare. Exhaust does not read behind the bumper. An earlier round the same day, on a slightly thicker launch, was 4 / 4 / 6 on that one still and 3 overall. Neither round clears 7.</p>
   <p>The volume code is still in the repo. It is an original march, not a copied shader and not a downloaded flipbook.</p>
   <ul>
     <li><strong>Launch.</strong> One box around the pad. The fragment marches a finite vertical cylinder, Beer–Lambert, one low-frequency noise tap per step, one in-scatter sample per ray. Steps are 3 / 4 / 5 / 6 by tier. The sheath was meant to be the body. On the burn camera it read as a searchlight.</li>

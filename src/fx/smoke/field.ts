@@ -12,11 +12,12 @@ import { kitSteamGain } from '../../districts/_shared/kit/materials';
 import type { PunctualInput } from '../../lighting/validate.ts';
 import type { CityQuery } from '../../world/CityQuery';
 import {
-  SMOKE_CARDS, SMOKE_EXHAUST_VOLUME, SMOKE_LAUNCH_SHELL, SMOKE_LAUNCH_VOLUME, SMOKE_MANHOLE_SHELL, SMOKE_MANHOLE_VOLUME,
+  SMOKE_CARDS, SMOKE_EXHAUST_VOLUME, SMOKE_LAUNCH_SHELL, SMOKE_LAUNCH_VOLUME, SMOKE_LIVE, SMOKE_MANHOLE_SHELL, SMOKE_MANHOLE_VOLUME,
 } from './flags';
 import { smokeRain, smokeMaterial } from './material';
 import { launchDrive, type LaunchDrive } from './launchDrive';
-import { barrelLights, gatherEmitters } from './places';
+import { barrelLights, beginSmokeGather, pumpSmokeGather, type SmokeGather } from './places';
+import { concealLive, liveCount, liveMesh, syncLive } from './live';
 import { puffCount, puffRain, puffVolumeMesh, syncPuffs, type PuffPlacement } from './puffs';
 import { shellCount, shellMesh, shellRain, shellsRequested, syncShells, type ShellPlacement } from './shells';
 import { columnRadius, integrate, killParticle, plumeLean, smokeRand, smokeWindScale, spawnEmitter, spawnParticle } from './sim';
@@ -103,6 +104,8 @@ export class SmokeField {
   private volume: Mesh | null = null;
   private puffs: InstancedMesh | null = null;
   private shells: InstancedMesh | null = null;
+  private live: InstancedMesh | null = null;
+  private gather: SmokeGather | null = null;
   private tier: Tier = 'low';
   private emitters: Emitter[] = [];
   private anchorX = 1e9;
@@ -119,8 +122,11 @@ export class SmokeField {
   private camZ = 0;
 
   constructor(scene: Scene) {
-    kitSteamGain.value = 0;
     this.tier = 'low';
+    if (SMOKE_LIVE) {
+      this.live = liveMesh();
+      scene.add(this.live);
+    }
     if (SMOKE_CARDS) {
       const cap = SMOKE_CAP.low;
       this.pool = createPool(cap);
@@ -153,6 +159,7 @@ export class SmokeField {
     if (this.volume) this.volume.visible = false;
     if (this.puffs) this.puffs.visible = false;
     if (this.shells) this.shells.visible = false;
+    concealLive();
   }
 
   snapshot(): SmokeSnapshot {
@@ -160,11 +167,11 @@ export class SmokeField {
     return {
       particles: this.pool.n,
       emitters: this.emitters.length,
-      draws: (this.mesh?.visible ? 1 : 0) + (this.volume?.visible ? 1 : 0) + (this.puffs?.visible ? 1 : 0) + (this.shells?.visible ? 1 : 0),
+      draws: (this.mesh?.visible ? 1 : 0) + (this.volume?.visible ? 1 : 0) + (this.puffs?.visible ? 1 : 0) + (this.shells?.visible ? 1 : 0) + (this.live?.visible ? 1 : 0),
       volume: !!this.volume?.visible,
       launch: drive.burning || (drive.id > 0 && drive.age < 180),
       puffs: puffCount(),
-      shells: shellCount(),
+      shells: shellCount() + liveCount(),
       cap: this.pool.cap,
       street: this.pool.slotN[0],
       ground: this.pool.slotN[1],
@@ -197,16 +204,8 @@ export class SmokeField {
     this.ensure(frame.tier);
     smokeRain.value = frame.rain;
     const wind: Wind = { dir: frame.windDir, speed: frame.wind, rain: frame.rain };
-    if (Math.hypot(frame.camX - this.anchorX, frame.camZ - this.anchorZ) > 26 || frame.time - this.gatherAt > 2.4) {
-      this.emitters = gatherEmitters(
-        frame.query.layout, frame.query, frame.camX, frame.camY, frame.camZ, frame.heading, frame.tier,
-      );
-      noteMouths(this.emitters);
-      this.anchorX = frame.camX;
-      this.anchorZ = frame.camZ;
-      this.gatherAt = frame.time;
-      if (SMOKE_CARDS) this.seedEmitters(wind, frame.tier);
-    }
+    const wantGather = SMOKE_LIVE || SMOKE_CARDS || SMOKE_LAUNCH_VOLUME || SMOKE_MANHOLE_VOLUME || SMOKE_EXHAUST_VOLUME || shellsRequested();
+    if (wantGather) this.stepGather(frame, wind);
     const drive = launchDrive();
     if (SMOKE_CARDS) {
       this.noteLaunch(drive, wind, frame.camX, frame.camZ);
@@ -232,7 +231,47 @@ export class SmokeField {
     this.placeVolume(drive, frame.tier);
     this.placePuffs(frame, wind);
     this.placeShells(drive, frame, wind);
+    if (SMOKE_LIVE) {
+      const n = syncLive({
+        tier: frame.tier,
+        time: frame.time,
+        wind: frame.wind,
+        windDir: frame.windDir,
+        rain: frame.rain,
+        camX: frame.camX,
+        camY: frame.camY,
+        camZ: frame.camZ,
+        emitters: this.emitters,
+        drive,
+        tails: frame.tails,
+      });
+      kitSteamGain.value = n > 0 ? 0 : 1;
+    }
     this.writeLights(drive, frame.camX, frame.camZ);
+  }
+
+  /**
+   * A few blocks per frame. `insideSolid` on a cold cell is the hitch the load
+   * budget measures, so the scan does not finish in the opening task.
+   */
+  private stepGather(frame: SmokeFrame, wind: Wind): void {
+    const moved = Math.hypot(frame.camX - this.anchorX, frame.camZ - this.anchorZ) > 26;
+    const due = this.emitters.length === 0 || moved || frame.time - this.gatherAt > 3.5;
+    if (!this.gather && frame.time > 0.3 && due) {
+      this.gather = beginSmokeGather(
+        frame.query.layout, frame.query, frame.camX, frame.camY, frame.camZ, frame.heading, frame.tier,
+      );
+      this.anchorX = frame.camX;
+      this.anchorZ = frame.camZ;
+      this.gatherAt = frame.time;
+    }
+    if (!this.gather) return;
+    const done = pumpSmokeGather(this.gather, 3);
+    if (!done) return;
+    this.emitters = done;
+    noteMouths(this.emitters);
+    this.gather = null;
+    if (SMOKE_CARDS) this.seedEmitters(wind, frame.tier);
   }
 
   /** A still should show a plume, not the first puff leaving the grate. */

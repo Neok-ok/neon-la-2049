@@ -262,100 +262,128 @@ function addMarket(
   }
 }
 
-export function gatherEmitters(
-  layout: CityLayout, query: CityQuery, x: number, y: number, z: number, heading: number, tier: Tier,
-): Emitter[] {
-  const radius = GATHER_RADIUS[tier];
-  const blocks = enumerateBlocks(layout, x - radius, z - radius, radius * 2);
-  const vents: Emitter[] = [];
-  const holes: Emitter[] = [];
-  const roofs: Emitter[] = [];
-  const barrels: Emitter[] = [];
+type StreetBlock = ReturnType<typeof enumerateBlocks>[number];
 
-  for (const b of blocks) {
-    if (layout.isOcean(b.cx, b.cz)) continue;
-    if (padNear(b.cx, b.cz)) continue;
-    const h = hash2i(b.i, b.j, b.seed);
-    const u = (h % 1000) / 1000;
-    const side = (h & 2) === 0 ? 1 : -1;
-    const along = ((h % 200) / 100) - 1;
+interface StreetBuckets {
+  vents: Emitter[];
+  holes: Emitter[];
+  roofs: Emitter[];
+  barrels: Emitter[];
+}
 
-    const market = b.district.id === 'little-tokyo-market';
-    if (!market && u < 0.62) {
-      const manhole = u < 0.28;
-      const into = manhole ? b.street * 0.55 : Math.max(0.5, b.street * 0.12);
-      const p = curb(b, side, into, along);
-      if (open(query, p.x, p.y, p.z)) {
-        const list = manhole ? holes : vents;
-        const kind: SmokeKind = manhole ? KIND.manhole : KIND.vent;
-        list.push(make({
-          x: p.x, y: p.y + (manhole ? 0.42 : 1.05), z: p.z,
-          kind,
-          rate: manhole ? 3.2 : 4.2,
-          life: manhole ? 1.8 : 2.8,
-          size0: manhole ? 0.7 : 0.24,
-          size1: manhole ? 1.85 : 0.85,
-          heat: 0,
-          radius: manhole ? 0.4 : 0.22,
-          spread: manhole ? 0.1 : 0.2,
-          rise: manhole ? 0.16 : 1.05,
-          fade: manhole ? 16 : 22,
-          aspect: manhole ? 0.3 : 1.45,
-          floorY: p.y,
-        }));
-      }
-    }
+function pushStreetBlock(b: StreetBlock, query: CityQuery, out: StreetBuckets): void {
+  if (query.layout.isOcean(b.cx, b.cz)) return;
+  if (padNear(b.cx, b.cz)) return;
+  const h = hash2i(b.i, b.j, b.seed);
+  const u = (h % 1000) / 1000;
+  const side = (h & 2) === 0 ? 1 : -1;
+  const along = ((h % 200) / 100) - 1;
 
-    if (!market && WORK.has(b.district.id) && (h % 5) === 1) {
-      const p = curb(b, side, 0.7, along * 0.5);
-      if (open(query, p.x, p.y, p.z)) {
-        barrels.push(make({
-          x: p.x, y: p.y + 0.7, z: p.z,
-          kind: KIND.barrel,
-          rate: 6,
-          life: 3.1,
-          size0: 0.22,
-          size1: 0.62,
-          heat: 0.85,
-          radius: 0.1,
-          spread: 0.08,
-          rise: 0.85,
-          fade: 18,
-          aspect: 1.45,
-          floorY: p.y,
-        }));
-      }
-    }
-
-    if ((h % 6) === 2) {
-      const probes: Array<[number, number]> = [
-        [b.cx, b.cz],
-        [b.cx + b.ax * b.la * 0.22, b.cz + b.az * b.la * 0.22],
-      ];
-      for (const [rx, rz] of probes) {
-        const roof = query.floorBelow(rx, b.ground + 90, rz, true);
-        if (roof > b.ground + 6 && roof < b.ground + 80) {
-          roofs.push(make({
-            x: rx, y: roof + 1.15, z: rz,
-            kind: KIND.roof,
-            rate: 5,
-            life: 4.4,
-            size0: 0.8,
-            size1: 2.3,
-            heat: 0,
-            radius: 0.28,
-            spread: 0.14,
-            rise: 2.1,
-            fade: 42,
-            aspect: 1.8,
-            floorY: roof,
-          }));
-          break;
-        }
-      }
+  const market = b.district.id === 'little-tokyo-market';
+  if (!market && u < 0.62) {
+    const manhole = u < 0.28;
+    const into = manhole ? b.street * 0.55 : Math.max(0.5, b.street * 0.12);
+    const p = curb(b, side, into, along);
+    if (open(query, p.x, p.y, p.z)) {
+      const list = manhole ? out.holes : out.vents;
+      const kind: SmokeKind = manhole ? KIND.manhole : KIND.vent;
+      list.push(make({
+        x: p.x, y: p.y + (manhole ? 0.42 : 1.05), z: p.z,
+        kind,
+        rate: manhole ? 3.2 : 4.2,
+        life: manhole ? 1.8 : 2.8,
+        size0: manhole ? 0.7 : 0.24,
+        size1: manhole ? 1.85 : 0.85,
+        heat: 0,
+        radius: manhole ? 0.4 : 0.22,
+        spread: manhole ? 0.1 : 0.2,
+        rise: manhole ? 0.16 : 1.05,
+        fade: manhole ? 16 : 22,
+        aspect: manhole ? 0.3 : 1.45,
+        floorY: p.y,
+      }));
     }
   }
 
+  if (!market && WORK.has(b.district.id) && (h % 5) === 1) {
+    const p = curb(b, side, 0.7, along * 0.5);
+    if (open(query, p.x, p.y, p.z)) {
+      out.barrels.push(make({
+        x: p.x, y: p.y + 0.7, z: p.z,
+        kind: KIND.barrel,
+        rate: 6,
+        life: 3.1,
+        size0: 0.22,
+        size1: 0.62,
+        heat: 0.85,
+        radius: 0.1,
+        spread: 0.08,
+        rise: 0.85,
+        fade: 18,
+        aspect: 1.45,
+        floorY: p.y,
+      }));
+    }
+  }
+
+  if ((h % 6) === 2) {
+    const probes: Array<[number, number]> = [
+      [b.cx, b.cz],
+      [b.cx + b.ax * b.la * 0.22, b.cz + b.az * b.la * 0.22],
+    ];
+    for (const [rx, rz] of probes) {
+      const roof = query.floorBelow(rx, b.ground + 90, rz, true);
+      if (roof > b.ground + 6 && roof < b.ground + 80) {
+        out.roofs.push(make({
+          x: rx, y: roof + 1.15, z: rz,
+          kind: KIND.roof,
+          rate: 5,
+          life: 4.4,
+          size0: 0.8,
+          size1: 2.3,
+          heat: 0,
+          radius: 0.28,
+          spread: 0.14,
+          rise: 2.1,
+          fade: 42,
+          aspect: 1.8,
+          floorY: roof,
+        }));
+        break;
+      }
+    }
+  }
+}
+
+/** Street mouths gathered a few blocks at a time so a cold cell does not stall a load frame. */
+export interface SmokeGather {
+  blocks: StreetBlock[];
+  i: number;
+  buckets: StreetBuckets;
+  x: number;
+  y: number;
+  z: number;
+  heading: number;
+  tier: Tier;
+  layout: CityLayout;
+  query: CityQuery;
+}
+
+export function beginSmokeGather(
+  layout: CityLayout, query: CityQuery, x: number, y: number, z: number, heading: number, tier: Tier,
+): SmokeGather {
+  const radius = GATHER_RADIUS[tier];
+  return {
+    blocks: enumerateBlocks(layout, x - radius, z - radius, radius * 2),
+    i: 0,
+    buckets: { vents: [], holes: [], roofs: [], barrels: [] },
+    x, y, z, heading, tier, layout, query,
+  };
+}
+
+function finishGather(job: SmokeGather): Emitter[] {
+  const { vents, holes, roofs, barrels } = job.buckets;
+  const { layout, query, x, y, z, heading, tier } = job;
   const stacks: Emitter[] = [];
   const pushStack = (f: Flame) => {
     stacks.push(make({
@@ -412,6 +440,23 @@ export function gatherEmitters(
     ...takeNearest(stacks, x, z, CAP.stack[tier]),
     ...food,
   ];
+}
+
+/** Returns the finished emitter list, or null while blocks remain. */
+export function pumpSmokeGather(job: SmokeGather, steps: number): Emitter[] | null {
+  const end = Math.min(job.blocks.length, job.i + Math.max(1, steps));
+  for (; job.i < end; job.i++) pushStreetBlock(job.blocks[job.i]!, job.query, job.buckets);
+  if (job.i < job.blocks.length) return null;
+  return finishGather(job);
+}
+
+export function gatherEmitters(
+  layout: CityLayout, query: CityQuery, x: number, y: number, z: number, heading: number, tier: Tier,
+): Emitter[] {
+  const job = beginSmokeGather(layout, query, x, y, z, heading, tier);
+  let out: Emitter[] | null = null;
+  while (out === null) out = pumpSmokeGather(job, 64);
+  return out;
 }
 
 /** Barrel mouths, for the few flare practicals the cluster can spare. */

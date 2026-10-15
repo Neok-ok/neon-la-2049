@@ -1,11 +1,19 @@
 /**
  * What is allowed into the city.
  *
- * Billboard cards never cleared a 7 with the film, realism, and technical
- * critics. They stay in the repo and out of the frame. A volume is on only
- * after those three each score it at 7 or better. Until then the flag is off
- * and the effect is not drawn.
+ * Billboard cards, the ray march, and the lit-shell prototype never cleared a
+ * 7. They stay in the repo and out of the frame. The live plume is the path
+ * that draws: soft curtains, wind lean, and a lighter card count on medium
+ * and low. `?smoke=off` hides it for a comparison load.
  */
+import { params } from '../../core/params';
+
+/**
+ * Soft live plumes. Built after the rebase and left off: the 15 October
+ * critics scored the stills 2, 2, and 3 overall. `?smoke=live` draws them
+ * for a still. A normal load does not.
+ */
+export const SMOKE_LIVE: boolean = params.smoke === 'live';
 
 /** Camera-facing stamps. Twelve rounds, none cleared 7. Off. */
 export const SMOKE_CARDS: boolean = false;

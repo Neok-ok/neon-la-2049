@@ -93,3 +93,36 @@ export const GATHER_RADIUS: Record<Tier, number> = {
 export function streetCap(tier: Tier): number {
   return Math.max(8, SMOKE_CAP[tier] - LAUNCH_GROUND_CAP[tier] - LAUNCH_COLUMN_CAP[tier]);
 }
+
+/**
+ * Live plume layers. High and ultra share the full curtain. Medium and low
+ * drop octaves in the shader and keep fewer cards, so the same sources read
+ * lighter instead of disappearing.
+ */
+export const LIVE_LAYERS: Record<string, Record<Tier, number>> = {
+  launch: { low: 6, medium: 10, high: 14, ultra: 16 },
+  ground: { low: 4, medium: 5, high: 7, ultra: 8 },
+  vent: { low: 3, medium: 4, high: 5, ultra: 6 },
+  manhole: { low: 2, medium: 3, high: 4, ultra: 4 },
+  roof: { low: 2, medium: 3, high: 4, ultra: 5 },
+  stall: { low: 3, medium: 4, high: 5, ultra: 5 },
+  barrel: { low: 2, medium: 3, high: 4, ultra: 4 },
+  stack: { low: 3, medium: 5, high: 7, ultra: 8 },
+  exhaust: { low: 2, medium: 3, high: 3, ultra: 4 },
+};
+
+/** How much of the second noise octave the live shader keeps. */
+export const LIVE_DETAIL: Record<Tier, number> = {
+  low: 0,
+  medium: 0.35,
+  high: 1,
+  ultra: 1,
+};
+
+/** Tailpipes drawn. Low still has a wake when a car is in frame. */
+export const LIVE_TAILS: Record<Tier, number> = {
+  low: 2,
+  medium: 4,
+  high: 6,
+  ultra: 8,
+};
