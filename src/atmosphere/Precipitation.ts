@@ -2,6 +2,7 @@
 import { BufferGeometry, BufferAttribute, Mesh, MeshBasicNodeMaterial, AdditiveBlending, NormalBlending, Vector3 } from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import { BOKEH } from '../photo/bokeh';
+import { Rng, visualSeed } from '../core/rng';
 import { U } from './uniforms';
 import { lightGain, lightTint } from './airLights';
 
@@ -36,8 +37,12 @@ export class Precipitation {
     const pos = new Float32Array(max * 4 * 3);
     const idx = new Uint32Array(max * 6);
     const cs = [-0.5, 0, 0.5, 0, 0.5, 1, -0.5, 1];
+    const seeded = visualSeed(`precip-${kind}`);
+    const rng = seeded === undefined ? null : new Rng(seeded);
     for (let i = 0; i < max; i++) {
-      const r = [Math.random(), Math.random(), Math.random(), Math.random()];
+      const r = rng
+        ? [rng.next(), rng.next(), rng.next(), rng.next()]
+        : [Math.random(), Math.random(), Math.random(), Math.random()];
       for (let k = 0; k < 4; k++) {
         corner.set([cs[k * 2], cs[k * 2 + 1]], (i * 4 + k) * 2);
         rand.set(r, (i * 4 + k) * 4);
@@ -118,6 +123,11 @@ export class Precipitation {
       const neon = mix(magCyan, vec3(1.0, 0.58, 0.22), U.sheen);
       const rainCol = U.fogColor.mul(2.2).add(vec3(0.05, 0.06, 0.07));
       let base = isRain ? mix(rainCol, neon, U.neonWet.mul(U.night).mul(0.65)) : mix(vec3(0.75, 0.78, 0.85), U.fogColor.mul(3.0), 0.3);
+      // Unlit streaks were a fraction of a nit, so a dark facade hid the rain.
+      // 6.5 nits cleared the wall and, added on top of the sky, pushed ultra
+      // aerials over the 2% visual tolerance. 2 nits still lifts a black wall,
+      // stays under the 32-nit bloom threshold, and keeps those streaks inside it.
+      if (isRain) base = T.max(base, vec3(2.0, 2.3, 2.7));
       let a = isRain ? fade.mul(0.55) : fade.mul(0.85);
       if (isRain) {
         const gain = lightGain(center).mul(U.rainReact);

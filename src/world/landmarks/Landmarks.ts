@@ -235,6 +235,8 @@ export class Landmarks {
   private readonly env: LandmarkEnv;
   private readonly query: CityQuery;
   private pending: Landmark[] = [];
+  private queue: Landmark[] = [];
+  private built = false;
 
   constructor(query: CityQuery) {
     const layout = getLayout();
@@ -242,15 +244,27 @@ export class Landmarks {
     this.query = query;
     this.env = { layout, beacons: this.beacons, flares: this.flares, lods: this.lods };
     for (const l of layout.landmarks) {
-      if (DEFERRED_LANDMARKS.has(l.type) && !landmarkOverridden(l.type)) {
-        this.pending.push(l);
-        continue;
-      }
-      this.addBuilt(l);
+      if (DEFERRED_LANDMARKS.has(l.type) && !landmarkOverridden(l.type)) this.pending.push(l);
+      else this.queue.push(l);
     }
-    const walls = buildSeaWalls(layout);
+  }
+
+  /**
+   * One landmark per turn, then the sea wall and the ocean. `pace` yields a
+   * macrotask. Call this before traffic that needs the landmark colliders.
+   */
+  async mount(pace: (() => Promise<void>) | null): Promise<void> {
+    if (this.built) return;
+    this.built = true;
+    for (const l of this.queue) {
+      this.addBuilt(l);
+      if (pace) await pace();
+    }
+    this.queue = [];
+    const walls = buildSeaWalls(this.env.layout);
     this.root.add(walls.object);
-    query.addColliders(walls.colliders);
+    this.query.addColliders(walls.colliders);
+    if (pace) await pace();
     this.root.add(this.lods.root, this.beacons.build(), this.flares.build());
   }
 

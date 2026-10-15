@@ -1,0 +1,188 @@
+name: Visual
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      update_baselines:
+        description: Update visual baselines (explicit only)
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: visual-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mode:
+    runs-on: ubuntu-latest
+    outputs:
+      update: ${{ steps.mode.outputs.update }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+
+      - id: mode
+        shell: bash
+        run: |
+          set -euo pipefail
+          update=false
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.update_baselines }}" = "true" ]; then
+            update=true
+          fi
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            labeled=false
+            for name in $(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH"); do
+              if [ "$name" = "update-visual-baselines" ]; then labeled=true; fi
+            done
+            msg=$(git log -1 --format=%s)
+            if [ "$labeled" = true ] && [[ "$msg" != *"[visual-baselines]"* ]]; then
+              update=true
+            fi
+          fi
+          echo "update=$update" >> "$GITHUB_OUTPUT"
+
+  visual:
+    needs: mode
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+
+      - name: Compare or update baselines
+        env:
+          SHARD: ${{ matrix.shard }}/4
+        run: node tests/visual/run.mjs ${{ needs.mode.outputs.update == 'true' && '--update' || '' }}
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visual-diff-${{ matrix.shard }}
+          path: tests/visual/output
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        if: always() && needs.mode.outputs.update == 'true'
+        with:
+          name: visual-baselines-${{ matrix.shard }}
+          path: tests/visual/baselines
+          if-no-files-found: ignore
+
+  publish:
+    needs: [mode, visual]
+    if: always() && needs.mode.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: visual-diff-*
+          path: shards
+
+      - uses: actions/download-artifact@v4
+        if: needs.mode.outputs.update == 'true'
+        with:
+          pattern: visual-baselines-*
+          path: baseline-shards
+
+      - name: Merge shard reports
+        id: merge
+        run: node tests/visual/merge-reports.mjs shards tests/visual/output
+
+      - name: Commit updated baselines
+        if: github.event_name == 'pull_request' && needs.mode.outputs.update == 'true' && steps.merge.outcome == 'success'
+        run: |
+          set -euo pipefail
+          mkdir -p tests/visual/baselines
+          find baseline-shards -name '*.png' -exec cp -f {} tests/visual/baselines/ \;
+          git add tests/visual/baselines
+          if git diff --cached --quiet; then
+            echo "baselines unchanged"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "test: refresh visual baselines [visual-baselines]"
+          git push origin "HEAD:${{ github.head_ref }}"
+
+      - name: Job summary
+        if: always()
+        run: |
+          if [ -f tests/visual/output/report.md ]; then
+            cat tests/visual/output/report.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Visual regression did not write a report." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Comment on the pull request
+        if: always() && github.event_name == 'pull_request' && hashFiles('tests/visual/output/report.md') != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('tests/visual/output/report.md', 'utf8').slice(0, 60000);
+            const marker = '<!-- visual-regression -->';
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            const existing = comments.find((c) => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visual-diff-report
+          path: tests/visual/output
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        if: always() && needs.mode.outputs.update == 'true'
+        with:
+          name: visual-baselines
+          path: tests/visual/baselines
+          if-no-files-found: ignore

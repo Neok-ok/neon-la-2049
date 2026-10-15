@@ -23,6 +23,11 @@ const FILES = [
   'src/photo/pipeline.ts',
   'src/photo/playLens.ts',
   'src/vehicles/vehicleModels.ts',
+  'src/world/humans/crowdRig.ts',
+  'src/world/humans/dancerHero.ts',
+  'src/world/humans/gltfGeom.ts',
+  'src/world/holograms/material.ts',
+  'src/districts/little-tokyo-market/crowd.ts',
 ];
 
 const CONSTRUCT = /new\s+(BufferGeometry|DataTexture|CanvasTexture|CompressedTexture|WebGLRenderTarget|RenderTarget|MeshStandardNodeMaterial|MeshBasicNodeMaterial)\b/;

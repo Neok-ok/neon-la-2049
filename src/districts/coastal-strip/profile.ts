@@ -246,7 +246,32 @@ export function orientSegment(layout: CityLayout, ax: number, az: number, bx: nu
   return { nx, nz, tx: dx / len, tz: dz / len, yaw: Math.atan2(nx, nz), len };
 }
 
-let pieceCache: { layout: CityLayout; pieces: WallPiece[] } | null = null;
+/** Spatial hash cell. A 72 m piece touches one or two of these. */
+const COAST_CELL = 512;
+/**
+ * `pastSeaWall` ignores hits beyond this. The coarse polyline test uses a
+ * little extra so it never skips a point the piece query would still accept.
+ */
+const PAST_LIMIT = 1400;
+const PAST_SLACK = 8;
+
+interface PieceCache {
+  layout: CityLayout;
+  pieces: WallPiece[];
+  buckets: Map<number, number[]>;
+  minI: number;
+  maxI: number;
+  minJ: number;
+  maxJ: number;
+}
+
+let pieceCache: PieceCache | null = null;
+let visitGen = 1;
+let visitStamp = new Uint32Array(0);
+
+function bucketKey(i: number, j: number): number {
+  return i * 100003 + j;
+}
 
 export function wallPieces(layout: CityLayout): WallPiece[] {
   if (pieceCache?.layout === layout) return pieceCache.pieces;
@@ -296,7 +321,31 @@ export function wallPieces(layout: CityLayout): WallPiece[] {
       chain += o.len;
     }
   }
-  pieceCache = { layout, pieces };
+  const buckets = new Map<number, number[]>();
+  let minI = 0;
+  let maxI = 0;
+  let minJ = 0;
+  let maxJ = 0;
+  for (let n = 0; n < pieces.length; n++) {
+    const piece = pieces[n]!;
+    const i0 = Math.floor(Math.min(piece.ax, piece.bx) / COAST_CELL);
+    const i1 = Math.floor(Math.max(piece.ax, piece.bx) / COAST_CELL);
+    const j0 = Math.floor(Math.min(piece.az, piece.bz) / COAST_CELL);
+    const j1 = Math.floor(Math.max(piece.az, piece.bz) / COAST_CELL);
+    if (n === 0 || i0 < minI) minI = i0;
+    if (n === 0 || i1 > maxI) maxI = i1;
+    if (n === 0 || j0 < minJ) minJ = j0;
+    if (n === 0 || j1 > maxJ) maxJ = j1;
+    for (let i = i0; i <= i1; i++) {
+      for (let j = j0; j <= j1; j++) {
+        const key = bucketKey(i, j);
+        const list = buckets.get(key);
+        if (list) list.push(n);
+        else buckets.set(key, [n]);
+      }
+    }
+  }
+  pieceCache = { layout, pieces, buckets, minI, maxI, minJ, maxJ };
   return pieces;
 }
 
@@ -319,18 +368,77 @@ export function projectPiece(piece: WallPiece, x: number, z: number) {
   };
 }
 
+function considerPiece(
+  pieces: WallPiece[],
+  idx: number,
+  x: number,
+  z: number,
+  bestIdx: number,
+  bestDist: number,
+): { idx: number; dist: number } {
+  const p = projectPiece(pieces[idx]!, x, z);
+  if (p.dist < bestDist || (p.dist === bestDist && idx < bestIdx)) return { idx, dist: p.dist };
+  return { idx: bestIdx, dist: bestDist };
+}
+
+/**
+ * Nearest 72 m piece. The old scan walked every piece, and the street graph
+ * asked once per block, so boot was one multi-second task. The hash returns
+ * the same piece: lower index wins an exact distance tie, matching the linear scan.
+ */
 export function nearestWall(layout: CityLayout, x: number, z: number): WallHit {
   const pieces = wallPieces(layout);
-  let best = pieces[0]!;
-  let bestP = projectPiece(best, x, z);
-  for (let i = 1; i < pieces.length; i++) {
-    const piece = pieces[i]!;
-    const p = projectPiece(piece, x, z);
-    if (p.dist < bestP.dist) {
-      best = piece;
-      bestP = p;
+  const index = pieceCache!;
+  let bestIdx = -1;
+  let bestDist = Infinity;
+  if (pieces.length) {
+    const ix = Math.floor(x / COAST_CELL);
+    const iz = Math.floor(z / COAST_CELL);
+    const maxRing = Math.max(
+      Math.abs(ix - index.minI),
+      Math.abs(ix - index.maxI),
+      Math.abs(iz - index.minJ),
+      Math.abs(iz - index.maxJ),
+    ) + 1;
+    if (visitStamp.length < pieces.length) visitStamp = new Uint32Array(pieces.length);
+    const gen = visitGen++;
+    if (gen === 0xffffffff) {
+      visitGen = 1;
+      visitStamp.fill(0);
+    }
+    for (let ring = 0; ring <= maxRing; ring++) {
+      // A ring-r cell is at least (r-1) cells away. Equality still scans, so an exact tie keeps the lower index.
+      if (ring > 0 && bestDist < (ring - 1) * COAST_CELL) break;
+      const j0 = iz - ring;
+      const j1 = iz + ring;
+      const i0 = ix - ring;
+      const i1 = ix + ring;
+      for (let j = j0; j <= j1; j++) {
+        for (let i = i0; i <= i1; i++) {
+          if (ring > 0 && Math.max(Math.abs(i - ix), Math.abs(j - iz)) !== ring) continue;
+          const list = index.buckets.get(bucketKey(i, j));
+          if (!list) continue;
+          for (const idx of list) {
+            if (visitStamp[idx] === gen) continue;
+            visitStamp[idx] = gen;
+            const next = considerPiece(pieces, idx, x, z, bestIdx, bestDist);
+            bestIdx = next.idx;
+            bestDist = next.dist;
+          }
+        }
+      }
     }
   }
+  if (bestIdx < 0) {
+    bestIdx = 0;
+    for (let i = 1; i < pieces.length; i++) {
+      const next = considerPiece(pieces, i, x, z, bestIdx, bestDist);
+      bestIdx = next.idx;
+      bestDist = next.dist;
+    }
+  }
+  const best = pieces[bestIdx]!;
+  const bestP = projectPiece(best, x, z);
   const frame: WallFrame = { ...best.frame, x: bestP.qx, z: bestP.qz };
   return {
     piece: best,
@@ -342,6 +450,39 @@ export function nearestWall(layout: CityLayout, x: number, z: number): WallHit {
     chain: bestP.chain,
     frame,
   };
+}
+
+function polylineDistance(pts: Array<[number, number]>, x: number, z: number): number {
+  let best = Infinity;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const ax = pts[i]![0];
+    const az = pts[i]![1];
+    const bx = pts[i + 1]![0];
+    const bz = pts[i + 1]![1];
+    const dx = bx - ax;
+    const dz = bz - az;
+    const l2 = dx * dx + dz * dz;
+    let t = l2 > 0 ? ((x - ax) * dx + (z - az) * dz) / l2 : 0;
+    if (t < 0) t = 0;
+    else if (t > 1) t = 1;
+    const d = Math.hypot(x - (ax + dx * t), z - (az + dz * t));
+    if (d < best) best = d;
+  }
+  return best;
+}
+
+/** True when every sea-wall centreline is past the piece-query cutoff. */
+function coastFar(layout: CityLayout, x: number, z: number): boolean {
+  const limit = PAST_LIMIT + PAST_SLACK;
+  let best = Infinity;
+  for (const wall of layout.seaWalls) {
+    const bb = wall.bbox;
+    if (x < bb[0] - limit || z < bb[1] - limit || x > bb[2] + limit || z > bb[3] + limit) continue;
+    const d = polylineDistance(wall.pts, x, z);
+    if (d < best) best = d;
+    if (best <= limit) return false;
+  }
+  return best > limit;
 }
 
 let fightCache: { layout: CityLayout; hit: WallHit } | null = null;
@@ -401,17 +542,19 @@ export function towerSites(layout: CityLayout): TowerSite[] {
  * A miss past the end of the polyline is ignored.
  */
 export function pastSeaWall(layout: CityLayout, x: number, z: number): boolean {
+  if (coastFar(layout, x, z)) return false;
   const hit = nearestWall(layout, x, z);
   const face = -hit.piece.profile.crest / 2 - 6;
   if (hit.across <= face) return false;
-  if (hit.dist > 1400) return false;
+  if (hit.dist > PAST_LIMIT) return false;
   return true;
 }
 
 /** Beyond the crest lip, on the terraces or the water. The walkway itself stays false. */
 export function seawardOfWall(layout: CityLayout, x: number, z: number): boolean {
+  if (coastFar(layout, x, z)) return false;
   const hit = nearestWall(layout, x, z);
-  if (hit.dist > 1400) return false;
+  if (hit.dist > PAST_LIMIT) return false;
   return hit.across > hit.piece.profile.crest / 2 + 2;
 }
 

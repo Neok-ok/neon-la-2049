@@ -4,6 +4,7 @@ dist
 *.log
 /screenshots-tmp
 tools/memory/out/
+/tests/visual/output
 __pycache__/
 *.pyc
 public/models/spinner/_review.glb
@@ -15,3 +16,5 @@ public/models/traffic/*.raw.glb
 tools/model-harness/reference/
 tools/building-harness/refs/*
 !tools/building-harness/refs/README.md
+tools/human-harness/reference/
+tools/human-harness/build/

@@ -39,20 +39,41 @@ export function registerDetail(name: string, districts: string[] | '*', build: D
   builders.push({ name, match, build });
 }
 
-export function buildDetails(ctx: DetailContext): Object3D[] {
+function districtIds(ctx: DetailContext): Set<string> {
   const ids = new Set<string>();
   for (const b of ctx.blocks) {
     const d = b.districtIndex === 0 ? ctx.layout.defaultDistrict : ctx.layout.districts[b.districtIndex - 1];
     ids.add(d.id);
   }
-  const out: Object3D[] = [];
+  return ids;
+}
+
+/** Detail passes that apply to this chunk, in registration order. */
+export function detailNames(ctx: DetailContext): string[] {
+  const ids = districtIds(ctx);
+  const names: string[] = [];
   for (const b of builders) {
-    if (![...ids].some((id) => b.match(id))) continue;
-    const o = b.build(ctx);
-    if (o) {
-      o.name = o.name || b.name;
-      out.push(o);
-    }
+    if ([...ids].some((id) => b.match(id))) names.push(b.name);
+  }
+  return names;
+}
+
+/** One registered pass. The chunk streamer calls these across frames. */
+export function buildNamedDetail(ctx: DetailContext, name: string): Object3D | null {
+  const b = builders.find((item) => item.name === name);
+  if (!b) return null;
+  const ids = districtIds(ctx);
+  if (![...ids].some((id) => b.match(id))) return null;
+  const o = b.build(ctx);
+  if (o) o.name = o.name || b.name;
+  return o;
+}
+
+export function buildDetails(ctx: DetailContext): Object3D[] {
+  const out: Object3D[] = [];
+  for (const name of detailNames(ctx)) {
+    const o = buildNamedDetail(ctx, name);
+    if (o) out.push(o);
   }
   return out;
 }

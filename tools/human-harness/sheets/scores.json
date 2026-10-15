@@ -1,0 +1,150 @@
+{
+  "crowd": {
+    "low": {
+      "triangles": 1052,
+      "iou": {
+        "stand": 0.9672,
+        "short": 0.8359,
+        "rain": 0.9677,
+        "side": 0.926
+      },
+      "anthro": {
+        "stature_m": 1.8,
+        "head_m": 0.23,
+        "head_over_stature": 0.128,
+        "one_over_ratio": 7.83,
+        "shoulder_breadth_m": 0.48,
+        "head_breadth_m": 0.16,
+        "shoulder_y_m": 1.48,
+        "hem_long_m": 0.74,
+        "hem_short_m": 0.96,
+        "sole_m": 0.0,
+        "hip_pivot_m": 0.96,
+        "knee_pivot_m": 0.45
+      },
+      "plant": {
+        "sole_error_m": 0.0,
+        "sole_pen_m": 0.0,
+        "sole_float_m": 0.0,
+        "pull_m": 0.0,
+        "bob_m": 0.01764,
+        "pelvis_y_m": [
+          0.938,
+          0.9556384252869671
+        ],
+        "stance_knee_deg": [
+          10.934317025952652,
+          35.38676402363373
+        ],
+        "swing_knee_deg": 79.04544,
+        "elbow_deg": 103.82712,
+        "samples": 64
+      }
+    },
+    "medium": {
+      "triangles": 1876,
+      "iou": {
+        "stand": 0.9698,
+        "short": 0.8389,
+        "rain": 0.9624,
+        "side": 0.9303
+      },
+      "anthro": {
+        "stature_m": 1.8,
+        "head_m": 0.23,
+        "head_over_stature": 0.128,
+        "one_over_ratio": 7.83,
+        "shoulder_breadth_m": 0.48,
+        "head_breadth_m": 0.16,
+        "shoulder_y_m": 1.48,
+        "hem_long_m": 0.74,
+        "hem_short_m": 0.96,
+        "sole_m": 0.0,
+        "hip_pivot_m": 0.96,
+        "knee_pivot_m": 0.45
+      },
+      "plant": {
+        "sole_error_m": 0.0,
+        "sole_pen_m": 0.0,
+        "sole_float_m": 0.0,
+        "pull_m": 0.0,
+        "bob_m": 0.01764,
+        "pelvis_y_m": [
+          0.938,
+          0.9556384252869671
+        ],
+        "stance_knee_deg": [
+          10.934317025952652,
+          35.38676402363373
+        ],
+        "swing_knee_deg": 79.04544,
+        "elbow_deg": 103.82712,
+        "samples": 64
+      }
+    },
+    "high": {
+      "triangles": 1964,
+      "iou": {
+        "stand": 0.9698,
+        "short": 0.8389,
+        "rain": 0.9624,
+        "side": 0.9296
+      },
+      "anthro": {
+        "stature_m": 1.8,
+        "head_m": 0.23,
+        "head_over_stature": 0.128,
+        "one_over_ratio": 7.83,
+        "shoulder_breadth_m": 0.48,
+        "head_breadth_m": 0.16,
+        "shoulder_y_m": 1.48,
+        "hem_long_m": 0.74,
+        "hem_short_m": 0.96,
+        "sole_m": 0.0,
+        "hip_pivot_m": 0.96,
+        "knee_pivot_m": 0.45
+      },
+      "plant": {
+        "sole_error_m": 0.0,
+        "sole_pen_m": 0.0,
+        "sole_float_m": 0.0,
+        "pull_m": 0.0,
+        "bob_m": 0.01764,
+        "pelvis_y_m": [
+          0.938,
+          0.9556384252869671
+        ],
+        "stance_knee_deg": [
+          10.934317025952652,
+          35.38676402363373
+        ],
+        "swing_knee_deg": 79.04544,
+        "elbow_deg": 103.82712,
+        "samples": 64
+      }
+    }
+  },
+  "dancer": {
+    "low": {
+      "triangles": 320,
+      "iou": {
+        "front": 0.9665,
+        "side": 0.9342
+      }
+    },
+    "medium": {
+      "triangles": 1536,
+      "iou": {
+        "front": 0.8424,
+        "side": 0.9002
+      }
+    },
+    "high": {
+      "triangles": 3184,
+      "iou": {
+        "front": 0.843,
+        "side": 0.898
+      }
+    }
+  }
+}

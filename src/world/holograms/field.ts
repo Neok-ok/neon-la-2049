@@ -54,16 +54,20 @@ export class HologramField {
   private readonly cardMesh: InstancedMesh;
   private readonly iHolo: InstancedBufferAttribute;
   private readonly iTint: InstancedBufferAttribute;
+  private readonly iSpan: InstancedBufferAttribute;
   private readonly iCard: InstancedBufferAttribute;
 
   constructor(private layout: CityLayout) {
     const geo = new PlaneGeometry(1, 1);
     this.iHolo = new InstancedBufferAttribute(new Float32Array(MAX * 4), 4);
     this.iTint = new InstancedBufferAttribute(new Float32Array(MAX * 3), 3);
+    this.iSpan = new InstancedBufferAttribute(new Float32Array(MAX * 2), 2);
     this.iHolo.setUsage(DynamicDrawUsage);
     this.iTint.setUsage(DynamicDrawUsage);
+    this.iSpan.setUsage(DynamicDrawUsage);
     geo.setAttribute('iHolo', this.iHolo);
     geo.setAttribute('iTint', this.iTint);
+    geo.setAttribute('iSpan', this.iSpan);
     this.panels = new InstancedMesh(geo, getHoloMaterial(), MAX);
     this.panels.name = 'holograms';
     this.panels.frustumCulled = false;
@@ -158,6 +162,7 @@ export class HologramField {
         this.panels.setMatrixAt(n, _m.compose(_p, _q, _s));
         this.iHolo.setXYZW(n, holoIndex(spec.design), spec.seed, s, detail);
         this.iTint.setXYZ(n, r, g, b);
+        this.iSpan.setXY(n, spec.w, spec.h);
         n++;
       }
     }
@@ -166,6 +171,7 @@ export class HologramField {
     this.panels.instanceMatrix.needsUpdate = true;
     this.iHolo.needsUpdate = true;
     this.iTint.needsUpdate = true;
+    this.iSpan.needsUpdate = true;
 
     U.holoSpill.value = q.holoSpill > 0 ? 1 : 0;
     clearHoloSpill();

@@ -15,7 +15,13 @@
     "map": "node scripts/gen-map.mjs",
     "screenshots": "node scripts/screenshots.mjs",
     "turntable": "node scripts/model-turntable.mjs",
-    "stray": "node tools/model-harness/scripts/test-stray.mjs"
+    "stray": "node tools/model-harness/scripts/test-stray.mjs",
+    "quality:check": "node --experimental-strip-types scripts/quality-selfcheck.ts",
+    "coast:check": "node scripts/coast-index-selfcheck.mjs",
+    "load:check": "node scripts/load-budget.mjs",
+    "visual": "node tests/visual/run.mjs",
+    "visual:update": "node tests/visual/run.mjs --update",
+    "visual:list": "node tests/visual/shots.mjs"
   },
   "dependencies": {
     "three": "^0.186.1"
@@ -23,7 +29,9 @@
   "devDependencies": {
     "@types/three": "^0.186.0",
     "ktx2-encoder": "^0.6.0",
+    "pixelmatch": "^8.0.0",
     "playwright": "^1.64.0",
+    "pngjs": "^7.0.0",
     "typescript": "~5.9.0",
     "vite": "^8.3.4"
   }

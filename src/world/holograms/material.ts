@@ -1,15 +1,65 @@
 // Scanline hologram panels. One material for every design: figures are SDFs, ads are scrolling blocks.
 // Nothing here is a film character or a logo. Additive, so the dark parts of the quad disappear.
-import { AdditiveBlending, DoubleSide, MeshBasicNodeMaterial } from 'three/webgpu';
+import {
+  AdditiveBlending, ClampToEdgeWrapping, DataTexture, DoubleSide, LinearFilter, MeshBasicNodeMaterial,
+  NoColorSpace, type Texture,
+} from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import { U } from '../../atmosphere/uniforms';
+import { resources } from '../../core/memory';
 import { NITS } from '../../lighting/presets.ts';
 
 const T = TSL as any;
 const {
   Fn, attribute, float, vec2, vec3, vec4, uv, sin, cos, abs, min, max, mix, step, smoothstep,
-  fract, floor, hash, length, exp, clamp, positionWorld, cameraPosition,
+  fract, floor, hash, length, exp, clamp, positionWorld, cameraPosition, texture, uniform,
 } = T;
+
+// Placeholder until the low-mesh silhouette arrives. Swapping `.value` keeps the
+// cached hologram material bound to the same node.
+const dancerMaskTex = resources.texture(
+  () => new DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1),
+  { label: 'dancer-mask-standin', owner: 'humans' },
+);
+dancerMaskTex.needsUpdate = true;
+dancerMaskTex.colorSpace = NoColorSpace;
+dancerMaskTex.wrapS = ClampToEdgeWrapping;
+dancerMaskTex.wrapT = ClampToEdgeWrapping;
+dancerMaskTex.magFilter = LinearFilter;
+dancerMaskTex.minFilter = LinearFilter;
+dancerMaskTex.flipY = true;
+dancerMaskTex.generateMipmaps = false;
+const dancerMaskNode = texture(dancerMaskTex);
+const dancerMaskReady = uniform(0);
+
+let installedMask: Texture | null = null;
+
+/** Swap the 1×1 stand-in for the approved dancer silhouette. Linear, clamped.
+ *  A KTX2 mask is already Y-flipped in the file. Compressed uploads ignore flipY. */
+export function installDancerMask(source: Texture): void {
+  source.colorSpace = NoColorSpace;
+  source.wrapS = ClampToEdgeWrapping;
+  source.wrapT = ClampToEdgeWrapping;
+  source.magFilter = LinearFilter;
+  source.minFilter = LinearFilter;
+  source.generateMipmaps = false;
+  const compressed = (source as Texture & { isCompressedTexture?: boolean }).isCompressedTexture === true;
+  if (!compressed) source.flipY = true;
+  const prev = installedMask;
+  installedMask = source;
+  dancerMaskNode.value = source;
+  dancerMaskReady.value = 1;
+  if (prev && prev !== source) prev.dispose();
+}
+
+/** Back to the 1×1 stand-in. The installed mask is freed. */
+export function releaseDancerMask(): void {
+  const prev = installedMask;
+  installedMask = null;
+  dancerMaskNode.value = dancerMaskTex;
+  dancerMaskReady.value = 0;
+  prev?.dispose();
+}
 
 function ellipse(p: any, cx: any, cy: any, rx: any, ry: any): any {
   const dx = p.x.sub(cx).div(rx);
@@ -125,26 +175,46 @@ function lanternLoop(p: any, t: any, seed: any, mot: any): any {
  * Veil House canyon figure. A geometric dancer: diamond head with no face, a swinging
  * chevron skirt, one arm up, a long veil. Not a portrait and not a character from either film.
  */
-function veilDancer(p: any, t: any, seed: any, mot: any, detail: any, distCam: any): any {
+function veilDancer(p: any, t: any, seed: any, mot: any, detail: any, distCam: any, slice: any): any {
   // Low stays a thin glyph. Medium (detail ~0.33) is already a body when the camera is close.
   const near = smoothstep(float(160), float(24), distCam);
   const tier = smoothstep(float(0.04), float(0.28), detail);
   const thick = near.mul(mix(float(0.18), float(1), tier));
-  const sway = sin(t.mul(1.2).add(seed.mul(4.2))).mul(0.07).mul(mot);
+  const sway = sin(t.mul(1.2).add(seed.mul(4.2))).mul(0.22).mul(mot);
   // Hem sits at uv 0.02 so a street-planted quad puts the feet on the ground. Same parts as before.
-  const head = diamond(p, float(0.5).add(sway.mul(0.25)), float(0.847), float(0.05), float(0.093));
-  const neck = ellipse(p, float(0.5).add(sway.mul(0.15)), float(0.726), mix(float(0.016), float(0.03), thick), float(0.04));
-  const torso = ellipse(p, float(0.5).add(sway.mul(0.1)), float(0.562), mix(float(0.055), float(0.145), thick), float(0.128));
+  // The crown has to travel with the chest. A 0.25 weight left the head still
+  // while the street camera was looking at the upper body.
+  const head = diamond(p, float(0.5).add(sway.mul(1.15)), float(0.847), float(0.05), float(0.093));
+  const neck = ellipse(p, float(0.5).add(sway.mul(0.9)), float(0.726), mix(float(0.016), float(0.03), thick), float(0.04));
+  const torso = ellipse(p, float(0.5).add(sway.mul(0.62)), float(0.562), mix(float(0.055), float(0.145), thick), float(0.128));
   const hip = sin(t.mul(1.55).add(seed.mul(2.0))).mul(0.035).mul(mot);
   const skirt1 = diamond(p, float(0.5).add(sway), float(0.334).add(hip), mix(float(0.15), float(0.22), thick), float(0.057));
   const skirt2 = diamond(p, float(0.5).add(sway.mul(1.25)), float(0.220), mix(float(0.19), float(0.26), thick), float(0.050));
   const skirt3 = diamond(p, float(0.5).add(sway.mul(1.45)), float(0.106), mix(float(0.12), float(0.18), thick), float(0.043));
-  const armUp = ellipse(p, float(0.64).add(sway.mul(0.4)), float(0.733), float(0.1), mix(float(0.022), float(0.055), thick));
-  const armOut = ellipse(p, float(0.32).sub(sway), float(0.505), float(0.11), mix(float(0.02), float(0.05), thick));
+  const armUp = ellipse(p, float(0.64).add(sway.mul(1.05)), float(0.733), float(0.1), mix(float(0.022), float(0.055), thick));
+  const armOut = ellipse(p, float(0.32).sub(sway.mul(0.85)), float(0.505), float(0.11), mix(float(0.02), float(0.05), thick));
   const veil = ellipse(p, float(0.56).add(sway.mul(1.7)), float(0.391), mix(float(0.035), float(0.075), thick), float(0.371));
   const shape = max(head, max(neck, max(torso, max(skirt1, max(skirt2, max(skirt3, max(armUp, max(armOut, veil))))))));
-  const glow = ellipse(p, float(0.5).add(sway.mul(0.4)), float(0.434), mix(float(0.26), float(0.34), thick), float(0.40)).mul(0.16);
-  return max(shape, glow);
+  const glow = ellipse(p, float(0.5).add(sway.mul(0.85)), float(0.434), mix(float(0.26), float(0.34), thick), float(0.40)).mul(0.16);
+  const sdf = max(shape, glow);
+  // Letterbox a 15 m figure on a wider panel. Hollywood's 24 m quad must not stretch her.
+  const span = attribute('iSpan', 'vec2');
+  const uFig = p.x.sub(0.5).mul(span.x.div(float(15))).add(0.5);
+  const inside = step(float(0), uFig).mul(step(uFig, float(1)));
+  const sampled = dancerMaskNode.sample(vec2(uFig.sub(sway.mul(1.4)), p.y)).r.mul(inside);
+  const body = mix(sdf, sampled, dancerMaskReady);
+  // Hand every slice to the hero mesh inside 100 m. A ghost slice left up
+  // paints the solid mask into the skirt gaps and the street reads one crystal.
+  // Distance is to the planted hem, not the fragment: a head fragment on a
+  // 68 m panel is far enough that the flat column stayed up over the mesh.
+  const hemDrop = mix(span.y.mul(0.48), span.y.mul(0.5), step(float(20), span.x));
+  const anchorY = positionWorld.y.sub(p.y.sub(0.5).mul(span.y));
+  const hem = vec3(positionWorld.x, anchorY.sub(hemDrop), positionWorld.z);
+  const distFig = length(hem.sub(cameraPosition));
+  const close = smoothstep(float(132), float(100), distFig).mul(smoothstep(float(0.08), float(0.22), detail));
+  // Stay under the bloom threshold (1.0). The shared *2.5 is for small signs;
+  // this figure is 68 m tall and that gain clipped it to a white diamond.
+  return body.mul(float(1).sub(close)).mul(0.4);
 }
 
 let shared: MeshBasicNodeMaterial | null = null;
@@ -152,7 +222,7 @@ let shared: MeshBasicNodeMaterial | null = null;
 /** Instanced attributes: iHolo = (design, seed, slice, detail01), iTint = rgb. */
 export function getHoloMaterial(): MeshBasicNodeMaterial {
   if (shared) return shared;
-  const m = new MeshBasicNodeMaterial();
+  const m = resources.material('hologram', () => new MeshBasicNodeMaterial());
   m.name = 'Hologram';
   m.transparent = true;
   m.depthWrite = false;
@@ -188,7 +258,7 @@ export function getHoloMaterial(): MeshBasicNodeMaterial {
     const lantern = lanternLoop(p, t, seed, mot);
     const ads = mix(glyph, mix(lease, lantern, step(4.5, design)), step(3.5, design));
     const distCam = length(positionWorld.sub(cameraPosition));
-    const dancer = veilDancer(p, t, seed, mot, detail, distCam);
+    const dancer = veilDancer(p, t, seed, mot, detail, distCam, slice);
     const base = mix(figures, ads, step(2.5, design));
     const mask = mix(base, dancer, step(5.5, design));
 
@@ -219,7 +289,7 @@ let cardMat: MeshBasicNodeMaterial | null = null;
 /** Ground wash under a street-level projector. iCard = rgb + strength. */
 export function getHoloCardMaterial(): MeshBasicNodeMaterial {
   if (cardMat) return cardMat;
-  const m = new MeshBasicNodeMaterial();
+  const m = resources.material('hologram-spill', () => new MeshBasicNodeMaterial());
   m.name = 'HologramSpill';
   m.transparent = true;
   m.depthWrite = false;

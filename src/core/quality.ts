@@ -132,9 +132,25 @@ export function probeDevice(): DeviceInfo {
   };
 }
 
+/**
+ * Desktop integrated GPUs, including AMD APUs such as the Radeon 780M.
+ * A discrete Radeon (RX, Pro, FirePro, Instinct) stays on the high path.
+ * Auto still never returns ultra; an explicit quality choice can.
+ */
+function integratedGpu(g: string): boolean {
+  if (/intel|uhd|iris|mali|adreno/.test(g)) return true;
+  if (!/radeon|amd/.test(g)) return false;
+  if (/\brx\b|radeon pro|firepro|instinct/.test(g)) return false;
+  return /\b\d{3,4}m\b|vega|\bgraphics\b/.test(g);
+}
+
 export function autoTier(d: DeviceInfo): { tier: Tier; reason: string } {
   const g = d.gpu.toLowerCase();
-  if (/swiftshader|llvmpipe|software|basic render/.test(g)) return { tier: 'low', reason: `software renderer (${d.gpu})` };
+  const pick = (tier: Tier, reason: string): { tier: Tier; reason: string } => {
+    if (tier === 'ultra') return { tier: 'high', reason: `${reason}; auto never starts on ultra` };
+    return { tier, reason };
+  };
+  if (/swiftshader|llvmpipe|software|basic render/.test(g)) return pick('low', `software renderer (${d.gpu})`);
   if (d.isMobile) {
     if (d.isIOS) {
       // Safari still hides deviceMemory, and it caps hardwareConcurrency, so the
@@ -146,17 +162,17 @@ export function autoTier(d: DeviceInfo): { tier: Tier; reason: string } {
       const recent = d.webgpu || (d.dpr ?? 1) >= 2.5 || (d.screenMin ?? 0) >= 390;
       if (recent) {
         const why = d.webgpu ? 'WebGPU' : (d.dpr ?? 1) >= 2.5 ? `DPR ${d.dpr}` : `${d.screenMin}pt screen`;
-        return { tier: 'medium', reason: `iOS ${why} (iPhone 12 / iPad class, not high)` };
+        return pick('medium', `iOS ${why} (iPhone 12 / iPad class, not high)`);
       }
-      return { tier: 'low', reason: 'older or smaller iPhone' };
+      return pick('low', 'older or smaller iPhone');
     }
-    if ((d.memory ?? 4) >= 8 && d.cores >= 8) return { tier: 'medium', reason: 'high-end mobile' };
-    return { tier: 'low', reason: 'mobile device' };
+    if ((d.memory ?? 4) >= 8 && d.cores >= 8) return pick('medium', 'high-end mobile');
+    return pick('low', 'mobile device');
   }
-  if (/intel|uhd|iris|mali|adreno/.test(g)) return { tier: 'medium', reason: `integrated GPU (${d.gpu})` };
-  if (/apple m\d|apple gpu/.test(g)) return { tier: 'high', reason: `Apple silicon (${d.gpu})` };
-  if (/nvidia|geforce|rtx|radeon|amd/.test(g)) return { tier: 'high', reason: `discrete GPU (${d.gpu})` };
-  return { tier: 'medium', reason: `unknown GPU (${d.gpu})` };
+  if (integratedGpu(g)) return pick('medium', `integrated GPU (${d.gpu})`);
+  if (/apple m\d|apple gpu/.test(g)) return pick('high', `Apple silicon (${d.gpu})`);
+  if (/nvidia|geforce|rtx|radeon|amd/.test(g)) return pick('high', `discrete GPU (${d.gpu})`);
+  return pick('medium', `unknown GPU (${d.gpu})`);
 }
 
 const KEY = 'nla.quality';

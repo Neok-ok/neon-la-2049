@@ -2,12 +2,15 @@
 // Reduced motion (OS setting or the calm switch) forces the amplitude to zero.
 
 import type { PerspectiveCamera } from 'three/webgpu';
+import { params } from '../core/params';
 import { stormEnergy } from './disturbance';
 import { reducedMotion } from './reducedMotion';
 
 let clock = 0;
 
 export function advanceShake(dt: number): void {
+  // A pinned visual seed or a capture holds the shiver at its start pose.
+  if (params.seed !== undefined || params.capture) return;
   clock += Math.max(0, dt);
 }
 

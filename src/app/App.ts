@@ -1,6 +1,7 @@
 // Top-level wiring: renderer, scene, streaming city, landmarks, traffic, atmosphere, cameras, UI, audio.
-import { MathUtils, NoToneMapping, PerspectiveCamera, Scene, Timer, Vector2, Vector3, WebGPURenderer } from 'three/webgpu';
+import { MathUtils, NoToneMapping, PerspectiveCamera, Scene, Timer, Vector2, Vector3, WebGPURenderer, type Object3D } from 'three/webgpu';
 import { params } from '../core/params';
+import { pinVisualSeed, VISUAL_CLOCK_SEC } from '../core/rng';
 import { autoTier, probeDevice, settingsFor, stepAutoGuard, storedTier, storeTier, TIERS, type QualitySettings, type Tier } from '../core/quality';
 import { Atmosphere } from '../atmosphere/Atmosphere';
 import { setCityWindowDetail } from '../world/materials/cityMaterial';
@@ -22,6 +23,8 @@ import { Landmarks } from '../world/landmarks/Landmarks';
 import { localToGeo, geoToLocal } from '../world/geo';
 import { LaneTraffic } from '../vehicles/LaneTraffic';
 import { GroundTraffic } from '../vehicles/groundTraffic';
+import { warmStreetGraph } from '../vehicles/streetGraph';
+import { warmTrafficDress } from '../vehicles/freewayDress';
 import { trafficCamera, type TrafficView } from '../vehicles/trafficView';
 import { megaCamera, type MegaView } from '../districts/financial-megatowers/view';
 import { dtlaCamera, type DtlaView } from '../districts/dtla/view';
@@ -57,7 +60,7 @@ import { SmokeField, smokePunctual, type Tailpipe } from '../fx/smoke';
 import { fillEmptyAirLights } from '../atmosphere/airLights';
 import {
   allLights, disposeLightingPipeline, ephemeralLights, lightCensus, lightingStats, lockExposureEv, parseTone, rebuildLightingPipeline,
-  releaseLightingTierTargets, rendererTone, setEphemeral, syncLighting, type ToneId,
+  releaseLightingTierTargets, rendererTone, setEphemeral, syncLighting, warmLightingPipeline, renderLightingPass, presentLightingPipeline, type ToneId,
 } from '../lighting';
 import { wallaceCamera, type WallaceView } from '../districts/wallace-vernon/view';
 import { updateWallace } from '../districts/wallace-vernon/live';
@@ -92,7 +95,12 @@ import { Ambience } from '../audio/Ambience';
 import { MarketAudio } from '../audio/MarketAudio';
 import { HUD } from '../ui/HUD';
 import { UI } from '../ui/UI';
+import { bootMark, paceLoad, paintLoad } from '../ui/loading';
+import { flushShaderProbe, installShaderProbe } from './shaderProbe';
+import { ensureShaderPin, markShaderPinDrawn, mountShaderPins, resetShaderPins } from './shaderPin';
 import { CrowdField } from '../districts/little-tokyo-market/crowd';
+import { DancerHero } from '../world/humans/dancerHero';
+import { humanMemory } from '../world/humans/memory';
 import { marketCamera, type MarketView } from '../districts/little-tokyo-market/view';
 import { marketSpots } from '../districts/little-tokyo-market/spots';
 import { setSeats } from '../world/seats';
@@ -101,6 +109,13 @@ import '../districts/detail-index';
 
 const DEG = Math.PI / 180;
 const MODES: ModeId[] = ['fly', 'walk', 'cine'];
+
+type Drawable = Object3D & { isMesh?: boolean; isPoints?: boolean; isLine?: boolean; isSprite?: boolean };
+
+function isDrawable(obj: Object3D): obj is Drawable {
+  const o = obj as Drawable;
+  return !!(o.isMesh || o.isPoints || o.isLine || o.isSprite);
+}
 
 /** Opening seat above the inversion: Little Tokyo azimuth, nose on the pyramid's lower tiers. */
 function defaultPose(): Pose {
@@ -139,6 +154,7 @@ export class App {
   readonly ambience = new Ambience();
   readonly marketAudio: MarketAudio;
   readonly crowd = new CrowdField();
+  readonly dancer = new DancerHero();
   holos!: HologramField;
   landmarks!: Landmarks;
   interiors!: InteriorSystem;
@@ -178,6 +194,29 @@ export class App {
   private spinnerWasVisible = false;
   private loadingEl = document.getElementById('loading');
   private startMs = performance.now();
+  /** Set while one program is linking. Far districts wait so they do not join that task. */
+  private shaderJob: Promise<void> | null = null;
+  private farTask: Promise<void> | null = null;
+  /** True after a frame has drawn the warmed set. The bar stays up until then. */
+  private presented = false;
+  private drawn = 0;
+  private presentMarked = false;
+  /**
+   * Drawables hidden until their program has been linked by a real scene-pass draw.
+   * A compile against a stand-in target does not match the pass, so the first full
+   * present would otherwise link the whole city in one task.
+   */
+  private passQueue: Object3D[] = [];
+  private passCursor = 0;
+  private passQueued = new WeakSet<Object3D>();
+  private passCleared = false;
+  private warmGen = 1;
+  private readonly meshGen = new WeakMap<object, number>();
+  private heldVisible = new WeakMap<object, boolean>();
+  private shadeKey = '';
+  private shadeResets = 0;
+  /** Largest shader queue seen this warm. The bar uses it so new chunks don't rewind the fill. */
+  private passSeen = 0;
 
   constructor(private canvas: HTMLCanvasElement) {
     const dev = probeDevice();
@@ -198,9 +237,11 @@ export class App {
     });
     this.marketAudio = new MarketAudio(this.ambience);
     this.wet = new WetReflector(this.scene);
+    mountShaderPins(this.scene);
   }
 
   async init(): Promise<void> {
+    pinVisualSeed(params.seed);
     const hints = await readUaHints();
     if (hints.platform || hints.model) {
       this.budget = detectBudget({
@@ -234,6 +275,7 @@ export class App {
       powerPreference: 'high-performance',
     }));
     await r.init();
+    if (params.loadprobe) installShaderProbe(r);
     this.backend = (r.backend as unknown as { isWebGPUBackend?: boolean }).isWebGPUBackend ? 'WebGPU' : 'WebGL2';
     await prepareAtlases(r, { preferCompressed: this.budget.deviceClass !== 'desktop' });
     await prepareRoadTextures(r, this.quality.tier);
@@ -246,7 +288,7 @@ export class App {
 
     const weather = (params.weather && params.weather in WEATHER ? params.weather : 'rain') as WeatherId;
     this.atmosphere = new Atmosphere(this.scene, { hours: params.time ?? 22, weather });
-    if (params.freeze) {
+    if (params.freeze || params.capture) {
       this.atmosphere.dayNight.frozen = true;
       this.atmosphere.weather.frozen = true;
     }
@@ -254,8 +296,10 @@ export class App {
 
     this.streamer = new ChunkStreamer(this.scene, this.quality);
     setB1HeroTier(this.quality.tier);
+    paintLoad('city', 0);
     this.landmarks = new Landmarks(this.query);
     this.scene.add(this.landmarks.root);
+    await this.landmarks.mount(() => paceLoad('city', 0.55));
     installCoast(this.scene, this.query, this.quality.tier);
     installShowcase(this.query.layout);
     installDtlaHolos(this.query.layout);
@@ -263,13 +307,27 @@ export class App {
     installArtsHolos(this.query.layout);
     this.holos = new HologramField(this.query.layout);
     this.scene.add(this.holos.group);
+    await paceLoad('streets', 0, true);
+    await warmStreetGraph(this.query.layout, () => paceLoad('streets', 0.45));
+    await warmTrafficDress(this.query.layout, () => paceLoad('streets', 0.8));
+    await paceLoad('streets', 0.86, true);
     this.traffic = new SpinnerTraffic(this.scene, this.query, settingsFor('ultra').traffic);
+    await paceLoad('streets', 0.9, true);
     this.lanes = new LaneTraffic(this.scene, this.query, settingsFor('ultra').laneTraffic);
+    await paceLoad('streets', 0.94, true);
     this.ground = new GroundTraffic(this.scene, this.query, settingsFor('ultra').groundTraffic, settingsFor('ultra').freewayTraffic);
     const ultra = settingsFor('ultra');
+    await paceLoad('streets', 0.97, true);
     this.rain = new Precipitation('rain', ultra.rainCount);
+    await paceLoad('streets', 1, true);
     this.snow = new Precipitation('snow', ultra.snowCount);
-    this.scene.add(this.rain.mesh, this.snow.mesh, this.crowd.mesh, this.haze.group);
+    this.scene.add(this.rain.mesh, this.snow.mesh, this.crowd.mesh, this.dancer.mesh, this.haze.group);
+    this.crowd.setLod(this.quality.tier, r);
+    this.dancer.setLod(this.quality.tier, r);
+    addEventListener('pagehide', () => {
+      this.crowd.dispose();
+      this.dancer.dispose();
+    });
     installInteriors();
     this.interiors = new InteriorSystem(this.scene, this.query, this.quality.tier);
     this.interiors.setExteriorListener((suspended) => { this.exteriorSuspended = suspended; });
@@ -285,7 +343,7 @@ export class App {
     const fly = new FlyController(this.camera, this.input, this.query, this.scene, this.quality.tier);
     fly.blocksExtra = (x, y, z) => this.interiors.blocksFly(x, y, z);
     this.interiors.bind({
-      toggle: [this.streamer.root, this.holos.group, this.crowd.mesh, ...this.traffic.nodes, ...this.ground.nodes],
+      toggle: [this.streamer.root, this.holos.group, this.crowd.mesh, this.dancer.mesh, ...this.traffic.nodes, ...this.ground.nodes],
       suppress: [this.rain.mesh, this.snow.mesh, this.haze.group, this.wet.mesh, this.air.glowMesh, this.air.breathMesh, ...this.lanes.nodes, fly.spinner],
       landmarks: this.landmarks.root,
     });
@@ -351,10 +409,227 @@ export class App {
     addEventListener('resize', () => this.resize());
 
     if (params.mem) mountMemoryOverlay(() => this.overlaySample());
+    this.syncCityLights();
+    await paceLoad('light', 0.2, true);
     this.buildPipeline();
+    if (startMode === 'cine') {
+      this.playLens = createPlayLens(this.renderer, this.scene, this.camera, this.quality.tier, this.quality.bloom);
+      // Cine draws through the lens rig. The play bloom targets are not used,
+      // and holding both through the mesh warm blows the drawing-buffer budget.
+      if (this.pipeline) this.releasePlayPipeline();
+    }
+    bootMark('warm-start');
+    await this.warmShaders();
+    bootMark('warm-done');
+    if (this.playLens) {
+      bootMark('lens-warm');
+      await this.playLens.warm(() => paceLoad('light', 0.9, true));
+      bootMark('lens-done');
+    }
     this.boot.initMs = performance.now() - this.startMs;
+    if (params.frame) await this.applyNamedFrame(params.frame);
     this.timer.connect(document);
+    paintLoad('opening', 0.05);
     r.setAnimationLoop((t) => this.frame(t));
+  }
+
+  /**
+   * Grade quad and bloom mips only. Scene meshes are warmed later, one real pass
+   * draw per frame, because a compile here does not match that draw.
+   */
+  private async warmShaders(): Promise<void> {
+    if (this.playLens || !this.pipeline) return;
+    await warmLightingPipeline(this.renderer, this.scene, () => paceLoad('light', 0.7));
+  }
+
+  private isPassWarmed(obj: object): boolean {
+    return this.meshGen.get(obj) === this.warmGen;
+  }
+
+  private markPassWarmed(obj: object): void {
+    this.meshGen.set(obj, this.warmGen);
+  }
+
+  /** Canvas size, tone map, shadows, or the probe changed the program variant. */
+  private noteShadeEpoch(): void {
+    const sun = this.atmosphere?.sun?.castShadow ? 1 : 0;
+    const env = this.scene.environment?.uuid ?? '';
+    const key = `${this.canvas.width}x${this.canvas.height}|${this.renderer.toneMapping}|${sun}|${env}`;
+    if (this.shadeKey && key !== this.shadeKey && this.passCursor > 0 && this.shadeResets < 2) {
+      this.shadeResets++;
+      this.resetPassWarm();
+      bootMark('shade reset');
+    }
+    this.shadeKey = key;
+  }
+
+  private resetPassWarm(): void {
+    for (const mesh of this.passQueue) {
+      const was = this.heldVisible.get(mesh);
+      if (was !== undefined && mesh.parent) (mesh as { visible: boolean }).visible = was;
+    }
+    this.heldVisible = new WeakMap();
+    this.passQueue = [];
+    this.passCursor = 0;
+    this.passQueued = new WeakSet();
+    this.passCleared = false;
+    this.passSeen = 0;
+    this.warmGen++;
+    resetShaderPins();
+  }
+
+  private passPending(): boolean {
+    if (params.capture) return false;
+    return !this.passCleared || this.passCursor < this.passQueue.length;
+  }
+
+  /**
+   * Instanced meshes with nothing to draw must not be linked.
+   * Street-streak tiles stay at count 0 above low; linking each tile is its own program
+   * and blocked the opening for minutes on a software GPU.
+   */
+  private draws(obj: Object3D): boolean {
+    if (obj.name === 'traffic-streaks-street' && this.quality.tier !== 'low') return false;
+    const inst = obj as Object3D & { isInstancedMesh?: boolean; count?: number };
+    return !(inst.isInstancedMesh && (inst.count ?? 0) <= 0);
+  }
+
+  /** Hide every drawable that has not yet been drawn through the real scene pass. */
+  private collectPassQueue(): void {
+    this.scene.traverse((obj) => {
+      if (!isDrawable(obj) || !obj.visible || !this.draws(obj) || this.isPassWarmed(obj) || this.passQueued.has(obj)) return;
+      this.heldVisible.set(obj, true);
+      obj.visible = false;
+      this.passQueued.add(obj);
+      this.passQueue.push(obj);
+    });
+    if (this.passQueue.length > this.passSeen) this.passSeen = this.passQueue.length;
+  }
+
+  /**
+   * The draw the frame will use, so the linked program is the one the present hits.
+   * Cine prepares the lens (camera, exposure, tile) and draws only the scene pass.
+   * The full present waits until that set is done, or it links every mesh at once.
+   */
+  private renderScenePass(): void {
+    this.camera.updateMatrixWorld();
+    this.camera.updateProjectionMatrix();
+    if (this.playLens && this.cams?.mode === 'cine' && this.cams.cine) {
+      this.playLens.prepare(this.camera, this.cams.cine.lens, this.atmosphere?.exposure);
+      this.playLens.renderPass();
+      return;
+    }
+    if (!renderLightingPass(this.renderer)) this.renderer.render(this.scene, this.camera);
+  }
+
+  /**
+   * One new program per frame. Cache hits share a frame until the slice is full.
+   * Returns true when this frame already spent its slice on a compile, so the
+   * caller must not also present.
+   */
+  private warmPassSlice(): boolean {
+    const programs = () => (this.renderer.info as { memory?: { programs?: number } }).memory?.programs ?? 0;
+    const start = performance.now();
+    if (!this.passCleared) {
+      this.passCleared = true;
+      const t0 = performance.now();
+      this.withOnly(null, () => this.renderScenePass());
+      const dt = performance.now() - t0;
+      if (dt >= 40) bootMark(`pass clear ${Math.round(dt)}`);
+      flushShaderProbe();
+      return true;
+    }
+    while (this.passCursor < this.passQueue.length && performance.now() - start < 12) {
+      const mesh = this.passQueue[this.passCursor++]!;
+      this.passQueued.delete(mesh);
+      if (!mesh.parent || !this.draws(mesh)) {
+        this.heldVisible.delete(mesh);
+        continue;
+      }
+      // Draw the stand-in before the chunk mesh. Unloading the chunk then
+      // cannot be the last reference, so the linked program stays.
+      const pin = ensureShaderPin(mesh);
+      if (pin) {
+        this.passCursor--;
+        this.passQueued.add(mesh);
+        const t0 = performance.now();
+        this.withOnly(pin, () => this.renderScenePass());
+        markShaderPinDrawn(pin);
+        this.markPassWarmed(pin);
+        const dt = performance.now() - t0;
+        if (dt >= 40) bootMark(`pin ${mesh.name || mesh.type} ${Math.round(dt)}`);
+        flushShaderProbe();
+        return true;
+      }
+      const before = programs();
+      const t0 = performance.now();
+      const culled = mesh.frustumCulled;
+      mesh.frustumCulled = false;
+      this.withOnly(mesh, () => this.renderScenePass());
+      mesh.frustumCulled = culled;
+      this.markPassWarmed(mesh);
+      const dt = performance.now() - t0;
+      if (dt >= 40) bootMark(`pass ${mesh.name || mesh.type} ${Math.round(dt)}`);
+      if (programs() !== before || dt > 12) {
+        flushShaderProbe();
+        return true;
+      }
+    }
+    flushShaderProbe();
+    return false;
+  }
+
+  /**
+   * Draw `only`, or nothing when it is null.
+   * Every drawable is toggled. Hiding a parent is not enough: a group that stays
+   * visible still draws every revealed child, and that present then links them all.
+   */
+  private withOnly(only: Object3D | null, draw: () => void): void {
+    const saved: { obj: Object3D; visible: boolean }[] = [];
+    this.scene.traverse((obj) => {
+      if (!isDrawable(obj)) return;
+      saved.push({ obj, visible: obj.visible });
+      obj.visible = obj === only;
+    });
+    const shown: { obj: Object3D; visible: boolean }[] = [];
+    if (only) {
+      for (let node = only.parent; node; node = node.parent) {
+        if (!node.visible) {
+          shown.push({ obj: node, visible: false });
+          node.visible = true;
+        }
+      }
+    }
+    try {
+      draw();
+    } finally {
+      for (const row of shown) row.obj.visible = row.visible;
+      for (let i = saved.length - 1; i >= 0; i--) {
+        const row = saved[i]!;
+        row.obj.visible = row.visible;
+      }
+    }
+  }
+
+  /** Put warmed drawables back. Anything still queued stays hidden. */
+  private revealWarmed(): void {
+    const end = this.passCursor;
+    for (let i = 0; i < end; i++) {
+      const mesh = this.passQueue[i]!;
+      if (mesh.userData.shaderPin) {
+        mesh.visible = false;
+        this.heldVisible.delete(mesh);
+        continue;
+      }
+      const was = this.heldVisible.get(mesh);
+      if (was === undefined) continue;
+      if (mesh.parent) (mesh as { visible: boolean }).visible = was;
+      this.heldVisible.delete(mesh);
+    }
+    if (this.passCursor > 32 && this.passCursor === this.passQueue.length) {
+      this.passQueue = [];
+      this.passCursor = 0;
+    }
   }
 
   private initialPose(): Pose {
@@ -438,6 +713,8 @@ export class App {
     this.playLens?.dispose();
     this.playLens = null;
     this.cams.fly.setSpinnerTier(tier);
+    this.crowd.setLod(tier, this.renderer);
+    this.dancer.setLod(tier, this.renderer);
     this.slowMs = 0;
     this.ui.setAppliedTier(tier);
   }
@@ -522,6 +799,9 @@ export class App {
 
   /** Drop far detail, then mips, then resolution, before the tab is killed. */
   private govern(frameMs: number): void {
+    // A pinned seed or a capture must not let the memory governor shrink and
+    // regrow the loaded set.
+    if (params.seed !== undefined || params.capture) return;
     const heap = (performance as { memory?: { usedJSHeapSize?: number } }).memory?.usedJSHeapSize ?? 0;
     const gpu = (this.renderer.info.memory?.total ?? 0) + this.rtBytes();
     const jsRatio = this.budget.jsHeapBytes > 0 ? heap / this.budget.jsHeapBytes : 0;
@@ -616,20 +896,24 @@ export class App {
     if (this.input.wasPressed('KeyP')) this.togglePhoto();
     if (this.photoMod?.active && this.input.wasPressed('Escape')) this.exitPhoto();
     const photoOn = this.photoMod?.active ?? false;
-    const simDt = photoOn ? 0 : dt;
+    const still = params.seed !== undefined || params.capture;
+    const simDt = photoOn || still ? 0 : dt;
     if (this.frames === 0) {
       this.loopStart = performance.now();
       this.boot.firstFrameMs = this.loopStart - this.startMs;
     } else if (this.frames > 2 && !photoOn) {
       this.sessionWorstMs = Math.max(this.sessionWorstMs, raw * 1000);
     }
-    if (!photoOn) this.elapsed += dt;
+    if (still) this.elapsed = VISUAL_CLOCK_SEC;
+    else if (!photoOn) this.elapsed += dt;
     this.frames++;
 
     if (this.started && !photoOn) this.handleKeys();
     setDisturbance(this.atmosphere.weather.params.wind, this.atmosphere.weather.params.rain);
     if (photoOn) this.photoMod!.update(dt);
-    else this.cams.update(dt);
+    // Play holds the chase camera until the bar drops. Capture still needs real
+    // dt, or the fly camera stays on its enter pose and the rain box moves with it.
+    else this.cams.update(this.loadingEl && !params.capture ? 0 : dt);
 
     const cam = this.camera.position;
     const ground = this.query.groundHeight(cam.x, cam.z);
@@ -674,7 +958,7 @@ export class App {
     const foci = [cam];
     if (photoOn) {
       for (const f of this.photoMod!.focusPoints()) foci.push(f);
-    } else if (this.cams.mode === 'cine' && this.cams.cine.prefetch) foci.push(this.cams.cine.prefetch);
+    } else if (!this.loadingEl && this.cams.mode === 'cine' && this.cams.cine.prefetch) foci.push(this.cams.cine.prefetch);
     this.govern(raw * 1000);
     this.streamer.update(foci);
     this.landmarks.update(cam, this.quality.landmarkLod);
@@ -714,6 +998,7 @@ export class App {
     });
     this.syncCityLights();
     this.crowd.update(simDt, cam.x, cam.z, this.query, this.quality, this.atmosphere.weather.params.rain, this.elapsed, this.cams.pose().heading);
+    this.dancer.update(cam);
     this.haze.update(cam.x, cam.z, ground, alt, this.quality.tier);
     const overRoad = cameraOverRoad(this.query.layout, cam.x, cam.z);
     const wantRefl = this.pressure.reflector && (params.refl === 1 || (
@@ -796,27 +1081,80 @@ export class App {
 
     this.applyLapdShelter();
 
-    if (photoOn) this.photoMod!.render();
-    else if (this.cams.mode === 'cine') this.renderCine();
-    else {
-      if (this.playLens) {
-        this.playLens.dispose();
-        this.playLens = null;
+    const pacePass = !params.capture && !photoOn;
+    let compiling = false;
+    if (pacePass) {
+      this.noteShadeEpoch();
+      this.collectPassQueue();
+      if (this.passPending()) compiling = this.warmPassSlice();
+    }
+    // A present in the middle of the warm changes the pass state, and the next
+    // present then links every mesh that was warmed against the old one.
+    // The bar stays up until the opening stream is idle and its programs are in.
+    // Capture draws the finished scene immediately. The bar is not the gate there,
+    // and waiting on it left every screenshot with an empty frame.
+    const opening = !!this.loadingEl && !params.capture;
+    const openingReady = !opening || (
+      this.farApplied && !this.farTask && !!this.streamer?.isIdle() && !this.passPending()
+    );
+    if (compiling || !openingReady) {
+      // This frame is still linking, or the opening set is not resident yet.
+    } else {
+      if (pacePass) this.revealWarmed();
+      const drawT = this.presentMarked ? 0 : performance.now();
+      if (photoOn) this.photoMod!.render();
+      else if (this.cams.mode === 'cine') this.renderCine();
+      else {
+        if (this.playLens) {
+          this.playLens.dispose();
+          this.playLens = null;
+        }
+        if (!this.pipeline && this.quality.bloom) this.buildPipeline();
+        if (!presentLightingPipeline(this.renderer)) this.renderer.render(this.scene, this.camera);
       }
-      if (!this.pipeline && this.quality.bloom) this.buildPipeline();
-      if (this.pipeline) this.pipeline.render();
-      else this.renderer.render(this.scene, this.camera);
+      this.presented = true;
+      this.drawn = this.renderer.info.render.drawCalls;
+      if (!this.presentMarked) {
+        this.presentMarked = true;
+        bootMark(`first present ${Math.round(performance.now() - drawT)}`);
+      }
     }
 
     this.hud.tick(raw, () => this.hudLines(alt));
     if (!photoOn) this.adaptQuality(raw);
     this.input.endFrame();
 
-    if (this.loadingEl && (this.streamer.isIdle() || performance.now() - this.startMs > 8000) && this.frames > 5) {
+    if (this.loadingEl) this.paintOpening();
+    this.maybeHideLoading();
+  }
+
+  private maybeHideLoading(): void {
+    if (!this.loadingEl || this.shaderJob) return;
+    // The bar stays through the shader warm. Hiding it first lets the next
+    // present link every mesh that is still queued.
+    if (!this.presented || this.passPending() || this.farTask || !this.farApplied) return;
+    const cap = performance.now() - this.startMs > 180_000;
+    const opened = !!this.streamer?.isIdle() && this.frames > 5;
+    if (opened || cap) {
+      paintLoad('opening', 1);
+      bootMark('interactive');
       this.boot.interactiveMs = performance.now() - this.startMs;
       this.loadingEl.remove();
       this.loadingEl = null;
     }
+  }
+
+  private paintOpening(): void {
+    const s = this.streamer?.stats;
+    if (!s) {
+      paintLoad('opening', 0.05);
+      return;
+    }
+    const pending = s.inFlight + s.readyQueue;
+    const shown = s.supersFar + s.chunksNear;
+    const local = shown + pending === 0 ? 0.08 : shown / (shown + pending);
+    const shader = this.passSeen === 0 ? (this.passCleared ? 1 : 0) : Math.min(1, this.passCursor / this.passSeen);
+    paintLoad('opening', Math.min(0.96, local * 0.45 + shader * 0.55));
   }
 
   /**
@@ -842,6 +1180,7 @@ export class App {
     this.streamer.root.visible = false;
     this.holos.group.visible = false;
     this.crowd.mesh.visible = false;
+    this.dancer.mesh.visible = false;
     for (const n of this.traffic.nodes) n.visible = false;
     for (const n of this.ground.nodes) n.visible = false;
     for (const child of this.landmarks.root.children) {
@@ -934,18 +1273,28 @@ export class App {
   private hookFar(): void {
     if (this.farHooked) return;
     this.farHooked = true;
-    const run = () => this.applyFar();
+    const run = () => { void this.applyFar(); };
     if (farDistrictsReady()) run();
     else void farDistrictsPromise.then(run);
   }
 
-  private applyFar(): void {
-    if (this.farApplied || !this.landmarks || !this.interiors) return;
+  private applyFar(): Promise<void> {
+    if (this.farApplied) return this.farTask ?? Promise.resolve();
+    if (!this.landmarks || !this.interiors) return Promise.resolve();
+    if (this.shaderJob) return this.shaderJob.then(() => this.applyFar());
     this.farApplied = true;
-    mountFarDistricts(this.scene, this.query.layout, this.query);
-    this.landmarks.mountPending(true);
-    this.interiors.adoptNew(this.query);
-    this.boot.farMs = performance.now() - this.startMs;
+    const job = (async () => {
+      paintLoad('districts', 0.15);
+      await mountFarDistricts(this.scene, this.query.layout, this.query, () => paceLoad('districts', 0.55));
+      this.landmarks.mountPending(true);
+      await paceLoad('districts', 0.9);
+      this.interiors.adoptNew(this.query);
+      this.boot.farMs = performance.now() - this.startMs;
+    })();
+    let task: Promise<void> = Promise.resolve();
+    task = job.finally(() => { if (this.farTask === task) this.farTask = null; });
+    this.farTask = task;
+    return task;
   }
 
   private applyDistrictPose(p: {
@@ -973,7 +1322,60 @@ export class App {
 
   private async ensureFar(): Promise<void> {
     await farDistrictsPromise;
-    this.applyFar();
+    await this.applyFar();
+  }
+
+  /**
+   * `?frame=name:kind` runs one authored debug camera before the first painted frame.
+   * Walk deep links otherwise snap to the nearest open spot and a fixed pitch, which
+   * leaves some district cameras inside a wall. Omitted, play is unchanged.
+   */
+  private async applyNamedFrame(spec: string): Promise<void> {
+    const w = window as Window & { __nlaFrame?: string; __nlaFrameError?: string };
+    const split = spec.indexOf(':');
+    const name = split < 0 ? '' : spec.slice(0, split);
+    const kind = split < 0 ? '' : spec.slice(split + 1);
+    const method: Record<string, string> = {
+      market: 'marketView',
+      mega: 'megaView',
+      dtla: 'dtlaView',
+      civic: 'civicView',
+      broadway: 'broadwayView',
+      k: 'kView',
+      arts: 'artsView',
+      coast: 'coastView',
+      wallace: 'wallaceView',
+      lakewood: 'lakewoodView',
+      southla: 'southLaView',
+      westside: 'westsideView',
+      basin: 'basinView',
+      southeast: 'southeastView',
+      southbay: 'southBayView',
+      hollywood: 'hollywoodView',
+      lax: 'laxView',
+      harbor: 'harborView',
+      longbeach: 'longBeachView',
+      eastla: 'eastLaView',
+    };
+    const fn = (this.debugApi() as unknown as Record<string, (kind: string) => unknown>)[method[name] ?? ''];
+    if (!fn) {
+      w.__nlaFrameError = `unknown frame ${spec}`;
+      console.warn(w.__nlaFrameError);
+      return;
+    }
+    try {
+      const result = await fn(kind);
+      if (result === false) {
+        w.__nlaFrameError = `frame ${spec} was not applied`;
+        console.warn(w.__nlaFrameError);
+        return;
+      }
+    } catch (err) {
+      w.__nlaFrameError = err instanceof Error ? err.message : String(err);
+      console.warn(`frame ${spec} failed`, err);
+      return;
+    }
+    w.__nlaFrame = spec;
   }
 
   /** Debug / automation hooks (screenshots, console). */
@@ -1068,6 +1470,10 @@ export class App {
     return {
       app: this,
       isIdle: () => this.frames > 10 && this.streamer.isIdle(),
+      idleReport: () => ({ ...this.streamer.idleReport(), pressure: this.pressure.level }),
+      captureHeld: () => this.streamer.isCaptureHeld(),
+      captureReport: () => this.streamer.captureReport(),
+      holdCapture: () => this.streamer.holdCapture(),
       memory: () => this.overlaySample(),
       budget: () => this.budget,
       pressure: () => this.pressure,
@@ -1540,19 +1946,32 @@ export class App {
       stats: () => ({
         ...this.streamer.stats,
         fps: this.hud.fps,
+        simTime: this.elapsed,
+        seed: params.seed ?? null,
         frameMs: this.hud.frameMs,
         worstMs: this.hud.worstMs,
         backend: this.backend,
         tier: this.quality.tier,
         mode: this.cams.mode,
         shot: this.cams.cine.label,
-        drawCalls: this.renderer.info.render.drawCalls,
+        drawCalls: this.drawn || this.renderer.info.render.drawCalls,
         triangles: this.renderer.info.render.triangles,
         crowd: this.crowd.count,
         crowdAnimated: this.crowd.animated,
         crowdStatic: this.crowd.staticCount,
         crowdIdle: this.crowd.idle,
         crowdTris: this.crowd.tris,
+        crowdRigged: this.crowd.rigged ? 1 : 0,
+        dancerTris: this.dancer.tris,
+        dancerHero: this.dancer.shown,
+        humanMemory: humanMemory({
+          tier: this.quality.tier,
+          crowdGeomBytes: this.crowd.geometryResident(),
+          crowdTriangles: this.crowd.bodyTriangles(),
+          dancerGeomBytes: this.dancer.geometryResident(),
+          dancerTriangles: this.dancer.residentTriangles(),
+          instanceBytes: this.crowd.instanceResident(),
+        }),
         holo: this.holos.shown,
         holoCandidates: this.holos.candidates,
         holoCards: this.holos.cards,
@@ -1597,6 +2016,8 @@ export class App {
         initMs: this.boot.initMs,
         firstFrameMs: this.boot.firstFrameMs,
         interactiveMs: this.boot.interactiveMs,
+        shaderQueue: Math.max(0, this.passQueue.length - this.passCursor),
+        streamerIdle: this.streamer?.isIdle() ?? false,
         streakBins: this.ground.streakBins,
         streakBinsDrawn: this.ground.streakBinsDrawn,
         streakDrawn: this.ground.streakDrawn,

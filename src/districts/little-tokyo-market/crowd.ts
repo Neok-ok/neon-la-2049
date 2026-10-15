@@ -1,23 +1,28 @@
 // One instanced crowd for the whole city. A district registers loops and a share; the mesh
-// and the walk shader stay here. Legs and arms are a vertex-shader cycle (one draw, no
-// skeleton, no pose texture): a planted stance half keeps the feet from skating at 1.5 m/s.
-// The umbrella is parented to the right hand. Distant and low-tier people hold a static pose.
+// and the walk stay here. Until the rigged glTF loads, legs and arms are a vertex-shader
+// cycle (one draw): a planted stance half keeps the feet from skating. Once it loads,
+// the same instances skin a plate-matched body from a bone palette. Distant and low-tier
+// people hold a static pose. The umbrella stays on the right hand.
 import {
   BufferAttribute, BufferGeometry, DynamicDrawUsage, InstancedBufferAttribute, InstancedMesh, Matrix4, MeshBasicNodeMaterial,
-  Quaternion, Vector3,
+  Quaternion, Vector3, type WebGPURenderer,
 } from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import type { CityQuery, PackedBlock } from '../../world/CityQuery';
 import type { QualitySettings, Tier } from '../../core/quality';
+import { resources } from '../../core/memory';
 import { hash2i } from '../../core/rng';
 import { U } from '../../atmosphere/uniforms';
 import { authoredLiftU } from '../../lighting/shade.ts';
 import type { CrowdLifeSpot } from '../../world/crowdLife';
 import { allHolograms } from '../../world/holograms/registry';
-import { streetGraph, visitBins } from '../../vehicles/streetGraph';
+import { CURB_H, CURB_W, ROAD_LIFT, streetProfile } from '../../roads/profile';
+import { streetGraph, visitBins, type StreetGraph } from '../../vehicles/streetGraph';
 import { axisLamp } from '../../vehicles/trafficSignals';
 import { dressBlock, pedestrianLoops, stallFrontLoop, type MarketBlock } from './dress';
 import { marketSpots } from './spots';
+import { crowdLodForTier, disposeCrowdResources, loadCrowdRig } from '../../world/humans/crowdRig';
+import { retainedGeometryBytes } from '../../world/humans/gltfGeom';
 
 const T = TSL as any;
 const {
@@ -25,6 +30,7 @@ const {
 } = T;
 
 const MAX = 720;
+const INSTANCE_ATTRS = ['iCoat', 'iCanopy', 'iMotion', 'iStyle', 'iExtra'] as const;
 /** Share of market walkers held in the lane ahead of the camera. */
 const LANE_PACK = 0.42;
 /** Full cycle (two steps) at the 1.5 m/s base walk. Frequency is speed / STRIDE. */
@@ -32,9 +38,9 @@ const STRIDE = 1.42;
 const TAU = 6.28318530718;
 
 const COATS: Array<[number, number, number]> = [
-  [0.045, 0.043, 0.048], [0.07, 0.07, 0.075], [0.1, 0.1, 0.105], [0.15, 0.145, 0.14],
-  [0.09, 0.1, 0.07], [0.11, 0.12, 0.08], [0.16, 0.08, 0.05], [0.13, 0.07, 0.045],
-  [0.055, 0.055, 0.06],
+  [0.12, 0.12, 0.14], [0.30, 0.22, 0.16], [0.16, 0.22, 0.14],
+  [0.34, 0.12, 0.16], [0.12, 0.16, 0.30], [0.32, 0.30, 0.28],
+  [0.28, 0.16, 0.10], [0.18, 0.22, 0.30], [0.36, 0.28, 0.16],
 ];
 const CANOPY: Array<[number, number, number]> = [
   [1.0, 0.2, 0.45], [0.2, 0.78, 1.0], [1.0, 0.58, 0.16], [0.82, 0.28, 1.0],
@@ -132,6 +138,14 @@ interface Agent {
   hat: number;
   bag: number;
   shortCoat: number;
+  /** Crown height in metres, 1.55–1.91. Uniform scale is height / 1.80 once rigged. */
+  height: number;
+  /** 0.92, 1, or 1.08. The walk clip matches it so the planted foot stays put. */
+  strideScale: number;
+  /** 0, 1, or 2. Three shadowed skin tones, not a portrait. */
+  skin: number;
+  /** Chin band. Hoods force this off. */
+  mask: number;
   role: Role;
   hold: boolean;
   ix: number;
@@ -140,6 +154,16 @@ interface Agent {
   x: number;
   z: number;
   yaw: number;
+}
+
+function clipOf(role: Role, amp: number, umbrella: number, strideScale: number): number {
+  if (role === 'vendor') return 8;
+  if (role === 'gaze') return 7;
+  if (role === 'queue') return 6;
+  if (umbrella > 0 && amp > 0) return 5;
+  if (umbrella > 0) return 4;
+  if (amp > 0) return strideScale < 0.96 ? 2 : strideScale > 1.04 ? 3 : 1;
+  return 0;
 }
 
 const _m = new Matrix4();
@@ -222,16 +246,21 @@ function personGeometry(): BufferGeometry {
   box(0, 1.86, 0, 0.16, 0.12, 0.16, 10);
   box(-0.34, 0.98, 0.05, 0.16, 0.3, 0.13, 11);
   box(0, 1.14, 0, 0.48, 0.7, 0.28, 12);
-  const g = new BufferGeometry();
-  g.setAttribute('position', new BufferAttribute(new Float32Array(pos), 3));
-  g.setAttribute('normal', new BufferAttribute(new Float32Array(nor), 3));
-  g.setAttribute('part', new BufferAttribute(new Float32Array(part), 1));
-  g.setIndex(idx);
-  return g;
+  return resources.geometry(() => {
+    const g = new BufferGeometry();
+    g.setAttribute('position', new BufferAttribute(new Float32Array(pos), 3));
+    g.setAttribute('normal', new BufferAttribute(new Float32Array(nor), 3));
+    g.setAttribute('part', new BufferAttribute(new Float32Array(part), 1));
+    g.setIndex(idx);
+    return g;
+  }, { label: 'crowd-fallback', owner: 'humans' });
 }
 
+let fallbackSerial = 0;
+
 function crowdMaterial(): MeshBasicNodeMaterial {
-  const m = new MeshBasicNodeMaterial();
+  const key = fallbackSerial === 0 ? 'crowd-fallback' : `crowd-fallback-${fallbackSerial}`;
+  const m = resources.material(key, () => new MeshBasicNodeMaterial());
   m.name = 'Crowd';
   m.fog = true;
   // Solid canopy. A dithered disc broke into holes at street distance, and a flat disc
@@ -436,6 +465,102 @@ function gather(blocks: PackedBlock[], query: CityQuery, x: number, z: number, r
   return { loops, life };
 }
 
+const WALK_LIFT = ROAD_LIFT + CURB_H;
+
+interface WalkHit { edge: number; t: number; dist: number }
+
+/** Street edges whose span actually passes the point. Endpoint-only hits are corners of another road. */
+function walkHits(g: StreetGraph, x: number, z: number, maxDist: number): WalkHit[] {
+  const found: WalkHit[] = [];
+  const max2 = maxDist * maxDist;
+  visitBins(x, z, maxDist + 130, (key) => {
+    const list = g.bins.get(key);
+    if (!list) return;
+    for (const idx of list) {
+      const e = g.edges[idx]!;
+      if (e.kind === 'freeway') continue;
+      const a = g.nodes[e.a]!, b = g.nodes[e.b]!;
+      const along = (x - a.x) * e.fx + (z - a.z) * e.fz;
+      if (along < -1.2 || along > e.length + 1.2) continue;
+      const dx = b.x - a.x, dz = b.z - a.z;
+      const L2 = dx * dx + dz * dz || 1;
+      let t = ((x - a.x) * dx + (z - a.z) * dz) / L2;
+      t = Math.max(0, Math.min(1, t));
+      const px = a.x + dx * t, pz = a.z + dz * t;
+      const d2 = (px - x) ** 2 + (pz - z) ** 2;
+      if (d2 > max2) continue;
+      found.push({ edge: idx, t, dist: Math.sqrt(d2) });
+    }
+  });
+  found.sort((p, q) => p.dist - q.dist);
+  const out: WalkHit[] = [];
+  const seen = new Set<number>();
+  for (const h of found) {
+    if (seen.has(h.edge)) continue;
+    seen.add(h.edge);
+    out.push(h);
+    if (out.length === 4) break;
+  }
+  return out;
+}
+
+/**
+ * Keep a pedestrian on the sidewalk slab. Points past the building line (market aisles,
+ * plazas, lots) stay where they were authored. Asphalt and curb samples move to the
+ * walk on the same side of the street they were already on.
+ */
+function placeOnWalk(
+  query: CityQuery, x: number, z: number, salt: number, yaw: number, preferYaw: boolean,
+): { x: number; z: number; lift: number } {
+  const g = streetGraph(query.layout);
+  const hits = walkHits(g, x, z, 28);
+  if (!hits.length) return { x, z, lift: 0 };
+  const tx = Math.sin(yaw), tz = Math.cos(yaw);
+  let hit = hits[0]!;
+  if (preferYaw) {
+    let best = 1e9;
+    for (const h of hits) {
+      const e = g.edges[h.edge]!;
+      const align = Math.abs(e.fx * tx + e.fz * tz);
+      const score = h.dist + (1 - align) * 6;
+      if (score < best) { best = score; hit = h; }
+    }
+  }
+  const e = g.edges[hit.edge]!;
+  const a = g.nodes[e.a]!, b = g.nodes[e.b]!;
+  const px = a.x + (b.x - a.x) * hit.t;
+  const pz = a.z + (b.z - a.z) * hit.t;
+  const rx = e.fz, rz = -e.fx;
+  const side = (x - px) * rx + (z - pz) * rz;
+  const absSide = Math.abs(side);
+  const street = query.layout.districtAt(px, pz).grid.street;
+  const profile = streetProfile(street, e.lane, e.kind === 'canyon' ? 'canyon' : 'street');
+  if (profile.sidewalk < 1.2) return { x, z, lift: 0 };
+  const curbOuter = profile.carriageHalf + CURB_W;
+  const outer = curbOuter + profile.sidewalk;
+  const lamp = Math.min(0.7, profile.sidewalk * 0.4);
+  // Past the lamp line, so a walker is not standing on the curb or in the gutter.
+  const inner = curbOuter + lamp + 0.28;
+  const far = Math.max(inner + 0.2, outer - 0.35);
+  if (absSide > outer + 0.35) return { x, z, lift: 0 };
+  if (absSide > outer) return { x, z, lift: 0 };
+  if (absSide >= inner && absSide <= outer) return { x, z, lift: WALK_LIFT };
+  const mid = (inner + far) * 0.5;
+  const sign = absSide < 0.35 ? (unit(salt, 20) < 0.5 ? -1 : 1) : Math.sign(side) || 1;
+  const room = Math.max(0.1, far - inner);
+  const spread = (unit(salt, 19) - 0.5) * Math.min(0.7, room);
+  const clampLat = (v: number) => Math.max(inner, Math.min(far, v));
+  const gy = query.groundHeight(x, z);
+  const candidates = [sign * clampLat(mid + spread), sign * inner, sign * far, sign * mid, -sign * mid];
+  for (const lat of candidates) {
+    const nx = px + rx * lat;
+    const nz = pz + rz * lat;
+    if (!query.insideSolid(nx, gy + 1.1, nz, 0.15)) return { x: nx, z: nz, lift: WALK_LIFT };
+  }
+  const lat = sign * mid;
+  return { x: px + rx * lat, z: pz + rz * lat, lift: WALK_LIFT };
+}
+
 function pointOn(loop: Loop, u: number): { x: number; z: number; yaw: number } {
   let d = ((u % 1) + 1) % 1 * loop.len;
   for (let i = 0; i < loop.seg.length; i++) {
@@ -458,9 +583,6 @@ function unit(i: number, salt: number): number {
 }
 
 function coatOf(i: number): [number, number, number] {
-  const h = hash2i(i, 2049, 3) % 1000;
-  if (h < 40) return [0.74, 0.75, 0.77];
-  if (h < 70) return [0.62, 0.8, 0.78];
   return COATS[hash2i(i, 2049, 4) % COATS.length]!;
 }
 
@@ -521,7 +643,11 @@ export class CrowdField {
   staticCount = 0;
   idle = 0;
   tris = 0;
-  private readonly trisPer: number;
+  /** True once the plate mesh has replaced the box fallback. Scale and gait follow it. */
+  rigged = false;
+  private trisPer: number;
+  private lodGen = 0;
+  private lodName = '';
   private agents: Agent[] = [];
   private loops: Loop[] = [];
   private life: CrowdLifeSpot[] = [];
@@ -535,11 +661,16 @@ export class CrowdField {
   private canopyAttr: InstancedBufferAttribute;
   private motionAttr: InstancedBufferAttribute;
   private styleAttr: InstancedBufferAttribute;
+  private extraAttr: InstancedBufferAttribute;
+  private fallbackMat: MeshBasicNodeMaterial | null = null;
+  private disposed = false;
+  private loading = false;
 
   constructor() {
     const geo = personGeometry();
     this.trisPer = (geo.index?.count ?? 0) / 3;
     if (!sharedMat) sharedMat = crowdMaterial();
+    this.fallbackMat = sharedMat;
     this.mesh = new InstancedMesh(geo, sharedMat, MAX);
     this.mesh.name = 'crowd';
     this.mesh.frustumCulled = false;
@@ -549,17 +680,111 @@ export class CrowdField {
     this.canopyAttr = new InstancedBufferAttribute(new Float32Array(MAX * 3), 3);
     this.motionAttr = new InstancedBufferAttribute(new Float32Array(MAX * 4), 4);
     this.styleAttr = new InstancedBufferAttribute(new Float32Array(MAX * 4), 4);
+    this.extraAttr = new InstancedBufferAttribute(new Float32Array(MAX * 4), 4);
     this.coatAttr.setUsage(DynamicDrawUsage);
     this.canopyAttr.setUsage(DynamicDrawUsage);
     this.motionAttr.setUsage(DynamicDrawUsage);
     this.styleAttr.setUsage(DynamicDrawUsage);
+    this.extraAttr.setUsage(DynamicDrawUsage);
+    this.bindAttrs(geo);
+  }
+
+  /** Ultra shares the high mesh. The box people stay up until the file arrives.
+   *  The previous LOD geometry is disposed. Only one body mesh stays resident. */
+  setLod(tier: Tier, renderer?: WebGPURenderer | null): void {
+    if (this.disposed) return;
+    const lod = crowdLodForTier(tier);
+    if (this.lodName === lod && (this.rigged || this.loading)) return;
+    this.lodName = lod;
+    this.loading = true;
+    const gen = ++this.lodGen;
+    void loadCrowdRig(lod, renderer).then((asset) => {
+      if (gen === this.lodGen) this.loading = false;
+      if (!asset || gen !== this.lodGen || this.disposed) {
+        asset?.geometry.dispose();
+        return;
+      }
+      const prev = this.mesh.geometry;
+      this.detachInstance(prev);
+      this.bindAttrs(asset.geometry);
+      this.mesh.geometry = asset.geometry;
+      this.mesh.material = asset.material;
+      if (prev !== asset.geometry) prev.dispose();
+      if (this.fallbackMat) {
+        fallbackSerial += 1;
+        this.fallbackMat.dispose();
+        this.fallbackMat = null;
+        sharedMat = null;
+      }
+      this.trisPer = asset.triangles;
+      this.rigged = true;
+    }).catch((err) => {
+      if (gen === this.lodGen) this.loading = false;
+      console.warn('crowd rig', err);
+    });
+  }
+
+  /** Triangles in the one body mesh. The box fallback until the plate arrives. */
+  bodyTriangles(): number {
+    if (this.disposed) return 0;
+    const geo = this.mesh.geometry;
+    const n = geo.index?.count ?? geo.getAttribute('position')?.count ?? 0;
+    return n / 3;
+  }
+
+  /** Body buffers, not the shared instance attributes. */
+  geometryResident(): number {
+    if (this.disposed) return 0;
+    return retainedGeometryBytes(this.mesh.geometry, new Set(INSTANCE_ATTRS));
+  }
+
+  /** Instance matrix plus per-person variation. Sized to MAX on every tier. */
+  instanceResident(): number {
+    if (this.disposed) return 0;
+    let bytes = this.mesh.instanceMatrix.array?.byteLength ?? 0;
+    bytes += this.coatAttr.array.byteLength;
+    bytes += this.canopyAttr.array.byteLength;
+    bytes += this.motionAttr.array.byteLength;
+    bytes += this.styleAttr.array.byteLength;
+    bytes += this.extraAttr.array.byteLength;
+    return bytes;
+  }
+
+  /** Free the body, the palette, the atlas, and the instance buffers. */
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.lodGen++;
+    this.mesh.geometry.dispose();
+    if (this.fallbackMat) {
+      fallbackSerial += 1;
+      this.fallbackMat.dispose();
+      this.fallbackMat = null;
+    }
+    sharedMat = null;
+    disposeCrowdResources();
+    this.mesh.dispose();
+    this.rigged = false;
+    this.count = 0;
+    this.mesh.count = 0;
+  }
+
+  private detachInstance(geo: BufferGeometry): void {
+    for (const name of INSTANCE_ATTRS) {
+      if (geo.getAttribute(name)) geo.deleteAttribute(name);
+    }
+  }
+
+  private bindAttrs(geo: BufferGeometry): void {
     geo.setAttribute('iCoat', this.coatAttr);
     geo.setAttribute('iCanopy', this.canopyAttr);
     geo.setAttribute('iMotion', this.motionAttr);
     geo.setAttribute('iStyle', this.styleAttr);
+    geo.setAttribute('iExtra', this.extraAttr);
   }
 
   update(dt: number, x: number, z: number, query: CityQuery, quality: QualitySettings, rain: number, time = 0, heading = 0): void {
+    if (this.disposed) return;
     const district = query.district(x, z);
     const share = crowdSources.get(district.id)?.share ?? 0;
     const want = Math.min(MAX, Math.round(quality.crowd * share));
@@ -628,6 +853,7 @@ export class CrowdField {
       }
     }
     this.avoid(n);
+    const holdUmbrella = umbrellaFraction(rain);
     for (let i = 0; i < n; i++) {
       const a = this.agents[i]!;
       if (a.role === 'vendor') {
@@ -639,14 +865,14 @@ export class CrowdField {
       if (!loop || loop.len < 1) continue;
       if (pack && unit(i, 16) < LANE_PACK) this.keepInLane(i, a, loop, x, z);
       a.u = (a.u + (a.speed * dt) / loop.len) % 1;
-      a.cycle = (a.cycle + (a.speed * dt) / STRIDE) % 1;
+      if (!this.rigged) a.cycle = (a.cycle + (a.speed * dt) / STRIDE) % 1;
     }
     const reach = animReach(quality.tier);
-    const holdUmbrella = umbrellaFraction(rain);
     const coat = this.coatAttr.array as Float32Array;
     const canopy = this.canopyAttr.array as Float32Array;
     const motion = this.motionAttr.array as Float32Array;
     const style = this.styleAttr.array as Float32Array;
+    const extra = this.extraAttr.array as Float32Array;
     const spots = marketSpots(query.layout);
     const vendors = [spots.noodle?.cook, spots.bibi?.cook].filter((v): v is NonNullable<typeof v> => !!v);
     let vendorSlot = 0;
@@ -678,32 +904,55 @@ export class CrowdField {
       const dist = Math.hypot(a.x - x, a.z - z);
       const moving = a.role === 'walk' && !a.hold && a.speed > 0.35 && dist < reach;
       const amp = moving ? 1 : 0;
+      const sheltered = a.role === 'awning' || a.role === 'vendor';
+      const hasUmbrella = !sheltered && unit(i, 12) < holdUmbrella ? 1 : 0;
+      if (this.rigged && a.role !== 'vendor') {
+        if (amp > 0) {
+          // Umbrella clip is authored at stride 1. Dry clips match strideScale.
+          const gait = STRIDE * (a.height / 1.8) * (hasUmbrella ? 1 : a.strideScale);
+          a.cycle = (a.cycle + (a.speed * dt) / gait) % 1;
+        } else if (a.x < 1e5 && dist < reach) {
+          // A slow weight shift. The capture samples it in quarters, same as the walk.
+          a.cycle = (a.cycle + dt * 0.55) % 1;
+        }
+      }
       if (amp > 0 || (a.role === 'vendor' && quality.tier !== 'low' && a.x < 1e5 && dist < reach)) animated++;
       if (a.role !== 'walk' && a.x < 1e5) idle++;
       let px = a.x;
       let pz = a.z;
+      let lift = 0;
       const far = a.x > 1e5;
-      if (!far && a.role !== 'vendor' && dist < 1.05) {
-        const side = unit(i, 21) < 0.5 ? -1 : 1;
-        const lat = 1.2 + unit(i, 22) * 0.85;
-        const fwd = 0.35 + unit(i, 23) * 1.8;
-        const fx = Math.sin(this.lookHeading);
-        const fz = -Math.cos(this.lookHeading);
-        px = x + Math.cos(this.lookHeading) * side * lat + fx * fwd;
-        pz = z + Math.sin(this.lookHeading) * side * lat + fz * fwd;
+      if (!far && a.role !== 'vendor') {
+        const placed = placeOnWalk(query, px, pz, i, a.yaw, a.role === 'walk');
+        px = placed.x;
+        pz = placed.z;
+        lift = placed.lift;
+        if (Math.hypot(px - x, pz - z) < 1.05) {
+          const side = unit(i, 21) < 0.5 ? -1 : 1;
+          const lat = 1.2 + unit(i, 22) * 0.85;
+          const fwd = 0.35 + unit(i, 23) * 1.8;
+          const fx = Math.sin(this.lookHeading);
+          const fz = -Math.cos(this.lookHeading);
+          const sx = x + Math.cos(this.lookHeading) * side * lat + fx * fwd;
+          const sz = z + Math.sin(this.lookHeading) * side * lat + fz * fwd;
+          const shoved = placeOnWalk(query, sx, sz, i, a.yaw, true);
+          px = shoved.x;
+          pz = shoved.z;
+          lift = shoved.lift;
+        }
       }
-      const gy = far ? 0 : query.groundHeight(px, pz);
+      const gy = far ? 0 : query.groundHeight(px, pz) + lift;
       _p.set(px, gy, pz);
       _q.setFromAxisAngle(_up, a.yaw);
       coat.set(a.coat, i * 3);
       canopy.set(a.canopy, i * 3);
-      const sheltered = a.role === 'awning' || a.role === 'vendor';
-      const hasUmbrella = !sheltered && unit(i, 12) < holdUmbrella ? 1 : 0;
       const look = a.role === 'queue' ? 1 : a.role === 'gaze' ? 2 : a.role === 'awning' ? 3 : a.role === 'vendor' ? 4 : 0;
-      _s.set(far ? 0 : 1, far ? 0 : 1, far ? 0 : 1);
+      const s = far ? 0 : this.rigged ? a.height / 1.8 : 1;
+      _s.set(s, s, s);
       this.mesh.setMatrixAt(i, _m.compose(_p, _q, _s));
       motion.set([a.cycle, amp, hasUmbrella, look], i * 4);
       style.set([a.hood, a.hat, a.bag, a.shortCoat], i * 4);
+      extra.set([a.height / 1.8, a.strideScale, a.skin + a.mask * 4, clipOf(a.role, amp, hasUmbrella, a.strideScale)], i * 4);
     }
     this.mesh.count = n;
     this.count = n;
@@ -716,6 +965,7 @@ export class CrowdField {
     this.canopyAttr.needsUpdate = true;
     this.motionAttr.needsUpdate = true;
     this.styleAttr.needsUpdate = true;
+    this.extraAttr.needsUpdate = true;
     publishCrowd(district.id, share, n, want, this.life);
   }
 
@@ -725,6 +975,8 @@ export class CrowdField {
       const i = this.agents.length;
       const st = styleOf(i);
       const base = 1.5 * (0.88 + unit(i, 8) * 0.24);
+      const stridePick = unit(i, 13);
+      const skinPick = unit(i, 14);
       this.agents.push({
         loop: 0,
         u: unit(i, 9),
@@ -737,6 +989,10 @@ export class CrowdField {
         hat: st.hat,
         bag: st.bag,
         shortCoat: st.shortCoat,
+        height: 1.55 + unit(i, 11) * 0.36,
+        strideScale: stridePick < 0.34 ? 0.92 : stridePick < 0.67 ? 1 : 1.08,
+        skin: skinPick < 0.34 ? 0 : skinPick < 0.67 ? 1 : 2,
+        mask: st.hood === 0 && unit(i, 7) < 0.38 ? 1 : 0,
         role: 'walk',
         hold: false,
         ix: 0, iz: 0, iyaw: 0, x: 0, z: 0, yaw: 0,
@@ -886,11 +1142,10 @@ export class CrowdField {
 
   private pickLoop(i: number): number {
     const h = hash2i(i, 2049, 15) % 1000;
-    if (h < 90 && this.crossIdx.length) return this.crossIdx[i % this.crossIdx.length]!;
+    // Crossings sit in the carriageway. Leave them in the graph; do not assign walkers to them.
     if (h < 300 && this.extraIdx.length) return this.extraIdx[i % this.extraIdx.length]!;
     if (this.mainIdx.length) return this.mainIdx[i % this.mainIdx.length]!;
     if (this.extraIdx.length) return this.extraIdx[i % this.extraIdx.length]!;
-    if (this.crossIdx.length) return this.crossIdx[i % this.crossIdx.length]!;
     return 0;
   }
 
