@@ -63,6 +63,30 @@ function flameFrame(plume: LaunchPlume, cam: Xyz): FlameFrame {
   return { len, halfH, cx, cy, cz, sx, sy, sz, ux, uy, uz, tx, ty, tz };
 }
 
+function viewFacing(p: Xyz, cam: Xyz, fwd: Xyz): number {
+  const dx = p.x - cam.x;
+  const dy = p.y - cam.y;
+  const dz = p.z - cam.z;
+  const dist = Math.hypot(dx, dy, dz) || 1;
+  return (dx * fwd.x + dy * fwd.y + dz * fwd.z) / dist;
+}
+
+/** Along the card, the sample nearest the centre of the view. World distance picks the far tip. */
+function alongInView(plume: LaunchPlume, frame: FlameFrame, cam: Xyz, fwd: Xyz, rng: Rng): number {
+  let bestA = 0.3;
+  let best = -2;
+  for (let n = 0; n < 16; n++) {
+    const a = 0.02 + (n / 15) * 0.9;
+    const f = viewFacing(flamePoint(plume, frame, a), cam, fwd);
+    if (f > best) { best = f; bestA = a; }
+  }
+  for (let n = 0; n < 5; n++) {
+    const a = Math.min(0.94, Math.max(0.02, bestA + (rng.next() * 2 - 1) * 0.26));
+    if (viewFacing(flamePoint(plume, frame, a), cam, fwd) > 0.84) return a;
+  }
+  return bestA;
+}
+
 function flamePoint(plume: LaunchPlume, frame: FlameFrame, along: number): Xyz {
   const kY = along * 2 - 1;
   return {
@@ -101,7 +125,7 @@ export class SmokePool {
     };
   }
 
-  spawn(m: Mouth, scale: number, cap: number, kindBudget: number, cam: Xyz): boolean {
+  spawn(m: Mouth, scale: number, cap: number, kindBudget: number, cam: Xyz, fwd: Xyz): boolean {
     if (this.live.length >= cap) return false;
     if (this.kindN[m.kind]! >= kindBudget) return false;
     const r = this.rng;
@@ -115,25 +139,19 @@ export class SmokePool {
     let heat = m.heat;
     if (plume && plume.live && m.kind === KIND.launch) {
       const frame = flameFrame(plume, cam);
-      let along = 0.5;
-      let axis = flamePoint(plume, frame, along);
-      for (let n = 0; n < 8; n++) {
-        along = 0.04 + r.next() * 0.92;
-        axis = flamePoint(plume, frame, along);
-        const dist = Math.hypot(axis.x - cam.x, axis.y - cam.y, axis.z - cam.z);
-        if (dist > 180 && dist < 1600) break;
-      }
-      const wide = Math.max(24, plume.halfW * 1.8);
-      const sideR = wide * 2.35;
-      const depthR = wide * 0.55;
-      const sign = r.next() < 0.5 ? -1 : 1;
+      const along = alongInView(plume, frame, cam, fwd, r);
+      const card = Math.max(18, plume.halfW * 1.8);
       p.along = along;
-      p.offS = sign * (wide * 0.35 + (sideR - wide * 0.35) * r.next());
-      p.offD = (r.next() * 2 - 1) * depthR * r.next();
+      // Fill the card and run past both edges. Depth is biased toward the camera
+      // so the volume sits in front of the gantry instead of inside it.
+      p.offS = (r.next() * 2 - 1) * card * 1.35;
+      p.offD = (r.next() * 0.9) * card * 0.46;
+      const axis = flamePoint(plume, frame, along);
       x = axis.x + frame.sx * p.offS + frame.tx * p.offD;
       y = axis.y + frame.sy * p.offS + frame.ty * p.offD;
       z = axis.z + frame.sz * p.offS + frame.tz * p.offD;
-      heat = Math.max(0, 1 - Math.abs(p.offS) / (sideR * 0.7)) * 0.8;
+      const axial = 1 - Math.min(1, Math.abs(p.offS) / (card * 0.9));
+      heat = axial * (1 - along * 0.45) * 0.95;
     }
     p.x = x;
     p.y = y;
@@ -161,9 +179,19 @@ export class SmokePool {
       : m.aspect * (0.62 + r.next() * 0.85);
     p.rise = m.rise;
     p.wind = m.wind;
-    p.shade = m.kind === KIND.exhaust ? 0.62 + r.next() * 0.45
-      : m.kind === KIND.launch ? 0.5 + r.next() * 0.6
-        : 0.34 + r.next() * 0.75;
+    p.shade = m.kind === KIND.exhaust ? 0.78 + r.next() * 0.22
+      : m.kind === KIND.launch ? 0.4 + r.next() * 0.5
+        : m.kind === KIND.stack ? 0.36 + r.next() * 0.5
+          : 0.7 + r.next() * 0.3;
+    if (m.kind === KIND.stall) {
+      const filament = Math.floor(r.next() * 3);
+      const ang = filament * (Math.PI * 2 / 3) + 0.4;
+      p.ox = m.x + Math.cos(ang) * 0.11;
+      p.oz = m.z + Math.sin(ang) * 0.11;
+      p.x = p.ox;
+      p.z = p.oz;
+      p.y = m.y + r.next() * 0.05;
+    }
     if (m.kind === KIND.ground && plume && plume.live) {
       const rr = 6 + Math.sqrt(r.next()) * 16;
       const a2 = r.next() * Math.PI * 2;
@@ -183,7 +211,7 @@ export class SmokePool {
     return true;
   }
 
-  step(dt: number, wind: Wind, plume: LaunchPlume, cam: Xyz): void {
+  step(dt: number, wind: Wind, plume: LaunchPlume, cam: Xyz, fwd: Xyz): void {
     const wx = Math.cos(wind.dir) * wind.speed;
     const wz = Math.sin(wind.dir) * wind.speed;
     const rain = wind.rain;
@@ -199,30 +227,36 @@ export class SmokePool {
       }
       p.spin += p.spinRate * dt;
       if (p.kind === KIND.launch && plume.live) {
-        this.placeOnRibbon(p, plume, cam);
+        this.placeOnRibbon(p, plume, cam, fwd);
         list[w++] = p;
         continue;
       }
       const u = p.age / p.life;
       const shear = 1 + Math.min(1.4, Math.max(0, p.y - p.floor) / 70);
       const sink = rain * (p.kind === KIND.ground ? 0.15 : 0.45);
-      const targetY = p.rise * (1 - u * 0.72) * (1 - rain * 0.22) - sink;
-      p.vy = approach(p.vy, targetY, dt, 0.7);
       const phase = p.seed * 6.28;
-      const steam = p.kind === KIND.grate || p.kind === KIND.vent || p.kind === KIND.stall;
-      if (p.kind === KIND.exhaust) {
-        const wobX = Math.sin(p.age * 0.85 + phase) * p.turb * 0.28;
-        const wobZ = Math.cos(p.age * 0.67 + phase * 1.3) * p.turb * 0.28;
-        p.vx = p.vx * Math.exp(-dt * 0.2) + wobX * dt;
-        p.vz = p.vz * Math.exp(-dt * 0.2) + wobZ * dt;
-      } else if (steam) {
-        const cap = p.kind === KIND.stall ? 0.22 : 3.6;
-        const spread = (p.kind === KIND.stall ? 0.05 : 0.55) + u * cap;
-        const ax = p.ox + Math.sin(phase + u * 2.2) * spread;
-        const az = p.oz + Math.cos(phase * 1.17 + u * 1.5) * spread;
-        p.vx = approach(p.vx, (ax - p.x) * 1.7 + wx * p.wind * 0.4, dt, 0.3);
-        p.vz = approach(p.vz, (az - p.z) * 1.7 + wz * p.wind * 0.4, dt, 0.3);
+      if (p.kind === KIND.stall) {
+        const sway = Math.sin(p.age * 1.6 + phase) * 0.04;
+        p.vx = approach(p.vx, (p.ox + sway - p.x) * 4.2, dt, 0.18);
+        p.vz = approach(p.vz, (p.oz + sway * 0.5 - p.z) * 4.2, dt, 0.18);
+        p.vy = approach(p.vy, p.rise * (0.9 - u * 0.35), dt, 0.22);
+      } else if (p.kind === KIND.exhaust) {
+        const wobX = Math.sin(p.age * 1.3 + phase) * 0.16;
+        const wobZ = Math.cos(p.age * 1.05 + phase * 1.3) * 0.16;
+        p.vx = p.vx * Math.exp(-dt * 0.35) + wobX * dt;
+        p.vz = p.vz * Math.exp(-dt * 0.35) + wobZ * dt;
+        p.vy = approach(p.vy, 0.26 * (1 - u * 0.6), dt, 0.35);
+      } else if (p.kind === KIND.grate || p.kind === KIND.vent) {
+        const spread = 0.22 + u * (p.kind === KIND.grate ? 1.15 : 0.5);
+        const ax = p.ox + Math.sin(phase + p.age * 0.5) * spread;
+        const az = p.oz + Math.cos(phase * 1.31 + p.age * 0.38) * spread * 0.75;
+        p.vx = approach(p.vx, (ax - p.x) * 1.5 + wx * p.wind, dt, 0.32);
+        p.vz = approach(p.vz, (az - p.z) * 1.5 + wz * p.wind, dt, 0.32);
+        const targetY = p.rise * (1 - u * 0.5) * (1 - rain * 0.18);
+        p.vy = approach(p.vy, targetY, dt, 0.4);
       } else {
+        const targetY = p.rise * (1 - u * 0.72) * (1 - rain * 0.22) - sink;
+        p.vy = approach(p.vy, targetY, dt, 0.7);
         const wobX = Math.sin(p.age * 0.85 + phase) * p.turb * 0.22;
         const wobZ = Math.cos(p.age * 0.67 + phase * 1.3) * p.turb * 0.22;
         p.vx = approach(p.vx, wx * p.wind * shear + wobX, dt, 0.7);
@@ -231,7 +265,7 @@ export class SmokePool {
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       p.z += p.vz * dt;
-      if (p.kind === KIND.stack) this.holdStack(p, dt, u);
+      if (p.kind === KIND.stack) this.holdStack(p, dt, u, wind);
       else if (p.y < p.floor) {
         p.y = p.floor;
         p.vy *= 0.2;
@@ -241,33 +275,45 @@ export class SmokePool {
     list.length = w;
   }
 
-  /** Stick the puff to the flame card so the column stays wrapped around the ribbon. */
-  private placeOnRibbon(p: Puff, plume: LaunchPlume, cam: Xyz): void {
+  /** Keep the puff inside the flame card's volume as it drifts up and outward. */
+  private placeOnRibbon(p: Puff, plume: LaunchPlume, cam: Xyz, fwd: Xyz): void {
     const frame = flameFrame(plume, cam);
-    let along = p.along;
-    const wob = Math.sin(p.age * 0.7 + p.seed * 6.2) * 1.6;
-    let axis = flamePoint(plume, frame, along);
-    p.x = axis.x + frame.sx * (p.offS + wob) + frame.tx * p.offD;
-    p.y = axis.y + frame.sy * (p.offS + wob) + frame.ty * p.offD;
-    p.z = axis.z + frame.sz * (p.offS + wob) + frame.tz * p.offD;
-    for (let i = 0; i < 3 && Math.hypot(p.x - cam.x, p.y - cam.y, p.z - cam.z) < 48; i++) {
-      along = along * 0.6 + 0.25;
-      axis = flamePoint(plume, frame, along);
-      p.x = axis.x + frame.sx * (p.offS + wob) * 0.5 + frame.tx * p.offD * 0.5;
-      p.y = axis.y + frame.sy * (p.offS + wob) * 0.5 + frame.ty * p.offD * 0.5;
-      p.z = axis.z + frame.sz * (p.offS + wob) * 0.5 + frame.tz * p.offD * 0.5;
+    const u = Math.min(1, p.age / Math.max(0.2, p.life));
+    let along = Math.min(0.97, p.along + u * 0.08);
+    const card = Math.max(18, plume.halfW * 1.8);
+    const grow = 1 + u * 0.45;
+    const wob = Math.sin(p.age * 0.8 + p.seed * 6.283) * card * 0.05;
+    const offS = p.offS * grow + wob;
+    const offD = p.offD * (0.85 + u * 0.3);
+    const place = (a: number) => {
+      const axis = flamePoint(plume, frame, a);
+      p.x = axis.x + frame.sx * offS + frame.tx * offD;
+      p.y = axis.y + frame.sy * offS + frame.ty * offD;
+      p.z = axis.z + frame.sz * offS + frame.tz * offD;
+    };
+    place(along);
+    if (viewFacing(p, cam, fwd) < 0.82) {
+      along = p.along;
+      place(along);
+    }
+    for (let i = 0; i < 3 && Math.hypot(p.x - cam.x, p.y - cam.y, p.z - cam.z) < 20; i++) {
+      along = Math.min(0.97, along + 0.04);
+      place(along);
     }
   }
 
-  private holdStack(p: Puff, dt: number, u: number): void {
-    const dx = p.x - p.ox;
-    const dz = p.z - p.oz;
+  private holdStack(p: Puff, dt: number, u: number, wind: Wind): void {
+    const shear = u * 6.5;
+    const ox = p.ox + Math.cos(wind.dir) * shear;
+    const oz = p.oz + Math.sin(wind.dir) * shear;
+    const dx = p.x - ox;
+    const dz = p.z - oz;
     const dist = Math.hypot(dx, dz) || 0.001;
-    const limit = 2.8 + u * 14;
+    const limit = 1.05 + u * 3.6;
     if (dist > limit) {
-      const k = 1 - Math.exp(-dt * 1.3);
-      p.x += (p.ox + (dx / dist) * limit - p.x) * k;
-      p.z += (p.oz + (dz / dist) * limit - p.z) * k;
+      const k = 1 - Math.exp(-dt * 1.6);
+      p.x += (ox + (dx / dist) * limit - p.x) * k;
+      p.z += (oz + (dz / dist) * limit - p.z) * k;
     }
   }
 

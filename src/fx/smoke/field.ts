@@ -1,6 +1,6 @@
 // One instanced draw. The buffer is this tier's cap, so a phone does not allocate the ultra count.
 import {
-  DynamicDrawUsage, Group, InstancedBufferAttribute, InstancedMesh, PlaneGeometry,
+  DynamicDrawUsage, Group, InstancedBufferAttribute, InstancedMesh, PlaneGeometry, Vector3,
   type Scene, type Camera,
 } from 'three/webgpu';
 import type { CityLayout } from '../../world/layout';
@@ -14,18 +14,26 @@ import { SmokePool, type Wind } from './sim';
 import { PUFF_CAP, PUFF_DETAIL, PUFF_SCALE, aliveBudget } from './tiers';
 import { KIND_NAME, type Mouth, type SmokeSnapshot } from './types';
 import {
-  exhaustPose, gatherMouths, stallPose, type SmokePose, type Tailpipe,
+  exhaustPose, gatherMouths, stallPose, streetSteamPose, type SmokePose, type Tailpipe,
 } from './anchors';
 
 const TINT: Record<(typeof KIND_NAME)[number], [number, number, number]> = {
-  launch: [0.62, 0.6, 0.58],
-  ground: [0.46, 0.44, 0.42],
-  stack: [0.32, 0.31, 0.3],
-  vent: [0.74, 0.76, 0.78],
-  grate: [0.7, 0.73, 0.76],
-  stall: [0.84, 0.82, 0.76],
-  exhaust: [0.58, 0.6, 0.62],
+  launch: [0.46, 0.44, 0.41],
+  ground: [0.38, 0.36, 0.34],
+  stack: [0.26, 0.24, 0.22],
+  vent: [0.78, 0.8, 0.83],
+  grate: [0.82, 0.84, 0.86],
+  stall: [0.9, 0.88, 0.82],
+  exhaust: [0.7, 0.72, 0.74],
 };
+
+/** How much practical light this kind takes. Exhaust stays a grey trail. */
+function lampOf(kind: number): number {
+  if (kind === 6) return 0.48;
+  if (kind === 0 || kind === 1) return 0.42;
+  if (kind === 2) return 0.7;
+  return 0.94;
+}
 
 const WARM_FRAMES = 40;
 
@@ -46,9 +54,10 @@ export class SmokeField {
   private cap = 0;
   private warmLeft = WARM_FRAMES;
   private gatherAt = -1;
-  private cell = '';
   private lastX = 0;
   private lastZ = 0;
+  private readonly camDir = new Vector3();
+  private readonly forward = { x: 0, y: 0, z: -1 };
 
   constructor(scene: Scene, tier: Tier) {
     this.tier = tier;
@@ -80,8 +89,9 @@ export class SmokeField {
     steamCardGain.value = 1;
   }
 
-  pose(kind: 'stall' | 'exhaust', layout: CityLayout): SmokePose | null {
+  pose(kind: 'stall' | 'exhaust' | 'street', layout: CityLayout): SmokePose | null {
     if (kind === 'stall') return stallPose(layout);
+    if (kind === 'street') return streetSteamPose(layout);
     return exhaustPose(layout, this.tails);
   }
 
@@ -111,20 +121,19 @@ export class SmokeField {
     if (this.gatherAt < 0 || now - this.gatherAt > 400 || jumped) {
       this.mouths = gatherMouths(layout, cam.x, cam.y, cam.z, this.tier, tails);
       this.gatherAt = now;
-      const cell = `${Math.round(cam.x / 40)}:${Math.round(cam.z / 40)}:${this.mouths.length}:${this.mouths.some((m) => m.kind === 0) ? 1 : 0}`;
-      if (cell !== this.cell) {
-        this.cell = cell;
-        this.warmLeft = Math.max(this.warmLeft, 18);
-      }
     }
     const wind: Wind = { dir: windDir, speed: windSpeed, rain };
     const sub = this.warmLeft > 0 ? 6 : 1;
     const stepDt = this.warmLeft > 0 ? 1 / 30 : Math.min(Math.max(dt, 0), 0.05);
     const plume = readLaunchPlume();
+    camera.getWorldDirection(this.camDir);
+    this.forward.x = this.camDir.x;
+    this.forward.y = this.camDir.y;
+    this.forward.z = this.camDir.z;
     if (stepDt > 0) {
       for (let i = 0; i < sub; i++) {
-        this.spawn(stepDt, cam);
-        this.pool.step(stepDt, wind, plume, cam);
+        this.spawn(stepDt, cam, this.forward);
+        this.pool.step(stepDt, wind, plume, cam, this.forward);
       }
     }
     if (this.warmLeft > 0) this.warmLeft--;
@@ -173,7 +182,7 @@ export class SmokeField {
     return list[list.length - 1]!;
   }
 
-  private spawn(dt: number, cam: { x: number; y: number; z: number }): void {
+  private spawn(dt: number, cam: { x: number; y: number; z: number }, fwd: { x: number; y: number; z: number }): void {
     const cap = this.cap;
     const scale = PUFF_SCALE[this.tier];
     const groups = new Map<number, Mouth[]>();
@@ -194,7 +203,7 @@ export class SmokeField {
       let guard = 0;
       while (a >= 1 && guard++ < 64) {
         const mouth = this.pick(list, kind, wsum);
-        if (!this.pool.spawn(mouth, scale, cap, budget, cam)) {
+        if (!this.pool.spawn(mouth, scale, cap, budget, cam, fwd)) {
           a = Math.min(a, 0.999);
           break;
         }
@@ -222,14 +231,22 @@ export class SmokeField {
     for (let i = 0; i < n; i++) {
       const p = list[this.order[i]!]!;
       const u = p.age / p.life;
-      const fadeIn = Math.min(1, u / 0.12);
-      const fadeOut = Math.min(1, (1 - u) / 0.42);
+      const fadeIn = Math.min(1, u / (p.kind === 5 ? 0.08 : 0.1));
+      const tail = p.kind === 0 || p.kind === 2 ? 0.2 : 0.36;
+      const fadeOut = Math.min(1, (1 - u) / tail);
       const dist = Math.hypot(p.x - cx, p.y - cy, p.z - cz);
-      let size = p.size0 + (p.size1 - p.size0) * Math.min(1, u / 0.65);
+      let size = p.size0 + (p.size1 - p.size0) * Math.min(1, u / 0.55);
       let lifeA = fadeIn * fadeOut * p.alpha;
-      if (p.kind === 0 || p.kind === 1) {
-        size = Math.min(size, Math.max(10, dist * 0.16));
-        if (dist < 90) lifeA *= Math.min(1, Math.max(0, (dist - 40) / 50));
+      let heat = p.heat;
+      if (p.kind === 0 || p.kind === 2) heat *= Math.max(0, 1 - u * 0.8);
+      if (p.kind === 0) {
+        const edge = Math.min(1, Math.abs(p.offS) / 48);
+        lifeA *= 0.7 + edge * 0.4;
+        size *= 0.82 + edge * 0.4;
+        size = Math.min(size, Math.max(6, dist * 0.18));
+        if (dist < 28) lifeA *= Math.min(1, Math.max(0, (dist - 10) / 18));
+      } else if (p.kind === 1) {
+        size = Math.min(size, Math.max(4, dist * 0.14));
       }
       const o = i * 4;
       puff[o] = p.x;
@@ -237,8 +254,9 @@ export class SmokeField {
       puff[o + 2] = p.z;
       puff[o + 3] = size;
       shade[o] = p.spin;
-      shade[o + 1] = p.seed;
-      shade[o + 2] = p.heat;
+      const cell = Math.floor(p.seed * 7.999);
+      shade[o + 1] = (cell + Math.min(0.999, lampOf(p.kind))) / 8;
+      shade[o + 2] = heat;
       shade[o + 3] = lifeA;
       const name = KIND_NAME[p.kind]!;
       const rgb = TINT[name];

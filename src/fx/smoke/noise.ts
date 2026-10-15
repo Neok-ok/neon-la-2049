@@ -60,13 +60,15 @@ function buildCanvas(): HTMLCanvasElement {
         for (let px = 0; px < CELL; px++) {
           const u = (px + 0.5) / CELL;
           const v = (py + 0.5) / CELL;
-          const n = fbm(u * 3.4 + seed, v * 3.4, seed * 5);
-          const n2 = fbm(u * 7.5 + 3, v * 7.5, seed * 9 + 4);
+          const n = fbm(u * 3.1 + seed, v * 3.1, seed * 5);
+          const n2 = fbm(u * 6.4 + 2, v * 6.4, seed * 9 + 3);
           const r = Math.hypot(u - 0.5, v - 0.5) * 2;
-          const edge = r + (n - 0.42) * 0.95;
-          let a = 1 - smooth(0.28, 1.02, edge);
-          a *= smooth(0.18, 0.62, n);
-          a *= 0.28 + 0.72 * smooth(0.3, 0.72, n2);
+          // Noise pushes the falloff in and out so the puff is a cloud, not a disc.
+          const distorted = r + (n - 0.5) * 0.72 + (n2 - 0.5) * 0.22;
+          const body = 1 - smooth(0.58, 1.18, distorted);
+          const core = 1 - smooth(0.05, 0.55, r);
+          let a = Math.max(body, core * 0.45);
+          a *= 0.64 + 0.36 * n2;
           const g = smooth(0.25, 0.8, n2) * a;
           const i = ((cy * CELL + py) * canvas.width + cx * CELL + px) * 4;
           const A = Math.max(0, Math.min(255, Math.round(a * 255)));

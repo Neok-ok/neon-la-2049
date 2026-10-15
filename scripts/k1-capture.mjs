@@ -24,7 +24,7 @@ const shots = [
   {
     name: 'street',
     weather: 'rain',
-    go: async () => { window.__nla.marketView('street'); },
+    go: async () => { window.__nla.smokeView('street'); },
     ready: (sm) => sm.warm <= 12 && sm.grate >= 24,
   },
   {
@@ -102,33 +102,10 @@ async function pump(context) {
 }
 
 async function grab(page) {
-  await page.evaluate(() => { window.__k1Png = ''; window.__k1Err = ''; window.__k1Grab = true; });
-  try {
-    await page.waitForFunction(() => window.__k1Png && window.__k1Png.length > 64, null, { timeout: 45000 });
-    const url = await page.evaluate(() => window.__k1Png);
-    const comma = url.indexOf(',');
-    return Buffer.from(url.slice(comma + 1), 'base64');
-  } catch {
-    const diag = await page.evaluate(() => ({
-      err: window.__k1Err || '',
-      grab: !!window.__k1Grab,
-      png: window.__k1Png || '',
-      canvas: (() => {
-        const c = document.querySelector('canvas');
-        return c ? `${c.width}x${c.height}` : 'none';
-      })(),
-      smoke: window.__nla?.stats?.()?.smoke ?? null,
-    }));
-    if (diag.png.length > 1000 && diag.png.includes(',')) {
-      log(`  canvas grab late ${diag.png.length}b`);
-      return Buffer.from(diag.png.slice(diag.png.indexOf(',') + 1), 'base64');
-    }
-    log(`  canvas grab missed ${JSON.stringify({ ...diag, png: diag.png.length })}`);
-    const session = await page.context().newCDPSession(page);
-    const shot = await session.send('Page.captureScreenshot', { format: 'png' });
-    await session.detach();
-    return Buffer.from(shot.data, 'base64');
-  }
+  const session = await page.context().newCDPSession(page);
+  const shot = await session.send('Page.captureScreenshot', { format: 'png' });
+  await session.detach();
+  return Buffer.from(shot.data, 'base64');
 }
 
 async function boot(page, tier) {
@@ -149,7 +126,7 @@ async function settle(page, shot) {
     }
     await page.evaluate(() => window.__nla.smokeView('exhaust'));
   }
-  const deadline = Date.now() + 90000;
+  const deadline = Date.now() + 80000;
   let last = '';
   while (Date.now() < deadline) {
     const s = await page.evaluate((name) => {
@@ -158,11 +135,11 @@ async function settle(page, shot) {
       if (!st || !sm) return { ok: false, why: 'no-smoke' };
       const cars = st.groundCars ?? 0;
       let ok = false;
-      if (name === 'launch') ok = sm.warm <= 24 && sm.launch >= 400;
-      else if (name === 'street') ok = sm.warm <= 24 && sm.grate >= 80;
-      else if (name === 'stall') ok = sm.warm <= 24 && sm.stall >= 30;
-      else if (name === 'refinery') ok = sm.warm <= 24 && sm.stack >= 80;
-      else if (name === 'traffic') ok = sm.warm <= 24 && sm.exhaust >= 40 && cars > 0;
+      if (name === 'launch') ok = sm.launch >= 400;
+      else if (name === 'street') ok = sm.grate >= 120;
+      else if (name === 'stall') ok = sm.stall >= 10;
+      else if (name === 'refinery') ok = sm.stack >= 180;
+      else if (name === 'traffic') ok = sm.exhaust >= 100 && cars > 0;
       const cam = window.__nla?.app?.camera?.position;
       return {
         ok, cars, warm: sm.warm, launch: sm.launch, grate: sm.grate, stall: sm.stall,
@@ -204,7 +181,7 @@ for (const tier of TIERS) {
       await boot(page, tier);
       const snap = await settle(page, shot);
       await page.evaluate(() => document.getElementById('loading')?.remove());
-      await sleep(500);
+      await sleep(1500);
       const png = await grab(page);
       const file = join(OUT, `k1-2026-10-15-${shot.name}-${tier}.png`);
       writeFileSync(file, png);

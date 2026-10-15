@@ -1618,7 +1618,7 @@ export class App {
       /** Stage 7 cameras: the causeway, the plaza, the pyramid face, a satellite, the factories, a convoy, the old pyramids, the atrium. */
       /** Stage 10 cameras: crest, terraces, apron from the water, spray, drowned piers, coastal blocks, aerial. */
       /** X2 cameras: a signalled crossing, the 110 trench, Broadway, a night aerial, the same crossing in rain. */
-      smokeView: (kind: 'stall' | 'exhaust') => {
+      smokeView: (kind: 'stall' | 'exhaust' | 'street') => {
         if (!this.smoke) return false;
         const p = this.smoke.pose(kind, this.query.layout);
         if (p?.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;

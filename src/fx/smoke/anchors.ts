@@ -48,10 +48,10 @@ function heroMouths(layout: CityLayout): Mouth[] {
       out.push(mouth({
         x: ox + fx * d + rx * side,
         y, z: oz + fz * d + rz * side,
-        kind: KIND.grate, weight, life: 3.1,
-        size0: 0.32, size1: 0.85, heat: 0.04, radius: 0.7,
-        rise: 1.35, spread: 0.55, floor: y - 0.15, wind: 0.12,
-        turb: 1.3, aspect: 3.4, alpha: 0.34,
+        kind: KIND.grate, weight, life: 3.3,
+        size0: 0.15, size1: 0.42, heat: 0.02, radius: 0.18,
+        rise: 1.6, spread: 0.1, floor: y - 0.05, wind: 0.08,
+        turb: 0.16, aspect: 5.4, alpha: 0.5,
       }));
     }
   };
@@ -67,24 +67,24 @@ function heroMouths(layout: CityLayout): Mouth[] {
     const dy = s.y - ground;
     if (near) {
       out.push(mouth({
-        x: s.x, y: s.y, z: s.z, kind: KIND.stall, weight: 5, life: 1.05,
-        size0: 0.12, size1: 0.36, heat: 0.22, radius: 0.08,
-        rise: 0.22, spread: 0.04, floor: s.y - 0.02, wind: 0.04,
-        turb: 0.1, aspect: 2.4, alpha: 0.7,
+        x: s.x, y: s.y, z: s.z, kind: KIND.stall, weight: 5, life: 1.7,
+        size0: 0.06, size1: 0.18, heat: 0.08, radius: 0.04,
+        rise: 0.7, spread: 0.02, floor: s.y - 0.02, wind: 0.02,
+        turb: 0.05, aspect: 5.6, alpha: 0.5,
       }));
     } else if (dy < 0.55) {
       out.push(mouth({
         x: s.x, y: s.y, z: s.z, kind: KIND.grate, weight: 1.1, life: 2.8,
-        size0: 0.4, size1: 1.3, heat: 0.03, radius: 0.32,
-        rise: 1.2, spread: 0.25, floor: ground, wind: 0.22,
-        turb: 0.7, aspect: 2.8, alpha: 0.32,
+        size0: 0.1, size1: 0.26, heat: 0.02, radius: 0.12,
+        rise: 1.35, spread: 0.08, floor: ground, wind: 0.12,
+        turb: 0.15, aspect: 6.2, alpha: 0.32,
       }));
     } else if (dy < 2.6) {
       out.push(mouth({
-        x: s.x, y: s.y, z: s.z, kind: KIND.vent, weight: 1.6, life: 2.6,
-        size0: 0.28, size1: 1.15, heat: 0.08, radius: 0.16,
-        rise: 1.15, spread: 0.18, floor: ground, wind: 0.28,
-        turb: 0.35, aspect: 1.7, alpha: 0.46,
+        x: s.x, y: s.y, z: s.z, kind: KIND.vent, weight: 1.8, life: 3.2,
+        size0: 0.18, size1: 0.62, heat: 0.06, radius: 0.1,
+        rise: 1.45, spread: 0.08, floor: ground, wind: 0.2,
+        turb: 0.2, aspect: 3.6, alpha: 0.52,
       }));
     }
   }
@@ -130,10 +130,10 @@ export function gatherMouths(
   if (plume.live && plume.env > 0.04) {
     const base = plume.base;
     out.push(mouth({
-      x: plume.x, y: base + 4, z: plume.z, kind: KIND.launch, weight: 1, life: 8,
-      size0: 14, size1: 34, heat: 0.4, radius: 6,
-      rise: 4, spread: 0.4, floor: base, wind: 0.02,
-      turb: 1.2, aspect: 0.96, alpha: 0.7,
+      x: plume.x, y: base + 4, z: plume.z, kind: KIND.launch, weight: 1, life: 7.4,
+      size0: 20, size1: 42, heat: 0.7, radius: 4,
+      rise: 2, spread: 0.2, floor: base, wind: 0.02,
+      turb: 1.1, aspect: 1.08, alpha: 0.58,
     }));
     out.push(mouth({
       x: plume.x, y: base + 2, z: plume.z, kind: KIND.ground, weight: 1, life: 4.2,
@@ -147,10 +147,10 @@ export function gatherMouths(
     const f = stacks[i]!;
     const ground = layout.heightAt(f.x, f.z);
     out.push(mouth({
-      x: f.x, y: f.y + 0.35, z: f.z, kind: KIND.stack, weight: i === 0 ? 4 : 1, life: 8.4,
-      size0: 4.2, size1: 16, heat: 0.5, radius: 1.3,
-      rise: 7.2, spread: 0.45, floor: ground, wind: 0.3,
-      turb: 1.8, aspect: 1.05, alpha: 0.36,
+      x: f.x, y: f.y + 0.1, z: f.z, kind: KIND.stack, weight: i === 0 ? 6 : 1, life: 12,
+      size0: 1.8, size1: 4.4, heat: 0.86, radius: 0.5,
+      rise: 8.2, spread: 0.18, floor: ground, wind: 0.35,
+      turb: 0.9, aspect: 1.4, alpha: 0.52,
     }));
   }
   const reach = 90;
@@ -165,12 +165,13 @@ export function gatherMouths(
     const t = tails[i]!;
     const heavy = t.heavy > 0;
     out.push(mouth({
-      x: t.x, y: t.y, z: t.z, kind: KIND.exhaust, weight: 1, life: heavy ? 2.8 : 2.3,
-      size0: heavy ? 0.75 : 0.42, size1: heavy ? 2.6 : 1.85, heat: 0.08,
-      radius: 0.14, rise: 0.7, spread: 0.16, floor: t.y - 0.35, wind: 0.04,
-      turb: 0.3, aspect: 0.7, alpha: 0.74,
-      vx: t.vx * 0.12 - t.fx * (heavy ? 2.2 : 3.1),
-      vz: t.vz * 0.12 - t.fz * (heavy ? 2.2 : 3.1),
+      x: t.x - t.fx * 0.75, y: t.y + 0.06, z: t.z - t.fz * 0.75, kind: KIND.exhaust, weight: 1,
+      life: heavy ? 2.6 : 2.1,
+      size0: heavy ? 0.55 : 0.36, size1: heavy ? 2.2 : 1.55, heat: 0.02,
+      radius: 0.1, rise: 0.35, spread: 0.1, floor: t.y - 0.25, wind: 0.02,
+      turb: 0.12, aspect: 0.85, alpha: 0.82,
+      vx: t.vx - t.fx * (heavy ? 1.8 : 2.6),
+      vz: t.vz - t.fz * (heavy ? 1.8 : 2.6),
       fx: t.fx, fz: t.fz,
     }));
   }
@@ -186,6 +187,38 @@ export interface SmokePose {
   mode: 'walk' | 'fly';
   cockpit?: boolean;
   feet?: { x: number; y: number; z: number };
+}
+
+/** Sidewalk beside the first hero grate, looking across at the column rather than down the lane. */
+export function streetSteamPose(layout: CityLayout): SmokePose | null {
+  const spots = marketSpots(layout);
+  const n = spots.noodle;
+  if (!n) return null;
+  const lane = carriageNear(layout, n.street.x, n.street.z, 'little-tokyo-market');
+  const ox = lane?.x ?? n.street.x;
+  const oz = lane?.z ?? n.street.z;
+  const fx = lane?.fx ?? Math.sin(n.street.heading);
+  const fz = lane?.fz ?? -Math.cos(n.street.heading);
+  const rx = fz;
+  const rz = -fx;
+  const d = 10;
+  const side = 3.1;
+  const vx = ox + fx * d + rx * side;
+  const vz = oz + fz * d + rz * side;
+  // Across the lane from the grate, so the column is the subject and the street sign is out of frame.
+  const px = ox + fx * d - rx * 2.4;
+  const pz = oz + fz * d - rz * 2.4;
+  const ground = layout.heightAt(px, pz);
+  const eye = ground + 1.55;
+  const lookY = layout.heightAt(vx, vz) + 1.45;
+  const dist = Math.hypot(vx - px, vz - pz) || 1;
+  return {
+    x: px, y: eye, z: pz,
+    heading: Math.atan2(vx - px, -(vz - pz)),
+    pitch: Math.atan2(lookY - eye, dist),
+    mode: 'walk',
+    feet: { x: px, y: ground, z: pz },
+  };
 }
 
 export function stallPose(layout: CityLayout): SmokePose | null {
@@ -221,20 +254,20 @@ export function stallPose(layout: CityLayout): SmokePose | null {
 export function exhaustPose(layout: CityLayout, tails: readonly Tailpipe[]): SmokePose | null {
   const t = tails[0];
   if (!t) return null;
-  const dist = 8.2;
-  const side = 2.35;
+  const dist = 10.5;
+  const side = 3.1;
   const rx = -t.fz;
   const rz = t.fx;
   const fx = t.x - t.fx * dist + rx * side;
   const fz = t.z - t.fz * dist + rz * side;
   const ground = layout.heightAt(fx, fz);
   const eye = ground + 1.7;
-  const lookX = t.x - t.fx * 0.4;
-  const lookZ = t.z - t.fz * 0.4;
+  const lookX = t.x - t.fx * 1.1;
+  const lookZ = t.z - t.fz * 1.1;
   return {
     x: fx, y: eye, z: fz,
     heading: Math.atan2(lookX - fx, -(lookZ - fz)),
-    pitch: Math.atan2((t.y + 0.45) - eye, Math.hypot(lookX - fx, lookZ - fz) || 1),
+    pitch: Math.atan2((t.y + 0.05) - eye, Math.hypot(lookX - fx, lookZ - fz) || 1),
     mode: 'walk',
     feet: { x: fx, y: ground, z: fz },
   };

@@ -53,17 +53,19 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
     })();
     m.colorNode = Fn(() => {
       const suv = uv();
-      const cell = floor(shade.y.mul(7.999));
+      // shade.y packs the atlas cell in the integer part and a lamp weight in the fraction.
+      const scaled = shade.y.mul(8.0);
+      const cell = floor(scaled);
+      const lampK = scaled.sub(cell);
       const col = mod(cell, float(4));
       const row = floor(cell.div(float(4)));
       const auv = vec2(col.div(4.0), row.div(2.0)).add(suv.mul(vec2(0.25, 0.5)));
       const n = mask.sample(auv);
       const rad = length(suv.sub(0.5));
-      // Wide soft disc. The corner of the unit quad is ~0.7, so it goes clear there.
-      const blob = smoothstep(float(0.16), float(0.64), rad).oneMinus();
-      const detail = mix(float(1), n.g, smokeDetail);
-      const torn = n.r.mul(detail).mul(blob);
-      const shape = pow(max(mix(blob, torn, float(0.32)), float(0)), float(1.02));
+      // The mask is the puff. The radial term only clears the quad corners.
+      const edge = smoothstep(float(0.73), float(0.52), rad);
+      const torn = mix(n.r, n.r.mul(float(0.58).add(n.g.mul(0.65))), smokeDetail);
+      const shape = pow(max(torn.mul(edge), float(0)), float(0.9));
       const size = max(puff.w, float(0.4));
       const sceneD = linearDepth(viewportDepthTexture());
       const selfD = linearDepth();
@@ -84,8 +86,8 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const lit = practicalLit(world, N, V, albedo);
       const scatter = practicalInscatter(world);
       const rgb = albedo.mul(authoredLiftU).mul(smokeBody)
-        .add(lit.mul(smokeLamp))
-        .add(scatter.mul(float(3.5)));
+        .add(lit.mul(smokeLamp).mul(lampK))
+        .add(scatter.mul(lampK).mul(float(1.25)));
       return vec4(rgb, alpha);
     })();
     return m;
