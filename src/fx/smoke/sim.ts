@@ -88,13 +88,13 @@ function alongInView(plume: LaunchPlume, frame: FlameFrame, cam: Xyz, fwd: Xyz, 
     const a = 0.03 + (n / 27) * 0.9;
     const f = viewFacing(flamePoint(plume, frame, a), cam, fwd);
     if (f > best) { best = f; bestA = a; }
-    if (f > 0.9) good.push(a);
+    if (f > 0.8) good.push(a);
   }
-  if (good.length && rng.next() < 0.34) {
+  if (good.length && rng.next() < 0.62) {
     const i = Math.min(good.length - 1, Math.floor(rng.next() * good.length));
     return good[i]!;
   }
-  return Math.min(0.94, Math.max(0.04, bestA + (rng.next() * 2 - 1) * 0.16));
+  return Math.min(0.96, Math.max(0.03, bestA + (rng.next() * 2 - 1) * 0.3));
 }
 
 function flamePoint(plume: LaunchPlume, frame: FlameFrame, along: number): Xyz {
@@ -152,12 +152,10 @@ export class SmokePool {
       const along = alongInView(plume, frame, cam, fwd, r);
       const card = Math.max(18, plume.halfW * 1.8);
       p.along = along;
-      // Peaked across the card, with a few puffs past the edge for a ragged skirt.
-      const g = (r.next() + r.next() + r.next()) / 3;
-      const mid = g * 2 - 1;
-      const wide = r.next() < 0.3;
-      p.offS = mid * card * (wide ? 1.38 : 0.95);
-      p.offD = (r.next() * 1.25 - 0.25) * card * 0.26;
+      // Both sides of the ribbon, always in front of the gantry so the tower does not eat one side.
+      const span = r.next() < 0.62 ? 0.72 : 1.28;
+      p.offS = (r.next() * 2 - 1) * card * span;
+      p.offD = (0.45 + r.next() * 0.85) * card * 0.48;
       const axis = flamePoint(plume, frame, along);
       x = axis.x + frame.sx * p.offS + frame.tx * p.offD;
       y = axis.y + frame.sy * p.offS + frame.ty * p.offD;
@@ -309,7 +307,7 @@ export class SmokePool {
     const lobe = Math.sin(along * 13 + p.seed * 6.283) * card * 0.09
       + Math.sin(p.age * 0.55 + p.seed * 19) * card * 0.04;
     const offS = p.offS * billow * grow + lobe;
-    const offD = p.offD * (0.9 + u * 0.12) + Math.cos(p.age * 0.4 + p.seed * 9) * card * 0.03;
+    const offD = Math.max(card * 0.18, p.offD) * (0.92 + u * 0.1);
     const place = (a: number) => {
       const axis = flamePoint(plume, frame, a);
       p.x = axis.x + frame.sx * offS + frame.tx * offD;

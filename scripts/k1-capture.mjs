@@ -140,7 +140,7 @@ async function settle(page, shot) {
   page.setDefaultTimeout(180000);
   await page.evaluate(async () => {
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-    for (let i = 0; i < 64; i++) {
+    for (let i = 0; i < 22; i++) {
       if (typeof window.__k1Pump === 'function') window.__k1Pump(1);
       const warm = window.__nla?.stats?.()?.smoke?.warm ?? 40;
       if (i > 10 && warm <= 4 && window.__k1Held) break;
