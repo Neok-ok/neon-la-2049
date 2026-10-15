@@ -1,0 +1,62 @@
+name: Load sample
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/load-sample.yml'
+      - 'scripts/load-measure.mjs'
+      - 'scripts/profile-load.mjs'
+      - 'src/**'
+  workflow_dispatch:
+    inputs:
+      samples:
+        description: Samples per scenario
+        default: '10'
+        type: string
+
+jobs:
+  sample:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - quality: high
+            mode: fly
+          - quality: medium
+            mode: cine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Confirm this measures main's renderer
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          if ! git diff --quiet origin/main -- src scripts/profile-load.mjs; then
+            echo "src or scripts/profile-load.mjs differs from origin/main"
+            git diff --stat origin/main -- src scripts/profile-load.mjs
+            exit 1
+          fi
+          echo "Measuring origin/main $(git rev-parse origin/main) with profile-load unchanged"
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Sample cold load
+        env:
+          SAMPLES: ${{ github.event.inputs.samples || '10' }}
+          QUALITY: ${{ matrix.quality }}
+          MODE: ${{ matrix.mode }}
+          SAMPLE_OUT: load-sample-out/load-sample.json
+        run: |
+          mkdir -p load-sample-out
+          node scripts/load-measure.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: load-sample-${{ matrix.quality }}-${{ matrix.mode }}
+          path: load-sample-out/load-sample.json
+          if-no-files-found: ignore

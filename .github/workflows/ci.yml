@@ -2,6 +2,7 @@ name: CI
 
 on:
   pull_request:
+  workflow_dispatch:
 
 jobs:
   build:
@@ -16,7 +17,31 @@ jobs:
       - run: npm run memory:check
       - run: npm run stray
       - run: npm run quality:check
+      - run: node --test scripts/load-budget.test.mjs
       - run: npm run build
       - run: npm run coast:check
-      - run: npx playwright install --with-deps chromium
-      - run: npm run load:check
+      # Docs-only pull requests (docs/** and *.md) skip the cold-load budget.
+      - name: Classify changed paths
+        id: paths
+        if: github.event_name == 'pull_request'
+        run: |
+          set -euo pipefail
+          base="${{ github.event.pull_request.base.sha }}"
+          git fetch --no-tags --depth=1 origin "$base"
+          git diff --name-only "$base" HEAD > "$RUNNER_TEMP/changed.txt"
+          echo "Changed paths:"
+          cat "$RUNNER_TEMP/changed.txt"
+          if node scripts/docs-only-diff.mjs < "$RUNNER_TEMP/changed.txt"; then
+            echo "skip_load_budget=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip_load_budget=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Skip load budget for docs-only diffs
+        if: steps.paths.outputs.skip_load_budget == 'true'
+        run: echo "Diff is docs/** and *.md only. Skipping the load-budget step."
+      - name: Install Playwright Chromium
+        if: steps.paths.outputs.skip_load_budget != 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Load budget
+        if: steps.paths.outputs.skip_load_budget != 'true'
+        run: npm run load:check
