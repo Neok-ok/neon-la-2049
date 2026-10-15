@@ -34,6 +34,24 @@ export function setRefineryFlame(tier: Tier, windRad: number, wind: number): voi
 }
 
 let material: MeshBasicNodeMaterial | null = null;
+const registry: RefineryFlame[] = [];
+
+/** Nearest flare mouths, distance-sorted. The particle field sits smoke on these. */
+export function flamesNear(x: number, z: number, radius: number, max: number): RefineryFlame[] {
+  const r2 = radius * radius;
+  const hit: { f: RefineryFlame; d: number }[] = [];
+  for (const f of registry) {
+    const dx = f.x - x;
+    const dz = f.z - z;
+    const d = dx * dx + dz * dz;
+    if (d <= r2) hit.push({ f, d });
+  }
+  hit.sort((a, b) => a.d - b.d);
+  const n = Math.max(0, max);
+  const out: RefineryFlame[] = [];
+  for (let i = 0; i < hit.length && out.length < n; i++) out.push(hit[i]!.f);
+  return out;
+}
 
 function flameMaterial(): MeshBasicNodeMaterial {
   if (material) return material;
@@ -91,6 +109,7 @@ function flameMaterial(): MeshBasicNodeMaterial {
  */
 export function mountRefineryFlames(parent: Object3D, flames: readonly RefineryFlame[], name = 'refinery-flares'): Mesh | null {
   if (!flames.length) return null;
+  for (const f of flames) registry.push(f);
   const n = flames.length;
   const pos = new Float32Array(n * 4 * 3);
   const ctr = new Float32Array(n * 4 * 4);

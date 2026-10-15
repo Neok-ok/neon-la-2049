@@ -12,6 +12,7 @@ import { fogDepth } from '../../atmosphere/SkyFog';
 import type { Tier } from '../../core/quality';
 import type { CityLayout } from '../../world/layout';
 import { PAD_BLOCKS, STACK_H, blockCenter } from './spec';
+import { writeLaunchPlume } from '../../fx/smoke/bridge';
 
 const T = TSL as any;
 const {
@@ -159,8 +160,18 @@ function headHeight(u: number, ground: number): number {
   return ground + 28 + e * 2600;
 }
 
+function publishPlume(live: boolean, x: number, z: number, base: number, head: number, env: number, halfW: number): void {
+  writeLaunchPlume({
+    live, x, y: head, z, base, head, env, halfW,
+    leanX: launchWindX.value, leanZ: launchWindZ.value,
+  });
+}
+
 export function updateLaunch(elapsed: number, tier: Tier, windRad: number, wind: number): void {
-  if (!pads.length) return;
+  if (!pads.length) {
+    publishPlume(false, 0, 0, 0, 0, 0, 18);
+    return;
+  }
   if (pending) {
     pad = pending.pad === null
       ? (pad + 1) % pads.length
@@ -183,7 +194,11 @@ export function updateLaunch(elapsed: number, tier: Tier, windRad: number, wind:
   launchWindX.value = Math.cos(windRad) * lean;
   launchWindZ.value = Math.sin(windRad) * lean;
   if (mesh) mesh.visible = envNow > 0.02;
-  if (!live || !mesh || envNow <= 0.02) return;
+  if (!live || !mesh || envNow <= 0.02) {
+    const quiet = pads[pad];
+    publishPlume(false, quiet?.x ?? 0, quiet?.z ?? 0, quiet?.y ?? 0, quiet?.y ?? 0, 0, 18);
+    return;
+  }
   const p = pads[pad]!;
   const head = headHeight(u, p.y);
   const base = p.y + 2;
@@ -196,6 +211,7 @@ export function updateLaunch(elapsed: number, tier: Tier, windRad: number, wind:
   writeQuad(3, p.x, head, p.z, 32 + Math.min(1, u / 0.5) * 28, 1.15, 2);
   if (ctr) ctr.needsUpdate = true;
   if (crn) crn.needsUpdate = true;
+  publishPlume(true, p.x, p.z, base, head, envNow, halfW);
 }
 
 /** 0..1 amount for the existing machinery bed. 0 when nothing is climbing. */

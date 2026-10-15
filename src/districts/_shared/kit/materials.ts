@@ -1,5 +1,6 @@
 // Shared node materials for the street kit. One material per pass, reused by every chunk.
 import { AdditiveBlending, DoubleSide, MeshBasicNodeMaterial, MeshStandardNodeMaterial, NormalBlending } from 'three/webgpu';
+import { uniform } from 'three/tsl';
 import * as TSL from 'three/tsl';
 import { U } from '../../../atmosphere/uniforms';
 import { NITS } from '../../../lighting/presets.ts';
@@ -15,6 +16,9 @@ let opaque: MeshStandardNodeMaterial | null = null;
 let fade: MeshStandardNodeMaterial | null = null;
 let add: MeshBasicNodeMaterial | null = null;
 let steam: MeshBasicNodeMaterial | null = null;
+
+/** 1 draws the kit cards. The particle field sets 0 so the two systems do not stack. */
+export const steamCardGain = uniform(1);
 
 function kitSurface(m: MeshStandardNodeMaterial, transparent: boolean): void {
   const col = attribute('color', 'vec3');
@@ -87,7 +91,7 @@ export function getSteamMaterial(): MeshBasicNodeMaterial {
   const fade = sin(life.mul(Math.PI));
   const dist = length(positionWorld.sub(cameraPosition));
   const col = mix(vec3(0.78, 0.8, 0.82).mul(authoredLiftU), U.fogColor.mul(2.4), float(0.4));
-  steam.colorNode = vec4(col, fade.mul(0.32).mul(smoothstep(36.0, 5.0, dist)));
+  steam.colorNode = vec4(col, fade.mul(0.32).mul(steamCardGain).mul(smoothstep(36.0, 5.0, dist)));
   return steam;
 }
 

@@ -715,4 +715,41 @@ export class GroundTraffic {
     const fade = alt < 28 ? 1 : Math.max(0, 1 - (alt - 28) / 150);
     this.bed = Math.min(1, bed * fade);
   }
+
+  /** Rear bumper of the nearest live vehicles. The smoke field hangs exhaust on these. */
+  tailpipes(max: number, camX: number, camZ: number, maxDist: number): Array<{
+    x: number; y: number; z: number; vx: number; vz: number; fx: number; fz: number; heavy: number;
+  }> {
+    const near: { c: Agent; d2: number }[] = [];
+    const r2 = maxDist * maxDist;
+    const take = (list: Agent[]) => {
+      for (const c of list) {
+        if (!c.live) continue;
+        const d2 = (c.p.x - camX) ** 2 + (c.p.z - camZ) ** 2;
+        if (d2 > r2) continue;
+        near.push({ c, d2 });
+      }
+    };
+    take(this.street);
+    take(this.freeway);
+    near.sort((a, b) => a.d2 - b.d2);
+    const n = Math.min(max, near.length);
+    const out: Array<{ x: number; y: number; z: number; vx: number; vz: number; fx: number; fz: number; heavy: number }> = [];
+    for (let i = 0; i < n; i++) {
+      const c = near[i]!.c;
+      const heavy = c.mesh === 'box' || c.mesh === 'hauler' || c.mesh === 'tanker' ? 1 : 0;
+      const back = c.len * 0.5 + 0.22;
+      out.push({
+        x: c.p.x - c.fwd.x * back,
+        y: c.p.y + (heavy ? 0.9 : 0.42),
+        z: c.p.z - c.fwd.z * back,
+        vx: c.fwd.x * c.speed,
+        vz: c.fwd.z * c.speed,
+        fx: c.fwd.x,
+        fz: c.fwd.z,
+        heavy,
+      });
+    }
+    return out;
+  }
 }
