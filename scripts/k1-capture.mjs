@@ -97,10 +97,6 @@ async function pump(context) {
       }, 16);
     };
     window.cancelAnimationFrame = (id) => window.clearTimeout(id);
-    window.setInterval(() => {
-      const held = window.__k1Held;
-      if (held && window.__k1Frames) run(held);
-    }, 32);
     const hide = { configurable: true, get: () => false };
     const show = { configurable: true, get: () => 'visible' };
     try { Object.defineProperty(Document.prototype, 'hidden', hide); } catch { /* native getter stays */ }
@@ -140,12 +136,11 @@ async function settle(page, shot) {
   page.setDefaultTimeout(180000);
   await page.evaluate(async () => {
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-    for (let i = 0; i < 22; i++) {
+    for (let i = 0; i < 8; i++) {
       if (typeof window.__k1Pump === 'function') window.__k1Pump(1);
-      const warm = window.__nla?.stats?.()?.smoke?.warm ?? 40;
-      if (i > 10 && warm <= 4 && window.__k1Held) break;
       await wait(0);
     }
+    window.__k1Frames = false;
   });
   const deadline = Date.now() + 20000;
   let last = '';
