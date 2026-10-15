@@ -180,20 +180,30 @@ export function renderLightingPass(renderer: WebGPURenderer): boolean {
 }
 
 /**
- * Draw the scene pass, then the grade quad.
+ * Draw the scene pass, the bloom mips, then the grade quad.
  * `pipeline.render()` alone renders the scene from inside the quad, which links
  * a second variant of every mesh. The pass stays muted while the quad runs.
+ * Bloom is filled explicitly: the grade material was first built while that
+ * update was muted, so the per-frame hook does not run on its own.
  */
 export function presentLightingPipeline(renderer: WebGPURenderer): boolean {
   if (!pipeline) return false;
+  const frame = { renderer };
   const pass = scenePass as { updateBefore?: (frame: object) => void; updateBeforeType?: string } | null;
-  pass?.updateBefore?.({ renderer });
+  const glow = bloomNode as { updateBefore?: (frame: object) => void; updateBeforeType?: string } | null;
+  // The grade quad was first drawn while bloom updates were muted, so the frame
+  // hook never registered. Fill the mips from the scene color that was just drawn.
+  pass?.updateBefore?.(frame);
   const passType = pass?.updateBeforeType;
+  const glowType = glow?.updateBeforeType;
   if (pass) pass.updateBeforeType = 'none';
+  if (glow) glow.updateBeforeType = 'none';
   try {
+    glow?.updateBefore?.(frame);
     pipeline.render();
   } finally {
     if (pass && passType !== undefined) pass.updateBeforeType = passType;
+    if (glow && glowType !== undefined) glow.updateBeforeType = glowType;
   }
   return true;
 }

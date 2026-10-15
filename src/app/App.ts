@@ -908,7 +908,9 @@ export class App {
     if (this.started && !photoOn) this.handleKeys();
     setDisturbance(this.atmosphere.weather.params.wind, this.atmosphere.weather.params.rain);
     if (photoOn) this.photoMod!.update(dt);
-    else this.cams.update(this.loadingEl ? 0 : dt);
+    // Play holds the chase camera until the bar drops. Capture still needs real
+    // dt, or the fly camera stays on its enter pose and the rain box moves with it.
+    else this.cams.update(this.loadingEl && !params.capture ? 0 : dt);
 
     const cam = this.camera.position;
     const ground = this.query.groundHeight(cam.x, cam.z);
