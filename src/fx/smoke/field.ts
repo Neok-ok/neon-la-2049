@@ -24,7 +24,7 @@ const TINT: Record<(typeof KIND_NAME)[number], [number, number, number]> = {
   vent: [0.74, 0.76, 0.78],
   grate: [0.7, 0.73, 0.76],
   stall: [0.84, 0.82, 0.76],
-  exhaust: [0.26, 0.26, 0.28],
+  exhaust: [0.58, 0.6, 0.62],
 };
 
 const WARM_FRAMES = 40;
@@ -207,7 +207,7 @@ export class SmokeField {
   private upload(cx: number, cy: number, cz: number): void {
     const list = this.pool.live;
     const n = list.length;
-    if (this.order.length < n) this.order.length = n;
+    this.order.length = n;
     for (let i = 0; i < n; i++) this.order[i] = i;
     this.order.sort((a, b) => {
       const pa = list[a]!;

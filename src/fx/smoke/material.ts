@@ -11,7 +11,7 @@ import { smokeMask } from './noise';
 const T = TSL as any;
 const {
   Fn, attribute, vec2, vec3, vec4, normalize, cross, cameraPosition, positionWorld,
-  sin, cos, smoothstep, length, float, max, abs, floor, mod, uv, mix, exp, texture,
+  sin, cos, smoothstep, length, float, max, abs, floor, mod, uv, mix, exp, pow, texture,
   linearDepth, viewportDepthTexture, cameraFar, positionLocal,
 } = T;
 
@@ -59,9 +59,9 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const auv = vec2(col.div(4.0), row.div(2.0)).add(suv.mul(vec2(0.25, 0.5)));
       const n = mask.sample(auv);
       const p = suv.sub(0.5);
-      const disc = smoothstep(float(0.52), float(0.08), length(p));
+      const disc = smoothstep(float(0.86), float(0.22), length(p));
       const detail = mix(float(1), n.g, smokeDetail);
-      const shape = n.r.mul(detail).mul(disc);
+      const shape = pow(max(n.r.mul(detail).mul(disc), float(0)), float(1.05));
       const size = max(puff.w, float(0.4));
       const sceneD = linearDepth(viewportDepthTexture());
       const selfD = linearDepth();
@@ -69,7 +69,7 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const soft = max(size.mul(0.65), float(1.2)).div(cameraFar);
       const depthFade = mix(float(1), smoothstep(float(0), soft, diff), smoothstep(float(0), float(0.002), sceneD));
       const dist = length(cameraPosition.sub(puff.xyz));
-      const nearF = smoothstep(float(0.55), float(2.2), dist);
+      const nearF = smoothstep(max(float(0.45), size.mul(0.15)), max(float(1.6), size.mul(0.55)), dist);
       const fogF = exp(dist.mul(U.fogDensity).mul(-3.2));
       const lifeA = shade.w;
       const alpha = shape.mul(lifeA).mul(depthFade).mul(nearF).mul(fogF);

@@ -1620,7 +1620,9 @@ export class App {
       /** X2 cameras: a signalled crossing, the 110 trench, Broadway, a night aerial, the same crossing in rain. */
       smokeView: (kind: 'stall' | 'exhaust') => {
         if (!this.smoke) return false;
-        return this.applyDistrictPose(this.smoke.pose(kind, this.query.layout));
+        const p = this.smoke.pose(kind, this.query.layout);
+        if (p?.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
+        return this.applyDistrictPose(p);
       },
       trafficView: (kind: TrafficView) => {
         const p = trafficCamera(this.query.layout, kind);

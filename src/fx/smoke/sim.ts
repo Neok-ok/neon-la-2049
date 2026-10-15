@@ -9,9 +9,17 @@ export interface Wind {
   rain: number;
 }
 
-function columnRadius(h: number): number {
-  const t = Math.min(1, Math.max(0, h) / 320);
-  return 24 + t * 78;
+/** Wider than the flame sheet, growing as the column climbs. `halfW` is the flame's half-width. */
+function columnRadius(h: number, halfW: number): number {
+  const t = Math.min(1, Math.max(0, h) / 160);
+  const foot = Math.max(26, halfW * 1.15);
+  return foot + t * Math.max(36, halfW * 1.35);
+}
+
+/** Same fraction the flame quad uses: shear is `lean * h / length`, not a separate wind. */
+function flameLean(h: number, plume: LaunchPlume): number {
+  const len = Math.max(80, plume.head - plume.base);
+  return Math.min(1, Math.max(0, h) / len);
 }
 
 function approach(current: number, target: number, dt: number, tau: number): number {
@@ -56,14 +64,15 @@ export class SmokePool {
     let z = m.z + Math.sin(ang) * rad;
     let heat = m.heat;
     if (plume && plume.live && m.kind === KIND.launch) {
-      const span = Math.min(340, Math.max(36, plume.head - plume.base));
-      const h = Math.pow(r.next(), 1.7) * span;
-      const rr = columnRadius(h) * Math.sqrt(r.next());
-      const lean = Math.min(1, h / 420);
+      const span = Math.min(220, Math.max(64, plume.head - plume.base));
+      const h = r.next() * span;
+      const radius = columnRadius(h, plume.halfW);
+      const rr = radius * Math.sqrt(r.next());
+      const lean = flameLean(h, plume);
       x = plume.x + Math.cos(ang) * rr + plume.leanX * lean;
       z = plume.z + Math.sin(ang) * rr + plume.leanZ * lean;
       y = plume.base + h;
-      heat = Math.max(0, 1 - rr / 22) * Math.max(0, 1 - h / 90) * 0.9;
+      heat = Math.max(0, 1 - rr / (radius * 0.55)) * Math.max(0, 1 - h / 180) * 0.85;
     }
     p.x = x;
     p.y = y;
@@ -85,12 +94,13 @@ export class SmokePool {
     p.floor = m.floor;
     p.alpha = m.alpha * (0.75 + r.next() * 0.4);
     p.turb = m.turb;
-    p.aspect = m.aspect * (0.85 + r.next() * 0.3);
+    p.aspect = m.aspect * (0.62 + r.next() * 0.85);
     p.rise = m.rise;
     p.wind = m.wind;
-    p.shade = 0.42 + r.next() * 0.7;
+    p.shade = m.kind === KIND.exhaust ? 0.62 + r.next() * 0.45 : 0.28 + r.next() * 0.85;
     if (m.kind === KIND.ground && plume && plume.live) {
-      const rr = 16 + Math.sqrt(r.next()) * 54;
+      const foot = Math.max(28, plume.halfW * 1.05);
+      const rr = foot * 0.35 + Math.sqrt(r.next()) * foot;
       const a2 = r.next() * Math.PI * 2;
       p.x = plume.x + Math.cos(a2) * rr;
       p.z = plume.z + Math.sin(a2) * rr;
@@ -127,19 +137,19 @@ export class SmokePool {
       const sink = rain * (p.kind === KIND.launch || p.kind === KIND.ground ? 0.15 : 0.45);
       const targetY = p.rise * (1 - u * 0.72) * (1 - rain * 0.22) - sink;
       p.vy = approach(p.vy, targetY, dt, 0.7);
-      if (p.kind !== KIND.exhaust) {
-        const twx = wx * p.wind * shear;
-        const twz = wz * p.wind * shear;
-        p.vx = approach(p.vx, twx, dt, 0.9);
-        p.vz = approach(p.vz, twz, dt, 0.9);
+      const phase = p.seed * 6.28;
+      const wobX = Math.sin(p.age * 0.85 + phase) * p.turb * 0.28;
+      const wobZ = Math.cos(p.age * 0.67 + phase * 1.3) * p.turb * 0.28;
+      if (p.kind === KIND.exhaust) {
+        p.vx = p.vx * Math.exp(-dt * 0.25) + wobX * dt;
+        p.vz = p.vz * Math.exp(-dt * 0.25) + wobZ * dt;
       } else {
-        p.vx *= Math.exp(-dt * 0.35);
-        p.vz *= Math.exp(-dt * 0.35);
+        const twx = wx * p.wind * shear + wobX;
+        const twz = wz * p.wind * shear + wobZ;
+        p.vx = approach(p.vx, twx, dt, p.kind === KIND.launch ? 0.4 : 0.75);
+        p.vz = approach(p.vz, twz, dt, p.kind === KIND.launch ? 0.4 : 0.75);
       }
-      const roll = p.turb * dt;
-      p.vx += Math.sin(p.y * 0.08 + p.seed * 6.2 + p.age) * roll;
-      p.vz += Math.cos(p.x * 0.07 + p.seed * 4.1) * roll;
-      p.vy += Math.sin(p.z * 0.09 + p.seed * 2.2) * roll * 0.35;
+      p.vy += Math.sin(p.age * 1.1 + phase) * p.turb * dt * 0.35;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       p.z += p.vz * dt;
@@ -157,17 +167,23 @@ export class SmokePool {
 
   private holdColumn(p: Puff, plume: LaunchPlume, dt: number): void {
     const h = p.y - plume.base;
-    const lean = Math.min(1, Math.max(0, h) / 420);
+    const lean = flameLean(h, plume);
     const ax = plume.x + plume.leanX * lean;
     const az = plume.z + plume.leanZ * lean;
     const dx = p.x - ax;
     const dz = p.z - az;
     const dist = Math.hypot(dx, dz) || 0.001;
-    const limit = columnRadius(h);
+    const limit = columnRadius(h, plume.halfW);
     if (dist > limit) {
-      const k = 1 - Math.exp(-dt * 1.6);
+      const k = 1 - Math.exp(-dt * 2.2);
       p.x += (ax + (dx / dist) * limit - p.x) * k;
       p.z += (az + (dz / dist) * limit - p.z) * k;
+    }
+    const radial = (p.vx * dx + p.vz * dz) / dist;
+    if (radial > 0.2) {
+      const cut = radial * (1 - Math.exp(-dt * 3));
+      p.vx -= (dx / dist) * cut;
+      p.vz -= (dz / dist) * cut;
     }
   }
 

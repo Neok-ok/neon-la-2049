@@ -43,14 +43,15 @@ function heroMouths(layout: CityLayout): Mouth[] {
     const y = (lane?.y ?? layout.heightAt(ox, oz)) + 0.22;
     const rx = fz;
     const rz = -fx;
-    for (const d of [4.5, 10, 16, 23]) {
+    const vents: Array<[number, number]> = [[7, 2.3], [14, -2.5], [22, 2.1]];
+    for (const [d, side] of vents) {
       out.push(mouth({
-        x: ox + fx * d + rx * 0.9,
-        y, z: oz + fz * d + rz * 0.9,
-        kind: KIND.grate, weight, life: 3.4,
-        size0: 0.7, size1: 2.4, heat: 0.04, radius: 0.35,
-        rise: 1.85, spread: 0.25, floor: y - 0.2, wind: 0.32,
-        turb: 0.55, aspect: 1.7, alpha: 0.58,
+        x: ox + fx * d + rx * side,
+        y, z: oz + fz * d + rz * side,
+        kind: KIND.grate, weight, life: 5.4,
+        size0: 0.9, size1: 3.6, heat: 0.05, radius: 0.42,
+        rise: 2.5, spread: 0.4, floor: y - 0.2, wind: 0.22,
+        turb: 1.15, aspect: 1.55, alpha: 0.64,
       }));
     }
   };
@@ -66,10 +67,10 @@ function heroMouths(layout: CityLayout): Mouth[] {
     const dy = s.y - ground;
     if (near) {
       out.push(mouth({
-        x: s.x, y: s.y, z: s.z, kind: KIND.stall, weight: 5, life: 1.8,
-        size0: 0.2, size1: 0.72, heat: 0.16, radius: 0.1,
-        rise: 0.95, spread: 0.12, floor: ground, wind: 0.22,
-        turb: 0.28, aspect: 1.9, alpha: 0.68,
+        x: s.x, y: s.y, z: s.z, kind: KIND.stall, weight: 5, life: 2.4,
+        size0: 0.34, size1: 1.2, heat: 0.18, radius: 0.16,
+        rise: 1.15, spread: 0.16, floor: ground, wind: 0.16,
+        turb: 0.45, aspect: 1.7, alpha: 0.78,
       }));
     } else if (dy < 0.55) {
       out.push(mouth({
@@ -129,16 +130,16 @@ export function gatherMouths(
   if (plume.live && plume.env > 0.04) {
     const base = plume.base;
     out.push(mouth({
-      x: plume.x, y: base + 4, z: plume.z, kind: KIND.launch, weight: 1, life: 5.4,
-      size0: 11, size1: 32, heat: 0.35, radius: 6,
-      rise: 10, spread: 1.5, floor: base, wind: 0.12,
-      turb: 4.2, aspect: 1.12, alpha: 0.3,
+      x: plume.x, y: base + 4, z: plume.z, kind: KIND.launch, weight: 1, life: 6.2,
+      size0: 12, size1: 28, heat: 0.45, radius: 6,
+      rise: 6, spread: 0.8, floor: base, wind: 0.04,
+      turb: 2.2, aspect: 1.02, alpha: 0.4,
     }));
     out.push(mouth({
-      x: plume.x, y: base + 2, z: plume.z, kind: KIND.ground, weight: 1, life: 4.6,
-      size0: 14, size1: 36, heat: 0.12, radius: 8,
-      rise: 3.5, spread: 2, floor: base, wind: 0.28,
-      turb: 2.4, aspect: 0.9, alpha: 0.2,
+      x: plume.x, y: base + 2, z: plume.z, kind: KIND.ground, weight: 1, life: 5.2,
+      size0: 14, size1: 30, heat: 0.1, radius: 8,
+      rise: 2.4, spread: 1.4, floor: base, wind: 0.1,
+      turb: 1.4, aspect: 0.82, alpha: 0.26,
     }));
   }
   const stacks = flamesNear(x, z, 520, STACK_KEEP[tier]);
@@ -146,10 +147,10 @@ export function gatherMouths(
     const f = stacks[i]!;
     const ground = layout.heightAt(f.x, f.z);
     out.push(mouth({
-      x: f.x, y: f.y + 0.35, z: f.z, kind: KIND.stack, weight: i === 0 ? 4 : 1, life: 7.2,
-      size0: 3.4, size1: 14, heat: 0.42, radius: 1.15,
-      rise: 6.5, spread: 0.45, floor: ground, wind: 0.42,
-      turb: 1.2, aspect: 1.35, alpha: 0.4,
+      x: f.x, y: f.y + 0.35, z: f.z, kind: KIND.stack, weight: i === 0 ? 4 : 1, life: 7.4,
+      size0: 4.2, size1: 18, heat: 0.48, radius: 1.35,
+      rise: 5.6, spread: 0.4, floor: ground, wind: 0.32,
+      turb: 1.6, aspect: 1.15, alpha: 0.42,
     }));
   }
   const reach = 90;
@@ -164,12 +165,12 @@ export function gatherMouths(
     const t = tails[i]!;
     const heavy = t.heavy > 0;
     out.push(mouth({
-      x: t.x, y: t.y, z: t.z, kind: KIND.exhaust, weight: 1, life: heavy ? 1.35 : 1.05,
-      size0: heavy ? 0.42 : 0.26, size1: heavy ? 1.35 : 0.9, heat: 0.05,
-      radius: 0.08, rise: 0.65, spread: 0.18, floor: t.y - 0.4, wind: 0.08,
-      turb: 0.22, aspect: 0.78, alpha: 0.62,
-      vx: t.vx * 0.22 - t.fx * (heavy ? 1.4 : 2.1),
-      vz: t.vz * 0.22 - t.fz * (heavy ? 1.4 : 2.1),
+      x: t.x, y: t.y, z: t.z, kind: KIND.exhaust, weight: 1, life: heavy ? 2.1 : 1.7,
+      size0: heavy ? 0.7 : 0.48, size1: heavy ? 2.2 : 1.55, heat: 0.08,
+      radius: 0.12, rise: 0.85, spread: 0.2, floor: t.y - 0.35, wind: 0.05,
+      turb: 0.35, aspect: 0.72, alpha: 0.72,
+      vx: t.vx * 0.15 - t.fx * (heavy ? 1.8 : 2.6),
+      vz: t.vz * 0.15 - t.fz * (heavy ? 1.8 : 2.6),
       fx: t.fx, fz: t.fz,
     }));
   }
@@ -183,6 +184,7 @@ export interface SmokePose {
   heading: number;
   pitch: number;
   mode: 'walk' | 'fly';
+  cockpit?: boolean;
   feet?: { x: number; y: number; z: number };
 }
 
@@ -202,14 +204,15 @@ export function stallPose(layout: CityLayout): SmokePose | null {
   const hx = Math.sin(cook.heading);
   const hz = -Math.cos(cook.heading);
   const dist = 2.15;
-  const fx = pot.x - hx * dist;
-  const fz = pot.z - hz * dist;
+  // Customer side, looking back at the pot. Behind the cook the frame is the street.
+  const fx = pot.x + hx * dist;
+  const fz = pot.z + hz * dist;
   const ground = layout.heightAt(fx, fz);
-  const eye = ground + 1.62;
+  const eye = ground + 1.7;
   return {
     x: fx, y: eye, z: fz,
     heading: Math.atan2(pot.x - fx, -(pot.z - fz)),
-    pitch: Math.atan2(pot.y - eye, dist),
+    pitch: Math.atan2((pot.y + 0.35) - eye, dist),
     mode: 'walk',
     feet: { x: fx, y: ground, z: fz },
   };
@@ -218,16 +221,21 @@ export function stallPose(layout: CityLayout): SmokePose | null {
 export function exhaustPose(layout: CityLayout, tails: readonly Tailpipe[]): SmokePose | null {
   const t = tails[0];
   if (!t) return null;
-  const dist = 5.4;
-  const fx = t.x - t.fx * dist;
-  const fz = t.z - t.fz * dist;
-  const feetY = t.y - 0.5;
-  const eye = feetY + 1.7;
+  const dist = 4.6;
+  const side = 1.25;
+  const rx = -t.fz;
+  const rz = t.fx;
+  const fx = t.x - t.fx * dist + rx * side;
+  const fz = t.z - t.fz * dist + rz * side;
+  const ground = layout.heightAt(fx, fz);
+  const eye = ground + 1.7;
+  const lookX = t.x - t.fx * 0.4;
+  const lookZ = t.z - t.fz * 0.4;
   return {
     x: fx, y: eye, z: fz,
-    heading: Math.atan2(t.fx, -t.fz),
-    pitch: Math.atan2(t.y - eye, dist),
+    heading: Math.atan2(lookX - fx, -(lookZ - fz)),
+    pitch: Math.atan2((t.y + 0.45) - eye, Math.hypot(lookX - fx, lookZ - fz) || 1),
     mode: 'walk',
-    feet: { x: fx, y: feetY, z: fz },
+    feet: { x: fx, y: ground, z: fz },
   };
 }

@@ -19,31 +19,31 @@ const shots = [
     name: 'launch',
     weather: 'clear',
     go: async () => { await window.__nla.laxView('burn'); },
-    ready: (sm) => sm.warm === 0 && sm.launch >= 80,
+    ready: (sm) => sm.warm <= 12 && sm.launch >= 80,
   },
   {
     name: 'street',
     weather: 'rain',
     go: async () => { window.__nla.marketView('street'); },
-    ready: (sm) => sm.warm === 0 && sm.grate >= 24,
+    ready: (sm) => sm.warm <= 12 && sm.grate >= 24,
   },
   {
     name: 'stall',
     weather: 'rain',
     go: async () => { window.__nla.smokeView('stall'); },
-    ready: (sm) => sm.warm === 0 && sm.stall >= 12,
+    ready: (sm) => sm.warm <= 12 && sm.stall >= 12,
   },
   {
     name: 'refinery',
     weather: 'clear',
     go: async () => { await window.__nla.southBayView('flare'); },
-    ready: (sm) => sm.warm === 0 && sm.stack >= 24,
+    ready: (sm) => sm.warm <= 12 && sm.stack >= 24,
   },
   {
     name: 'traffic',
     weather: 'rain',
     go: async () => { window.__nla.trafficView('rain'); },
-    ready: (sm) => sm.warm === 0 && sm.exhaust >= 8,
+    ready: (sm) => sm.warm <= 12 && sm.exhaust >= 8,
   },
 ];
 
@@ -76,8 +76,10 @@ async function pump(context) {
           window.__k1Grab = false;
         }
       } catch (err) {
-        window.__k1Err = err instanceof Error ? err.message : String(err);
+        const message = err instanceof Error ? (err.stack || err.message) : String(err);
+        window.__k1Err = message;
         window.__k1Grab = false;
+        console.error(message);
       }
     };
     window.requestAnimationFrame = (cb) => window.setTimeout(() => {
@@ -100,15 +102,33 @@ async function pump(context) {
 }
 
 async function grab(page) {
-  await page.evaluate(() => { window.__k1Png = ''; window.__k1Grab = true; });
-  await page.waitForFunction(() => window.__k1Png && window.__k1Png.length > 32, null, { timeout: 20000 });
-  const url = await page.evaluate(() => window.__k1Png);
-  const comma = url.indexOf(',');
-  return Buffer.from(url.slice(comma + 1), 'base64');
+  await page.evaluate(() => { window.__k1Png = ''; window.__k1Err = ''; window.__k1Grab = true; });
+  try {
+    await page.waitForFunction(() => window.__k1Png && window.__k1Png.length > 64, null, { timeout: 45000 });
+    const url = await page.evaluate(() => window.__k1Png);
+    const comma = url.indexOf(',');
+    return Buffer.from(url.slice(comma + 1), 'base64');
+  } catch {
+    const diag = await page.evaluate(() => ({
+      err: window.__k1Err || '',
+      grab: !!window.__k1Grab,
+      png: (window.__k1Png || '').length,
+      canvas: (() => {
+        const c = document.querySelector('canvas');
+        return c ? `${c.width}x${c.height}` : 'none';
+      })(),
+      smoke: window.__nla?.stats?.()?.smoke ?? null,
+    }));
+    log(`  canvas grab missed ${JSON.stringify(diag)}`);
+    const session = await page.context().newCDPSession(page);
+    const shot = await session.send('Page.captureScreenshot', { format: 'png' });
+    await session.detach();
+    return Buffer.from(shot.data, 'base64');
+  }
 }
 
 async function boot(page, tier) {
-  const q = `smoke=live&freeze=1&seed=2049&time=22.5&ui=0&webgl=1&quality=${tier}&weather=clear&mode=fly`;
+  const q = `smoke=live&capture=1&freeze=1&seed=2049&time=22.5&ui=0&webgl=1&quality=${tier}&weather=clear&mode=fly`;
   await page.goto(`${BASE}?${q}`, { waitUntil: 'domcontentloaded', timeout: 180000 });
   await page.waitForFunction(() => !!window.__nla?.stats, null, { timeout: 180000 });
 }
@@ -134,20 +154,22 @@ async function settle(page, shot) {
       if (!st || !sm) return { ok: false, why: 'no-smoke' };
       const cars = st.groundCars ?? 0;
       let ok = false;
-      if (name === 'launch') ok = sm.warm === 0 && sm.launch >= 80;
-      else if (name === 'street') ok = sm.warm === 0 && sm.grate >= 24;
-      else if (name === 'stall') ok = sm.warm === 0 && sm.stall >= 12;
-      else if (name === 'refinery') ok = sm.warm === 0 && sm.stack >= 24;
-      else if (name === 'traffic') ok = sm.warm === 0 && sm.exhaust >= 8 && cars > 0;
+      if (name === 'launch') ok = sm.warm <= 12 && sm.launch >= 80;
+      else if (name === 'street') ok = sm.warm <= 12 && sm.grate >= 24;
+      else if (name === 'stall') ok = sm.warm <= 12 && sm.stall >= 12;
+      else if (name === 'refinery') ok = sm.warm <= 12 && sm.stack >= 24;
+      else if (name === 'traffic') ok = sm.warm <= 12 && sm.exhaust >= 8 && cars > 0;
+      const cam = window.__nla?.app?.camera?.position;
       return {
         ok, cars, warm: sm.warm, launch: sm.launch, grate: sm.grate, stall: sm.stall,
         stack: sm.stack, exhaust: sm.exhaust, alive: sm.alive, mouths: sm.mouths,
         lod0: st.lod0, draws: st.drawCalls, far: st.farMs,
+        cam: cam ? [Math.round(cam.x), Math.round(cam.y), Math.round(cam.z)] : null,
       };
     }, shot.name);
     last = JSON.stringify(s);
-    if (s.ok && (s.lod0 ?? 0) > 0) return s;
-    if (shot.name === 'traffic' && s.cars === 0 && s.warm === 0) {
+    if (s.ok && (s.draws ?? 0) > 30 && (s.lod0 ?? 0) > 0) return s;
+    if (shot.name === 'traffic' && s.cars === 0 && s.warm <= 12) {
       await page.evaluate(shot.go);
     }
     await sleep(400);
@@ -157,36 +179,37 @@ async function settle(page, shot) {
 }
 
 const browser = await chromium.launch({
+  executablePath: process.env.CHROME || '/usr/bin/google-chrome',
   headless: true,
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
 });
 
 for (const tier of TIERS) {
-  const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
-  await pump(ctx);
-  const page = await ctx.newPage();
-  const errors = [];
-  page.on('pageerror', (e) => errors.push(String(e).slice(0, 300)));
-  page.on('console', (m) => {
-    if (m.type() === 'error') errors.push(m.text().slice(0, 300));
-  });
-  const t0 = Date.now();
-  try {
-    await boot(page, tier);
-    log(`${tier} boot ${((Date.now() - t0) / 1000).toFixed(1)}s`);
-    for (const shot of shots) {
-      if (!SCENES.has(shot.name)) continue;
+  for (const shot of shots) {
+    if (!SCENES.has(shot.name)) continue;
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
+    await pump(ctx);
+    const page = await ctx.newPage();
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(String(e).slice(0, 400)));
+    page.on('console', (m) => {
+      if (m.type() === 'error') errors.push(m.text().slice(0, 400));
+    });
+    const t0 = Date.now();
+    try {
+      await boot(page, tier);
       const snap = await settle(page, shot);
-      await sleep(300);
+      await page.evaluate(() => document.getElementById('loading')?.remove());
+      await sleep(500);
       const png = await grab(page);
       const file = join(OUT, `k1-2026-10-15-${shot.name}-${tier}.png`);
       writeFileSync(file, png);
-      log(`${tier} ${shot.name} ${png.length}b ${JSON.stringify(snap)} err=${errors.at(-1) ?? ''}`);
+      log(`${tier} ${shot.name} ${((Date.now() - t0) / 1000).toFixed(1)}s ${png.length}b ${JSON.stringify(snap)} err=${errors.at(-1) ?? ''}`);
+    } catch (err) {
+      log(`${tier} ${shot.name} FAIL ${err instanceof Error ? err.message : err} ${errors.at(-1) ?? ''}`);
     }
-  } catch (err) {
-    log(`${tier} FAIL ${err instanceof Error ? err.message : err} ${errors.at(-1) ?? ''}`);
+    await ctx.close();
   }
-  await ctx.close();
 }
 
 await browser.close();
