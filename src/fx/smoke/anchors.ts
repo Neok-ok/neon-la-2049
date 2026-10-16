@@ -79,10 +79,10 @@ function heroMouths(layout: CityLayout): Mouth[] {
     const dy = s.y - ground;
     if (near) {
       out.push(mouth({
-        x: s.x, y: s.y, z: s.z, kind: KIND.stall, weight: 5, life: 0.42,
-        size0: 0.018, size1: 0.04, heat: 0.7, radius: 0.09,
+        x: s.x, y: s.y, z: s.z, kind: KIND.stall, weight: 5, life: 0.48,
+        size0: 0.03, size1: 0.07, heat: 0.75, radius: 0.09,
         rise: 0.55, spread: 0.012, floor: s.y - 0.02, wind: 0.02,
-        turb: 0.4, aspect: 1, alpha: 0.58,
+        turb: 0.4, aspect: 1, alpha: 0.78,
       }));
     } else if (dy < 0.55) {
       // Baseline courtyard card. The visible plate is marketPlates.
@@ -270,16 +270,15 @@ export function stallPose(layout: CityLayout): SmokePose | null {
   const hz = -Math.cos(cook.heading);
   const rx = hz;
   const rz = -hx;
-  // Street side of the counter, just above the rim, looking up through the wisps
-  // toward the stall lamp. The pot stays the source.
-  const fx = pot.x + hx * 1.15 + rx * 0.36;
-  const fz = pot.z + hz * 1.15 + rz * 0.36;
+  // Beside the rim, slightly above it. A view down the counter hides the pot behind the cook.
+  const fx = pot.x + hx * 0.28 + rx * 1.05;
+  const fz = pot.z + hz * 0.28 + rz * 1.05;
   const lookX = pot.x;
   const lookZ = pot.z;
   const ground = layout.heightAt(fx, fz);
-  const eyeY = pot.y + 0.1;
+  const eyeY = pot.y + 0.42;
   const eye = eyeY - ground;
-  const lookY = pot.y + 0.48;
+  const lookY = pot.y + 0.04;
   const span = Math.hypot(lookX - fx, lookZ - fz) || 1;
   return {
     x: fx, y: eyeY, z: fz,
