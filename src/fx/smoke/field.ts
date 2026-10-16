@@ -336,8 +336,8 @@ export class SmokeField {
         size *= 0.88 + p.seed * 0.28;
       } else if (p.kind === 6) {
         size *= 0.85 + p.along * 0.2;
-        size = Math.min(size, this.tier === 'low' ? 0.2 : 0.14);
-        lifeA = Math.min(0.4, lifeA) * Math.pow(1 - Math.min(1, p.along), 1.15);
+        size = Math.min(size, this.tier === 'low' ? 0.32 : this.tier === 'medium' ? 0.26 : 0.22);
+        lifeA = Math.min(0.62, lifeA) * Math.pow(1 - Math.min(1, p.along), 0.85);
         heat = 0;
       } else if (p.kind === 1) {
         size = Math.min(size, Math.max(2.5, dist * 0.06));

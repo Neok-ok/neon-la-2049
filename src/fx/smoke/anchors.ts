@@ -187,9 +187,9 @@ export function gatherMouths(
       x: t.x, y: t.y + 0.04, z: t.z, kind: KIND.exhaust,
       weight: i === 0 ? 8 : 0.35,
       life: 0.9,
-      size0: heavy ? 0.07 : 0.045, size1: heavy ? 0.14 : 0.09, heat: 0,
-      radius: 0.03, rise: 0.12, spread: 0.008, floor: t.y, wind: 0,
-      turb: 0.12, aspect: 1, alpha: 0.5,
+      size0: heavy ? 0.08 : 0.055, size1: heavy ? 0.18 : 0.12, heat: 0,
+      radius: 0.035, rise: 0.14, spread: 0.01, floor: t.y, wind: 0,
+      turb: 0.12, aspect: 1, alpha: 0.68,
       vx: t.vx, vz: t.vz, fx: t.fx, fz: t.fz,
     }));
   }
@@ -270,18 +270,18 @@ export function stallPose(layout: CityLayout): SmokePose | null {
   const hz = -Math.cos(cook.heading);
   const rx = hz;
   const rz = -hx;
-  // In the lane, in front of the counter. Beside the rim put a second pot in the
-  // lens, and standing under the soffit filled High and Ultra with the awning.
-  const dist = 2.15;
-  const side = 0.22;
+  // Out in the lane, looking slightly down at the pots. Closer, and any look
+  // upward, put the High and Ultra soffit across the top of the frame.
+  const dist = 4.05;
+  const side = 0.08;
   const fx = pot.x + hx * dist + rx * side;
   const fz = pot.z + hz * dist + rz * side;
-  const lookX = pot.x - rx * 0.15;
-  const lookZ = pot.z - rz * 0.15;
+  const lookX = pot.x;
+  const lookZ = pot.z;
   const ground = layout.heightAt(fx, fz);
-  const eyeY = pot.y + 0.04;
+  const eyeY = pot.y + 0.7;
   const eye = eyeY - ground;
-  const lookY = pot.y + 0.48;
+  const lookY = pot.y + 0.12;
   const span = Math.hypot(lookX - fx, lookZ - fz) || 1;
   return {
     x: fx, y: eyeY, z: fz,
