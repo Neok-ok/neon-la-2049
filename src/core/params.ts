@@ -5,6 +5,7 @@
 //   &capture=1  visual capture: freezes time and wind, then stops streaming and unloading after the initial load
 //   &frame=k:street  applies one authored debug camera (name:kind) before the first frame
 //   &tonemap=agx|aces|neutral  &ev=4.26  locks the camera exposure value
+//   &smoke=live draws the soft plume for a still. A normal load leaves it off. &smoke=shell is the old prototype.
 //   &surf=1 holds the sea-wall breaker at impact (screenshots)
 //   &refl=1 forces the planar wet-street mirror; &refl=0 keeps the cheap fake pools only
 const q = new URLSearchParams(location.search);
@@ -52,4 +53,6 @@ export const params = {
   budget: q.get('budget') ?? undefined,
   tonemap: q.get('tonemap') ?? undefined,
   ev: num('ev'),
+  /** `shell` draws the lit-shell prototype. Absent on a normal load. */
+  smoke: q.get('smoke') || undefined,
 };

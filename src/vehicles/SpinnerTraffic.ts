@@ -88,6 +88,38 @@ export class SpinnerTraffic {
     }
   }
 
+  /** Exhaust behind craft that are actually flying. Structural, no smoke import. */
+  collectExhaust(
+    x: number,
+    y: number,
+    z: number,
+    range: number,
+    out: { x: number; y: number; z: number; drive: number; heavy: number; wx?: number; wz?: number }[],
+  ): void {
+    const r2 = range * range;
+    let n = 0;
+    for (const c of this.cars) {
+      if (n >= 10) break;
+      if (c.speed < 1) continue;
+      const len = Math.hypot(c.dir.x, c.dir.y, c.dir.z) || 1;
+      const px = c.p.x - (c.dir.x / len) * 5;
+      const py = c.p.y - 0.6;
+      const pz = c.p.z - (c.dir.z / len) * 5;
+      const dx = px - x;
+      const dy = py - y;
+      const dz = pz - z;
+      if (dx * dx + dy * dy + dz * dz > r2) continue;
+      out.push({
+        x: px, y: py, z: pz,
+        drive: Math.min(1, Math.max(0.35, c.speed / 40)),
+        heavy: 2,
+        wx: (c.dir.x / len) * c.speed * 0.9,
+        wz: (c.dir.z / len) * c.speed * 0.9,
+      });
+      n++;
+    }
+  }
+
   /** Closest spinner to a point, for the market's distant-engine layer. */
   nearestTo(x: number, y: number, z: number): { x: number; y: number; z: number; dist: number } | null {
     let best: Car | null = null;
