@@ -71,10 +71,10 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const rad = length(suv.sub(0.5));
       // Round falloff. A reversed smoothstep is undefined on SwiftShader and
       // cuts a quad into a triangle.
-      const edge = float(1).sub(smoothstep(float(0.48), float(0.9), rad));
-      const torn = mix(n.r, n.r.mul(float(0.8).add(n.g.mul(0.35))), smokeDetail);
-      const grain = float(0.58).add(n.g.mul(0.62));
-      const shape = pow(max(torn.mul(edge).mul(grain), float(0)), float(0.9));
+      const edge = float(1).sub(smoothstep(float(0.18), float(1.05), rad));
+      const torn = mix(n.r, n.r.mul(float(0.62).add(n.g.mul(0.55))), smokeDetail);
+      const grain = float(0.42).add(n.g.mul(0.78));
+      const shape = pow(max(torn.mul(edge).mul(grain), float(0)), float(0.8));
       const size = max(puff.w, float(0.4));
       const sceneD = linearDepth(viewportDepthTexture());
       const selfD = linearDepth();
@@ -102,11 +102,12 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const phase = mix(back, front, tint.w);
       const under = smoothstep(float(0.15), float(0.85), float(1).sub(suv.y));
       const underK = mix(float(1), float(0.62).add(under.mul(0.7)), lampK);
+      const mottled = float(0.58).add(n.r.mul(0.32)).add(n.g.mul(0.4));
       const rgb = albedo.mul(authoredLiftU).mul(smokeBody).mul(phase).mul(underK)
         .add(lit.mul(smokeLamp).mul(lampK).mul(float(0.5).add(under)))
         .add(scatter.mul(lampK).mul(float(0.4)))
         .add(warm.mul(heat).mul(float(1).sub(rim.mul(0.35))).mul(authoredLiftU).mul(float(0.2)));
-      return vec4(rgb, alpha);
+      return vec4(rgb.mul(mottled), alpha);
     })();
     return m;
   });

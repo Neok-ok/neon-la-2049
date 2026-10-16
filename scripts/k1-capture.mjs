@@ -4,7 +4,7 @@
 // Headless SwiftShader does not deliver requestAnimationFrame, so the script pumps frames
 // and reads the canvas in the same turn as the draw.
 import { chromium } from 'playwright';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const BASE = process.env.BASE_URL ?? 'http://127.0.0.1:5173/';
@@ -51,7 +51,21 @@ const shots = [
 ];
 
 function log(line) {
-  process.stdout.write(`${line}\n`);
+  const text = `${line}\n`;
+  try { appendFileSync(join(OUT, 'run.log'), text); } catch { /* still print */ }
+  process.stdout.write(text);
+}
+
+async function evalOr(page, fn, arg, ms, fallback) {
+  let timer;
+  try {
+    return await Promise.race([
+      page.evaluate(fn, arg),
+      new Promise((resolve) => { timer = setTimeout(() => resolve(fallback), ms); }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function sleep(ms) {
@@ -121,6 +135,7 @@ async function boot(page, tier) {
 }
 
 async function settle(page, shot) {
+  shot._png = '';
   await page.evaluate((weather) => window.__nla.setWeather(weather, true), shot.weather);
   await page.evaluate(shot.go);
   let posed = shot.name !== 'traffic';
@@ -138,65 +153,55 @@ async function settle(page, shot) {
   // the plume has aged before the still, instead of photographing the first puffs.
   page.setDefaultTimeout(180000);
   log(`  pump ${shot.name}`);
-  await page.evaluate(async (name) => {
-    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-    const pump = async (n) => {
-      for (let i = 0; i < n; i++) {
-        if (typeof window.__k1Pump === 'function') window.__k1Pump(1);
-        await wait(0);
+  const baked = await Promise.race([
+    page.evaluate(async (name) => {
+      const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+      const pump = async (n) => {
+        for (let i = 0; i < n; i++) {
+          if (typeof window.__k1Pump === 'function') window.__k1Pump(1);
+          await wait(0);
+        }
+      };
+      await pump(8);
+      if (name === 'launch') {
+        window.__nla.smokeView('launch');
+        await pump(3);
       }
-    };
-    await pump(8);
-    if (name === 'launch') {
-      window.__nla.smokeView('launch');
-      await pump(3);
-    }
-    window.__k1Frames = false;
-  }, shot.name);
-  log(`  pumped ${shot.name}`);
+      window.__k1Grab = true;
+      if (typeof window.__k1Pump === 'function') window.__k1Pump(1);
+      window.__k1Frames = false;
+      return window.__k1Png || '';
+    }, shot.name),
+    sleep(720000).then(() => ''),
+  ]);
+  log(`  pumped ${shot.name} canvas=${typeof baked === 'string' ? baked.length : 0}`);
+  shot._png = typeof baked === 'string' && baked.startsWith('data:image') ? baked : '';
   if (shot.name === 'traffic') {
-    const posed = await page.evaluate(() => window.__nla.smokeView('exhaust'));
+    const posed = await evalOr(page, () => window.__nla.smokeView('exhaust'), undefined, 8000, 'timeout');
     log(`  pose traffic ${posed}`);
   }
-  const deadline = Date.now() + 20000;
-  let last = '';
-  while (Date.now() < deadline) {
-    const s = await Promise.race([
-      page.evaluate((name) => {
-        const st = window.__nla?.stats?.();
-        const sm = st?.smoke;
-        if (!st || !sm) return { ok: false, why: 'no-smoke' };
-        const cars = st.groundCars ?? 0;
-        const aged = sm.warm <= 16;
-        let ok = false;
-        if (name === 'launch') ok = aged && sm.launch >= 60;
-        else if (name === 'street') ok = aged && sm.grate >= 28;
-        else if (name === 'stall') ok = aged && sm.stall >= 8;
-        else if (name === 'refinery') ok = aged && sm.stack >= 36;
-        else if (name === 'traffic') ok = aged && sm.exhaust >= 12 && cars > 0;
-        const cam = window.__nla?.app?.camera?.position;
-        return {
-          ok, cars, warm: sm.warm, launch: sm.launch, grate: sm.grate, stall: sm.stall,
-          stack: sm.stack, exhaust: sm.exhaust, alive: sm.alive, mouths: sm.mouths,
-          lod0: st.lod0, draws: st.drawCalls, far: st.farMs,
-          cam: cam ? [Math.round(cam.x), Math.round(cam.y), Math.round(cam.z)] : null,
-        };
-      }, shot.name),
-      sleep(8000).then(() => ({ ok: false, why: 'eval-timeout' })),
-    ]);
-    last = JSON.stringify(s);
-    if (s.why === 'eval-timeout') {
-      log(`  eval timeout ${shot.name}`);
-      return JSON.parse(last);
-    }
-    if (!posed && shot.name === 'traffic' && (s.cars ?? 0) > 0) {
-      posed = await page.evaluate(() => window.__nla.smokeView('exhaust') === true);
-    }
-    if (s.ok && (s.draws ?? 0) > 30 && (s.lod0 ?? 0) > 0) return s;
-    await sleep(300);
-  }
-  log(`  wait timeout ${shot.name} ${last}`);
-  return JSON.parse(last || '{}');
+  const s = await evalOr(page, (name) => {
+    const st = window.__nla?.stats?.();
+    const sm = st?.smoke;
+    if (!st || !sm) return { ok: false, why: 'no-smoke' };
+    const cars = st.groundCars ?? 0;
+    const aged = sm.warm <= 16;
+    let ok = false;
+    if (name === 'launch') ok = aged && sm.launch >= 60;
+    else if (name === 'street') ok = aged && sm.grate >= 28;
+    else if (name === 'stall') ok = aged && sm.stall >= 8;
+    else if (name === 'refinery') ok = aged && sm.stack >= 36;
+    else if (name === 'traffic') ok = aged && sm.exhaust >= 12 && cars > 0;
+    const cam = window.__nla?.app?.camera?.position;
+    return {
+      ok, cars, warm: sm.warm, launch: sm.launch, grate: sm.grate, stall: sm.stall,
+      stack: sm.stack, exhaust: sm.exhaust, alive: sm.alive, mouths: sm.mouths,
+      lod0: st.lod0, draws: st.drawCalls, far: st.farMs,
+      cam: cam ? [Math.round(cam.x), Math.round(cam.y), Math.round(cam.z)] : null,
+    };
+  }, shot.name, 8000, { ok: false, why: 'eval-timeout' });
+  log(`  stats ${shot.name} ${JSON.stringify(s)}`);
+  return s;
 }
 
 const browser = await chromium.launch({
@@ -223,12 +228,21 @@ for (const tier of TIERS) {
       await boot(page, tier);
       log(`${tier} ${shot.name} settle`);
       const snap = await settle(page, shot);
-      await page.evaluate(() => document.getElementById('loading')?.remove());
-      await sleep(600);
-      const png = await grab(page);
-      const file = join(OUT, `k1-2026-10-15-${shot.name}-${tier}.png`);
-      writeFileSync(file, png);
-      log(`${tier} ${shot.name} ${((Date.now() - t0) / 1000).toFixed(1)}s ${png.length}b ${JSON.stringify(snap)} err=${errors.at(-1) ?? ''}`);
+      let png = null;
+      if (shot._png) {
+        const comma = shot._png.indexOf(',');
+        png = Buffer.from(shot._png.slice(comma + 1), 'base64');
+      } else {
+        await evalOr(page, () => document.getElementById('loading')?.remove(), undefined, 3000, null);
+        png = await Promise.race([grab(page), sleep(30000).then(() => null)]);
+      }
+      if (!png || png.length < 1000) {
+        log(`${tier} ${shot.name} GRAB EMPTY`);
+      } else {
+        const file = join(OUT, `k1-2026-10-15-${shot.name}-${tier}.png`);
+        writeFileSync(file, png);
+        log(`${tier} ${shot.name} ${((Date.now() - t0) / 1000).toFixed(1)}s ${png.length}b ${JSON.stringify(snap)} err=${errors.at(-1) ?? ''}`);
+      }
     } catch (err) {
       log(`${tier} ${shot.name} FAIL ${err instanceof Error ? err.message : err} ${errors.at(-1) ?? ''}`);
     }

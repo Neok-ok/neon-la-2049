@@ -25,8 +25,8 @@ const TINT: Record<(typeof KIND_NAME)[number], [number, number, number]> = {
   stack: [0.32, 0.3, 0.28],
   vent: [0.34, 0.36, 0.4],
   grate: [0.3, 0.32, 0.36],
-  stall: [0.95, 0.62, 0.32],
-  exhaust: [0.55, 0.53, 0.5],
+  stall: [1.25, 0.48, 0.14],
+  exhaust: [0.62, 0.6, 0.58],
 };
 
 export interface NeonSign {
@@ -40,7 +40,7 @@ export interface NeonSign {
 
 /** How much practical light this kind takes. Exhaust stays a grey trail. */
 function lampOf(kind: number): number {
-  if (kind === 6) return 0.05;
+  if (kind === 6) return 0.03;
   if (kind === 0 || kind === 1) return 0.06;
   if (kind === 2) return 0.55;
   if (kind === 4 || kind === 3) return 0.82;
@@ -291,18 +291,18 @@ export class SmokeField {
         heat *= Math.max(0, 1 - h);
       }
       if (p.kind === 0) {
-        const edge = Math.min(1, Math.hypot(p.offS, p.offD) / (5 + p.along * 14));
-        const core = (1 - edge) * (1 - Math.min(1, p.along / 0.22));
-        heat = Math.max(heat, core * 1.05);
-        lifeA = Math.min(0.5, lifeA * (0.22 + (1 - edge) * 0.7));
-        size *= 0.48 + p.seed * 0.85;
-        size = Math.min(size, Math.max(5, dist * 0.2));
+        const edge = Math.min(1, Math.hypot(p.offS, p.offD) / (6 + p.along * 16));
+        const core = (1 - edge) * (1 - Math.min(1, p.along / 0.16));
+        heat = Math.max(heat, core * 0.85);
+        lifeA = Math.min(0.42, lifeA * (0.1 + edge * 0.85));
+        size *= 0.42 + p.seed * 0.8;
+        size = Math.min(size, Math.max(4.5, dist * 0.18));
         if (dist < 22) lifeA *= Math.min(1, Math.max(0, (dist - 8) / 14));
       } else if (p.kind === 2) {
         size *= 0.62 + p.seed * 0.7;
       } else if (p.kind === 6) {
-        size *= 0.85 + p.along * 0.35;
-        lifeA = Math.min(0.92, lifeA * (1.05 - p.along * 0.35));
+        size *= 0.75 + p.along * 0.45;
+        lifeA = Math.min(0.7, lifeA);
       } else if (p.kind === 1) {
         size = Math.min(size, Math.max(4, dist * 0.14));
       }
@@ -315,14 +315,14 @@ export class SmokeField {
       const cell = Math.floor(p.seed * 7.999);
       let lamp = lampOf(p.kind);
       if (p.kind === 4 || p.kind === 3) {
-        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 2.3));
-        lifeA *= 1 - h * 0.78;
-        lamp *= 0.28 + (1 - h) * 0.72;
+        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 2.7));
+        lifeA *= 1 - h * 0.9;
+        lamp *= 0.22 + (1 - h) * (1 - h) * 0.78;
       } else if (p.kind === 5) {
-        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 0.42));
-        lifeA *= 1 - h * 0.88;
+        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 0.16));
+        lifeA *= 1 - h * 0.95;
       } else if (p.kind === 6) {
-        lamp = 0.06 + (1 - Math.min(1, p.along)) * 0.2;
+        lamp = 0.03;
       }
       shade[o + 1] = (cell + Math.min(0.999, lamp)) / 8;
       shade[o + 2] = heat;
@@ -331,20 +331,22 @@ export class SmokeField {
       const rgb = TINT[name];
       let shadeK = p.shade;
       if (p.kind === 0) {
-        const edge = Math.min(1, Math.hypot(p.offS, p.offD) / (5 + p.along * 14));
-        shadeK = Math.min(1.45, 0.28 + edge * 0.9 + p.seed * 0.25);
+        const edge = Math.min(1, Math.hypot(p.offS, p.offD) / (6 + p.along * 16));
+        shadeK = Math.min(1.6, 0.16 + edge * 1.2 + p.seed * 0.2);
       } else if (p.kind === 2) {
-        const mouth = Math.max(0, 1 - Math.max(0, p.y - p.floor) / 12);
-        shadeK *= 0.42 + p.seed * 0.7 + mouth * 0.15;
+        const mouth = Math.max(0, 1 - Math.max(0, p.y - p.floor) / 10);
+        shadeK *= 0.35 + p.seed * 0.85 + mouth * 0.2;
+      } else if (p.kind === 5) {
+        shadeK *= 1.35;
       }
       let tr = rgb[0] * shadeK;
       let tg = rgb[1] * shadeK;
       let tb = rgb[2] * shadeK;
       if (p.kind === 4 || p.kind === 3) {
-        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 2.3));
+        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 1.3));
         const neon = this.nearestNeon(p.x, p.z);
         if (neon) {
-          const catchK = neon.k * (1 - h) * (0.45 + p.seed * 0.35);
+          const catchK = neon.k * (1 - h) * (1 - h) * (0.75 + p.seed * 0.12);
           tr = tr * (1 - catchK) + neon.r * catchK;
           tg = tg * (1 - catchK) + neon.g * catchK;
           tb = tb * (1 - catchK) + neon.b * catchK;
@@ -354,7 +356,7 @@ export class SmokeField {
       tint[o + 1] = tg;
       tint[o + 2] = tb;
       // 0 backlit plume, 1 soft body. Exhaust stays filled so the trail is not a rim.
-      tint[o + 3] = p.kind === 0 ? 0.08 : p.kind === 2 ? 0.4 : 1;
+      tint[o + 3] = p.kind === 0 ? 0 : p.kind === 2 ? 0.35 : 1;
       const stretch = this.stretchOf(p);
       move[o] = stretch.x;
       move[o + 1] = stretch.y;
@@ -377,38 +379,48 @@ export class SmokeField {
     }
     if (p.kind === 6) {
       const L = Math.hypot(p.vx, p.vz);
-      if (L > 0.15) return { x: p.vx / L, y: 0.12, z: p.vz / L, w: 2.9 * jitter };
-      return { x: 0, y: 1, z: 0, w: 1.4 };
+      if (L > 0.15) return { x: p.vx / L, y: 0.22, z: p.vz / L, w: 3.4 * jitter };
+      return { x: 0, y: 1, z: 0, w: 1.6 };
     }
     if (p.kind === 2) {
       const wx = Math.cos(this.windDir) * 0.48;
       const wz = Math.sin(this.windDir) * 0.48;
       return { x: wx, y: 1, z: wz, w: 1.22 * jitter };
     }
-    if (p.kind === 5) return { x: 0, y: 1, z: 0, w: 1.45 * jitter };
+    if (p.kind === 5) return { x: 0, y: 1, z: 0, w: 2.8 * jitter };
     if (p.kind === 4 || p.kind === 3) {
-      const h = Math.min(1, Math.max(0, (p.y - p.floor) / 2.2));
-      const wx = Math.cos(this.windDir) * h * 0.9;
-      const wz = Math.sin(this.windDir) * h * 0.9;
-      return { x: wx, y: 1, z: wz, w: (1.15 + h * 0.65) * jitter };
+      const h = Math.min(1, Math.max(0, (p.y - p.floor) / 2.6));
+      const wx = Math.cos(this.windDir) * h * 1.35;
+      const wz = Math.sin(this.windDir) * h * 1.35;
+      return { x: wx, y: 1, z: wz, w: (1.05 + h * 1.15) * jitter };
     }
     return { x: 0, y: 1, z: 0, w: 1.2 * jitter };
   }
 
   private nearestNeon(x: number, z: number): { r: number; g: number; b: number; k: number } | null {
-    let best = 16 * 16;
+    const fx = this.forward.x;
+    const fz = this.forward.z;
+    let best = -1;
     let hit: NeonSign | null = null;
+    let hitD = 1;
     for (let i = 0; i < this.neons.length; i++) {
       const s = this.neons[i]!;
-      const d = (s.x - x) ** 2 + (s.z - z) ** 2;
-      if (d < best) {
-        best = d;
+      const dx = s.x - x;
+      const dz = s.z - z;
+      const dist = Math.hypot(dx, dz);
+      if (dist > 72 || dist < 1.5) continue;
+      const align = (dx * fx + dz * fz) / dist;
+      if (align < 0.25) continue;
+      const score = align * align / (6 + dist);
+      if (score > best) {
+        best = score;
         hit = s;
+        hitD = dist;
       }
     }
     if (!hit) return null;
-    const dist = Math.sqrt(best);
-    return { r: hit.r, g: hit.g, b: hit.b, k: 1 - dist / 16 };
+    const k = Math.min(0.7, 0.2 + 0.5 * Math.max(0, 1 - hitD / 48));
+    return { r: hit.r, g: hit.g, b: hit.b, k };
   }
 
   snapshot(): SmokeSnapshot {

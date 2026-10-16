@@ -63,7 +63,7 @@ registerDetail('little-tokyo-market', ['little-tokyo-market'], (ctx) => {
   const scale = ctx.quality.detailScale;
   const cap = CAP[ctx.quality.tier];
   const props: MarketProp[] = [];
-  const grates: MarketProp[] = [];
+  const plates: MarketProp[] = [];
   const steam: Array<{ x: number; y: number; z: number; seed: number; rank: number }> = [];
   const pools: Array<{ x: number; y: number; z: number; yaw: number; len: number; wid: number; rgb: [number, number, number]; intensity: number; rank: number }> = [];
 
@@ -74,10 +74,8 @@ registerDetail('little-tokyo-market', ['little-tokyo-market'], (ctx) => {
       street: b.street, seed: b.seed, ground: b.ground,
     };
     const d = dressBlock(mb, ctx.layout);
-    for (const p of d.props) {
-      if (p.template === 'quadY' && p.sx === 1.1 && p.sz === 1.1) grates.push(p);
-      if (keepRank(p.rank, scale)) props.push(p);
-    }
+    for (const p of d.props) if (keepRank(p.rank, scale)) props.push(p);
+    for (const p of d.plates) plates.push(p);
     for (const s of d.steam) if (keepRank(s.rank, scale)) steam.push(s);
     for (const p of d.pools) if (keepRank(p.rank, scale)) pools.push(p);
   }
@@ -90,11 +88,8 @@ registerDetail('little-tokyo-market', ['little-tokyo-market'], (ctx) => {
   const group = new Group();
   group.name = 'little-tokyo-market';
   const keptProps = thin(props, cap.props);
-  // Rank 1 drops the courtyard grate on low. Put that quad back so the steam has a plate.
-  // Medium and ultra already keep it, and this does not reshuffle their thin sample.
-  if (scale < 0.45) {
-    for (const g of grates) keptProps.push(g);
-  }
+  // The patterned grate is outside the sample, so a cap cannot drop the plate or reshuffle the stall.
+  for (const p of plates) keptProps.push(p);
   for (const mesh of buildKitMeshes(keptProps as unknown as KitInstance[], 'lt-kit')) group.add(mesh);
 
   const steamKept = thin(steam, Math.min(cap.steam, ctx.quality.steam));

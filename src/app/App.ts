@@ -117,18 +117,6 @@ function isDrawable(obj: Object3D): obj is Drawable {
   return !!(o.isMesh || o.isPoints || o.isLine || o.isSprite);
 }
 
-/** Saturated sign colours. White is omitted so steam does not pick up a blank panel. */
-const SIGN_NEON: Array<[number, number, number] | null> = [
-  [1.0, 0.18, 0.55],
-  [0.15, 0.85, 1.0],
-  [1.0, 0.55, 0.12],
-  [1.0, 0.12, 0.1],
-  [0.1, 1.0, 0.65],
-  [0.62, 0.25, 1.0],
-  null,
-  [1.0, 0.9, 0.2],
-];
-
 /** Opening seat above the inversion: Little Tokyo azimuth, nose on the pyramid's lower tiers. */
 function defaultPose(): Pose {
   const [x, z] = geoToLocal(34.0505, -118.2405);
@@ -1052,18 +1040,10 @@ export class App {
     this.ambience.setMachinery(Math.min(1, districtMach + far.rumble + far.southBay + far.harbor + far.east));
     setRefineryFlame(this.quality.tier, w.windDir, w.params.wind);
     if (this.smoke) {
-      const fab = this.query.fabricAt(cam.x, cam.z);
-      const neons: { x: number; y: number; z: number; r: number; g: number; b: number }[] = [];
-      for (const s of fab.signs) {
-        const rgb = SIGN_NEON[s.color];
-        if (!rgb) continue;
-        const dx = s.x - cam.x;
-        const dz = s.z - cam.z;
-        if (dx * dx + dz * dz > 42 * 42) continue;
-        neons.push({ x: s.x, y: s.y, z: s.z, r: rgb[0], g: rgb[1], b: rgb[2] });
-        if (neons.length >= 24) break;
-      }
-      this.smoke.setNeons(neons);
+      // Worker cells drop the sign list, so the tint comes from the streamed glow marks.
+      const marks: GlowMark[] = [];
+      this.streamer.collectSignMarks(cam.x, cam.y, cam.z, 72, marks);
+      this.smoke.setNeons(marks);
     }
     this.smoke?.update(
       simDt, this.camera, this.query.layout, this.quality.tier,
