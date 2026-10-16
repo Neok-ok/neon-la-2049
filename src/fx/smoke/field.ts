@@ -28,7 +28,7 @@ const TINT: Record<(typeof KIND_NAME)[number], [number, number, number]> = {
   vent: [0.34, 0.36, 0.4],
   grate: [0.3, 0.32, 0.36],
   stall: [1.15, 0.42, 0.12],
-  exhaust: [0.34, 0.33, 0.31],
+  exhaust: [0.52, 0.5, 0.47],
 };
 
 export interface NeonSign {
@@ -392,11 +392,11 @@ export class SmokeField {
       let tg = rgb[1] * shadeK;
       let tb = rgb[2] * shadeK;
       if (p.kind === 4 || p.kind === 3) {
-        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 2.4));
+        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 2.2));
         const neon = this.nearestNeon(p.x, p.z);
         if (neon) {
-          const catchK = Math.min(0.96, neon.k * (1 - h * h * 0.72));
-          const gain = 2.4;
+          const catchK = Math.min(0.92, neon.k * Math.pow(Math.max(0, 1 - h), 1.7));
+          const gain = 1.85;
           tr = tr * (1 - catchK) + neon.r * catchK * gain;
           tg = tg * (1 - catchK) + neon.g * catchK * gain;
           tb = tb * (1 - catchK) + neon.b * catchK * gain;
@@ -406,7 +406,7 @@ export class SmokeField {
       tint[o + 1] = tg;
       tint[o + 2] = tb;
       // 0 backlit plume, 0.82 filled stack, 0.28 backlit exhaust, 1 soft steam.
-      tint[o + 3] = p.kind === 0 ? 0 : p.kind === 2 ? 0.72 : p.kind === 6 ? 0.28 : 1;
+      tint[o + 3] = p.kind === 0 ? 0 : p.kind === 2 ? 0.72 : p.kind === 6 ? 0.55 : 1;
       const stretch = this.stretchOf(p);
       move[o] = stretch.x;
       move[o + 1] = stretch.y;

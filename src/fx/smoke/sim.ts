@@ -258,8 +258,8 @@ export class SmokePool {
       p.size1 *= 0.75 + along * 0.55;
       // A gap at the bumper, then a trail that thins as it climbs. Not a ball on the lamp.
       const body = Math.sin(Math.min(1, along) * Math.PI);
-      p.alpha *= (0.08 + along * 0.35) * (0.35 + body * 0.7);
-      p.shade = 0.26 + r.next() * 0.32;
+      p.alpha *= (0.28 + along * 0.4) * (0.5 + body * 0.8);
+      p.shade = 0.42 + r.next() * 0.35;
     }
     if (m.kind === KIND.ground && plume && plume.live) {
       const rr = 6 + Math.sqrt(r.next()) * 16;

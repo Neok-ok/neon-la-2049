@@ -186,10 +186,10 @@ export function gatherMouths(
     out.push(mouth({
       x: t.x, y: t.y + 0.06, z: t.z, kind: KIND.exhaust,
       weight: i === 0 ? 6.5 : 0.7,
-      life: 1.65,
-      size0: heavy ? 0.1 : 0.065, size1: heavy ? 0.26 : 0.15, heat: 0.01,
-      radius: 0.04, rise: 0.9, spread: 0.02, floor: t.y - 0.35, wind: 0,
-      turb: 0.35, aspect: 1, alpha: 0.5,
+      life: 1.7,
+      size0: heavy ? 0.13 : 0.085, size1: heavy ? 0.34 : 0.2, heat: 0.02,
+      radius: 0.045, rise: 0.95, spread: 0.02, floor: t.y - 0.35, wind: 0,
+      turb: 0.32, aspect: 1, alpha: 0.72,
       vx: t.vx, vz: t.vz, fx: t.fx, fz: t.fz,
     }));
   }
