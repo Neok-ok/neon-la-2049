@@ -17,8 +17,8 @@ const {
 
 /** Display-space body. 1 would paint the albedo at full exposure; soot sits under that. */
 export const smokeBody = uniform(0.66);
-/** Practicals tint the puff. Kept small so a sign does not blow the body to white. */
-export const smokeLamp = uniform(0.07);
+/** Practicals tint the puff. Steam takes more of this than the plume. */
+export const smokeLamp = uniform(0.85);
 /** 0 low, 1 high/ultra. Mixes the second mask. */
 export const smokeDetail = uniform(1);
 
@@ -79,7 +79,7 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const sceneD = linearDepth(viewportDepthTexture());
       const selfD = linearDepth();
       const diff = sceneD.sub(selfD);
-      const soft = max(size.mul(0.65), float(1.2)).div(cameraFar);
+      const soft = max(size.mul(0.28), float(0.08)).div(cameraFar);
       const depthFade = mix(float(1), smoothstep(float(0), soft, diff), smoothstep(float(0), float(0.002), sceneD));
       const dist = length(cameraPosition.sub(puff.xyz));
       const nearF = smoothstep(max(float(0.45), size.mul(0.15)), max(float(1.6), size.mul(0.55)), dist);
@@ -87,16 +87,25 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const lifeA = shade.w;
       const alpha = shape.mul(lifeA).mul(depthFade).mul(nearF).mul(fogF);
       const heat = shade.z;
-      const warm = vec3(1.0, 0.48, 0.16);
-      const albedo = mix(tint.xyz, warm, heat.mul(0.72));
+      const warm = vec3(1.0, 0.46, 0.14);
+      const albedo = mix(tint.xyz, warm, heat.mul(0.75));
       const world = positionWorld;
       const V = normalize(cameraPosition.sub(world));
-      const N = normalize(V.add(vec3(0, 0.55, 0)));
+      // A downward bias lets a sign under the puff light the belly.
+      const N = normalize(V.add(vec3(0, 0.35, 0)));
       const lit = practicalLit(world, N, V, albedo);
       const scatter = practicalInscatter(world);
-      const rgb = albedo.mul(authoredLiftU).mul(smokeBody)
-        .add(lit.mul(smokeLamp).mul(lampK))
-        .add(scatter.mul(lampK).mul(float(0.12)));
+      // tint.w is 0 on the plume (bright rim, dark core) and 1 on steam (soft body).
+      const rim = smoothstep(float(0.1), float(0.46), rad);
+      const back = mix(float(0.4), float(1.35), rim);
+      const front = mix(float(1.15), float(0.5), rim);
+      const phase = mix(back, front, tint.w);
+      const under = smoothstep(float(0.15), float(0.85), float(1).sub(suv.y));
+      const underK = mix(float(1), float(0.62).add(under.mul(0.7)), lampK);
+      const rgb = albedo.mul(authoredLiftU).mul(smokeBody).mul(phase).mul(underK)
+        .add(lit.mul(smokeLamp).mul(lampK).mul(float(0.5).add(under)))
+        .add(scatter.mul(lampK).mul(float(0.4)))
+        .add(warm.mul(heat).mul(float(1).sub(rim.mul(0.35))).mul(authoredLiftU).mul(float(0.2)));
       return vec4(rgb, alpha);
     })();
     return m;

@@ -117,6 +117,18 @@ function isDrawable(obj: Object3D): obj is Drawable {
   return !!(o.isMesh || o.isPoints || o.isLine || o.isSprite);
 }
 
+/** Saturated sign colours. White is omitted so steam does not pick up a blank panel. */
+const SIGN_NEON: Array<[number, number, number] | null> = [
+  [1.0, 0.18, 0.55],
+  [0.15, 0.85, 1.0],
+  [1.0, 0.55, 0.12],
+  [1.0, 0.12, 0.1],
+  [0.1, 1.0, 0.65],
+  [0.62, 0.25, 1.0],
+  null,
+  [1.0, 0.9, 0.2],
+];
+
 /** Opening seat above the inversion: Little Tokyo azimuth, nose on the pyramid's lower tiers. */
 function defaultPose(): Pose {
   const [x, z] = geoToLocal(34.0505, -118.2405);
@@ -1039,6 +1051,20 @@ export class App {
         : inSoutheast ? Math.max(0, 1 - alt / 110) * 0.5 : 0;
     this.ambience.setMachinery(Math.min(1, districtMach + far.rumble + far.southBay + far.harbor + far.east));
     setRefineryFlame(this.quality.tier, w.windDir, w.params.wind);
+    if (this.smoke) {
+      const fab = this.query.fabricAt(cam.x, cam.z);
+      const neons: { x: number; y: number; z: number; r: number; g: number; b: number }[] = [];
+      for (const s of fab.signs) {
+        const rgb = SIGN_NEON[s.color];
+        if (!rgb) continue;
+        const dx = s.x - cam.x;
+        const dz = s.z - cam.z;
+        if (dx * dx + dz * dz > 42 * 42) continue;
+        neons.push({ x: s.x, y: s.y, z: s.z, r: rgb[0], g: rgb[1], b: rgb[2] });
+        if (neons.length >= 24) break;
+      }
+      this.smoke.setNeons(neons);
+    }
     this.smoke?.update(
       simDt, this.camera, this.query.layout, this.quality.tier,
       w.windDir, w.params.wind, w.params.rain,
@@ -1285,6 +1311,8 @@ export class App {
     x: number; y: number; z: number; heading: number; pitch: number;
     mode: 'walk' | 'fly'; cockpit?: boolean;
     feet?: { x: number; y: number; z: number };
+    lock?: boolean;
+    eye?: number;
   } | null | undefined): boolean {
     if (!p) return false;
     this.query.fabricAt(p.x, p.z);
@@ -1292,11 +1320,14 @@ export class App {
     if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
     this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
     if (p.mode === 'walk') {
+      const eye = p.eye ?? 1.7;
+      this.cams.walk.locked = !!p.lock;
+      this.cams.walk.eye = eye;
       this.cams.walk.pitch = p.pitch;
       this.cams.walk.heading = p.heading;
       if (p.feet) {
         this.cams.walk.pos.set(p.feet.x, p.feet.y, p.feet.z);
-        this.camera.position.set(p.feet.x, p.feet.y + 1.7, p.feet.z);
+        this.camera.position.set(p.feet.x, p.feet.y + eye, p.feet.z);
         this.camera.rotation.set(p.pitch, -p.heading, 0, 'YXZ');
         this.camera.updateMatrixWorld();
       }
@@ -1636,6 +1667,8 @@ export class App {
         if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
         this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
         if (p.mode === 'walk') {
+          this.cams.walk.locked = false;
+          this.cams.walk.eye = 1.7;
           this.cams.walk.pitch = p.pitch;
           this.cams.walk.heading = p.heading;
           if (p.feet) {

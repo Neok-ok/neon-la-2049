@@ -60,10 +60,10 @@ function heroMouths(layout: CityLayout): Mouth[] {
       out.push(mouth({
         x: ox + fx * d + rx * side,
         y, z: oz + fz * d + rz * side,
-        kind: KIND.grate, weight: 1, life: 2.2,
-        size0: 0.18, size1: 0.42, heat: 0.03, radius: 0.1,
-        rise: 0.95, spread: 0.02, floor: y - 0.02, wind: 0.03,
-        turb: 0.08, aspect: 1, alpha: 0.46,
+        kind: KIND.grate, weight: 1, life: 2.35,
+        size0: 0.16, size1: 0.4, heat: 0.04, radius: 0.12,
+        rise: 1.05, spread: 0.03, floor: y - 0.02, wind: 0.22,
+        turb: 0.55, aspect: 1, alpha: 0.5,
       }));
     }
   };
@@ -79,24 +79,24 @@ function heroMouths(layout: CityLayout): Mouth[] {
     const dy = s.y - ground;
     if (near) {
       out.push(mouth({
-        x: s.x, y: s.y, z: s.z,         kind: KIND.stall, weight: 5, life: 1.35,
-        size0: 0.028, size1: 0.055, heat: 0.08, radius: 0.02,
-        rise: 0.72, spread: 0.008, floor: s.y - 0.02, wind: 0.01,
-        turb: 0.04, aspect: 1, alpha: 0.62,
+        x: s.x, y: s.y, z: s.z, kind: KIND.stall, weight: 5, life: 0.4,
+        size0: 0.07, size1: 0.16, heat: 0.92, radius: 0.02,
+        rise: 0.42, spread: 0.01, floor: s.y - 0.02, wind: 0.02,
+        turb: 0.22, aspect: 1, alpha: 0.78,
       }));
     } else if (dy < 0.55) {
       out.push(mouth({
-        x: s.x, y: s.y, z: s.z, kind: KIND.grate, weight: 1, life: 2.2,
-        size0: 0.14, size1: 0.34, heat: 0.02, radius: 0.08,
-        rise: 0.9, spread: 0.02, floor: ground, wind: 0.04,
-        turb: 0.08, aspect: 1, alpha: 0.4,
+        x: s.x, y: s.y, z: s.z, kind: KIND.grate, weight: 1, life: 2.35,
+        size0: 0.16, size1: 0.4, heat: 0.05, radius: 0.14,
+        rise: 1.05, spread: 0.03, floor: ground, wind: 0.24,
+        turb: 0.6, aspect: 1, alpha: 0.52,
       }));
     } else if (dy < 2.6) {
       out.push(mouth({
-        x: s.x, y: s.y, z: s.z, kind: KIND.vent, weight: 1, life: 2.3,
-        size0: 0.16, size1: 0.38, heat: 0.04, radius: 0.08,
-        rise: 0.95, spread: 0.02, floor: ground, wind: 0.05,
-        turb: 0.1, aspect: 1, alpha: 0.42,
+        x: s.x, y: s.y, z: s.z, kind: KIND.vent, weight: 1, life: 2.2,
+        size0: 0.14, size1: 0.36, heat: 0.06, radius: 0.08,
+        rise: 1.0, spread: 0.03, floor: ground, wind: 0.2,
+        turb: 0.45, aspect: 1, alpha: 0.46,
       }));
     }
   }
@@ -119,10 +119,10 @@ function curbMouths(layout: CityLayout, x: number, z: number, tier: Tier): Mouth
     const pose = poseOn(g, id, t, 1, side);
     const y = layout.heightAt(pose.x, pose.z);
     out.push(mouth({
-      x: pose.x, y: y + 0.22, z: pose.z, kind: KIND.grate, weight: 1, life: 2.2,
-      size0: 0.14, size1: 0.34, heat: 0.02, radius: 0.08,
-      rise: 0.9, spread: 0.02, floor: y, wind: 0.04,
-      turb: 0.08, aspect: 1, alpha: 0.4,
+      x: pose.x, y: y + 0.22, z: pose.z, kind: KIND.grate, weight: 1, life: 2.35,
+      size0: 0.16, size1: 0.4, heat: 0.04, radius: 0.1,
+      rise: 1.05, spread: 0.03, floor: y, wind: 0.22,
+      turb: 0.55, aspect: 1, alpha: 0.5,
     }));
     if (out.length >= keep) break;
   }
@@ -159,9 +159,9 @@ export function gatherMouths(
     const f = stacks[i]!;
     out.push(mouth({
       x: f.x, y: f.y, z: f.z, kind: KIND.stack, weight: i === 0 ? 6 : 0.35, life: 9.2,
-      size0: 0.85, size1: 2.1, heat: 0.28, radius: 0.45,
-      rise: 3.2, spread: 0.25, floor: f.y, wind: 0.1,
-      turb: 0.8, aspect: 1, alpha: 0.32,
+      size0: 1.9, size1: 4.8, heat: 0.9, radius: 0.85,
+      rise: 3.4, spread: 0.35, floor: f.y, wind: 0.22,
+      turb: 1.55, aspect: 1, alpha: 0.5,
     }));
   }
   const steam: Mouth[] = [];
@@ -181,11 +181,11 @@ export function gatherMouths(
     const heavy = t.heavy > 0;
     out.push(mouth({
       x: t.x, y: t.y + 0.06, z: t.z, kind: KIND.exhaust,
-      weight: i === 0 ? 3 : 1.4,
-      life: 0.8,
-      size0: heavy ? 0.16 : 0.11, size1: heavy ? 0.34 : 0.26, heat: 0.02,
-      radius: 0.04, rise: 0.12, spread: 0.02, floor: t.y - 0.35, wind: 0,
-      turb: 0.04, aspect: 1, alpha: 0.62,
+      weight: i === 0 ? 5.5 : 1.15,
+      life: 1.35,
+      size0: heavy ? 0.18 : 0.12, size1: heavy ? 0.55 : 0.38, heat: 0.05,
+      radius: 0.05, rise: 0.35, spread: 0.04, floor: t.y - 0.35, wind: 0,
+      turb: 0.22, aspect: 1, alpha: 0.62,
       vx: t.vx, vz: t.vz, fx: t.fx, fz: t.fz,
     }));
   }
@@ -201,36 +201,52 @@ export interface SmokePose {
   mode: 'walk' | 'fly';
   cockpit?: boolean;
   feet?: { x: number; y: number; z: number };
+  /** Hold this eye height. Walk gravity would drop an elevated still. */
+  lock?: boolean;
+  eye?: number;
 }
 
-/** Sidewalk beside the first hero grate, looking across at the column rather than down the lane. */
+/** Grate in the foreground, column rising toward the shop neon behind it. */
 export function streetSteamPose(layout: CityLayout): SmokePose | null {
   const spots = marketSpots(layout);
   const n = spots.noodle;
   if (!n) return null;
-  const lane = carriageNear(layout, n.street.x, n.street.z, 'little-tokyo-market');
-  const ox = lane?.x ?? n.street.x;
-  const oz = lane?.z ?? n.street.z;
-  const fx = lane?.fx ?? Math.sin(n.street.heading);
-  const fz = lane?.fz ?? -Math.cos(n.street.heading);
-  const rx = fz;
-  const rz = -fx;
-  const d = 10;
-  const side = 3.1;
-  const vx = ox + fx * d + rx * side;
-  const vz = oz + fz * d + rz * side;
-  // Close, across the lane, so this grate's own column is the subject.
-  const px = ox + fx * d - rx * 2.4;
-  const pz = oz + fz * d - rz * 2.4;
+  const anchor = n.street;
+  let grate: { x: number; y: number; z: number } | null = null;
+  let best = 1e9;
+  for (const s of marketSteamPoints(layout)) {
+    const ground = layout.heightAt(s.x, s.z);
+    if (s.y - ground > 0.35) continue;
+    const d = Math.hypot(s.x - anchor.x, s.z - anchor.z);
+    if (d < best && d < 90) {
+      best = d;
+      grate = s;
+    }
+  }
+  if (!grate) return null;
+  const dx = anchor.x - grate.x;
+  const dz = anchor.z - grate.z;
+  const len = Math.hypot(dx, dz) || 1;
+  const sx = dx / len;
+  const sz = dz / len;
+  const dist = 2.35;
+  const lateral = 0.45;
+  // Courtyard side, looking through the column toward the street signs.
+  const px = grate.x - sx * dist + sz * lateral;
+  const pz = grate.z - sz * dist - sx * lateral;
   const ground = layout.heightAt(px, pz);
   const eye = ground + 1.7;
-  const lookY = layout.heightAt(vx, vz) + 1.05;
-  const dist = Math.hypot(vx - px, vz - pz) || 1;
+  const lookX = grate.x + sx * 5.5;
+  const lookZ = grate.z + sz * 5.5;
+  const lookY = grate.y + 1.85;
+  const span = Math.hypot(lookX - px, lookZ - pz) || 1;
   return {
     x: px, y: eye, z: pz,
-    heading: Math.atan2(vx - px, -(vz - pz)),
-    pitch: Math.atan2(lookY - eye, dist),
+    heading: Math.atan2(lookX - px, -(lookZ - pz)),
+    pitch: Math.atan2(lookY - eye, span),
     mode: 'walk',
+    lock: true,
+    eye: 1.7,
     feet: { x: px, y: ground, z: pz },
   };
 }
@@ -250,17 +266,22 @@ export function stallPose(layout: CityLayout): SmokePose | null {
   }
   const hx = Math.sin(cook.heading);
   const hz = -Math.cos(cook.heading);
-  const dist = 2.45;
-  // Customer side, looking back at the pot. Behind the cook the frame is the street.
-  const fx = pot.x + hx * dist;
-  const fz = pot.z + hz * dist;
+  const rx = hz;
+  const rz = -hx;
+  // Three-quarter on the customer side so the pot, the wisps, and the lamp are all in frame.
+  const fx = pot.x + hx * 1.15 + rx * 1.45;
+  const fz = pot.z + hz * 1.15 + rz * 1.45;
   const ground = layout.heightAt(fx, fz);
   const eye = ground + 1.7;
+  const lookY = pot.y + 0.22;
+  const span = Math.hypot(pot.x - fx, pot.z - fz) || 1;
   return {
     x: fx, y: eye, z: fz,
     heading: Math.atan2(pot.x - fx, -(pot.z - fz)),
-    pitch: Math.atan2(pot.y - eye, dist),
+    pitch: Math.atan2(lookY - eye, span),
     mode: 'walk',
+    lock: true,
+    eye: 1.7,
     feet: { x: fx, y: ground, z: fz },
   };
 }
@@ -268,43 +289,49 @@ export function stallPose(layout: CityLayout): SmokePose | null {
 export function launchPose(layout: CityLayout): SmokePose | null {
   const plume = readLaunchPlume();
   if (!plume.live) return null;
-  const px = plume.x + 26;
-  const pz = plume.z + 58;
-  const ground = layout.heightAt(px, pz);
-  const eye = ground + 1.7;
-  const lookX = plume.x - 2;
-  const lookZ = plume.z;
-  const lookY = plume.base + 190;
-  const dist = Math.hypot(lookX - px, lookZ - pz) || 1;
+  // Off the gantry side, high enough that the column is a monument against the sky.
+  const dist = 108;
+  const ang = 2.35;
+  const px = plume.x + Math.cos(ang) * dist;
+  const pz = plume.z + Math.sin(ang) * dist;
+  const feetY = plume.base + 36;
+  const lookX = plume.x + 2;
+  const lookZ = plume.z - 2;
+  const lookY = plume.base + 168;
+  const span = Math.hypot(lookX - px, lookZ - pz) || 1;
   return {
-    x: px, y: eye, z: pz,
+    x: px, y: feetY, z: pz,
     heading: Math.atan2(lookX - px, -(lookZ - pz)),
-    pitch: Math.atan2(lookY - eye, dist),
+    pitch: Math.atan2(lookY - feetY, span),
     mode: 'walk',
-    feet: { x: px, y: ground, z: pz },
+    lock: true,
+    eye: 0,
+    feet: { x: px, y: feetY, z: pz },
   };
 }
 
 export function exhaustPose(layout: CityLayout, tails: readonly Tailpipe[]): SmokePose | null {
   const t = tails[0];
   if (!t) return null;
-  // Three-quarter rear, far enough that a short trail reads and does not fill the lens.
-  const dist = 5.8;
-  const side = 3.6;
+  // Bumper height, side-on, looking slightly up so the trail crosses neon and sky.
+  const dist = 1.4;
+  const side = 4.8;
   const rx = -t.fz;
   const rz = t.fx;
   const fx = t.x - t.fx * dist + rx * side;
   const fz = t.z - t.fz * dist + rz * side;
   const ground = layout.heightAt(fx, fz);
-  const eye = Math.max(ground + 1.15, t.y + 0.35);
-  const lookX = t.x - t.fx * 1.6;
-  const lookZ = t.z - t.fz * 1.6;
-  const lookY = t.y + 0.2;
+  const eye = 0.62;
+  const lookX = t.x - t.fx * 3.6;
+  const lookZ = t.z - t.fz * 3.6;
+  const lookY = t.y + 1.05;
   return {
-    x: fx, y: eye, z: fz,
+    x: fx, y: ground + eye, z: fz,
     heading: Math.atan2(lookX - fx, -(lookZ - fz)),
-    pitch: Math.atan2(lookY - eye, Math.hypot(lookX - fx, lookZ - fz) || 1),
+    pitch: Math.atan2(lookY - (ground + eye), Math.hypot(lookX - fx, lookZ - fz) || 1),
     mode: 'walk',
+    lock: true,
+    eye,
     feet: { x: fx, y: ground, z: fz },
   };
 }

@@ -161,27 +161,34 @@ async function settle(page, shot) {
   const deadline = Date.now() + 20000;
   let last = '';
   while (Date.now() < deadline) {
-    const s = await page.evaluate((name) => {
-      const st = window.__nla?.stats?.();
-      const sm = st?.smoke;
-      if (!st || !sm) return { ok: false, why: 'no-smoke' };
-      const cars = st.groundCars ?? 0;
-      const aged = sm.warm <= 16;
-      let ok = false;
-      if (name === 'launch') ok = aged && sm.launch >= 60;
-      else if (name === 'street') ok = aged && sm.grate >= 28;
-      else if (name === 'stall') ok = aged && sm.stall >= 8;
-      else if (name === 'refinery') ok = aged && sm.stack >= 36;
-      else if (name === 'traffic') ok = aged && sm.exhaust >= 12 && cars > 0;
-      const cam = window.__nla?.app?.camera?.position;
-      return {
-        ok, cars, warm: sm.warm, launch: sm.launch, grate: sm.grate, stall: sm.stall,
-        stack: sm.stack, exhaust: sm.exhaust, alive: sm.alive, mouths: sm.mouths,
-        lod0: st.lod0, draws: st.drawCalls, far: st.farMs,
-        cam: cam ? [Math.round(cam.x), Math.round(cam.y), Math.round(cam.z)] : null,
-      };
-    }, shot.name);
+    const s = await Promise.race([
+      page.evaluate((name) => {
+        const st = window.__nla?.stats?.();
+        const sm = st?.smoke;
+        if (!st || !sm) return { ok: false, why: 'no-smoke' };
+        const cars = st.groundCars ?? 0;
+        const aged = sm.warm <= 16;
+        let ok = false;
+        if (name === 'launch') ok = aged && sm.launch >= 60;
+        else if (name === 'street') ok = aged && sm.grate >= 28;
+        else if (name === 'stall') ok = aged && sm.stall >= 8;
+        else if (name === 'refinery') ok = aged && sm.stack >= 36;
+        else if (name === 'traffic') ok = aged && sm.exhaust >= 12 && cars > 0;
+        const cam = window.__nla?.app?.camera?.position;
+        return {
+          ok, cars, warm: sm.warm, launch: sm.launch, grate: sm.grate, stall: sm.stall,
+          stack: sm.stack, exhaust: sm.exhaust, alive: sm.alive, mouths: sm.mouths,
+          lod0: st.lod0, draws: st.drawCalls, far: st.farMs,
+          cam: cam ? [Math.round(cam.x), Math.round(cam.y), Math.round(cam.z)] : null,
+        };
+      }, shot.name),
+      sleep(8000).then(() => ({ ok: false, why: 'eval-timeout' })),
+    ]);
     last = JSON.stringify(s);
+    if (s.why === 'eval-timeout') {
+      log(`  eval timeout ${shot.name}`);
+      return JSON.parse(last);
+    }
     if (!posed && shot.name === 'traffic' && (s.cars ?? 0) > 0) {
       posed = await page.evaluate(() => window.__nla.smokeView('exhaust') === true);
     }

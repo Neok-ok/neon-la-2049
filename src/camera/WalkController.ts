@@ -21,6 +21,9 @@ export class WalkController implements Controller {
   private sitLock = 0;
   /** debug: lets testers cover ground faster (not shown in UI) */
   speedScale = 1;
+  /** Smoke stills hold an authored eye height. Movement clears it. */
+  locked = false;
+  eye = HUMAN.eye;
   /**
    * When set, a flyer near a roof door starts there instead of on the street.
    * Wired from the interior system. Street doors do not use it.
@@ -59,6 +62,14 @@ export class WalkController implements Controller {
   update(dt: number): void {
     if (!this.active) return;
     const inp = this.input;
+    if (this.locked) {
+      if (Math.abs(inp.forward) > 0.2 || Math.abs(inp.strafe) > 0.2) this.locked = false;
+      else {
+        this.camera.position.set(this.pos.x, this.pos.y + this.eye, this.pos.z);
+        this.camera.rotation.set(this.pitch, -this.heading, 0, 'YXZ');
+        return;
+      }
+    }
     applyViewFov(this.camera, 'walk');
     if (gameplayHeld()) {
       inp.consumeLook();

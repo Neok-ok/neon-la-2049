@@ -689,12 +689,22 @@ export function dressBlock(b: MarketBlock, layout: CityLayout): Dressing {
     }
   }
 
-  // courtyard grate + steam, and a catwalk on some blocks
+  // Own stream so the plate and the steam point agree on the main thread and in the chunk worker.
+  // The old draws stay consumed so the catwalk and the bollards do not move.
+  // Block seed differs by one between the enumerator and the chunk, so the plate is keyed off the centre.
+  const grateKey = (Math.imul(Math.round(b.cx * 10), 73856093) ^ Math.imul(Math.round(b.cz * 10), 19349663) ^ 0x91a7e) >>> 0;
+  const grateRng = new Rng(grateKey);
+  if (grateRng.chance(0.7)) {
+    const [gx, gz] = world(grateRng.range(-1.2, 1.2), grateRng.range(-1.2, 1.2));
+    prop('quadY', gx, b.ground + 0.02, gz, grateRng.range(0.2, 1.1), 1.1, 1, 1.1, [0.05, 0.05, 0.055], [0, 0, 0], 0.8, 1);
+    steam.push({ x: gx, y: b.ground + 0.15, z: gz, seed: grateRng.next(), rank: 0 });
+  }
   if (rng.chance(0.7)) {
-    const [gx, gz] = world(rng.range(-2, 2), rng.range(-2, 2));
-    prop('quadY', gx, b.ground + 0.02, gz, rng.range(0, 1.5), 1.1, 1, 1.1, [0.05, 0.05, 0.055], [0, 0, 0], 0.8, 1);
-    steam.push({ x: gx, y: b.ground + 0.15, z: gz, seed: rng.next(), rank: 0 });
-    steam.push({ x: gx + 0.3, y: b.ground + 0.15, z: gz - 0.2, seed: rng.next(), rank: 1 });
+    rng.range(-2, 2);
+    rng.range(-2, 2);
+    rng.range(0, 1.5);
+    rng.next();
+    rng.next();
   }
 
   if (rng.chance(0.38) && b.la > 30) {
