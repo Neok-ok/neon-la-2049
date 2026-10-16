@@ -80,9 +80,9 @@ function heroMouths(layout: CityLayout): Mouth[] {
     if (near) {
       out.push(mouth({
         x: s.x, y: s.y, z: s.z, kind: KIND.stall, weight: 5, life: 0.48,
-        size0: 0.05, size1: 0.11, heat: 1, radius: 0.02,
-        rise: 0.22, spread: 0.006, floor: s.y - 0.02, wind: 0.012,
-        turb: 0.2, aspect: 1, alpha: 0.9,
+        size0: 0.034, size1: 0.07, heat: 1, radius: 0.02,
+        rise: 0.22, spread: 0.01, floor: s.y - 0.02, wind: 0.012,
+        turb: 0.28, aspect: 1, alpha: 0.78,
       }));
     } else if (dy < 0.55) {
       // Baseline courtyard card. The visible plate is marketPlates.
@@ -163,7 +163,7 @@ export function gatherMouths(
     const f = stacks[i]!;
     out.push(mouth({
       x: f.x, y: f.y, z: f.z, kind: KIND.stack, weight: i === 0 ? 6 : 0.35, life: 9.2,
-      size0: 2.05, size1: 4.4, heat: 0.95, radius: 0.85,
+      size0: 2.45, size1: 5.1, heat: 0.95, radius: 0.85,
       rise: 3.4, spread: 0.3, floor: f.y, wind: 0.2,
       turb: 1.7, aspect: 1, alpha: 0.5,
     }));
@@ -187,9 +187,9 @@ export function gatherMouths(
       x: t.x, y: t.y + 0.06, z: t.z, kind: KIND.exhaust,
       weight: i === 0 ? 5.5 : 1.15,
       life: 1.2,
-      size0: heavy ? 0.08 : 0.055, size1: heavy ? 0.22 : 0.15, heat: 0.02,
+      size0: heavy ? 0.1 : 0.07, size1: heavy ? 0.28 : 0.18, heat: 0.02,
       radius: 0.04, rise: 0.7, spread: 0.02, floor: t.y - 0.35, wind: 0,
-      turb: 0.28, aspect: 1, alpha: 0.7,
+      turb: 0.28, aspect: 1, alpha: 0.88,
       vx: t.vx, vz: t.vz, fx: t.fx, fz: t.fz,
     }));
   }
@@ -231,16 +231,16 @@ export function streetSteamPose(layout: CityLayout): SmokePose | null {
   const len = Math.hypot(dx, dz) || 1;
   const sx = dx / len;
   const sz = dz / len;
-  const dist = 1.85;
-  const lateral = 0.55;
-  // Plate large in the lower frame, column shearing toward the alley neon.
+  const dist = 2.05;
+  const lateral = 0.4;
+  // Grate in the lower third, the column rising through the frame toward the alley.
   const px = grate.x + sx * dist - sz * lateral;
   const pz = grate.z + sz * dist + sx * lateral;
   const ground = layout.heightAt(px, pz);
-  const eye = ground + 1.55;
-  const lookX = grate.x - sz * 0.85;
-  const lookZ = grate.z + sx * 0.85;
-  const lookY = grate.y + 0.22;
+  const eye = ground + 1.62;
+  const lookX = grate.x - sz * 0.7;
+  const lookZ = grate.z + sx * 0.7;
+  const lookY = grate.y + 0.9;
   const span = Math.hypot(lookX - px, lookZ - pz) || 1;
   return {
     x: px, y: eye, z: pz,
@@ -248,7 +248,7 @@ export function streetSteamPose(layout: CityLayout): SmokePose | null {
     pitch: Math.atan2(lookY - eye, span),
     mode: 'walk',
     lock: true,
-    eye: 1.55,
+    eye: 1.62,
     feet: { x: px, y: ground, z: pz },
   };
 }

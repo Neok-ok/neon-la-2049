@@ -292,8 +292,8 @@ export class SmokeField {
       }
       if (p.kind === 0) {
         const edge = Math.min(1, Math.hypot(p.offS, p.offD) / (6 + p.along * 16));
-        const nozzle = Math.max(0, 1 - p.along / 0.12);
-        heat = Math.max(heat, nozzle * (0.45 + (1 - edge) * 0.7));
+        const nozzle = Math.max(0, 1 - p.along / 0.14);
+        heat = Math.max(heat, nozzle * 1.05);
         lifeA = Math.min(0.55, lifeA * (0.12 + edge * 0.7 + nozzle * 0.8));
         size *= 0.42 + p.seed * 0.8;
         size = Math.min(size, Math.max(4.5, dist * 0.18));
@@ -387,7 +387,7 @@ export class SmokeField {
       const wz = Math.sin(this.windDir) * 0.48;
       return { x: wx, y: 1, z: wz, w: 1.22 * jitter };
     }
-    if (p.kind === 5) return { x: 0, y: 1, z: 0, w: 2.8 * jitter };
+    if (p.kind === 5) return { x: 0, y: 1, z: 0, w: 5.2 * jitter };
     if (p.kind === 4 || p.kind === 3) {
       const h = Math.min(1, Math.max(0, (p.y - p.floor) / 2.6));
       const wx = Math.cos(this.windDir) * h * 1.35;
