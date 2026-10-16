@@ -438,7 +438,7 @@ export class SmokeField {
       const wz = Math.sin(this.windDir) * 0.55;
       return { x: wx, y: 1, z: wz, w: (1.15 + p.along * 0.7) * jitter };
     }
-    if (p.kind === 5) return { x: Math.sin(p.seed * 12) * 0.15, y: 1, z: Math.cos(p.seed * 9) * 0.15, w: 2.3 * jitter };
+    if (p.kind === 5) return { x: Math.sin(p.seed * 12) * 0.18, y: 1, z: Math.cos(p.seed * 9) * 0.18, w: 3.1 * jitter };
     if (p.kind === 4 || p.kind === 3) {
       const h = Math.min(1, Math.max(0, (p.y - p.floor) / 2.4));
       const wx = Math.cos(this.windDir) * h * 2.4;
