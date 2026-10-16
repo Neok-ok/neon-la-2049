@@ -5,7 +5,6 @@ import { uniform } from 'three/tsl';
 import * as TSL from 'three/tsl';
 import { U } from '../../atmosphere/uniforms';
 import { resources } from '../../core/memory';
-import { softParticles } from 'three/addons/tsl/utils/SoftParticles.js';
 import { authoredLiftU, lanternPool, practicalInscatter, practicalLit } from '../../lighting/shade.ts';
 import { smokeMask } from './noise';
 
@@ -13,7 +12,8 @@ const T = TSL as any;
 const {
   Fn, attribute, vec2, vec3, vec4, normalize, cross, cameraPosition, positionWorld,
   sin, cos, smoothstep, length, float, max, min, abs, floor, mod, uv, mix, exp, pow, texture,
-  positionLocal, dot, step,
+  positionLocal, positionView, dot, step, clamp, viewportDepthTexture,
+  perspectiveDepthToViewZ, cameraNear, cameraFar,
 } = T;
 
 /** Display-space body. 1 would paint the albedo at full exposure; soot sits under that. */
@@ -96,11 +96,15 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const shapePow = mix(mix(float(0.8), float(1.15), columnSoft), float(1.35), plumeK);
       const shape = pow(max(torn.mul(edge).mul(grain).mul(fray), float(0)), shapePow);
       const size = max(puff.w, float(0.4));
-      // three.js softParticles (NVIDIA / Lorach): fade in view metres where the
-      // billboard meets opaque depth. The band stays under a couple of metres so a
-      // launch puff in front of the gantry is not erased.
+      // Soft particles, NVIDIA / Lorach, the same curve as three's softParticles().
+      // Inlined: that helper names a GLSL argument `input`, which WebGL rejects.
       const band = min(max(size.mul(0.16), float(0.18)), float(1.6));
-      const depthFade = softParticles({ opacity: float(1), distance: band, contrast: float(1.35) });
+      const sceneZ = perspectiveDepthToViewZ(viewportDepthTexture(), cameraNear, cameraFar);
+      const delta = clamp(positionView.z.sub(sceneZ).div(band), 0, 1);
+      const above = step(float(0.5), delta);
+      const folded = mix(delta, float(1).sub(delta), above);
+      const half = pow(clamp(folded.mul(2), 0, 1), float(1.35)).mul(0.5);
+      const depthFade = mix(half, float(1).sub(half), above);
       const dist = length(cameraPosition.sub(puff.xyz));
       const nearF = smoothstep(max(float(0.45), size.mul(0.15)), max(float(1.6), size.mul(0.55)), dist);
       const fogF = exp(dist.mul(U.fogDensity).mul(-3.2));
