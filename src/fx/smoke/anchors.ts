@@ -152,10 +152,10 @@ export function gatherMouths(
       turb: 1.35, aspect: 1, alpha: 0.58,
     }));
     out.push(mouth({
-      x: plume.x, y: base + 2, z: plume.z, kind: KIND.ground, weight: 1, life: 4.2,
-      size0: 5, size1: 12, heat: 0.08, radius: 6,
-      rise: 1.6, spread: 0.8, floor: base, wind: 0.08,
-      turb: 0.6, aspect: 0.9, alpha: 0.16,
+      x: plume.x, y: base + 1, z: plume.z, kind: KIND.ground, weight: 1, life: 3.4,
+      size0: 3.2, size1: 6.5, heat: 0.04, radius: 4,
+      rise: 0.8, spread: 0.4, floor: base, wind: 0.06,
+      turb: 0.35, aspect: 0.85, alpha: 0.08,
     }));
   }
   const stacks = flamesNear(x, z, 520, STACK_KEEP[tier]);
@@ -184,12 +184,12 @@ export function gatherMouths(
     const t = tails[i]!;
     const heavy = t.heavy > 0;
     out.push(mouth({
-      x: t.x, y: t.y + 0.06, z: t.z, kind: KIND.exhaust,
-      weight: i === 0 ? 6.5 : 0.7,
-      life: 1.7,
-      size0: heavy ? 0.13 : 0.085, size1: heavy ? 0.34 : 0.2, heat: 0.02,
-      radius: 0.045, rise: 0.95, spread: 0.02, floor: t.y - 0.35, wind: 0,
-      turb: 0.32, aspect: 1, alpha: 0.72,
+      x: t.x, y: t.y + 0.04, z: t.z, kind: KIND.exhaust,
+      weight: i === 0 ? 8 : 0.22,
+      life: 2.4,
+      size0: heavy ? 0.11 : 0.07, size1: heavy ? 0.28 : 0.16, heat: 0,
+      radius: 0.04, rise: 0.4, spread: 0.01, floor: t.y, wind: 0,
+      turb: 0.2, aspect: 1, alpha: 0.58,
       vx: t.vx, vz: t.vz, fx: t.fx, fz: t.fz,
     }));
   }
@@ -294,17 +294,16 @@ export function stallPose(layout: CityLayout): SmokePose | null {
 export function launchPose(layout: CityLayout): SmokePose | null {
   const plume = readLaunchPlume();
   if (!plume.live) return null;
-  // East of the stack, close enough that the column fills the frame.
-  // The gantry stands to the west. The nozzle sits in the lower frame and the
-  // shaft runs out the top against the sky.
-  const dist = 92;
-  const ang = 0.28;
+  // Far enough that the shaft above the stack is sky, close enough that the
+  // nozzle stays in the lower frame. The gantry stands to the west.
+  const dist = 116;
+  const ang = 0.62;
   const px = plume.x + Math.cos(ang) * dist;
   const pz = plume.z + Math.sin(ang) * dist;
-  const feetY = plume.base + 16;
+  const feetY = plume.base + 5;
   const lookX = plume.x;
   const lookZ = plume.z;
-  const lookY = plume.base + 62;
+  const lookY = plume.base + 46;
   const span = Math.hypot(lookX - px, lookZ - pz) || 1;
   return {
     x: px, y: feetY, z: pz,
@@ -320,19 +319,19 @@ export function launchPose(layout: CityLayout): SmokePose | null {
 export function exhaustPose(layout: CityLayout, tails: readonly Tailpipe[]): SmokePose | null {
   const t = tails[0];
   if (!t) return null;
-  // Low rear three-quarter. The car sits in the lower frame and the trail
-  // climbs into the sky instead of blooming on the lamp.
-  const dist = 6.8;
-  const side = 2.5;
+  // Close, just above the boot. The car sits low in frame and the column
+  // climbs off the bumper gap into the sky, clear of the lamps.
+  const dist = 4.9;
+  const side = 0.85;
   const rx = -t.fz;
   const rz = t.fx;
   const fx = t.x - t.fx * dist + rx * side;
   const fz = t.z - t.fz * dist + rz * side;
   const ground = layout.heightAt(fx, fz);
-  const eye = 0.58;
-  const lookX = t.x - t.fx * 1.4;
-  const lookZ = t.z - t.fz * 1.4;
-  const lookY = t.y + 3.4;
+  const eye = 1.42;
+  const lookX = t.x - t.fx * 0.4;
+  const lookZ = t.z - t.fz * 0.4;
+  const lookY = t.y + 1.15;
   return {
     x: fx, y: ground + eye, z: fz,
     heading: Math.atan2(lookX - fx, -(lookZ - fz)),

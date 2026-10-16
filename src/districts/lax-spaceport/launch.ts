@@ -16,7 +16,7 @@ import { writeLaunchPlume } from '../../fx/smoke/bridge';
 
 const T = TSL as any;
 const {
-  Fn, attribute, vec3, vec4, normalize, cross, cameraPosition, sin, smoothstep, length, float, max, clamp, exp, mix,
+  Fn, attribute, vec3, vec4, normalize, cross, cameraPosition, sin, smoothstep, length, float, max, clamp, exp,
 } = T;
 
 const DUR = 36;
@@ -92,10 +92,8 @@ function material(): MeshBasicNodeMaterial {
     const att = exp(fogDepth(cameraPosition, c.xyz).mul(fogK.negate()));
     const day = U.night.mul(0.55).add(0.45);
     const flick = sin(U.time.mul(13.0).add(k.z)).mul(0.05).add(1);
-    const sheet = column.add(head);
-    const base = float(1).sub(column).sub(head);
-    // Column and cap drop back. The pad burn stays brighter so the root still reads as fire.
-    const cover = mix(float(1), launchColumnCover, sheet.add(max(base, float(0)).mul(0.55)));
+    // Particles own the nozzle. Leaving the pad card up cuts the column with a flat slab.
+    const cover = launchColumnCover;
     const a = col.mul(spread).mul(att).mul(day).mul(flick).mul(launchGain).mul(launchTier).mul(3.1).mul(cover);
     return vec4(a, float(1));
   })();

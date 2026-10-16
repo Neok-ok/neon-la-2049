@@ -110,13 +110,15 @@ export class SmokePool {
       const ang = r.next() * Math.PI * 2;
       const n2 = Math.sin(along * 8.4 + 2.4) + Math.sin(along * 19.2) * 0.45;
       const n3 = Math.cos(along * 11.6 + ang) + Math.cos(along * 23.5 + 0.6) * 0.4;
-      const reach = (8 + along * 20) * pinch;
+      // Narrow at the throat, then a wide shaft. The foot must not become a disc.
+      const throat = Math.min(1, along / 0.07);
+      const reach = (10 + along * 78) * pinch * (0.42 + throat * 0.58);
       const rad = Math.pow(r.next(), 0.42) * reach;
       // A slow bend shared by the whole slice, so the shaft billows instead of staying a tube.
       const bendS = Math.sin(along * 5.2) * (3 + along * 18);
       const bendD = Math.cos(along * 3.6 + 0.7) * (2.4 + along * 14);
-      p.offS = Math.cos(ang) * rad + n2 * (2.2 + along * 8) * pinch + bendS;
-      p.offD = Math.sin(ang) * rad + n3 * (2 + along * 7) * pinch + bendD;
+      p.offS = Math.cos(ang) * rad + n2 * (3.4 + along * 12) * pinch + bendS;
+      p.offD = Math.sin(ang) * rad + n3 * (3 + along * 10) * pinch + bendD;
       x = plume.x + p.offS;
       y = plume.base + along * 420;
       z = plume.z + p.offD;
@@ -157,13 +159,14 @@ export class SmokePool {
       const edge = Math.min(1, Math.hypot(p.offS, p.offD) / (6 + p.along * 16));
       // The still looks up the column. Heat has to reach the lower frame, then die
       // so the shaft stays a backlit grey mass against the sky.
-      const nozzle = Math.max(0, 1 - p.along / 0.16);
-      p.shade = 0.42 + edge * 0.65 + r.next() * 0.35;
-      p.heat = nozzle * (0.85 + r.next() * 0.3);
-      const grow = 0.48 + Math.sin(p.along * Math.PI) * 0.28 + r.next() * 0.32;
-      p.size0 *= grow;
-      p.size1 *= grow;
-      p.alpha = Math.min(0.58, p.alpha * (0.12 + edge * 0.62 + nozzle * 0.7 + r.next() * 0.1));
+      // Heat stays in the throat. A hot disc any higher reads as a slab across the shaft.
+      const nozzle = Math.max(0, 1 - p.along / 0.035);
+      p.shade = 0.38 + edge * 0.72 + r.next() * 0.3;
+      p.heat = nozzle * (0.9 + r.next() * 0.25);
+      const grow = 0.55 + Math.sin(p.along * Math.PI) * 0.34 + r.next() * 0.28;
+      p.size0 *= grow * (nozzle > 0.5 ? 0.62 : 1);
+      p.size1 *= grow * (nozzle > 0.5 ? 0.7 : 1);
+      p.alpha = Math.min(0.4, p.alpha * (0.1 + edge * 0.55 + nozzle * 0.22 + r.next() * 0.08));
       if (p.along > 0.8) {
         const t = (p.along - 0.8) / 0.2;
         const tear = 0.62 + Math.abs(Math.sin(p.seed * 17 + p.along * 23)) * 0.45;
@@ -240,33 +243,32 @@ export class SmokePool {
       p.alpha *= (1 - along * 0.45) * (1 - Math.min(0.62, edge * 0.55));
     }
     if (m.kind === KIND.exhaust) {
-      const along = r.next();
+      // Denser on the bumper than in the thin top, so the trail reads as attached.
+      const along = Math.pow(r.next(), 1.15);
       p.along = along;
-      const back = 0.55 + along * 4.6;
-      const side = (r.next() * 2 - 1) * (0.02 + along * 0.18);
-      const rx = -m.fz;
-      const rz = m.fx;
-      const g = gust(r.next(), along * 2.2, back);
-      p.x = m.x - m.fx * back + rx * side + g.x * along * 0.22;
-      p.y = m.y + 0.02 + along * 2.15 + (r.next() - 0.5) * 0.06;
-      p.z = m.z - m.fz * back + rz * side + g.z * along * 0.22;
-      p.age = along * p.life * 0.4;
-      p.vx = m.vx;
-      p.vz = m.vz;
-      p.vy = 0.35 + along * 0.7;
-      p.size0 *= 0.7 + along * 0.45;
-      p.size1 *= 0.75 + along * 0.55;
-      // A gap at the bumper, then a trail that thins as it climbs. Not a ball on the lamp.
-      const body = Math.sin(Math.min(1, along) * Math.PI);
-      p.alpha *= (0.28 + along * 0.4) * (0.5 + body * 0.8);
-      p.shade = 0.42 + r.next() * 0.35;
+      const fl = Math.hypot(m.fx, m.fz) || 1;
+      // Unit forward, not road speed. A frozen car would otherwise drive the puff through the boot.
+      p.vx = m.fx / fl;
+      p.vz = m.fz / fl;
+      p.vy = 0;
+      p.ox = m.x;
+      p.oz = m.z;
+      p.floor = m.y;
+      p.size0 *= 0.9 + along * 0.45;
+      p.size1 *= 1.05 + along * 0.7;
+      const gap = along < 0.03 ? 0.25 + (along / 0.03) * 0.75 : 1;
+      const fade = Math.pow(1 - along, 0.55);
+      p.alpha *= gap * (0.42 + fade * 0.75);
+      p.shade = 0.48 + r.next() * 0.3;
+      this.placeExhaust(p);
     }
     if (m.kind === KIND.ground && plume && plume.live) {
-      const rr = 6 + Math.sqrt(r.next()) * 16;
+      // Skirt outside the shaft. A ring through the foot stacks into a slab.
+      const rr = 28 + Math.sqrt(r.next()) * 26;
       const a2 = r.next() * Math.PI * 2;
       p.x = plume.x + Math.cos(a2) * rr;
       p.z = plume.z + Math.sin(a2) * rr;
-      p.y = plume.base + r.next() * 12;
+      p.y = plume.base + r.next() * 3.2;
       p.ox = plume.x;
       p.oz = plume.z;
       const out = Math.hypot(p.x - plume.x, p.z - plume.z) || 1;
@@ -305,6 +307,11 @@ export class SmokePool {
         list[w++] = p;
         continue;
       }
+      if (p.kind === KIND.exhaust) {
+        this.placeExhaust(p);
+        list[w++] = p;
+        continue;
+      }
       const u = p.age / p.life;
       const shear = 1 + Math.min(1.4, Math.max(0, p.y - p.floor) / 70);
       const sink = rain * (p.kind === KIND.ground ? 0.15 : 0.45);
@@ -318,12 +325,6 @@ export class SmokePool {
         p.vz = approach(p.vz, (p.oz + sway * 0.7 - p.z) * 3.4 + n.z * 0.22 + c.z * 0.16, dt, 0.05);
         const rise = p.y > cap ? -1.1 : p.rise * (0.9 - u);
         p.vy = approach(p.vy, rise + n.y * 0.08, dt, 0.05);
-      } else if (p.kind === KIND.exhaust) {
-        const n = gust(p.seed, p.age, p.along * 4);
-        const c = curl(p.seed, p.age * 1.4, p.along * 6);
-        p.vy = approach(p.vy, 0.12 * (1 - u) + n.y * 0.04 + c.y * 0.05, dt, 0.28);
-        p.vx += c.x * 0.08 * p.along;
-        p.vz += c.z * 0.08 * p.along;
       } else if (p.kind === KIND.grate || p.kind === KIND.vent) {
         const h = Math.max(0, p.y - p.floor);
         const h01 = Math.min(1, h / 2.2);
@@ -360,6 +361,32 @@ export class SmokePool {
       list[w++] = p;
     }
     list.length = w;
+  }
+
+  /** Ribbon behind the bumper. Climbs, and stays off the lamp. */
+  private placeExhaust(p: Puff): void {
+    const along = Math.min(0.98, p.along);
+    let fx = p.vx;
+    let fz = p.vz;
+    const fl = Math.hypot(fx, fz);
+    if (fl < 1e-4) {
+      fx = 0;
+      fz = 1;
+    } else {
+      fx /= fl;
+      fz /= fl;
+    }
+    const rx = -fz;
+    const rz = fx;
+    const n = gust(p.seed, p.age * 0.65, along * 5);
+    // Stay just behind the bumper. Walking the trail toward the lens swings it off the car.
+    // Clear of the boot so the root is visible behind the bumper, not eaten by the body.
+    const back = 0.88 + n.z * along * 0.06;
+    const climb = 0.02 + along * 4.6;
+    const side = (p.seed - 0.5) * (0.05 + along * 0.14) + n.x * (0.03 + along * 0.06);
+    p.x = p.ox - fx * back + rx * side;
+    p.y = p.floor + climb + n.y * along * 0.2;
+    p.z = p.oz - fz * back + rz * side;
   }
 
   /** Hold a vertical column on the pad. Lobes drift, the nozzle stays put. */

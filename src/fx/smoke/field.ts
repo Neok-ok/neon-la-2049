@@ -28,7 +28,7 @@ const TINT: Record<(typeof KIND_NAME)[number], [number, number, number]> = {
   vent: [0.34, 0.36, 0.4],
   grate: [0.3, 0.32, 0.36],
   stall: [1.15, 0.42, 0.12],
-  exhaust: [0.52, 0.5, 0.47],
+  exhaust: [0.58, 0.56, 0.52],
 };
 
 export interface NeonSign {
@@ -340,20 +340,21 @@ export class SmokeField {
         heat *= Math.max(0, 1 - h * h);
       }
       if (p.kind === 0) {
-        const edge = Math.min(1, Math.hypot(p.offS, p.offD) / (6 + p.along * 16));
-        const nozzle = Math.max(0, 1 - p.along / 0.16);
-        heat = Math.max(heat, nozzle * 1.05);
-        lifeA = Math.min(0.58, lifeA * (0.14 + edge * 0.75 + nozzle * 0.72));
-        size *= 0.42 + p.seed * 0.8;
-        size = Math.min(size, Math.max(6, dist * 0.36));
+        const edge = Math.min(1, Math.hypot(p.offS, p.offD) / (10 + p.along * 28));
+        const nozzle = Math.max(0, 1 - p.along / 0.035);
+        heat = Math.max(heat, nozzle * 1.15);
+        lifeA = Math.min(0.5, lifeA * (0.28 + edge * 0.78 + nozzle * 0.24));
+        size *= 0.88 + p.seed * 0.32;
+        const puffCap = this.tier === 'low' ? 18 : this.tier === 'medium' ? 15 : 12;
+        size = Math.min(size, puffCap);
         if (dist < 22) lifeA *= Math.min(1, Math.max(0, (dist - 8) / 14));
       } else if (p.kind === 2) {
         size *= 0.88 + p.seed * 0.28;
       } else if (p.kind === 6) {
-        size *= 0.9 + p.along * 0.4;
-        lifeA = Math.min(0.78, lifeA);
+        size *= 0.9 + p.along * 0.7;
+        lifeA = Math.min(0.72, lifeA);
       } else if (p.kind === 1) {
-        size = Math.min(size, Math.max(4, dist * 0.14));
+        size = Math.min(size, Math.max(2.5, dist * 0.06));
       }
       const o = i * 4;
       puff[o] = p.x;
@@ -380,8 +381,8 @@ export class SmokeField {
       const rgb = TINT[name];
       let shadeK = p.shade;
       if (p.kind === 0) {
-        const edge = Math.min(1, Math.hypot(p.offS, p.offD) / (6 + p.along * 16));
-        shadeK = Math.min(1.35, 0.55 + edge * 0.65 + p.seed * 0.28);
+        const edge = Math.min(1, Math.hypot(p.offS, p.offD) / (10 + p.along * 28));
+        shadeK = Math.min(1.25, 0.42 + edge * 0.78 + p.seed * 0.22);
       } else if (p.kind === 2) {
         const mouth = Math.max(0, 1 - Math.max(0, p.y - p.floor) / 10);
         shadeK *= 0.35 + p.seed * 0.85 + mouth * 0.2;
@@ -406,7 +407,7 @@ export class SmokeField {
       tint[o + 1] = tg;
       tint[o + 2] = tb;
       // 0 backlit plume, 0.82 filled stack, 0.28 backlit exhaust, 1 soft steam.
-      tint[o + 3] = p.kind === 0 ? 0 : p.kind === 2 ? 0.72 : p.kind === 6 ? 0.55 : 1;
+      tint[o + 3] = p.kind === 0 ? 0 : p.kind === 2 ? 0.72 : p.kind === 6 ? 0.84 : 1;
       const stretch = this.stretchOf(p);
       move[o] = stretch.x;
       move[o + 1] = stretch.y;
@@ -428,10 +429,14 @@ export class SmokeField {
       return { x: this.plumeUp.x, y: this.plumeUp.y, z: this.plumeUp.z, w: 1.35 * jitter };
     }
     if (p.kind === 6) {
-      const L = Math.hypot(p.vx, p.vz);
-      const rise = 0.18 + p.along * 0.28;
-      if (L > 0.15) return { x: p.vx / L, y: rise, z: p.vz / L, w: (2.6 + p.along * 0.9) * jitter };
-      return { x: 0, y: 1, z: 0, w: 2.4 };
+      const L = Math.hypot(p.vx, p.vz) || 1;
+      // Up the trail, leaning back off the bumper. A lane-aligned card faces the lens and reads as haze.
+      return {
+        x: -p.vx / L * 0.08,
+        y: 1,
+        z: -p.vz / L * 0.08,
+        w: (2.15 + p.along * 0.7) * jitter,
+      };
     }
     if (p.kind === 2) {
       const wx = Math.cos(this.windDir) * 0.55;
