@@ -254,4 +254,5 @@ for (const tier of TIERS) {
   }
 }
 
-await browser.close();
+await Promise.race([browser.close(), sleep(4000)]);
+process.exit(0);
