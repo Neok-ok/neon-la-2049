@@ -101,8 +101,10 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       // A downward bias lets a sign under the puff light the belly.
       const N = normalize(V.add(vec3(0, 0.35, 0)));
       // 0 is a backlit plume (dark core, bright rim). Steam and the stack stay filled.
-      const rim = smoothstep(float(0.05), float(0.4), rad);
-      const back = mix(float(0.16), float(1.85), rim);
+      const rim = smoothstep(float(0.05), float(0.42), rad);
+      // Noise breaks the bright rim so a lone puff is not a hard ring.
+      const rimNoise = float(0.35).add(n.r.mul(0.9));
+      const back = mix(float(0.22), float(1.2).mul(rimNoise), rim);
       const front = mix(float(1.08), float(0.4), rim);
       const phase = mix(back, front, softBody);
       const under = smoothstep(float(0.1), float(0.88), float(1).sub(suv.y));

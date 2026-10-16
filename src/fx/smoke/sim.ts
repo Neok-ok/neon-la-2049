@@ -175,24 +175,23 @@ export class SmokePool {
       const along = Math.min(0.97, 0.004 + r.next() * 0.97);
       p.along = along;
       const ang = r.next() * Math.PI * 2;
-      const lobe = 0.62 + billow(along, m.x * 0.01 + m.z * 0.008) * 0.55;
-      const neck = along < 0.05 ? 0.72 + (along / 0.05) * 0.28 : 1;
-      const reach = (7.4 + along * 12.5) * lobe * neck;
-      const rad = Math.pow(r.next(), 0.38) * reach;
-      const lobe2 = Math.sin(along * 9.2 + m.z * 0.02) + Math.sin(along * 3.4 + m.x * 0.01) * 0.7;
-      p.offS = Math.cos(ang) * rad + lobe2 * along * 4.2;
-      p.offD = Math.sin(ang) * rad + Math.cos(along * 7.1 + m.x * 0.01) * along * 3.8;
-      p.y = m.y + along * 82;
+      const lobe = billow(along * 1.3, m.x * 0.01 + m.z * 0.008);
+      const neck = along < 0.04 ? 0.78 + (along / 0.04) * 0.22 : 1;
+      // Radius stays inside the puff size so the column is one mass, not a stipple.
+      const reach = (2.4 + along * 5.8) * (0.72 + lobe * 0.4) * neck;
+      const rad = Math.pow(r.next(), 0.45) * reach;
+      const lobe2 = Math.sin(along * 8.4 + m.z * 0.02) + Math.sin(along * 3.1 + m.x * 0.01) * 0.55;
+      p.offS = Math.cos(ang) * rad + lobe2 * along * 1.6;
+      p.offD = Math.sin(ang) * rad + Math.cos(along * 6.2 + m.x * 0.01) * along * 1.4;
+      p.y = m.y + along * 68;
       p.x = m.x + p.offS;
       p.z = m.z + p.offD;
-      p.shade = 0.18 + r.next() * 0.95;
-      // Heat stays in the mouth. A long orange gradient reads as a smooth cap.
-      const belly = Math.max(0, 1 - along / 0.07);
-      p.heat = belly * (0.4 + r.next() * 0.85);
-      p.alpha *= 0.48 + r.next() * 0.5;
-      const mouth = along < 0.08 ? 0.4 + r.next() * 0.45 : 0.6 + r.next() * 0.75;
-      p.size0 *= mouth;
-      p.size1 *= (0.5 + along * 0.45) * (0.6 + Math.abs(Math.sin(along * 15 + r.next() * 8)) * 0.65);
+      p.shade = 0.35 + r.next() * 0.8;
+      const belly = Math.max(0, 1 - along / 0.1);
+      p.heat = belly * belly * (0.75 + r.next() * 0.4);
+      p.alpha *= (0.62 + (1 - along) * 0.28) * (0.7 + r.next() * 0.3);
+      p.size0 *= 0.8 + r.next() * 0.45;
+      p.size1 *= (0.75 + along * 0.35) * (0.8 + Math.abs(Math.sin(along * 11 + r.next() * 6)) * 0.35);
     }
     if (m.kind === KIND.stall) {
       const filament = Math.floor(r.next() * 7);
@@ -361,7 +360,7 @@ export class SmokePool {
     const swell = 1 + Math.sin(p.age * 0.31 + p.seed * 13) * (0.1 + along * 0.18);
     const n = gust(p.seed, p.age, along * 28);
     const c = curl(p.seed, p.age * 0.6, along * 16);
-    const amp = 1.8 + along * 10;
+    const amp = 1.2 + along * 5.5;
     const crown = along > 0.84 ? (along - 0.84) * 0.6 : 0;
     p.y = plume.base + along * 420 + (n.y + c.y * 0.6) * (1.2 + along * 5);
     p.x = plume.x + p.offS * swell + (n.x * 0.45 + c.x) * amp * (1 + crown);
@@ -373,16 +372,16 @@ export class SmokePool {
   private placeStack(p: Puff, wind: Wind): void {
     const u = Math.min(1, p.age / Math.max(0.2, p.life));
     const along = Math.min(0.98, p.along + u * 0.02);
-    const height = 82;
-    const lean = (1.4 + Math.min(12, Math.max(0, wind.speed)) * 0.45) * along * along;
+    const height = 68;
+    const lean = (1.2 + Math.min(12, Math.max(0, wind.speed)) * 0.4) * along * along;
     const n = gust(p.seed, p.age * 0.8, along * 18);
     const c = curl(p.seed, p.age * 0.55, along * 14);
-    const lobe = billow(along * 1.7, p.seed + p.ox * 0.01);
-    const body = (2.1 + lobe * 3.6) * (0.35 + along);
-    const swell = 0.82 + lobe * 0.35;
-    p.y = p.floor + along * height + (n.y + c.y) * along * 4.2;
-    p.x = p.ox + Math.cos(wind.dir) * lean + p.offS * swell + (c.x * 0.7 + n.x * 0.4) * body;
-    p.z = p.oz + Math.sin(wind.dir) * lean + p.offD * swell + (c.z * 0.7 + n.z * 0.4) * body;
+    const lobe = billow(along * 1.4, p.seed + p.ox * 0.01);
+    const body = (0.7 + lobe * 1.5) * (0.2 + along * 0.85);
+    const swell = 0.9 + lobe * 0.22;
+    p.y = p.floor + along * height + (n.y * 0.4 + c.y * 0.3) * along * 2.4;
+    p.x = p.ox + Math.cos(wind.dir) * lean + p.offS * swell + (c.x * 0.55 + n.x * 0.3) * body;
+    p.z = p.oz + Math.sin(wind.dir) * lean + p.offD * swell + (c.z * 0.55 + n.z * 0.3) * body;
   }
 
   kindCount(kind: KindId): number {

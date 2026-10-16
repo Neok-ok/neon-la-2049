@@ -79,10 +79,10 @@ function heroMouths(layout: CityLayout): Mouth[] {
     const dy = s.y - ground;
     if (near) {
       out.push(mouth({
-        x: s.x, y: s.y, z: s.z, kind: KIND.stall, weight: 5, life: 0.32,
-        size0: 0.018, size1: 0.042, heat: 0.45, radius: 0.015,
-        rise: 0.14, spread: 0.006, floor: s.y - 0.01, wind: 0.006,
-        turb: 0.16, aspect: 1, alpha: 0.7,
+        x: s.x, y: s.y, z: s.z, kind: KIND.stall, weight: 5, life: 0.3,
+        size0: 0.026, size1: 0.055, heat: 0.55, radius: 0.012,
+        rise: 0.12, spread: 0.005, floor: s.y - 0.01, wind: 0.004,
+        turb: 0.12, aspect: 1, alpha: 0.82,
       }));
     } else if (dy < 0.55) {
       // Baseline courtyard card. The visible plate is marketPlates.
@@ -163,9 +163,9 @@ export function gatherMouths(
     const f = stacks[i]!;
     out.push(mouth({
       x: f.x, y: f.y, z: f.z, kind: KIND.stack, weight: i === 0 ? 6 : 0.35, life: 9.2,
-      size0: 2.15, size1: 4.4, heat: 0.7, radius: 0.85,
-      rise: 3.4, spread: 0.3, floor: f.y, wind: 0.22,
-      turb: 2.1, aspect: 1, alpha: 0.56,
+      size0: 3.8, size1: 8.6, heat: 0.85, radius: 0.7,
+      rise: 3.4, spread: 0.3, floor: f.y, wind: 0.18,
+      turb: 1.4, aspect: 1, alpha: 0.62,
     }));
   }
   const steam: Mouth[] = [];
@@ -270,13 +270,13 @@ export function stallPose(layout: CityLayout): SmokePose | null {
   const hz = -Math.cos(cook.heading);
   const rx = hz;
   const rz = -hx;
-  // Just in front of the counter, at the rim, so the wisps die on the pot
-  // and the sign stays in the background.
-  const fx = pot.x + hx * 0.82 + rx * 0.46;
-  const fz = pot.z + hz * 0.82 + rz * 0.46;
+  // Just above the rim, looking down into the pot so the wisps leave the cylinder
+  // and die before they reach the sign.
+  const fx = pot.x + hx * 0.58 + rx * 0.32;
+  const fz = pot.z + hz * 0.58 + rz * 0.32;
   const ground = layout.heightAt(fx, fz);
-  const eye = ground + 1.1;
-  const lookY = pot.y - 0.12;
+  const eye = ground + 1.42;
+  const lookY = pot.y - 0.08;
   const span = Math.hypot(pot.x - fx, pot.z - fz) || 1;
   return {
     x: fx, y: eye, z: fz,
@@ -284,7 +284,7 @@ export function stallPose(layout: CityLayout): SmokePose | null {
     pitch: Math.atan2(lookY - eye, span),
     mode: 'walk',
     lock: true,
-    eye: 1.1,
+    eye: 1.42,
     feet: { x: fx, y: ground, z: fz },
   };
 }
@@ -316,19 +316,18 @@ export function launchPose(layout: CityLayout): SmokePose | null {
 export function exhaustPose(layout: CityLayout, tails: readonly Tailpipe[]): SmokePose | null {
   const t = tails[0];
   if (!t) return null;
-  // Beside the rear quarter, looking up the street so the trail sits
-  // against the sky slot instead of the taillight.
-  const dist = 1.15;
-  const side = 3.6;
+  // Rear three-quarter. The car stays in frame and the trail climbs into the sky.
+  const dist = 3.8;
+  const side = 2.5;
   const rx = -t.fz;
   const rz = t.fx;
   const fx = t.x - t.fx * dist + rx * side;
   const fz = t.z - t.fz * dist + rz * side;
   const ground = layout.heightAt(fx, fz);
-  const eye = 1.05;
-  const lookX = t.x - t.fx * 9.5;
-  const lookZ = t.z - t.fz * 9.5;
-  const lookY = t.y + 4.6;
+  const eye = 0.7;
+  const lookX = t.x - t.fx * 1.6;
+  const lookZ = t.z - t.fz * 1.6;
+  const lookY = t.y + 2.6;
   return {
     x: fx, y: ground + eye, z: fz,
     heading: Math.atan2(lookX - fx, -(lookZ - fz)),

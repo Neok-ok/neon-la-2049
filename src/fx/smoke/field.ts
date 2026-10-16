@@ -36,6 +36,7 @@ export interface NeonSign {
   r: number;
   g: number;
   b: number;
+  area?: number;
 }
 
 /** How much practical light this kind takes. Exhaust stays a grey trail. */
@@ -299,10 +300,10 @@ export class SmokeField {
         size = Math.min(size, Math.max(4.5, dist * 0.18));
         if (dist < 22) lifeA *= Math.min(1, Math.max(0, (dist - 8) / 14));
       } else if (p.kind === 2) {
-        size *= 0.62 + p.seed * 0.7;
+        size *= 0.88 + p.seed * 0.28;
       } else if (p.kind === 6) {
-        size *= 0.85 + p.along * 0.35;
-        lifeA = Math.min(0.62, lifeA);
+        size *= 0.9 + p.along * 0.4;
+        lifeA = Math.min(0.78, lifeA);
       } else if (p.kind === 1) {
         size = Math.min(size, Math.max(4, dist * 0.14));
       }
@@ -343,13 +344,14 @@ export class SmokeField {
       let tg = rgb[1] * shadeK;
       let tb = rgb[2] * shadeK;
       if (p.kind === 4 || p.kind === 3) {
-        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 1.15));
+        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 1.45));
         const neon = this.nearestNeon(p.x, p.z);
         if (neon) {
-          const catchK = neon.k * (1 - h) * (1 - h) * (0.88 + p.seed * 0.1);
-          tr = tr * (1 - catchK) + neon.r * catchK * (0.85 + p.shade * 0.2);
-          tg = tg * (1 - catchK) + neon.g * catchK * (0.85 + p.shade * 0.2);
-          tb = tb * (1 - catchK) + neon.b * catchK * (0.85 + p.shade * 0.2);
+          const catchK = Math.min(0.92, neon.k * (1 - h) * (1 - h) * (0.95 + p.seed * 0.08));
+          const boost = 1.05 + catchK * 0.45;
+          tr = (tr * (1 - catchK) + neon.r * catchK) * boost;
+          tg = (tg * (1 - catchK) + neon.g * catchK) * boost;
+          tb = (tb * (1 - catchK) + neon.b * catchK) * boost;
         }
       }
       tint[o] = tr;
@@ -409,11 +411,12 @@ export class SmokeField {
       const dx = s.x - x;
       const dz = s.z - z;
       const dist = Math.hypot(dx, dz);
-      if (dist > 26 || dist < 0.8) continue;
+      if (dist > 46 || dist < 0.6) continue;
       const align = (dx * fx + dz * fz) / dist;
-      if (align < 0.02) continue;
+      if (align < -0.05) continue;
       const sat = Math.max(s.r, s.g, s.b) - Math.min(s.r, s.g, s.b);
-      const score = (0.3 + sat) * (0.25 + align) / (2.5 + dist * 0.28);
+      const area = Math.sqrt(Math.max(0.3, s.area ?? 1));
+      const score = (0.2 + sat) * area * Math.max(0.08, align) / (3 + dist * 0.16);
       if (score > best) {
         best = score;
         hit = s;
@@ -422,8 +425,8 @@ export class SmokeField {
     }
     if (!hit) return null;
     const sat = Math.max(hit.r, hit.g, hit.b) - Math.min(hit.r, hit.g, hit.b);
-    const near = Math.max(0, 1 - hitD / 24);
-    const k = Math.min(0.66, (0.24 + sat * 0.38) * (0.5 + near));
+    const near = Math.max(0, 1 - hitD / 36);
+    const k = Math.min(0.86, (0.42 + sat * 0.4) * (0.55 + near * 0.45));
     return { r: hit.r, g: hit.g, b: hit.b, k };
   }
 
