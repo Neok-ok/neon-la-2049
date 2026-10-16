@@ -270,13 +270,12 @@ export function stallPose(layout: CityLayout): SmokePose | null {
   const hz = -Math.cos(cook.heading);
   const rx = hz;
   const rz = -hx;
-  // Just above the rim, looking down into the pot so the wisps leave the cylinder
-  // and die before they reach the sign.
-  const fx = pot.x + hx * 0.58 + rx * 0.32;
-  const fz = pot.z + hz * 0.58 + rz * 0.32;
+  // Three-quarter at the rim so the pot reads as a cylinder and the wisps leave it.
+  const fx = pot.x + hx * 0.42 + rx * 0.72;
+  const fz = pot.z + hz * 0.42 + rz * 0.72;
   const ground = layout.heightAt(fx, fz);
-  const eye = ground + 1.42;
-  const lookY = pot.y - 0.08;
+  const eye = ground + 1.16;
+  const lookY = pot.y + 0.02;
   const span = Math.hypot(pot.x - fx, pot.z - fz) || 1;
   return {
     x: fx, y: eye, z: fz,
@@ -284,7 +283,7 @@ export function stallPose(layout: CityLayout): SmokePose | null {
     pitch: Math.atan2(lookY - eye, span),
     mode: 'walk',
     lock: true,
-    eye: 1.42,
+    eye: 1.16,
     feet: { x: fx, y: ground, z: fz },
   };
 }
@@ -317,17 +316,17 @@ export function exhaustPose(layout: CityLayout, tails: readonly Tailpipe[]): Smo
   const t = tails[0];
   if (!t) return null;
   // Rear three-quarter. The car stays in frame and the trail climbs into the sky.
-  const dist = 3.8;
-  const side = 2.5;
+  const dist = 5.4;
+  const side = 3.1;
   const rx = -t.fz;
   const rz = t.fx;
   const fx = t.x - t.fx * dist + rx * side;
   const fz = t.z - t.fz * dist + rz * side;
   const ground = layout.heightAt(fx, fz);
-  const eye = 0.7;
-  const lookX = t.x - t.fx * 1.6;
-  const lookZ = t.z - t.fz * 1.6;
-  const lookY = t.y + 2.6;
+  const eye = 0.9;
+  const lookX = t.x - t.fx * 2.0;
+  const lookZ = t.z - t.fz * 2.0;
+  const lookY = t.y + 2.15;
   return {
     x: fx, y: ground + eye, z: fz,
     heading: Math.atan2(lookX - fx, -(lookZ - fz)),

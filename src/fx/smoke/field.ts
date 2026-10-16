@@ -347,11 +347,10 @@ export class SmokeField {
         const h = Math.min(1, Math.max(0, (p.y - p.floor) / 1.45));
         const neon = this.nearestNeon(p.x, p.z);
         if (neon) {
-          const catchK = Math.min(0.92, neon.k * (1 - h) * (1 - h) * (0.95 + p.seed * 0.08));
-          const boost = 1.05 + catchK * 0.45;
-          tr = (tr * (1 - catchK) + neon.r * catchK) * boost;
-          tg = (tg * (1 - catchK) + neon.g * catchK) * boost;
-          tb = (tb * (1 - catchK) + neon.b * catchK) * boost;
+          const catchK = Math.min(0.94, neon.k * (1 - h) * (1 - h));
+          tr = tr * (1 - catchK) + neon.r * catchK * 1.7;
+          tg = tg * (1 - catchK) + neon.g * catchK * 1.7;
+          tb = tb * (1 - catchK) + neon.b * catchK * 1.7;
         }
       }
       tint[o] = tr;
