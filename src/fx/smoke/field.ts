@@ -1,12 +1,13 @@
 // One instanced draw. The buffer is this tier's cap, so a phone does not allocate the ultra count.
 import {
-  DynamicDrawUsage, Group, InstancedBufferAttribute, InstancedMesh, PlaneGeometry, Vector3,
+  DynamicDrawUsage, Group, InstancedBufferAttribute, InstancedMesh, Mesh, PlaneGeometry, Vector3,
   type Scene, type Camera,
 } from 'three/webgpu';
 import type { CityLayout } from '../../world/layout';
 import type { Tier } from '../../core/quality';
 import { resources } from '../../core/memory';
 import { visualSeed } from '../../core/rng';
+import { buildKitMeshes, type KitInstance } from '../../districts/_shared/kit/batch';
 import { steamCardGain } from '../../districts/_shared/kit/materials';
 import { setLaunchColumnCover } from '../../districts/lax-spaceport/launch';
 import { setFlareSmokeCover } from '../../districts/_shared/refinery/flames';
@@ -25,8 +26,8 @@ const TINT: Record<(typeof KIND_NAME)[number], [number, number, number]> = {
   stack: [0.32, 0.3, 0.28],
   vent: [0.34, 0.36, 0.4],
   grate: [0.3, 0.32, 0.36],
-  stall: [1.25, 0.48, 0.14],
-  exhaust: [0.74, 0.72, 0.7],
+  stall: [1.15, 0.42, 0.12],
+  exhaust: [0.34, 0.33, 0.31],
 };
 
 export interface NeonSign {
@@ -76,6 +77,8 @@ export class SmokeField {
   private hasCam = false;
   private windDir = 0;
   private neons: NeonSign[] = [];
+  private potKey = '';
+  private potMeshes: Mesh[] = [];
   private readonly plumeUp = { x: 0, y: 1, z: 0 };
   private readonly camDir = new Vector3();
   private readonly forward = { x: 0, y: 0, z: -1 };
@@ -106,6 +109,7 @@ export class SmokeField {
   }
 
   dispose(): void {
+    this.clearPots();
     this.root.removeFromParent();
     if (this.geo) resources.release(this.geo);
     this.pool.clear();
@@ -180,7 +184,47 @@ export class SmokeField {
       }
     }
     if (this.warmLeft > 0) this.warmLeft--;
+    this.syncPots();
     this.upload(cam.x, cam.y, cam.z);
+  }
+
+  /** A closed pot on each stall mouth. The dressed cylinder is an open dark ring and does not read. */
+  private syncPots(): void {
+    const stalls = this.mouths.filter((m) => m.kind === 5);
+    const key = stalls.map((s) => `${s.x.toFixed(2)}:${s.y.toFixed(2)}:${s.z.toFixed(2)}`).join('|');
+    if (key === this.potKey) return;
+    this.potKey = key;
+    this.clearPots();
+    if (!stalls.length) return;
+    const items: KitInstance[] = [];
+    for (const s of stalls) {
+      items.push({
+        template: 'drum',
+        x: s.x, y: s.y - 0.16, z: s.z, yaw: 0,
+        sx: 0.38, sy: 0.32, sz: 0.38,
+        color: [0.42, 0.26, 0.16],
+        emissive: [0.16, 0.05, 0.015],
+        metal: 0.78,
+      });
+      items.push({
+        template: 'drum',
+        x: s.x, y: s.y + 0.01, z: s.z, yaw: 0.5,
+        sx: 0.46, sy: 0.045, sz: 0.46,
+        color: [0.72, 0.4, 0.18],
+        emissive: [0.7, 0.24, 0.06],
+        metal: 0.4,
+      });
+    }
+    this.potMeshes = buildKitMeshes(items, 'smoke-pot');
+    for (const mesh of this.potMeshes) this.root.add(mesh);
+  }
+
+  private clearPots(): void {
+    for (const mesh of this.potMeshes) {
+      mesh.removeFromParent();
+      resources.release(mesh.geometry);
+    }
+    this.potMeshes = [];
   }
 
   private mountMesh(cap: number): void {
@@ -293,11 +337,11 @@ export class SmokeField {
       }
       if (p.kind === 0) {
         const edge = Math.min(1, Math.hypot(p.offS, p.offD) / (6 + p.along * 16));
-        const nozzle = Math.max(0, 1 - p.along / 0.5);
+        const nozzle = Math.max(0, 1 - p.along / 0.16);
         heat = Math.max(heat, nozzle * 1.05);
         lifeA = Math.min(0.58, lifeA * (0.14 + edge * 0.75 + nozzle * 0.72));
         size *= 0.42 + p.seed * 0.8;
-        size = Math.min(size, Math.max(4.5, dist * 0.18));
+        size = Math.min(size, Math.max(6, dist * 0.36));
         if (dist < 22) lifeA *= Math.min(1, Math.max(0, (dist - 8) / 14));
       } else if (p.kind === 2) {
         size *= 0.88 + p.seed * 0.28;
@@ -316,12 +360,12 @@ export class SmokeField {
       const cell = Math.floor(p.seed * 7.999);
       let lamp = lampOf(p.kind);
       if (p.kind === 4 || p.kind === 3) {
-        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 2.5));
-        lifeA *= 1 - h * 0.92;
-        lamp *= 0.28 + (1 - h) * (1 - h) * 0.72;
+        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 2.6));
+        lifeA *= 1 - h * 0.9;
+        lamp *= 0.22 + (1 - h) * (1 - h) * 0.78;
       } else if (p.kind === 5) {
-        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 0.16));
-        lifeA *= 1 - h * 0.94;
+        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 0.5));
+        lifeA *= 1 - h * 0.96;
       } else if (p.kind === 6) {
         lamp = 0.03;
       }
@@ -344,20 +388,21 @@ export class SmokeField {
       let tg = rgb[1] * shadeK;
       let tb = rgb[2] * shadeK;
       if (p.kind === 4 || p.kind === 3) {
-        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 1.45));
+        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 2.4));
         const neon = this.nearestNeon(p.x, p.z);
         if (neon) {
-          const catchK = Math.min(0.94, neon.k * (1 - h) * (1 - h));
-          tr = tr * (1 - catchK) + neon.r * catchK * 1.7;
-          tg = tg * (1 - catchK) + neon.g * catchK * 1.7;
-          tb = tb * (1 - catchK) + neon.b * catchK * 1.7;
+          const catchK = Math.min(0.96, neon.k * (1 - h * h * 0.72));
+          const gain = 2.4;
+          tr = tr * (1 - catchK) + neon.r * catchK * gain;
+          tg = tg * (1 - catchK) + neon.g * catchK * gain;
+          tb = tb * (1 - catchK) + neon.b * catchK * gain;
         }
       }
       tint[o] = tr;
       tint[o + 1] = tg;
       tint[o + 2] = tb;
-      // 0 backlit plume, 1 soft body. Exhaust stays filled so the trail is not a rim.
-      tint[o + 3] = p.kind === 0 ? 0 : p.kind === 2 ? 0.82 : 1;
+      // 0 backlit plume, 0.82 filled stack, 0.28 backlit exhaust, 1 soft steam.
+      tint[o + 3] = p.kind === 0 ? 0 : p.kind === 2 ? 0.72 : p.kind === 6 ? 0.28 : 1;
       const stretch = this.stretchOf(p);
       move[o] = stretch.x;
       move[o + 1] = stretch.y;
@@ -381,20 +426,20 @@ export class SmokeField {
     if (p.kind === 6) {
       const L = Math.hypot(p.vx, p.vz);
       const rise = 0.18 + p.along * 0.28;
-      if (L > 0.15) return { x: p.vx / L, y: rise, z: p.vz / L, w: (5.6 + p.along * 1.4) * jitter };
+      if (L > 0.15) return { x: p.vx / L, y: rise, z: p.vz / L, w: (2.6 + p.along * 0.9) * jitter };
       return { x: 0, y: 1, z: 0, w: 2.4 };
     }
     if (p.kind === 2) {
       const wx = Math.cos(this.windDir) * 0.55;
       const wz = Math.sin(this.windDir) * 0.55;
-      return { x: wx, y: 1, z: wz, w: (1.05 + p.along * 0.45) * jitter };
+      return { x: wx, y: 1, z: wz, w: (1.15 + p.along * 0.7) * jitter };
     }
-    if (p.kind === 5) return { x: Math.sin(p.seed * 12) * 0.08, y: 1, z: Math.cos(p.seed * 9) * 0.08, w: 6.6 * jitter };
+    if (p.kind === 5) return { x: Math.sin(p.seed * 12) * 0.15, y: 1, z: Math.cos(p.seed * 9) * 0.15, w: 2.3 * jitter };
     if (p.kind === 4 || p.kind === 3) {
       const h = Math.min(1, Math.max(0, (p.y - p.floor) / 2.4));
-      const wx = Math.cos(this.windDir) * h * 1.75;
-      const wz = Math.sin(this.windDir) * h * 1.75;
-      return { x: wx, y: 1, z: wz, w: (1.2 + h * 1.55) * jitter };
+      const wx = Math.cos(this.windDir) * h * 2.4;
+      const wz = Math.sin(this.windDir) * h * 2.4;
+      return { x: wx, y: 1, z: wz, w: (1.15 + h * 2.05) * jitter };
     }
     return { x: 0, y: 1, z: 0, w: 1.2 * jitter };
   }
@@ -409,12 +454,13 @@ export class SmokeField {
       const dx = s.x - x;
       const dz = s.z - z;
       const dist = Math.hypot(dx, dz);
-      if (dist > 46 || dist < 0.6) continue;
+      if (dist > 62 || dist < 0.6) continue;
       const align = (dx * fx + dz * fz) / dist;
       if (align < -0.05) continue;
       const sat = Math.max(s.r, s.g, s.b) - Math.min(s.r, s.g, s.b);
       const area = Math.sqrt(Math.max(0.3, s.area ?? 1));
-      const score = Math.pow(0.12 + sat, 2.2) * area * Math.max(0.12, align) / (2.2 + dist * 0.05);
+      const distK = sat > 0.5 ? 0.018 : 0.07;
+      const score = Math.pow(0.05 + sat, 3.1) * area * Math.max(0.2, align) / (1.1 + dist * distK);
       if (score > best) {
         best = score;
         hit = s;
@@ -422,8 +468,15 @@ export class SmokeField {
     }
     if (!hit) return null;
     const sat = Math.max(hit.r, hit.g, hit.b) - Math.min(hit.r, hit.g, hit.b);
-    const k = Math.min(0.92, 0.58 + sat * 0.32);
-    return { r: hit.r, g: hit.g, b: hit.b, k };
+    const mid = (hit.r + hit.g + hit.b) / 3;
+    const chroma = 1.45;
+    const k = Math.min(0.97, 0.74 + sat * 0.28);
+    return {
+      r: mid + (hit.r - mid) * chroma,
+      g: mid + (hit.g - mid) * chroma,
+      b: mid + (hit.b - mid) * chroma,
+      k,
+    };
   }
 
   snapshot(): SmokeSnapshot {
