@@ -270,14 +270,14 @@ export function stallPose(layout: CityLayout): SmokePose | null {
   const hz = -Math.cos(cook.heading);
   const rx = hz;
   const rz = -hx;
-  // Beside the pot, looking across it toward the dark back wall so the cylinder silhouettes.
-  const fx = pot.x + rx * 0.78 + hx * 0.18;
-  const fz = pot.z + rz * 0.78 + hz * 0.18;
-  const lookX = pot.x - hx * 0.35;
-  const lookZ = pot.z - hz * 0.35;
+  // Above the counter, looking down onto the pot so the rim is the source of the wisps.
+  const fx = pot.x + hx * 0.42 + rx * 0.22;
+  const fz = pot.z + hz * 0.42 + rz * 0.22;
+  const lookX = pot.x;
+  const lookZ = pot.z;
   const ground = layout.heightAt(fx, fz);
-  const eye = ground + 1.2;
-  const lookY = pot.y;
+  const eye = ground + 1.72;
+  const lookY = pot.y - 0.16;
   const span = Math.hypot(lookX - fx, lookZ - fz) || 1;
   return {
     x: fx, y: eye, z: fz,
@@ -285,7 +285,7 @@ export function stallPose(layout: CityLayout): SmokePose | null {
     pitch: Math.atan2(lookY - eye, span),
     mode: 'walk',
     lock: true,
-    eye: 1.2,
+    eye: 1.72,
     feet: { x: fx, y: ground, z: fz },
   };
 }
