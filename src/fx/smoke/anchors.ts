@@ -231,16 +231,16 @@ export function streetSteamPose(layout: CityLayout): SmokePose | null {
   const len = Math.hypot(dx, dz) || 1;
   const sx = dx / len;
   const sz = dz / len;
-  const dist = 2.05;
-  const lateral = 0.4;
-  // Grate in the lower third, the column rising through the frame toward the alley.
+  const dist = 1.92;
+  const lateral = 0.32;
+  // Grate in the lower frame, column through the middle. Looking up dropped the source.
   const px = grate.x + sx * dist - sz * lateral;
   const pz = grate.z + sz * dist + sx * lateral;
   const ground = layout.heightAt(px, pz);
-  const eye = ground + 1.62;
-  const lookX = grate.x - sz * 0.7;
-  const lookZ = grate.z + sx * 0.7;
-  const lookY = grate.y + 0.9;
+  const eye = ground + 1.58;
+  const lookX = grate.x - sz * 0.5;
+  const lookZ = grate.z + sx * 0.5;
+  const lookY = grate.y + 0.95;
   const span = Math.hypot(lookX - px, lookZ - pz) || 1;
   return {
     x: px, y: eye, z: pz,
@@ -248,7 +248,7 @@ export function streetSteamPose(layout: CityLayout): SmokePose | null {
     pitch: Math.atan2(lookY - eye, span),
     mode: 'walk',
     lock: true,
-    eye: 1.62,
+    eye: 1.58,
     feet: { x: px, y: ground, z: pz },
   };
 }
@@ -270,15 +270,18 @@ export function stallPose(layout: CityLayout): SmokePose | null {
   const hz = -Math.cos(cook.heading);
   const rx = hz;
   const rz = -hx;
-  // Beside the rim, slightly above it. A view down the counter hides the pot behind the cook.
-  const fx = pot.x + hx * 0.28 + rx * 1.05;
-  const fz = pot.z + hz * 0.28 + rz * 1.05;
+  // Along the bar, just above the rim, so the counter front is edge-on and the
+  // wisp sits on the pot in front of the stall sign.
+  const dist = 0.16;
+  const side = -1.85;
+  const fx = pot.x + hx * dist + rx * side;
+  const fz = pot.z + hz * dist + rz * side;
   const lookX = pot.x;
   const lookZ = pot.z;
   const ground = layout.heightAt(fx, fz);
-  const eyeY = pot.y + 0.42;
+  const eyeY = pot.y + 0.06;
   const eye = eyeY - ground;
-  const lookY = pot.y + 0.08;
+  const lookY = pot.y + 0.28;
   const span = Math.hypot(lookX - fx, lookZ - fz) || 1;
   return {
     x: fx, y: eyeY, z: fz,

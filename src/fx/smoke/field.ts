@@ -327,32 +327,33 @@ export class SmokeField {
     for (let i = 0; i < n; i++) {
       const p = list[this.order[i]!]!;
       const u = p.age / p.life;
-      const fadeIn = Math.min(1, u / (p.kind === 5 ? 0.04 : p.kind === 4 || p.kind === 3 ? 0.03 : 0.1));
-      const tail = p.kind === 0 || p.kind === 2 ? 0.2 : 0.36;
+      const fadeIn = Math.min(1, u / (p.kind === 0 ? 0.03 : p.kind === 5 ? 0.04 : p.kind === 4 || p.kind === 3 || p.kind === 6 ? 0.05 : 0.1));
+      const tail = p.kind === 0 ? 0.06 : p.kind === 2 ? 0.2 : p.kind === 4 || p.kind === 3 || p.kind === 6 ? 0.14 : 0.36;
       const fadeOut = Math.min(1, (1 - u) / tail);
       const dist = Math.hypot(p.x - cx, p.y - cy, p.z - cz);
       let size = p.size0 + (p.size1 - p.size0) * Math.min(1, u / 0.55);
       let lifeA = fadeIn * fadeOut * p.alpha;
       let heat = p.heat;
-      if (p.kind === 0) heat *= Math.max(0, 1 - u * 0.85);
       if (p.kind === 2) {
         const h = Math.min(1, Math.max(0, (p.y - p.floor) / 7));
         heat *= Math.max(0, 1 - h * h);
       }
       if (p.kind === 0) {
-        const edge = Math.min(1, Math.hypot(p.offS, p.offD) / (10 + p.along * 28));
-        const nozzle = Math.max(0, 1 - p.along / 0.035);
+        const low = this.tier === 'low';
+        const nozzle = Math.max(0, 1 - p.along / (low ? 0.085 : 0.05));
         heat = Math.max(heat, nozzle * 1.15);
-        lifeA = Math.min(0.5, lifeA * (0.28 + edge * 0.78 + nozzle * 0.24));
-        size *= 0.88 + p.seed * 0.32;
-        const puffCap = this.tier === 'low' ? 18 : this.tier === 'medium' ? 15 : 12;
+        lifeA = Math.min(low ? 0.5 : 0.36, lifeA);
+        size *= 0.94 + p.seed * 0.12;
+        if (low && nozzle > 0.35) size *= 1.22;
+        const puffCap = low ? 28 : this.tier === 'medium' ? 16 : 13;
         size = Math.min(size, puffCap);
         if (dist < 22) lifeA *= Math.min(1, Math.max(0, (dist - 8) / 14));
       } else if (p.kind === 2) {
         size *= 0.88 + p.seed * 0.28;
       } else if (p.kind === 6) {
-        size *= 0.9 + p.along * 0.7;
-        lifeA = Math.min(0.72, lifeA);
+        size *= 1.05 + p.along * 0.18;
+        size = Math.min(size, 0.85);
+        lifeA = Math.min(0.58, lifeA);
       } else if (p.kind === 1) {
         size = Math.min(size, Math.max(2.5, dist * 0.06));
       }
@@ -365,8 +366,8 @@ export class SmokeField {
       const cell = Math.floor(p.seed * 7.999);
       let lamp = lampOf(p.kind);
       if (p.kind === 4 || p.kind === 3) {
-        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 2.6));
-        lifeA *= 1 - h * 0.9;
+        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 3.15));
+        lifeA *= 0.62 + (1 - h) * 0.38;
         lamp *= 0.22 + (1 - h) * (1 - h) * 0.78;
       } else if (p.kind === 5) {
         const h = Math.min(1, Math.max(0, (p.y - p.floor) / 0.42));
@@ -381,8 +382,8 @@ export class SmokeField {
       const rgb = TINT[name];
       let shadeK = p.shade;
       if (p.kind === 0) {
-        const edge = Math.min(1, Math.hypot(p.offS, p.offD) / (10 + p.along * 28));
-        shadeK = Math.min(1.25, 0.42 + edge * 0.78 + p.seed * 0.22);
+        const radial = Math.min(1, Math.hypot(p.offS, p.offD) / Math.max(4, p.turb));
+        shadeK = Math.min(1.2, 0.48 + radial * 0.62 + p.seed * 0.12);
       } else if (p.kind === 2) {
         const mouth = Math.max(0, 1 - Math.max(0, p.y - p.floor) / 10);
         shadeK *= 0.35 + p.seed * 0.85 + mouth * 0.2;
@@ -424,31 +425,31 @@ export class SmokeField {
 
   /** World axis the billboard stretches along, plus the stretch factor. */
   private stretchOf(p: Puff): { x: number; y: number; z: number; w: number } {
-    const jitter = 0.82 + p.seed * 0.36;
+    const jitter = 0.94 + p.seed * 0.12;
     if (p.kind === 0) {
-      return { x: this.plumeUp.x, y: this.plumeUp.y, z: this.plumeUp.z, w: 1.35 * jitter };
+      return { x: this.plumeUp.x, y: this.plumeUp.y, z: this.plumeUp.z, w: (1.06 + p.along * 0.1) * jitter };
     }
     if (p.kind === 6) {
       const L = Math.hypot(p.vx, p.vz) || 1;
-      // Up the trail, leaning back off the bumper. A lane-aligned card faces the lens and reads as haze.
+      // Up the trail, leaning back off the bumper. A long card reads as a streak.
       return {
-        x: -p.vx / L * 0.08,
+        x: -p.vx / L * 0.05,
         y: 1,
-        z: -p.vz / L * 0.08,
-        w: (2.15 + p.along * 0.7) * jitter,
+        z: -p.vz / L * 0.05,
+        w: (1.38 + p.along * 0.22) * jitter,
       };
     }
     if (p.kind === 2) {
       const wx = Math.cos(this.windDir) * 0.55;
       const wz = Math.sin(this.windDir) * 0.55;
-      return { x: wx, y: 1, z: wz, w: (1.15 + p.along * 0.7) * jitter };
+      return { x: wx, y: 1, z: wz, w: (1.06 + p.along * 0.28) * jitter };
     }
-    if (p.kind === 5) return { x: Math.sin(p.seed * 12) * 0.18, y: 1, z: Math.cos(p.seed * 9) * 0.18, w: 3.1 * jitter };
+    if (p.kind === 5) return { x: Math.sin(p.seed * 12) * 0.18, y: 1, z: Math.cos(p.seed * 9) * 0.18, w: 3.1 * (0.82 + p.seed * 0.36) };
     if (p.kind === 4 || p.kind === 3) {
-      const h = Math.min(1, Math.max(0, (p.y - p.floor) / 2.4));
-      const wx = Math.cos(this.windDir) * h * 2.4;
-      const wz = Math.sin(this.windDir) * h * 2.4;
-      return { x: wx, y: 1, z: wz, w: (1.15 + h * 2.05) * jitter };
+      const h = Math.min(1, Math.max(0, (p.y - p.floor) / 3.05));
+      const wx = Math.cos(this.windDir) * h * 0.7;
+      const wz = Math.sin(this.windDir) * h * 0.7;
+      return { x: wx, y: 1, z: wz, w: (1.04 + h * 0.38) * jitter };
     }
     return { x: 0, y: 1, z: 0, w: 1.2 * jitter };
   }

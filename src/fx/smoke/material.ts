@@ -75,11 +75,25 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const edgeIn = mix(float(0.14), float(0.0), softBody);
       const edgeOut = mix(float(0.8), float(0.58), softBody);
       // A reversed smoothstep is undefined on SwiftShader and cuts a quad into a triangle.
-      const edge = float(1).sub(smoothstep(edgeIn, edgeOut, rad));
+      const edgeDisc = float(1).sub(smoothstep(edgeIn, edgeOut, rad));
+      // Plume only (tint.w is 0). A gaussian dies before the quad corner.
+      const plumeK = float(1).sub(smoothstep(float(0.0), float(0.22), softBody));
+      // Stall keeps the tight disc (lamp weight near 1). Grate and exhaust soften so
+      // overlapping puffs read as one mass. The stack (tint.w 0.72) stays as it was.
+      // smoothstep edges stay in ascending order.
+      const blendSoft = float(1).sub(smoothstep(float(0.55), float(0.9), lampK));
+      const notStack = smoothstep(float(0.74), float(0.82), softBody);
+      const columnSoft = notStack.mul(blendSoft);
+      const ragged = max(rad.add(n.r.sub(0.5).mul(0.1)), float(0));
+      const edgePlume = exp(ragged.mul(ragged).mul(float(-6.4)));
+      const edgeWide = float(1).sub(smoothstep(float(0.02), float(0.7), rad));
+      const edgeSteam = mix(edgeDisc, edgeWide, columnSoft);
+      const edge = mix(edgeSteam, edgePlume, plumeK);
       const torn = mix(n.r, n.r.mul(float(0.55).add(n.g.mul(0.7))), smokeDetail);
       const fray = mix(float(1), float(0.5).add(n.g.mul(0.7)), softBody);
       const grain = float(0.42).add(n.g.mul(0.78));
-      const shape = pow(max(torn.mul(edge).mul(grain).mul(fray), float(0)), float(0.8));
+      const shapePow = mix(mix(float(0.8), float(1.15), columnSoft), float(1.35), plumeK);
+      const shape = pow(max(torn.mul(edge).mul(grain).mul(fray), float(0)), shapePow);
       const size = max(puff.w, float(0.4));
       // View-linear gap, same quantity as three's softParticles() (NVIDIA, Lorach):
       // fade where the billboard meets the opaque depth, in a band that scales
@@ -87,7 +101,7 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const sceneD = linearDepth(viewportDepthTexture());
       const selfD = linearDepth();
       const diff = sceneD.sub(selfD);
-      const soft = max(size.mul(0.22), float(0.06)).div(cameraFar);
+      const soft = max(size.mul(0.34), float(0.12)).div(cameraFar);
       const depthFade = mix(float(1), smoothstep(float(0), soft, diff), smoothstep(float(0), float(0.002), sceneD));
       const dist = length(cameraPosition.sub(puff.xyz));
       const nearF = smoothstep(max(float(0.45), size.mul(0.15)), max(float(1.6), size.mul(0.55)), dist);
@@ -101,7 +115,9 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       // A downward bias lets a sign under the puff light the belly.
       const N = normalize(V.add(vec3(0, 0.35, 0)));
       // 0 is a backlit plume (dark core, bright rim). Steam and the stack stay filled.
-      const rim = smoothstep(float(0.05), float(0.42), rad);
+      const rimHard = smoothstep(float(0.05), float(0.42), rad);
+      const rimSoft = smoothstep(float(0.2), float(0.78), rad);
+      const rim = mix(rimHard, rimSoft, plumeK);
       // Noise breaks the bright rim so a lone puff is not a hard ring.
       const rimNoise = float(0.35).add(n.r.mul(0.9));
       const back = mix(float(0.1), float(1.45).mul(rimNoise), rim);
