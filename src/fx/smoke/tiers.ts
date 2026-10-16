@@ -14,10 +14,10 @@ export const PUFF_CAP: Record<Tier, number> = {
  * High and ultra spend the count on smaller wisps. Nothing is gated off.
  */
 export const ALIVE: Record<Tier, Record<(typeof KIND_NAME)[number], number>> = {
-  low: { launch: 440, ground: 120, stack: 200, vent: 36, grate: 200, stall: 28, exhaust: 48 },
-  medium: { launch: 700, ground: 180, stack: 320, vent: 70, grate: 280, stall: 40, exhaust: 80 },
-  high: { launch: 1100, ground: 280, stack: 480, vent: 120, grate: 400, stall: 56, exhaust: 120 },
-  ultra: { launch: 1500, ground: 360, stack: 560, vent: 150, grate: 520, stall: 72, exhaust: 160 },
+  low: { launch: 440, ground: 80, stack: 280, vent: 72, grate: 160, stall: 28, exhaust: 54 },
+  medium: { launch: 700, ground: 140, stack: 420, vent: 100, grate: 240, stall: 40, exhaust: 84 },
+  high: { launch: 1100, ground: 220, stack: 640, vent: 140, grate: 360, stall: 56, exhaust: 120 },
+  ultra: { launch: 1500, ground: 280, stack: 820, vent: 180, grate: 480, stall: 72, exhaust: 160 },
 };
 
 /** Puff scale. Low is softer and larger so the same sources still read. */

@@ -20,13 +20,13 @@ import {
 } from './anchors';
 
 const TINT: Record<(typeof KIND_NAME)[number], [number, number, number]> = {
-  launch: [0.48, 0.45, 0.42],
+  launch: [0.55, 0.5, 0.46],
   ground: [0.32, 0.3, 0.28],
-  stack: [0.4, 0.38, 0.35],
-  vent: [0.72, 0.75, 0.78],
-  grate: [0.78, 0.8, 0.84],
-  stall: [0.84, 0.78, 0.68],
-  exhaust: [0.52, 0.5, 0.48],
+  stack: [0.46, 0.43, 0.4],
+  vent: [0.78, 0.8, 0.84],
+  grate: [0.82, 0.84, 0.88],
+  stall: [0.86, 0.82, 0.74],
+  exhaust: [0.58, 0.56, 0.52],
 };
 
 /** How much practical light this kind takes. Exhaust stays a grey trail. */
@@ -78,7 +78,7 @@ export class SmokeField {
     this.mountMesh(PUFF_CAP[tier]);
     steamCardGain.value = 0;
     setLaunchColumnCover(0);
-    setFlareSmokeCover(0.62);
+    setFlareSmokeCover(0.34);
     smokeDetail.value = PUFF_DETAIL[tier];
   }
 
@@ -275,14 +275,18 @@ export class SmokeField {
         heat *= Math.max(0, 1 - h);
       }
       if (p.kind === 0) {
-        const edge = Math.min(1, Math.abs(p.offS) / 36);
-        lifeA = Math.min(0.86, lifeA * (0.7 + (1 - edge) * 0.45));
-        size *= 0.82 + edge * 0.22;
-        size = Math.min(size, Math.max(6, dist * 0.11));
+        const edge = Math.min(1, Math.hypot(p.offS, p.offD) / (6 + p.along * 16));
+        const core = (1 - edge) * (1 - Math.min(1, p.along / 0.2));
+        heat = Math.max(heat, core);
+        lifeA = Math.min(0.9, lifeA * (0.72 + (1 - edge) * 0.4));
+        size *= 0.78 + p.seed * 0.28;
+        size = Math.min(size, Math.max(5, dist * 0.1));
         if (dist < 22) lifeA *= Math.min(1, Math.max(0, (dist - 8) / 14));
       } else if (p.kind === 2) {
-        const h = Math.max(0, p.y - p.floor);
-        size *= 0.72 + 0.55 * Math.abs(Math.sin(h * 0.16 + p.seed * 8));
+        size *= 0.7 + p.seed * 0.55;
+      } else if (p.kind === 6) {
+        size *= 0.85 + p.along * 0.35;
+        lifeA = Math.min(0.92, lifeA * (1.05 - p.along * 0.35));
       } else if (p.kind === 1) {
         size = Math.min(size, Math.max(4, dist * 0.14));
       }
@@ -299,9 +303,13 @@ export class SmokeField {
       const name = KIND_NAME[p.kind]!;
       const rgb = TINT[name];
       let shadeK = p.shade;
-      if (p.kind === 2) {
-        const band = Math.floor(Math.max(0, p.y - p.floor) / 4.2);
-        shadeK *= 0.42 + ((band * 3) % 5) / 5 * 0.95;
+      if (p.kind === 0) {
+        const edge = Math.min(1, Math.hypot(p.offS, p.offD) / (6 + p.along * 16));
+        const core = (1 - edge) * (1 - Math.min(1, p.along / 0.18));
+        shadeK = Math.min(1.45, shadeK * (0.5 + (1 - edge) * 0.85) + core * 0.7);
+      } else if (p.kind === 2) {
+        const mouth = Math.max(0, 1 - Math.max(0, p.y - p.floor) / 8);
+        shadeK *= 0.45 + p.seed * 0.7 + mouth * 0.25;
       }
       tint[o] = rgb[0] * shadeK;
       tint[o + 1] = rgb[1] * shadeK;
@@ -329,15 +337,16 @@ export class SmokeField {
     }
     if (p.kind === 6) {
       const L = Math.hypot(p.vx, p.vz);
-      if (L > 0.15) return { x: p.vx / L, y: 0.05, z: p.vz / L, w: 2.05 * jitter };
-      return { x: 0, y: 1, z: 0, w: 1.2 };
+      if (L > 0.15) return { x: p.vx / L, y: 0.04, z: p.vz / L, w: 1.85 * jitter };
+      return { x: 0, y: 1, z: 0, w: 1.3 };
     }
     if (p.kind === 2) {
-      const wx = Math.cos(this.windDir) * 0.28;
-      const wz = Math.sin(this.windDir) * 0.28;
-      return { x: wx, y: 1, z: wz, w: 1.22 * jitter };
+      const wx = Math.cos(this.windDir) * 0.22;
+      const wz = Math.sin(this.windDir) * 0.22;
+      return { x: wx, y: 1, z: wz, w: 1.35 * jitter };
     }
-    if (p.kind === 5) return { x: 0, y: 1, z: 0, w: 1.85 * jitter };
+    if (p.kind === 5) return { x: 0, y: 1, z: 0, w: 2.4 * jitter };
+    if (p.kind === 4 || p.kind === 3) return { x: 0, y: 1, z: 0, w: 1.7 * jitter };
     return { x: 0, y: 1, z: 0, w: 1.2 * jitter };
   }
 

@@ -30,11 +30,23 @@ function mouth(partial: Omit<Mouth, 'vx' | 'vz' | 'fx' | 'fz'> & Partial<Pick<Mo
   return { vx: 0, vz: 0, fx: 0, fz: 0, ...partial };
 }
 
+const GRATE_KEEP: Record<Tier, number> = { low: 4, medium: 6, high: 8, ultra: 10 };
+const VENT_KEEP: Record<Tier, number> = { low: 3, medium: 4, high: 5, ultra: 6 };
+
+/** Nearest mouths, equal weight, so each grate keeps its own column. */
+function nearestSources(list: readonly Mouth[], x: number, z: number, keep: number, kind: number): Mouth[] {
+  const hit = list.filter((m) => m.kind === kind);
+  hit.sort((a, b) => Math.hypot(a.x - x, a.z - z) - Math.hypot(b.x - x, b.z - z));
+  const out: Mouth[] = [];
+  for (let i = 0; i < hit.length && i < keep; i++) out.push({ ...hit[i]!, weight: 1 });
+  return out;
+}
+
 function heroMouths(layout: CityLayout): Mouth[] {
   if (heroes) return heroes;
   const out: Mouth[] = [];
   const spots = marketSpots(layout);
-  const addLane = (x: number, z: number, heading: number, weight: number) => {
+  const addLane = (x: number, z: number, heading: number, _weight: number) => {
     const lane = carriageNear(layout, x, z, 'little-tokyo-market');
     const ox = lane?.x ?? x;
     const oz = lane?.z ?? z;
@@ -48,10 +60,10 @@ function heroMouths(layout: CityLayout): Mouth[] {
       out.push(mouth({
         x: ox + fx * d + rx * side,
         y, z: oz + fz * d + rz * side,
-        kind: KIND.grate, weight: weight * 2, life: 1.85,
-        size0: 0.14, size1: 0.34, heat: 0.05, radius: 0.1,
-        rise: 1.35, spread: 0.05, floor: y - 0.05, wind: 0.06,
-        turb: 0.35, aspect: 1, alpha: 0.34,
+        kind: KIND.grate, weight: 1, life: 2.2,
+        size0: 0.18, size1: 0.42, heat: 0.03, radius: 0.1,
+        rise: 0.95, spread: 0.02, floor: y - 0.02, wind: 0.03,
+        turb: 0.08, aspect: 1, alpha: 0.46,
       }));
     }
   };
@@ -67,24 +79,24 @@ function heroMouths(layout: CityLayout): Mouth[] {
     const dy = s.y - ground;
     if (near) {
       out.push(mouth({
-        x: s.x, y: s.y, z: s.z,         kind: KIND.stall, weight: 5, life: 1.05,
-        size0: 0.04, size1: 0.1, heat: 0.14, radius: 0.02,
-        rise: 0.95, spread: 0.012, floor: s.y - 0.02, wind: 0.015,
-        turb: 0.05, aspect: 1, alpha: 0.48,
+        x: s.x, y: s.y, z: s.z,         kind: KIND.stall, weight: 5, life: 1.35,
+        size0: 0.028, size1: 0.055, heat: 0.08, radius: 0.02,
+        rise: 0.72, spread: 0.008, floor: s.y - 0.02, wind: 0.01,
+        turb: 0.04, aspect: 1, alpha: 0.62,
       }));
     } else if (dy < 0.55) {
       out.push(mouth({
-        x: s.x, y: s.y, z: s.z, kind: KIND.grate, weight: 0.55, life: 2.4,
-        size0: 0.16, size1: 0.42, heat: 0.02, radius: 0.1,
-        rise: 1.15, spread: 0.05, floor: ground, wind: 0.08,
-        turb: 0.12, aspect: 1, alpha: 0.28,
+        x: s.x, y: s.y, z: s.z, kind: KIND.grate, weight: 1, life: 2.2,
+        size0: 0.14, size1: 0.34, heat: 0.02, radius: 0.08,
+        rise: 0.9, spread: 0.02, floor: ground, wind: 0.04,
+        turb: 0.08, aspect: 1, alpha: 0.4,
       }));
     } else if (dy < 2.6) {
       out.push(mouth({
-        x: s.x, y: s.y, z: s.z, kind: KIND.vent, weight: 1.4, life: 2.6,
-        size0: 0.2, size1: 0.55, heat: 0.06, radius: 0.1,
-        rise: 1.2, spread: 0.06, floor: ground, wind: 0.12,
-        turb: 0.16, aspect: 1, alpha: 0.36,
+        x: s.x, y: s.y, z: s.z, kind: KIND.vent, weight: 1, life: 2.3,
+        size0: 0.16, size1: 0.38, heat: 0.04, radius: 0.08,
+        rise: 0.95, spread: 0.02, floor: ground, wind: 0.05,
+        turb: 0.1, aspect: 1, alpha: 0.42,
       }));
     }
   }
@@ -107,10 +119,10 @@ function curbMouths(layout: CityLayout, x: number, z: number, tier: Tier): Mouth
     const pose = poseOn(g, id, t, 1, side);
     const y = layout.heightAt(pose.x, pose.z);
     out.push(mouth({
-      x: pose.x, y: y + 0.22, z: pose.z, kind: KIND.grate, weight: 0.7, life: 2.4,
-      size0: 0.22, size1: 0.55, heat: 0.02, radius: 0.16,
-      rise: 1.2, spread: 0.08, floor: y, wind: 0.16,
-      turb: 0.2, aspect: 1, alpha: 0.3,
+      x: pose.x, y: y + 0.22, z: pose.z, kind: KIND.grate, weight: 1, life: 2.2,
+      size0: 0.14, size1: 0.34, heat: 0.02, radius: 0.08,
+      rise: 0.9, spread: 0.02, floor: y, wind: 0.04,
+      turb: 0.08, aspect: 1, alpha: 0.4,
     }));
     if (out.length >= keep) break;
   }
@@ -131,9 +143,9 @@ export function gatherMouths(
     const base = plume.base;
     out.push(mouth({
       x: plume.x, y: base + 4, z: plume.z, kind: KIND.launch, weight: 1, life: 6.4,
-      size0: 14, size1: 26, heat: 0.35, radius: 4,
+      size0: 8, size1: 18, heat: 0.55, radius: 4,
       rise: 2, spread: 0.2, floor: base, wind: 0.02,
-      turb: 1.1, aspect: 1, alpha: 0.7,
+      turb: 1.1, aspect: 1, alpha: 0.62,
     }));
     out.push(mouth({
       x: plume.x, y: base + 2, z: plume.z, kind: KIND.ground, weight: 1, life: 4.2,
@@ -146,33 +158,35 @@ export function gatherMouths(
   for (let i = 0; i < stacks.length; i++) {
     const f = stacks[i]!;
     out.push(mouth({
-      x: f.x, y: f.y, z: f.z, kind: KIND.stack, weight: i === 0 ? 8 : 1, life: 8.6,
-      size0: 3.4, size1: 9.2, heat: 0.72, radius: 1.2,
-      rise: 5.4, spread: 0.7, floor: f.y, wind: 0.18,
-      turb: 2.4, aspect: 1, alpha: 0.4,
+      x: f.x, y: f.y, z: f.z, kind: KIND.stack, weight: i === 0 ? 6 : 0.35, life: 9.2,
+      size0: 0.85, size1: 2.1, heat: 0.28, radius: 0.45,
+      rise: 3.2, spread: 0.25, floor: f.y, wind: 0.1,
+      turb: 0.8, aspect: 1, alpha: 0.32,
     }));
   }
-  const reach = 90;
+  const steam: Mouth[] = [];
   for (const h of heroMouths(layout)) {
-    if (Math.hypot(h.x - x, h.z - z) < reach) out.push(h);
+    if (Math.hypot(h.x - x, h.z - z) < 48) steam.push(h);
   }
   if (Math.hypot(x - (marketSpots(layout).noodle?.street.x ?? 1e9), z - (marketSpots(layout).noodle?.street.z ?? 1e9)) > 140) {
-    for (const c of curbMouths(layout, x, z, tier)) out.push(c);
+    for (const c of curbMouths(layout, x, z, tier)) steam.push(c);
   }
-  const tailKeep = tier === 'low' ? 4 : tier === 'medium' ? 6 : 8;
-    for (let i = 0; i < tails.length && i < tailKeep; i++) {
+  for (const g of nearestSources(steam, x, z, GRATE_KEEP[tier], KIND.grate)) out.push(g);
+  for (const v of nearestSources(steam, x, z, VENT_KEEP[tier], KIND.vent)) out.push(v);
+  const stalls = nearestSources(steam, x, z, 2, KIND.stall);
+  for (const s of stalls) out.push({ ...s, weight: 4 });
+  const tailKeep = tier === 'low' ? 3 : tier === 'medium' ? 4 : 5;
+  for (let i = 0; i < tails.length && i < tailKeep; i++) {
     const t = tails[i]!;
     const heavy = t.heavy > 0;
     out.push(mouth({
-      x: t.x - t.fx * 0.4, y: t.y + 0.05, z: t.z - t.fz * 0.4, kind: KIND.exhaust,
-      weight: 1,
-      life: heavy ? 0.7 : 0.55,
-      size0: heavy ? 0.12 : 0.08, size1: heavy ? 0.36 : 0.24, heat: 0.04,
-      radius: 0.05, rise: 0.1, spread: 0.03, floor: t.y - 0.2, wind: 0.01,
-      turb: 0.08, aspect: 1, alpha: 0.44,
-      vx: t.vx - t.fx * (heavy ? 5.2 : 6.4),
-      vz: t.vz - t.fz * (heavy ? 5.2 : 6.4),
-      fx: t.fx, fz: t.fz,
+      x: t.x, y: t.y + 0.06, z: t.z, kind: KIND.exhaust,
+      weight: i === 0 ? 3 : 1.4,
+      life: 0.8,
+      size0: heavy ? 0.16 : 0.11, size1: heavy ? 0.34 : 0.26, heat: 0.02,
+      radius: 0.04, rise: 0.12, spread: 0.02, floor: t.y - 0.35, wind: 0,
+      turb: 0.04, aspect: 1, alpha: 0.62,
+      vx: t.vx, vz: t.vz, fx: t.fx, fz: t.fz,
     }));
   }
   return out;
@@ -205,12 +219,12 @@ export function streetSteamPose(layout: CityLayout): SmokePose | null {
   const side = 3.1;
   const vx = ox + fx * d + rx * side;
   const vz = oz + fz * d + rz * side;
-  // Across the lane from the grate, so the column is the subject and the street sign is out of frame.
-  const px = ox + fx * d - rx * 2.6;
-  const pz = oz + fz * d - rz * 2.6;
+  // Close, across the lane, so this grate's own column is the subject.
+  const px = ox + fx * d - rx * 2.4;
+  const pz = oz + fz * d - rz * 2.4;
   const ground = layout.heightAt(px, pz);
-  const eye = ground + 1.25;
-  const lookY = layout.heightAt(vx, vz) + 0.7;
+  const eye = ground + 1.7;
+  const lookY = layout.heightAt(vx, vz) + 1.05;
   const dist = Math.hypot(vx - px, vz - pz) || 1;
   return {
     x: px, y: eye, z: pz,
@@ -274,19 +288,18 @@ export function launchPose(layout: CityLayout): SmokePose | null {
 export function exhaustPose(layout: CityLayout, tails: readonly Tailpipe[]): SmokePose | null {
   const t = tails[0];
   if (!t) return null;
-  // Off the lane, so a following car does not fill the lens, and the trail
-  // is seen leaving the bumper rather than piled on it.
-  const dist = 10.5;
-  const side = 3.3;
+  // Three-quarter rear, far enough that a short trail reads and does not fill the lens.
+  const dist = 5.8;
+  const side = 3.6;
   const rx = -t.fz;
   const rz = t.fx;
   const fx = t.x - t.fx * dist + rx * side;
   const fz = t.z - t.fz * dist + rz * side;
   const ground = layout.heightAt(fx, fz);
-  const eye = ground + 1.7;
-  const lookX = t.x - t.fx * 1.8;
-  const lookZ = t.z - t.fz * 1.8;
-  const lookY = t.y + 0.22;
+  const eye = Math.max(ground + 1.15, t.y + 0.35);
+  const lookX = t.x - t.fx * 1.6;
+  const lookZ = t.z - t.fz * 1.6;
+  const lookY = t.y + 0.2;
   return {
     x: fx, y: eye, z: fz,
     heading: Math.atan2(lookX - fx, -(lookZ - fz)),
