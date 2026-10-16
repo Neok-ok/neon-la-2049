@@ -202,12 +202,12 @@ export class SmokePool {
       p.oz = m.z + Math.sin(ang) * (0.02 + filament * 0.008);
       p.x = p.ox + Math.sin(along * 9 + filament) * along * 0.03;
       p.z = p.oz + Math.cos(along * 8 + filament) * along * 0.03;
-      p.y = m.y + along * 0.15;
-      p.age = along * p.life * 0.72;
-      p.heat = 0.38 + r.next() * 0.22;
-      p.shade = 1.05 + r.next() * 0.3;
-      p.alpha *= Math.pow(1 - along, 1.2) * (0.5 + r.next() * 0.45);
-      p.size0 *= 0.7 + (filament % 3) * 0.18;
+      p.y = m.y - 0.04 + along * 0.12;
+      p.age = along * p.life * 0.8;
+      p.heat = along < 0.2 ? 0.95 : 0.4 + r.next() * 0.2;
+      p.shade = 1.2 + r.next() * 0.25;
+      p.alpha *= Math.pow(1 - along, 1.35) * (along < 0.18 ? 1.15 : 0.45 + r.next() * 0.35);
+      p.size0 *= along < 0.18 ? 1.6 : 0.65 + (filament % 3) * 0.16;
     }
     if (m.kind === KIND.grate || m.kind === KIND.vent) {
       const filament = Math.floor(r.next() * 6);

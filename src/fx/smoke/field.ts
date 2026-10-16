@@ -404,7 +404,6 @@ export class SmokeField {
     const fz = this.forward.z;
     let best = -1;
     let hit: NeonSign | null = null;
-    let hitD = 1;
     for (let i = 0; i < this.neons.length; i++) {
       const s = this.neons[i]!;
       const dx = s.x - x;
@@ -415,17 +414,15 @@ export class SmokeField {
       if (align < -0.05) continue;
       const sat = Math.max(s.r, s.g, s.b) - Math.min(s.r, s.g, s.b);
       const area = Math.sqrt(Math.max(0.3, s.area ?? 1));
-      const score = (0.2 + sat) * area * Math.max(0.08, align) / (3 + dist * 0.16);
+      const score = Math.pow(0.12 + sat, 2.2) * area * Math.max(0.12, align) / (2.2 + dist * 0.05);
       if (score > best) {
         best = score;
         hit = s;
-        hitD = dist;
       }
     }
     if (!hit) return null;
     const sat = Math.max(hit.r, hit.g, hit.b) - Math.min(hit.r, hit.g, hit.b);
-    const near = Math.max(0, 1 - hitD / 36);
-    const k = Math.min(0.86, (0.42 + sat * 0.4) * (0.55 + near * 0.45));
+    const k = Math.min(0.92, 0.58 + sat * 0.32);
     return { r: hit.r, g: hit.g, b: hit.b, k };
   }
 
