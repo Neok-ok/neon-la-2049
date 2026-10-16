@@ -73,7 +73,7 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       // corner never reads as a hard disc.
       const softBody = tint.w;
       const edgeIn = mix(float(0.14), float(0.0), softBody);
-      const edgeOut = mix(float(0.96), float(0.58), softBody);
+      const edgeOut = mix(float(0.8), float(0.58), softBody);
       // A reversed smoothstep is undefined on SwiftShader and cuts a quad into a triangle.
       const edge = float(1).sub(smoothstep(edgeIn, edgeOut, rad));
       const torn = mix(n.r, n.r.mul(float(0.55).add(n.g.mul(0.7))), smokeDetail);

@@ -161,14 +161,14 @@ export class SmokePool {
       p.size0 *= grow;
       p.size1 *= grow;
       p.alpha = Math.min(0.58, p.alpha * (0.12 + edge * 0.62 + nozzle * 0.7 + r.next() * 0.1));
-      if (p.along > 0.74) {
-        const t = (p.along - 0.74) / 0.26;
-        const tear = 0.28 + Math.abs(Math.sin(p.seed * 17 + p.along * 23));
-        p.size0 *= (1 - t * 0.72) * tear;
-        p.size1 *= (1 - t * 0.62) * tear;
-        p.offS += Math.sin(p.along * 28 + p.seed * 12) * t * 18;
-        p.offD += Math.cos(p.along * 22 + p.seed * 9) * t * 18;
-        p.alpha *= 1 - t * 0.5;
+      if (p.along > 0.8) {
+        const t = (p.along - 0.8) / 0.2;
+        const tear = 0.62 + Math.abs(Math.sin(p.seed * 17 + p.along * 23)) * 0.45;
+        p.size0 *= (1 - t * 0.28) * tear;
+        p.size1 *= (1 - t * 0.2) * tear;
+        p.offS += Math.sin(p.along * 18 + p.seed * 12) * t * 5;
+        p.offD += Math.cos(p.along * 14 + p.seed * 9) * t * 5;
+        p.alpha *= 1 - t * 0.22;
       }
     }
     if (m.kind === KIND.stack) {
@@ -362,7 +362,7 @@ export class SmokePool {
     const n = gust(p.seed, p.age, along * 28);
     const c = curl(p.seed, p.age * 0.6, along * 16);
     const amp = 1.8 + along * 10;
-    const crown = along > 0.78 ? (along - 0.78) / 0.22 : 0;
+    const crown = along > 0.84 ? (along - 0.84) * 0.6 : 0;
     p.y = plume.base + along * 420 + (n.y + c.y * 0.6) * (1.2 + along * 5);
     p.x = plume.x + p.offS * swell + (n.x * 0.45 + c.x) * amp * (1 + crown);
     p.z = plume.z + p.offD * swell + (n.z * 0.45 + c.z) * amp * (1 + crown);
