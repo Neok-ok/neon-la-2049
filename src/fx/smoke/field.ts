@@ -368,8 +368,8 @@ export class SmokeField {
         lifeA *= 1 - h * 0.9;
         lamp *= 0.22 + (1 - h) * (1 - h) * 0.78;
       } else if (p.kind === 5) {
-        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 0.5));
-        lifeA *= 1 - h * 0.96;
+        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 0.42));
+        lifeA *= 1 - h * 0.92;
       } else if (p.kind === 6) {
         lamp = 0.03;
       }

@@ -201,20 +201,21 @@ export class SmokePool {
     if (m.kind === KIND.stall) {
       const filament = Math.floor(r.next() * 5);
       const ang = filament * (Math.PI * 2 / 5) + r.next() * 0.55;
-      const along = Math.pow(r.next(), 0.8);
+      // Most of the wisp stays on the rim. The tail thins out before it can reach the sign.
+      const along = r.next() * r.next();
       p.along = along;
-      const rim = 0.06 + r.next() * 0.05;
+      const rim = 0.05 + r.next() * 0.05;
       p.ox = m.x + Math.cos(ang) * rim;
       p.oz = m.z + Math.sin(ang) * rim;
-      p.x = p.ox + Math.sin(along * 13 + filament) * along * 0.05;
-      p.z = p.oz + Math.cos(along * 11 + filament * 1.7) * along * 0.045;
-      p.y = m.y - 0.02 + along * 0.48;
-      p.age = along * p.life * 0.5;
-      p.heat = along < 0.22 ? 0.95 : 0.2 + r.next() * 0.25;
-      p.shade = 0.8 + r.next() * 0.45;
-      p.alpha *= Math.pow(1 - along, 1.7) * (0.45 + r.next() * 0.5);
-      p.size0 *= 0.5 + r.next() * 0.55;
-      p.size1 *= 0.65 + along * 0.9;
+      p.x = p.ox + Math.sin(along * 13 + filament) * along * 0.06;
+      p.z = p.oz + Math.cos(along * 11 + filament * 1.7) * along * 0.05;
+      p.y = m.y - 0.01 + along * 0.42;
+      p.age = along * p.life * 0.35;
+      p.heat = along < 0.35 ? 0.95 : 0.25 + r.next() * 0.2;
+      p.shade = 0.9 + r.next() * 0.35;
+      p.alpha *= (0.75 + r.next() * 0.35) * Math.pow(1 - along, 1.05);
+      p.size0 *= 0.7 + r.next() * 0.45;
+      p.size1 *= 0.8 + along * 0.6;
     }
     if (m.kind === KIND.grate || m.kind === KIND.vent) {
       const filament = Math.floor(r.next() * 6);

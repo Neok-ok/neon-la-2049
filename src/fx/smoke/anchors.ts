@@ -271,14 +271,14 @@ export function stallPose(layout: CityLayout): SmokePose | null {
   const rx = hz;
   const rz = -hx;
   // Beside the rim, slightly above it. A view down the counter hides the pot behind the cook.
-  const fx = pot.x + hx * 0.42 + rx * 1.22;
-  const fz = pot.z + hz * 0.42 + rz * 1.22;
+  const fx = pot.x + hx * 0.28 + rx * 1.05;
+  const fz = pot.z + hz * 0.28 + rz * 1.05;
   const lookX = pot.x;
   const lookZ = pot.z;
   const ground = layout.heightAt(fx, fz);
-  const eyeY = pot.y + 0.55;
+  const eyeY = pot.y + 0.42;
   const eye = eyeY - ground;
-  const lookY = pot.y + 0.18;
+  const lookY = pot.y + 0.08;
   const span = Math.hypot(lookX - fx, lookZ - fz) || 1;
   return {
     x: fx, y: eyeY, z: fz,
