@@ -6,6 +6,7 @@ import {
 import type { CityLayout } from '../../world/layout';
 import type { Tier } from '../../core/quality';
 import { resources } from '../../core/memory';
+import { NITS } from '../../lighting/presets.ts';
 import { visualSeed } from '../../core/rng';
 import { buildKitMeshes, type KitInstance } from '../../districts/_shared/kit/batch';
 import { steamCardGain } from '../../districts/_shared/kit/materials';
@@ -197,13 +198,16 @@ export class SmokeField {
     this.clearPots();
     if (!stalls.length) return;
     const items: KitInstance[] = [];
+    // The street kit multiplies this by NITS.kit. Stay under the lamp-head shell.
+    const rim = Math.min(12, NITS.lampHead) / NITS.kit;
+    const belly = 4 / NITS.kit;
     for (const s of stalls) {
       items.push({
         template: 'drum',
         x: s.x, y: s.y - 0.16, z: s.z, yaw: 0,
         sx: 0.38, sy: 0.32, sz: 0.38,
         color: [0.42, 0.26, 0.16],
-        emissive: [0.16, 0.05, 0.015],
+        emissive: [belly, belly * 0.3, belly * 0.08],
         metal: 0.78,
       });
       items.push({
@@ -211,7 +215,7 @@ export class SmokeField {
         x: s.x, y: s.y + 0.01, z: s.z, yaw: 0.5,
         sx: 0.46, sy: 0.045, sz: 0.46,
         color: [0.72, 0.4, 0.18],
-        emissive: [0.7, 0.24, 0.06],
+        emissive: [rim, rim * 0.34, rim * 0.08],
         metal: 0.4,
       });
     }
