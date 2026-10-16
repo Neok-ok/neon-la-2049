@@ -24,6 +24,26 @@ function approach(current: number, target: number, dt: number, tau: number): num
   return current + (target - current) * (1 - Math.exp(-dt / tau));
 }
 
+/**
+ * Curl of the gust field. Finite differences, not a compute shader:
+ * the same idea as a particle turbulence force, kept on the CPU so the
+ * WebGL fallback still runs it.
+ */
+function curl(seed: number, age: number, h: number): { x: number; y: number; z: number } {
+  const e = 0.21;
+  const y0 = gust(seed, age, h);
+  const y1 = gust(seed, age, h + e);
+  const a0 = gust(seed + 2.3, age, h);
+  const a1 = gust(seed + 2.3, age + e, h);
+  const h0 = gust(seed + 5.1, age + h, 0.4);
+  const h1 = gust(seed + 5.1, age + h + e, 0.4);
+  return {
+    x: (y1.z - y0.z) * 1.5 - (a1.y - a0.y) * 1.3,
+    y: (h1.x - h0.x) * 1.05 - (y1.x - y0.x) * 0.75,
+    z: (a1.x - a0.x) * 1.5 - (h1.z - h0.z) * 1.3,
+  };
+}
+
 /** Bounded gust so a column frays instead of sliding as one ribbon. */
 function gust(seed: number, age: number, h: number): { x: number; y: number; z: number } {
   const a = age * 1.7 + seed * 12.3;
@@ -132,50 +152,63 @@ export class SmokePool {
           : 0.62 + r.next() * 0.3;
     if (m.kind === KIND.launch && plume && plume.live) {
       const edge = Math.min(1, Math.hypot(p.offS, p.offD) / (6 + p.along * 16));
-      // Dark core, brighter torn edge. The nozzle heat is separate.
-      const nozzle = Math.max(0, 1 - p.along / 0.14);
-      p.shade = 0.22 + edge * 1.0 + nozzle * 0.55 + r.next() * 0.15;
-      p.heat = nozzle * (0.85 + r.next() * 0.3);
-      const grow = 0.5 + Math.sin(p.along * Math.PI) * 0.35 + r.next() * 0.3;
+      // The still looks up the column. Heat has to reach the lower frame, then die
+      // so the shaft stays a backlit grey mass against the sky.
+      const nozzle = Math.max(0, 1 - p.along / 0.5);
+      p.shade = 0.42 + edge * 0.65 + r.next() * 0.35;
+      p.heat = nozzle * (0.8 + r.next() * 0.35);
+      const grow = 0.48 + Math.sin(p.along * Math.PI) * 0.28 + r.next() * 0.32;
       p.size0 *= grow;
       p.size1 *= grow;
-      p.alpha = Math.min(0.55, p.alpha * (0.1 + edge * 0.5 + nozzle * 0.85 + r.next() * 0.08));
+      p.alpha = Math.min(0.58, p.alpha * (0.12 + edge * 0.62 + nozzle * 0.7 + r.next() * 0.1));
+      if (p.along > 0.74) {
+        const t = (p.along - 0.74) / 0.26;
+        const tear = 0.28 + Math.abs(Math.sin(p.seed * 17 + p.along * 23));
+        p.size0 *= (1 - t * 0.72) * tear;
+        p.size1 *= (1 - t * 0.62) * tear;
+        p.offS += Math.sin(p.along * 28 + p.seed * 12) * t * 18;
+        p.offD += Math.cos(p.along * 22 + p.seed * 9) * t * 18;
+        p.alpha *= 1 - t * 0.5;
+      }
     }
     if (m.kind === KIND.stack) {
       const along = Math.min(0.97, 0.004 + r.next() * 0.97);
       p.along = along;
       const ang = r.next() * Math.PI * 2;
-      const lobe = 0.72 + billow(along, m.x * 0.01 + m.z * 0.008) * 0.38;
-      const neck = along < 0.02 ? 0.82 + (along / 0.02) * 0.18 : 1;
-      const reach = (5.4 + along * 8.2) * lobe * neck;
-      const rad = Math.pow(r.next(), 0.4) * reach;
-      const lobe2 = Math.sin(along * 11.4 + m.z * 0.02) + Math.sin(along * 4.1) * 0.6;
-      p.offS = Math.cos(ang) * rad + lobe2 * along * 3.4;
-      p.offD = Math.sin(ang) * rad + Math.cos(along * 8.3 + m.x * 0.01) * along * 3.1;
-      p.y = m.y + along * 78;
+      const lobe = 0.62 + billow(along, m.x * 0.01 + m.z * 0.008) * 0.55;
+      const neck = along < 0.05 ? 0.72 + (along / 0.05) * 0.28 : 1;
+      const reach = (7.4 + along * 12.5) * lobe * neck;
+      const rad = Math.pow(r.next(), 0.38) * reach;
+      const lobe2 = Math.sin(along * 9.2 + m.z * 0.02) + Math.sin(along * 3.4 + m.x * 0.01) * 0.7;
+      p.offS = Math.cos(ang) * rad + lobe2 * along * 4.2;
+      p.offD = Math.sin(ang) * rad + Math.cos(along * 7.1 + m.x * 0.01) * along * 3.8;
+      p.y = m.y + along * 82;
       p.x = m.x + p.offS;
       p.z = m.z + p.offD;
-      p.shade = 0.12 + r.next() * 0.95;
-      const belly = Math.max(0, 1 - along / 0.14);
-      p.heat = belly * (0.55 + r.next() * 0.55);
-      p.alpha *= 0.4 + r.next() * 0.55;
-      p.size0 *= 0.55 + r.next() * 0.7;
-      p.size1 *= 0.6 + along * 0.35;
+      p.shade = 0.18 + r.next() * 0.95;
+      // Heat stays in the mouth. A long orange gradient reads as a smooth cap.
+      const belly = Math.max(0, 1 - along / 0.07);
+      p.heat = belly * (0.4 + r.next() * 0.85);
+      p.alpha *= 0.48 + r.next() * 0.5;
+      const mouth = along < 0.08 ? 0.4 + r.next() * 0.45 : 0.6 + r.next() * 0.75;
+      p.size0 *= mouth;
+      p.size1 *= (0.5 + along * 0.45) * (0.6 + Math.abs(Math.sin(along * 15 + r.next() * 8)) * 0.65);
     }
     if (m.kind === KIND.stall) {
-      const filament = Math.floor(r.next() * 5);
-      const ang = filament * (Math.PI * 2 / 5) + r.next() * 0.2;
-      const along = Math.pow(r.next(), 0.65);
+      const filament = Math.floor(r.next() * 7);
+      const ang = filament * (Math.PI * 2 / 7) + r.next() * 0.35;
+      const along = Math.pow(r.next(), 0.72);
       p.along = along;
-      p.ox = m.x + Math.cos(ang) * (0.03 + filament * 0.014);
-      p.oz = m.z + Math.sin(ang) * (0.03 + filament * 0.014);
-      p.x = p.ox;
-      p.z = p.oz;
-      p.y = m.y + along * 0.2;
-      p.age = along * p.life * 0.55;
-      p.heat = 0.85 + r.next() * 0.15;
-      p.shade = 1.15 + r.next() * 0.25;
-      p.alpha *= 0.7 + (1 - along) * 0.35;
+      p.ox = m.x + Math.cos(ang) * (0.02 + filament * 0.008);
+      p.oz = m.z + Math.sin(ang) * (0.02 + filament * 0.008);
+      p.x = p.ox + Math.sin(along * 9 + filament) * along * 0.03;
+      p.z = p.oz + Math.cos(along * 8 + filament) * along * 0.03;
+      p.y = m.y + along * 0.15;
+      p.age = along * p.life * 0.72;
+      p.heat = 0.38 + r.next() * 0.22;
+      p.shade = 1.05 + r.next() * 0.3;
+      p.alpha *= Math.pow(1 - along, 1.2) * (0.5 + r.next() * 0.45);
+      p.size0 *= 0.7 + (filament % 3) * 0.18;
     }
     if (m.kind === KIND.grate || m.kind === KIND.vent) {
       const filament = Math.floor(r.next() * 6);
@@ -189,36 +222,37 @@ export class SmokePool {
       const shear = along * along;
       const g = gust(r.next(), along * 1.6, along * column);
       const edge = rad / (m.kind === KIND.grate ? 0.16 : 0.1);
-      p.x = p.ox + g.x * shear * (0.22 + edge * 0.45);
-      p.z = p.oz + g.z * shear * (0.22 + edge * 0.45);
+      const kick = 0.04 + shear * (0.38 + edge * 0.85);
+      p.x = p.ox + g.x * kick;
+      p.z = p.oz + g.z * kick;
       p.y = m.y + along * column;
       p.vy = 0.12 + along * 0.22;
       p.age = p.life * (0.05 + along * 0.22);
-      p.shade = 0.45 + r.next() * 0.55;
-      p.size0 *= 0.45 + (filament % 3) * 0.16 + r.next() * 0.25;
-      p.alpha *= (1 - along * 0.35) * (1 - Math.min(0.45, edge * 0.4));
+      p.shade = 0.4 + r.next() * 0.7;
+      p.size0 *= 0.4 + (filament % 3) * 0.18 + r.next() * 0.28;
+      p.alpha *= (1 - along * 0.45) * (1 - Math.min(0.62, edge * 0.55));
     }
     if (m.kind === KIND.exhaust) {
       const along = r.next();
       p.along = along;
-      const back = 0.25 + along * 6.2;
-      const side = (r.next() * 2 - 1) * (0.02 + along * 0.14);
+      const back = 0.2 + along * 5.1;
+      const side = (r.next() * 2 - 1) * (0.012 + along * 0.07);
       const rx = -m.fz;
       const rz = m.fx;
-      const g = gust(r.next(), along, back);
-      p.x = m.x - m.fx * back + rx * side + g.x * along * 0.22;
-      p.y = m.y + 0.02 + along * 2.05 + (r.next() - 0.5) * 0.05;
-      p.z = m.z - m.fz * back + rz * side + g.z * along * 0.22;
-      p.age = along * p.life * 0.5;
+      const g = gust(r.next(), along * 2.2, back);
+      p.x = m.x - m.fx * back + rx * side + g.x * along * 0.16;
+      p.y = m.y + 0.03 + along * 1.15 + (r.next() - 0.5) * 0.04;
+      p.z = m.z - m.fz * back + rz * side + g.z * along * 0.16;
+      p.age = along * p.life * 0.45;
       p.vx = m.vx;
       p.vz = m.vz;
-      p.vy = 0.35 + along * 0.7;
-      p.size0 *= 0.65 + along * 0.7;
-      p.size1 *= 0.7 + along * 0.8;
+      p.vy = 0.18 + along * 0.35;
+      p.size0 *= 0.75 + along * 0.55;
+      p.size1 *= 0.8 + along * 0.7;
       // Thin at the bumper so the lamp does not grow a ball. The body of the trail carries it.
       const body = Math.sin(Math.min(1, along) * Math.PI);
-      p.alpha *= 0.28 + body * 0.85;
-      p.shade = 0.55 + r.next() * 0.4;
+      p.alpha *= 0.16 + body * 1.05;
+      p.shade = 0.62 + r.next() * 0.4;
     }
     if (m.kind === KIND.ground && plume && plume.live) {
       const rr = 6 + Math.sqrt(r.next()) * 16;
@@ -270,7 +304,7 @@ export class SmokePool {
       const phase = p.seed * 6.28;
       if (p.kind === KIND.stall) {
         const n = gust(p.seed, p.age, p.y - p.floor);
-        const cap = p.floor + 0.22;
+        const cap = p.floor + 0.14;
         const sway = Math.sin(p.age * 6.2 + phase) * 0.012;
         p.vx = approach(p.vx, (p.ox + sway - p.x) * 6 + n.x * 0.12, dt, 0.08);
         p.vz = approach(p.vz, (p.oz + sway * 0.6 - p.z) * 6 + n.z * 0.12, dt, 0.08);
@@ -278,20 +312,25 @@ export class SmokePool {
         p.vy = approach(p.vy, rise, dt, 0.08);
       } else if (p.kind === KIND.exhaust) {
         const n = gust(p.seed, p.age, p.along * 4);
-        p.vy = approach(p.vy, 0.16 * (1 - u) + n.y * 0.05, dt, 0.28);
+        const c = curl(p.seed, p.age * 1.4, p.along * 6);
+        p.vy = approach(p.vy, 0.12 * (1 - u) + n.y * 0.04 + c.y * 0.05, dt, 0.28);
+        p.vx += c.x * 0.08 * p.along;
+        p.vz += c.z * 0.08 * p.along;
       } else if (p.kind === KIND.grate || p.kind === KIND.vent) {
         const h = Math.max(0, p.y - p.floor);
         const h01 = Math.min(1, h / 2.2);
         const pin = (1 - h01) * (1 - h01);
         const shear = h01 * h01;
         const n = gust(p.seed, p.age, h);
-        const sway = (0.03 + h01 * 0.16) * Math.sin(phase + p.age * 0.85);
+        const c = curl(p.seed + 1.2, p.age * 0.8, h * 1.4);
+        const sway = (0.03 + h01 * 0.2) * Math.sin(phase + p.age * 0.85);
         const ax = p.ox + sway;
         const az = p.oz + Math.cos(phase * 1.3 + p.age * 0.7) * sway * 0.65;
-        const edge = Math.min(1, Math.hypot(p.x - p.ox, p.z - p.oz) / 0.4);
-        const windK = p.wind * (0.15 + shear * 1.15) * (1 + edge * 0.65);
-        p.vx = approach(p.vx, (ax - p.x) * (0.8 + pin * 7) + wx * windK + n.x * p.turb * (0.25 + shear), dt, 0.2);
-        p.vz = approach(p.vz, (az - p.z) * (0.8 + pin * 7) + wz * windK + n.z * p.turb * (0.25 + shear), dt, 0.2);
+        const edge = Math.min(1, Math.hypot(p.x - p.ox, p.z - p.oz) / 0.45);
+        const windK = p.wind * (0.12 + shear * 1.25) * (1 + edge * 0.8);
+        const turb = p.turb * (0.2 + shear);
+        p.vx = approach(p.vx, (ax - p.x) * (0.8 + pin * 7) + wx * windK + n.x * turb + c.x * turb * 0.65, dt, 0.2);
+        p.vz = approach(p.vz, (az - p.z) * (0.8 + pin * 7) + wz * windK + n.z * turb + c.z * turb * 0.65, dt, 0.2);
         // The spawn already fills the column. A hard rise lifts it off the grate.
         const targetY = (0.18 + shear * 0.28) * (1 - rain * 0.15);
         p.vy = approach(p.vy, targetY + n.y * 0.06 * shear, dt, 0.22);
@@ -319,12 +358,14 @@ export class SmokePool {
   private placeOnRibbon(p: Puff, plume: LaunchPlume, cam: Xyz, _fwd: Xyz): void {
     const u = Math.min(1, p.age / Math.max(0.2, p.life));
     const along = Math.min(0.98, p.along + u * 0.015);
-    const swell = 1 + Math.sin(p.age * 0.31 + p.seed * 13) * (0.12 + along * 0.22);
+    const swell = 1 + Math.sin(p.age * 0.31 + p.seed * 13) * (0.1 + along * 0.18);
     const n = gust(p.seed, p.age, along * 28);
-    const amp = 2.2 + along * 8;
-    p.y = plume.base + along * 420 + n.y * (1.4 + along * 4);
-    p.x = plume.x + p.offS * swell + n.x * amp;
-    p.z = plume.z + p.offD * swell + n.z * amp;
+    const c = curl(p.seed, p.age * 0.6, along * 16);
+    const amp = 1.8 + along * 10;
+    const crown = along > 0.78 ? (along - 0.78) / 0.22 : 0;
+    p.y = plume.base + along * 420 + (n.y + c.y * 0.6) * (1.2 + along * 5);
+    p.x = plume.x + p.offS * swell + (n.x * 0.45 + c.x) * amp * (1 + crown);
+    p.z = plume.z + p.offD * swell + (n.z * 0.45 + c.z) * amp * (1 + crown);
     if (Math.hypot(p.x - cam.x, p.y - cam.y, p.z - cam.z) < 18) p.y += 24;
   }
 
@@ -332,16 +373,16 @@ export class SmokePool {
   private placeStack(p: Puff, wind: Wind): void {
     const u = Math.min(1, p.age / Math.max(0.2, p.life));
     const along = Math.min(0.98, p.along + u * 0.02);
-    const height = 78;
-    const lean = (1.6 + Math.min(12, Math.max(0, wind.speed)) * 0.5) * along * along;
+    const height = 82;
+    const lean = (1.4 + Math.min(12, Math.max(0, wind.speed)) * 0.45) * along * along;
     const n = gust(p.seed, p.age * 0.8, along * 18);
-    const body = 1.5 + Math.sin(along * Math.PI) * 1.8 + Math.sin(along * 8.2 + p.seed * 5) * 0.85;
-    const billow = (Math.sin(p.age * 0.55 + p.seed * 19 + along * 8) + n.x * 0.85) * body;
-    const billow2 = (Math.cos(p.age * 0.41 + p.seed * 11 + along * 5.4) + n.z * 0.85) * body;
-    const swell = 1 + Math.sin(p.age * 0.24 + p.seed * 7) * 0.18 * (0.25 + along);
-    p.y = p.floor + along * height + n.y * along * 3.2;
-    p.x = p.ox + Math.cos(wind.dir) * lean + p.offS * swell + billow;
-    p.z = p.oz + Math.sin(wind.dir) * lean + p.offD * swell + billow2;
+    const c = curl(p.seed, p.age * 0.55, along * 14);
+    const lobe = billow(along * 1.7, p.seed + p.ox * 0.01);
+    const body = (2.1 + lobe * 3.6) * (0.35 + along);
+    const swell = 0.82 + lobe * 0.35;
+    p.y = p.floor + along * height + (n.y + c.y) * along * 4.2;
+    p.x = p.ox + Math.cos(wind.dir) * lean + p.offS * swell + (c.x * 0.7 + n.x * 0.4) * body;
+    p.z = p.oz + Math.sin(wind.dir) * lean + p.offD * swell + (c.z * 0.7 + n.z * 0.4) * body;
   }
 
   kindCount(kind: KindId): number {

@@ -20,13 +20,13 @@ import {
 } from './anchors';
 
 const TINT: Record<(typeof KIND_NAME)[number], [number, number, number]> = {
-  launch: [0.16, 0.15, 0.14],
+  launch: [0.2, 0.19, 0.18],
   ground: [0.16, 0.15, 0.14],
   stack: [0.32, 0.3, 0.28],
   vent: [0.34, 0.36, 0.4],
   grate: [0.3, 0.32, 0.36],
   stall: [1.25, 0.48, 0.14],
-  exhaust: [0.62, 0.6, 0.58],
+  exhaust: [0.74, 0.72, 0.7],
 };
 
 export interface NeonSign {
@@ -42,8 +42,8 @@ export interface NeonSign {
 function lampOf(kind: number): number {
   if (kind === 6) return 0.03;
   if (kind === 0 || kind === 1) return 0.06;
-  if (kind === 2) return 0.55;
-  if (kind === 4 || kind === 3) return 0.82;
+  if (kind === 2) return 0.42;
+  if (kind === 4 || kind === 3) return 0.5;
   if (kind === 5) return 0.95;
   return 0.22;
 }
@@ -287,22 +287,22 @@ export class SmokeField {
       let heat = p.heat;
       if (p.kind === 0) heat *= Math.max(0, 1 - u * 0.85);
       if (p.kind === 2) {
-        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 14));
-        heat *= Math.max(0, 1 - h);
+        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 7));
+        heat *= Math.max(0, 1 - h * h);
       }
       if (p.kind === 0) {
         const edge = Math.min(1, Math.hypot(p.offS, p.offD) / (6 + p.along * 16));
-        const nozzle = Math.max(0, 1 - p.along / 0.14);
+        const nozzle = Math.max(0, 1 - p.along / 0.5);
         heat = Math.max(heat, nozzle * 1.05);
-        lifeA = Math.min(0.55, lifeA * (0.12 + edge * 0.7 + nozzle * 0.8));
+        lifeA = Math.min(0.58, lifeA * (0.14 + edge * 0.75 + nozzle * 0.72));
         size *= 0.42 + p.seed * 0.8;
         size = Math.min(size, Math.max(4.5, dist * 0.18));
         if (dist < 22) lifeA *= Math.min(1, Math.max(0, (dist - 8) / 14));
       } else if (p.kind === 2) {
         size *= 0.62 + p.seed * 0.7;
       } else if (p.kind === 6) {
-        size *= 0.75 + p.along * 0.45;
-        lifeA = Math.min(0.7, lifeA);
+        size *= 0.85 + p.along * 0.35;
+        lifeA = Math.min(0.62, lifeA);
       } else if (p.kind === 1) {
         size = Math.min(size, Math.max(4, dist * 0.14));
       }
@@ -315,12 +315,12 @@ export class SmokeField {
       const cell = Math.floor(p.seed * 7.999);
       let lamp = lampOf(p.kind);
       if (p.kind === 4 || p.kind === 3) {
-        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 2.7));
-        lifeA *= 1 - h * 0.9;
-        lamp *= 0.22 + (1 - h) * (1 - h) * 0.78;
-      } else if (p.kind === 5) {
-        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 0.22));
+        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 2.5));
         lifeA *= 1 - h * 0.92;
+        lamp *= 0.28 + (1 - h) * (1 - h) * 0.72;
+      } else if (p.kind === 5) {
+        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 0.16));
+        lifeA *= 1 - h * 0.94;
       } else if (p.kind === 6) {
         lamp = 0.03;
       }
@@ -332,7 +332,7 @@ export class SmokeField {
       let shadeK = p.shade;
       if (p.kind === 0) {
         const edge = Math.min(1, Math.hypot(p.offS, p.offD) / (6 + p.along * 16));
-        shadeK = Math.min(1.6, 0.16 + edge * 1.2 + p.seed * 0.2);
+        shadeK = Math.min(1.35, 0.55 + edge * 0.65 + p.seed * 0.28);
       } else if (p.kind === 2) {
         const mouth = Math.max(0, 1 - Math.max(0, p.y - p.floor) / 10);
         shadeK *= 0.35 + p.seed * 0.85 + mouth * 0.2;
@@ -343,20 +343,20 @@ export class SmokeField {
       let tg = rgb[1] * shadeK;
       let tb = rgb[2] * shadeK;
       if (p.kind === 4 || p.kind === 3) {
-        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 1.3));
+        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 1.15));
         const neon = this.nearestNeon(p.x, p.z);
         if (neon) {
-          const catchK = neon.k * (1 - h) * (1 - h) * (0.75 + p.seed * 0.12);
-          tr = tr * (1 - catchK) + neon.r * catchK;
-          tg = tg * (1 - catchK) + neon.g * catchK;
-          tb = tb * (1 - catchK) + neon.b * catchK;
+          const catchK = neon.k * (1 - h) * (1 - h) * (0.88 + p.seed * 0.1);
+          tr = tr * (1 - catchK) + neon.r * catchK * (0.85 + p.shade * 0.2);
+          tg = tg * (1 - catchK) + neon.g * catchK * (0.85 + p.shade * 0.2);
+          tb = tb * (1 - catchK) + neon.b * catchK * (0.85 + p.shade * 0.2);
         }
       }
       tint[o] = tr;
       tint[o + 1] = tg;
       tint[o + 2] = tb;
       // 0 backlit plume, 1 soft body. Exhaust stays filled so the trail is not a rim.
-      tint[o + 3] = p.kind === 0 ? 0 : p.kind === 2 ? 0.35 : 1;
+      tint[o + 3] = p.kind === 0 ? 0 : p.kind === 2 ? 0.82 : 1;
       const stretch = this.stretchOf(p);
       move[o] = stretch.x;
       move[o + 1] = stretch.y;
@@ -379,20 +379,21 @@ export class SmokeField {
     }
     if (p.kind === 6) {
       const L = Math.hypot(p.vx, p.vz);
-      if (L > 0.15) return { x: p.vx / L, y: 0.48, z: p.vz / L, w: 4.6 * jitter };
-      return { x: 0, y: 1, z: 0, w: 1.6 };
+      const rise = 0.18 + p.along * 0.28;
+      if (L > 0.15) return { x: p.vx / L, y: rise, z: p.vz / L, w: (5.6 + p.along * 1.4) * jitter };
+      return { x: 0, y: 1, z: 0, w: 2.4 };
     }
     if (p.kind === 2) {
-      const wx = Math.cos(this.windDir) * 0.48;
-      const wz = Math.sin(this.windDir) * 0.48;
-      return { x: wx, y: 1, z: wz, w: 1.22 * jitter };
+      const wx = Math.cos(this.windDir) * 0.55;
+      const wz = Math.sin(this.windDir) * 0.55;
+      return { x: wx, y: 1, z: wz, w: (1.05 + p.along * 0.45) * jitter };
     }
-    if (p.kind === 5) return { x: 0, y: 1, z: 0, w: 5.2 * jitter };
+    if (p.kind === 5) return { x: Math.sin(p.seed * 12) * 0.08, y: 1, z: Math.cos(p.seed * 9) * 0.08, w: 6.6 * jitter };
     if (p.kind === 4 || p.kind === 3) {
-      const h = Math.min(1, Math.max(0, (p.y - p.floor) / 2.6));
-      const wx = Math.cos(this.windDir) * h * 1.35;
-      const wz = Math.sin(this.windDir) * h * 1.35;
-      return { x: wx, y: 1, z: wz, w: (1.05 + h * 1.15) * jitter };
+      const h = Math.min(1, Math.max(0, (p.y - p.floor) / 2.4));
+      const wx = Math.cos(this.windDir) * h * 1.75;
+      const wz = Math.sin(this.windDir) * h * 1.75;
+      return { x: wx, y: 1, z: wz, w: (1.2 + h * 1.55) * jitter };
     }
     return { x: 0, y: 1, z: 0, w: 1.2 * jitter };
   }
@@ -408,10 +409,11 @@ export class SmokeField {
       const dx = s.x - x;
       const dz = s.z - z;
       const dist = Math.hypot(dx, dz);
-      if (dist > 72 || dist < 1.5) continue;
+      if (dist > 26 || dist < 0.8) continue;
       const align = (dx * fx + dz * fz) / dist;
-      if (align < 0.25) continue;
-      const score = align * align / (6 + dist);
+      if (align < 0.02) continue;
+      const sat = Math.max(s.r, s.g, s.b) - Math.min(s.r, s.g, s.b);
+      const score = (0.3 + sat) * (0.25 + align) / (2.5 + dist * 0.28);
       if (score > best) {
         best = score;
         hit = s;
@@ -419,7 +421,9 @@ export class SmokeField {
       }
     }
     if (!hit) return null;
-    const k = Math.min(0.7, 0.2 + 0.5 * Math.max(0, 1 - hitD / 48));
+    const sat = Math.max(hit.r, hit.g, hit.b) - Math.min(hit.r, hit.g, hit.b);
+    const near = Math.max(0, 1 - hitD / 24);
+    const k = Math.min(0.66, (0.24 + sat * 0.38) * (0.5 + near));
     return { r: hit.r, g: hit.g, b: hit.b, k };
   }
 

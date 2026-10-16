@@ -79,10 +79,10 @@ function heroMouths(layout: CityLayout): Mouth[] {
     const dy = s.y - ground;
     if (near) {
       out.push(mouth({
-        x: s.x, y: s.y, z: s.z, kind: KIND.stall, weight: 5, life: 0.48,
-        size0: 0.034, size1: 0.07, heat: 1, radius: 0.02,
-        rise: 0.22, spread: 0.01, floor: s.y - 0.02, wind: 0.012,
-        turb: 0.28, aspect: 1, alpha: 0.78,
+        x: s.x, y: s.y, z: s.z, kind: KIND.stall, weight: 5, life: 0.32,
+        size0: 0.018, size1: 0.042, heat: 0.45, radius: 0.015,
+        rise: 0.14, spread: 0.006, floor: s.y - 0.01, wind: 0.006,
+        turb: 0.16, aspect: 1, alpha: 0.7,
       }));
     } else if (dy < 0.55) {
       // Baseline courtyard card. The visible plate is marketPlates.
@@ -163,9 +163,9 @@ export function gatherMouths(
     const f = stacks[i]!;
     out.push(mouth({
       x: f.x, y: f.y, z: f.z, kind: KIND.stack, weight: i === 0 ? 6 : 0.35, life: 9.2,
-      size0: 2.45, size1: 5.1, heat: 0.95, radius: 0.85,
-      rise: 3.4, spread: 0.3, floor: f.y, wind: 0.2,
-      turb: 1.7, aspect: 1, alpha: 0.5,
+      size0: 2.15, size1: 4.4, heat: 0.7, radius: 0.85,
+      rise: 3.4, spread: 0.3, floor: f.y, wind: 0.22,
+      turb: 2.1, aspect: 1, alpha: 0.56,
     }));
   }
   const steam: Mouth[] = [];
@@ -185,11 +185,11 @@ export function gatherMouths(
     const heavy = t.heavy > 0;
     out.push(mouth({
       x: t.x, y: t.y + 0.06, z: t.z, kind: KIND.exhaust,
-      weight: i === 0 ? 5.5 : 1.15,
-      life: 1.2,
-      size0: heavy ? 0.1 : 0.07, size1: heavy ? 0.28 : 0.18, heat: 0.02,
-      radius: 0.04, rise: 0.7, spread: 0.02, floor: t.y - 0.35, wind: 0,
-      turb: 0.28, aspect: 1, alpha: 0.88,
+      weight: i === 0 ? 6.5 : 0.7,
+      life: 1.45,
+      size0: heavy ? 0.15 : 0.1, size1: heavy ? 0.4 : 0.24, heat: 0.01,
+      radius: 0.035, rise: 0.4, spread: 0.015, floor: t.y - 0.35, wind: 0,
+      turb: 0.22, aspect: 1, alpha: 0.74,
       vx: t.vx, vz: t.vz, fx: t.fx, fz: t.fz,
     }));
   }
@@ -270,12 +270,13 @@ export function stallPose(layout: CityLayout): SmokePose | null {
   const hz = -Math.cos(cook.heading);
   const rx = hz;
   const rz = -hx;
-  // Close three-quarter so the pot rim and the short wisps sit under the lamp.
-  const fx = pot.x + hx * 0.85 + rx * 1.05;
-  const fz = pot.z + hz * 0.85 + rz * 1.05;
+  // Just in front of the counter, at the rim, so the wisps die on the pot
+  // and the sign stays in the background.
+  const fx = pot.x + hx * 0.82 + rx * 0.46;
+  const fz = pot.z + hz * 0.82 + rz * 0.46;
   const ground = layout.heightAt(fx, fz);
-  const eye = ground + 1.45;
-  const lookY = pot.y + 0.06;
+  const eye = ground + 1.1;
+  const lookY = pot.y - 0.12;
   const span = Math.hypot(pot.x - fx, pot.z - fz) || 1;
   return {
     x: fx, y: eye, z: fz,
@@ -283,7 +284,7 @@ export function stallPose(layout: CityLayout): SmokePose | null {
     pitch: Math.atan2(lookY - eye, span),
     mode: 'walk',
     lock: true,
-    eye: 1.45,
+    eye: 1.1,
     feet: { x: fx, y: ground, z: fz },
   };
 }
@@ -292,14 +293,14 @@ export function launchPose(layout: CityLayout): SmokePose | null {
   const plume = readLaunchPlume();
   if (!plume.live) return null;
   // East of the stack. The gantry stands to the west, so the column sits in front of it.
-  const dist = 124;
+  const dist = 118;
   const ang = 0.22;
   const px = plume.x + Math.cos(ang) * dist;
   const pz = plume.z + Math.sin(ang) * dist;
-  const feetY = plume.base + 46;
+  const feetY = plume.base + 32;
   const lookX = plume.x;
   const lookZ = plume.z;
-  const lookY = plume.base + 205;
+  const lookY = plume.base + 198;
   const span = Math.hypot(lookX - px, lookZ - pz) || 1;
   return {
     x: px, y: feetY, z: pz,
@@ -315,18 +316,19 @@ export function launchPose(layout: CityLayout): SmokePose | null {
 export function exhaustPose(layout: CityLayout, tails: readonly Tailpipe[]): SmokePose | null {
   const t = tails[0];
   if (!t) return null;
-  // Low and side-on, looking up so the trail crosses the windows and the sky.
-  const dist = 3.4;
-  const side = 5.4;
+  // Beside the rear quarter, looking up the street so the trail sits
+  // against the sky slot instead of the taillight.
+  const dist = 1.15;
+  const side = 3.6;
   const rx = -t.fz;
   const rz = t.fx;
   const fx = t.x - t.fx * dist + rx * side;
   const fz = t.z - t.fz * dist + rz * side;
   const ground = layout.heightAt(fx, fz);
-  const eye = 0.62;
-  const lookX = t.x - t.fx * 3.1;
-  const lookZ = t.z - t.fz * 3.1;
-  const lookY = t.y + 2.05;
+  const eye = 1.05;
+  const lookX = t.x - t.fx * 9.5;
+  const lookZ = t.z - t.fz * 9.5;
+  const lookY = t.y + 4.6;
   return {
     x: fx, y: ground + eye, z: fz,
     heading: Math.atan2(lookX - fx, -(lookZ - fz)),
