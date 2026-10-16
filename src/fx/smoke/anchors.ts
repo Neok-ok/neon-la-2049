@@ -270,18 +270,17 @@ export function stallPose(layout: CityLayout): SmokePose | null {
   const hz = -Math.cos(cook.heading);
   const rx = hz;
   const rz = -hx;
-  // Along the bar, just above the rim, so the counter front is edge-on and the
-  // wisp sits on the pot in front of the stall sign.
-  const dist = 0.16;
-  const side = -1.85;
+  // Above the rim, looking up into the wisp, so the counter top falls below the frame.
+  const dist = 0.08;
+  const side = -1.12;
   const fx = pot.x + hx * dist + rx * side;
   const fz = pot.z + hz * dist + rz * side;
-  const lookX = pot.x;
-  const lookZ = pot.z;
+  const lookX = pot.x - hx * 0.05;
+  const lookZ = pot.z - hz * 0.05;
   const ground = layout.heightAt(fx, fz);
-  const eyeY = pot.y + 0.06;
+  const eyeY = pot.y + 0.46;
   const eye = eyeY - ground;
-  const lookY = pot.y + 0.28;
+  const lookY = pot.y + 0.7;
   const span = Math.hypot(lookX - fx, lookZ - fz) || 1;
   return {
     x: fx, y: eyeY, z: fz,
