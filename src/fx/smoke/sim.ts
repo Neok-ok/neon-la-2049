@@ -182,6 +182,13 @@ export class SmokePool {
       p.size0 *= grow * throat;
       p.size1 *= grow * throat;
       p.alpha = Math.min(low ? 0.36 : 0.3, (0.12 + falloff * 0.2 + nozzle * (low ? 0.12 : 0.06)) * (0.82 + r.next() * 0.28));
+      if (p.along < 0.1) {
+        // The service stack sits on this point. Keep the core thin so the tower
+        // shows, and leave the bright vapor on the flanks.
+        const rim = Math.min(1, Math.hypot(p.offS, p.offD) / Math.max(6, launchReach));
+        p.alpha *= 0.32 + rim * 0.9;
+        p.heat = Math.max(p.heat, (1 - p.along / 0.1) * (0.35 + rim * 0.55));
+      }
       if (p.along > 0.72) {
         const t = (p.along - 0.72) / 0.28;
         p.size0 *= 1 - t * 0.18;
@@ -224,9 +231,9 @@ export class SmokePool {
       p.oz = m.z + Math.sin(ang) * rim;
       p.x = p.ox + Math.sin(along * 13 + filament) * along * 0.06;
       p.z = p.oz + Math.cos(along * 11 + filament * 1.7) * along * 0.05;
-      p.y = m.y - 0.01 + along * 0.42;
+      p.y = m.y - 0.01 + along * 0.72;
       p.age = along * p.life * 0.35;
-      p.heat = along < 0.35 ? 0.95 : 0.25 + r.next() * 0.2;
+      p.heat = 0;
       p.shade = 0.9 + r.next() * 0.35;
       p.alpha *= (0.75 + r.next() * 0.35) * Math.pow(1 - along, 1.05);
       p.size0 *= 0.7 + r.next() * 0.45;
@@ -259,25 +266,24 @@ export class SmokePool {
       p.alpha *= (0.38 + (1 - along) * 0.2) * (0.48 + falloff * 0.42);
     }
     if (m.kind === KIND.exhaust) {
-      // Even slices up the trail. A pile on the bumper was a clump; a long card was a streak.
-      const bands = 10;
+      // Short slices behind the bumper. A tall stack of cards read as a chimney.
+      const bands = 6;
       const band = Math.floor(r.next() * bands);
-      const along = Math.min(0.96, (band + r.next() * 0.8) / bands);
+      const along = Math.min(0.92, (band + r.next() * 0.7) / bands);
       p.along = along;
       const fl = Math.hypot(m.fx, m.fz) || 1;
-      // Unit forward, not road speed. A frozen car would otherwise drive the puff through the boot.
       p.vx = m.fx / fl;
       p.vz = m.fz / fl;
       p.vy = 0;
       p.ox = m.x;
       p.oz = m.z;
       p.floor = m.y;
-      p.size0 *= 1.85 + along * 0.35;
-      p.size1 *= 2.15 + along * 0.4;
-      const gap = along < 0.045 ? 0.7 + (along / 0.045) * 0.3 : 1;
-      const fade = Math.pow(1 - along, 0.22);
-      p.alpha *= gap * (0.5 + fade * 0.32) * (0.9 + r.next() * 0.12);
-      p.shade = 0.5 + r.next() * 0.22;
+      p.size0 *= 0.9 + along * 0.15;
+      p.size1 *= 1.05 + along * 0.45;
+      const fade = Math.pow(1 - along, 1.45);
+      p.alpha *= fade * (0.62 + r.next() * 0.25);
+      p.shade = 0.55 + r.next() * 0.3;
+      p.heat = 0;
       this.placeExhaust(p);
     }
     if (m.kind === KIND.ground && plume && plume.live) {
@@ -337,7 +343,7 @@ export class SmokePool {
       if (p.kind === KIND.stall) {
         const n = gust(p.seed, p.age, p.y - p.floor);
         const c = curl(p.seed, p.age * 2.2, p.y - p.floor);
-        const cap = p.floor + 0.52;
+        const cap = p.floor + 0.9;
         const sway = Math.sin(p.age * 7.4 + phase) * 0.02;
         p.vx = approach(p.vx, (p.ox + sway - p.x) * 3.4 + n.x * 0.22 + c.x * 0.16, dt, 0.05);
         p.vz = approach(p.vz, (p.oz + sway * 0.7 - p.z) * 3.4 + n.z * 0.22 + c.z * 0.16, dt, 0.05);
@@ -381,7 +387,7 @@ export class SmokePool {
     list.length = w;
   }
 
-  /** Ribbon behind the bumper. Climbs, and stays off the lamp. */
+  /** A short, low wisp behind the bumper. It dissipates before it can rise. */
   private placeExhaust(p: Puff): void {
     const along = Math.min(0.98, p.along);
     let fx = p.vx;
@@ -396,14 +402,13 @@ export class SmokePool {
     }
     const rx = -fz;
     const rz = fx;
-    const n = gust(p.seed, p.age * 0.65, along * 5);
-    // Stay just behind the bumper. Walking the trail toward the lens swings it off the car.
-    // Clear of the boot so the root is visible behind the bumper, not eaten by the body.
-    const back = 0.5 + along * 1.35 + n.z * along * 0.08;
-    const climb = 0.05 + along * 1.7;
-    const side = (p.seed - 0.5) * (0.04 + along * 0.1) + n.x * (0.02 + along * 0.04);
+    const n = gust(p.seed, p.age * 0.65, along * 4);
+    // Under a metre back, and only a hand's breadth of rise. A climb of a metre was a chimney.
+    const back = 0.16 + along * 0.78 + n.z * along * 0.04;
+    const climb = 0.02 + along * 0.14;
+    const side = (p.seed - 0.5) * 0.05 + n.x * along * 0.03;
     p.x = p.ox - fx * back + rx * side;
-    p.y = p.floor + climb + n.y * along * 0.2;
+    p.y = p.floor + climb + n.y * along * 0.04;
     p.z = p.oz - fz * back + rz * side;
   }
 

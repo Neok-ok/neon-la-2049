@@ -61,7 +61,7 @@ function heroMouths(layout: CityLayout): Mouth[] {
         x: ox + fx * d + rx * side,
         y, z: oz + fz * d + rz * side,
         kind: KIND.grate, weight: 1, life: 2.2,
-        size0: 0.13, size1: 0.34, heat: 0.04, radius: 0.1,
+        size0: 0.13, size1: 0.34, heat: 0, radius: 0.1,
         rise: 1.05, spread: 0.02, floor: y - 0.02, wind: 0.32,
         turb: 0.95, aspect: 1, alpha: 0.58,
       }));
@@ -79,17 +79,17 @@ function heroMouths(layout: CityLayout): Mouth[] {
     const dy = s.y - ground;
     if (near) {
       out.push(mouth({
-        x: s.x, y: s.y, z: s.z, kind: KIND.stall, weight: 5, life: 0.5,
-        size0: 0.042, size1: 0.09, heat: 0.8, radius: 0.09,
-        rise: 0.6, spread: 0.014, floor: s.y - 0.02, wind: 0.02,
-        turb: 0.45, aspect: 1, alpha: 0.9,
+        x: s.x, y: s.y, z: s.z, kind: KIND.stall, weight: 5, life: 0.7,
+        size0: 0.055, size1: 0.16, heat: 0, radius: 0.08,
+        rise: 0.7, spread: 0.012, floor: s.y - 0.02, wind: 0.02,
+        turb: 0.35, aspect: 1, alpha: 0.72,
       }));
     } else if (dy < 0.55) {
       // Baseline courtyard card. The visible plate is marketPlates.
     } else if (dy < 2.6) {
       out.push(mouth({
         x: s.x, y: s.y, z: s.z, kind: KIND.vent, weight: 1, life: 2.2,
-        size0: 0.14, size1: 0.36, heat: 0.06, radius: 0.08,
+        size0: 0.14, size1: 0.36, heat: 0, radius: 0.08,
         rise: 1.0, spread: 0.03, floor: ground, wind: 0.2,
         turb: 0.45, aspect: 1, alpha: 0.46,
       }));
@@ -99,7 +99,7 @@ function heroMouths(layout: CityLayout): Mouth[] {
     const ground = layout.heightAt(s.x, s.z);
     out.push(mouth({
       x: s.x, y: s.y, z: s.z, kind: KIND.grate, weight: 1, life: 2.2,
-      size0: 0.13, size1: 0.34, heat: 0.05, radius: 0.1,
+      size0: 0.13, size1: 0.34, heat: 0, radius: 0.1,
       rise: 1.05, spread: 0.02, floor: ground, wind: 0.32,
       turb: 0.95, aspect: 1, alpha: 0.6,
     }));
@@ -124,7 +124,7 @@ function curbMouths(layout: CityLayout, x: number, z: number, tier: Tier): Mouth
     const y = layout.heightAt(pose.x, pose.z);
     out.push(mouth({
       x: pose.x, y: y + 0.22, z: pose.z, kind: KIND.grate, weight: 1, life: 2.2,
-      size0: 0.13, size1: 0.34, heat: 0.04, radius: 0.1,
+      size0: 0.13, size1: 0.34, heat: 0, radius: 0.1,
       rise: 1.05, spread: 0.02, floor: y, wind: 0.32,
       turb: 0.95, aspect: 1, alpha: 0.58,
     }));
@@ -185,11 +185,11 @@ export function gatherMouths(
     const heavy = t.heavy > 0;
     out.push(mouth({
       x: t.x, y: t.y + 0.04, z: t.z, kind: KIND.exhaust,
-      weight: i === 0 ? 8 : 0.22,
-      life: 2.4,
-      size0: heavy ? 0.11 : 0.07, size1: heavy ? 0.28 : 0.16, heat: 0,
-      radius: 0.04, rise: 0.4, spread: 0.01, floor: t.y, wind: 0,
-      turb: 0.2, aspect: 1, alpha: 0.58,
+      weight: i === 0 ? 8 : 0.35,
+      life: 0.9,
+      size0: heavy ? 0.07 : 0.045, size1: heavy ? 0.14 : 0.09, heat: 0,
+      radius: 0.03, rise: 0.12, spread: 0.008, floor: t.y, wind: 0,
+      turb: 0.12, aspect: 1, alpha: 0.5,
       vx: t.vx, vz: t.vz, fx: t.fx, fz: t.fz,
     }));
   }
@@ -270,16 +270,18 @@ export function stallPose(layout: CityLayout): SmokePose | null {
   const hz = -Math.cos(cook.heading);
   const rx = hz;
   const rz = -hx;
-  // Beside the rim, slightly above it. Looking up from under the awning filled
-  // High and Ultra with the soffit. This view keeps the pot in frame.
-  const fx = pot.x + hx * 0.28 + rx * 1.05;
-  const fz = pot.z + hz * 0.28 + rz * 1.05;
-  const lookX = pot.x;
-  const lookZ = pot.z;
+  // In the lane, in front of the counter. Beside the rim put a second pot in the
+  // lens, and standing under the soffit filled High and Ultra with the awning.
+  const dist = 2.15;
+  const side = 0.22;
+  const fx = pot.x + hx * dist + rx * side;
+  const fz = pot.z + hz * dist + rz * side;
+  const lookX = pot.x - rx * 0.15;
+  const lookZ = pot.z - rz * 0.15;
   const ground = layout.heightAt(fx, fz);
-  const eyeY = pot.y + 0.42;
+  const eyeY = pot.y + 0.04;
   const eye = eyeY - ground;
-  const lookY = pot.y + 0.08;
+  const lookY = pot.y + 0.48;
   const span = Math.hypot(lookX - fx, lookZ - fz) || 1;
   return {
     x: fx, y: eyeY, z: fz,
@@ -295,16 +297,16 @@ export function stallPose(layout: CityLayout): SmokePose | null {
 export function launchPose(layout: CityLayout): SmokePose | null {
   const plume = readLaunchPlume();
   if (!plume.live) return null;
-  // Far enough that the shaft above the stack is sky, close enough that the
-  // nozzle stays in the lower frame. The gantry stands to the west.
-  const dist = 116;
-  const ang = 0.62;
+  // Off the stack's east face. That face was hiding the nozzle. The lattice
+  // stays in frame to the side, and the column rises past the service tower.
+  const dist = 98;
+  const ang = 2.15;
   const px = plume.x + Math.cos(ang) * dist;
   const pz = plume.z + Math.sin(ang) * dist;
-  const feetY = plume.base + 5;
+  const feetY = plume.base + 6;
   const lookX = plume.x;
   const lookZ = plume.z;
-  const lookY = plume.base + 46;
+  const lookY = plume.base + 32;
   const span = Math.hypot(lookX - px, lookZ - pz) || 1;
   return {
     x: px, y: feetY, z: pz,
@@ -320,19 +322,18 @@ export function launchPose(layout: CityLayout): SmokePose | null {
 export function exhaustPose(layout: CityLayout, tails: readonly Tailpipe[]): SmokePose | null {
   const t = tails[0];
   if (!t) return null;
-  // Close, just above the boot. The trail stays in frame with the car.
-  // A look up the old tower put a chimney against the sky.
-  const dist = 4.35;
-  const side = 0.7;
+  // Bumper height, just behind the car. Looking up the column framed a chimney.
+  const dist = 3.35;
+  const side = 0.72;
   const rx = -t.fz;
   const rz = t.fx;
   const fx = t.x - t.fx * dist + rx * side;
   const fz = t.z - t.fz * dist + rz * side;
   const ground = layout.heightAt(fx, fz);
-  const eye = 1.32;
-  const lookX = t.x - t.fx * 0.55;
-  const lookZ = t.z - t.fz * 0.55;
-  const lookY = t.y + 0.72;
+  const eye = 1.02;
+  const lookX = t.x - t.fx * 0.2;
+  const lookZ = t.z - t.fz * 0.2;
+  const lookY = t.y + 0.12;
   return {
     x: fx, y: ground + eye, z: fz,
     heading: Math.atan2(lookX - fx, -(lookZ - fz)),

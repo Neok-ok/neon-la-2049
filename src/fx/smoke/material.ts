@@ -5,14 +5,15 @@ import { uniform } from 'three/tsl';
 import * as TSL from 'three/tsl';
 import { U } from '../../atmosphere/uniforms';
 import { resources } from '../../core/memory';
-import { authoredLiftU, practicalInscatter, practicalLit } from '../../lighting/shade.ts';
+import { softParticles } from 'three/addons/tsl/utils/SoftParticles.js';
+import { authoredLiftU, lanternPool, practicalInscatter, practicalLit } from '../../lighting/shade.ts';
 import { smokeMask } from './noise';
 
 const T = TSL as any;
 const {
   Fn, attribute, vec2, vec3, vec4, normalize, cross, cameraPosition, positionWorld,
-  sin, cos, smoothstep, length, float, max, abs, floor, mod, uv, mix, exp, pow, texture,
-  linearDepth, viewportDepthTexture, cameraFar, positionLocal, dot, step,
+  sin, cos, smoothstep, length, float, max, min, abs, floor, mod, uv, mix, exp, pow, texture,
+  positionLocal, dot, step,
 } = T;
 
 /** Display-space body. 1 would paint the albedo at full exposure; soot sits under that. */
@@ -95,21 +96,20 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const shapePow = mix(mix(float(0.8), float(1.15), columnSoft), float(1.35), plumeK);
       const shape = pow(max(torn.mul(edge).mul(grain).mul(fray), float(0)), shapePow);
       const size = max(puff.w, float(0.4));
-      // View-linear gap, same quantity as three's softParticles() (NVIDIA, Lorach):
-      // fade where the billboard meets the opaque depth, in a band that scales
-      // with the puff so a grate does not eat the base of a column.
-      const sceneD = linearDepth(viewportDepthTexture());
-      const selfD = linearDepth();
-      const diff = sceneD.sub(selfD);
-      const soft = max(size.mul(0.34), float(0.12)).div(cameraFar);
-      const depthFade = mix(float(1), smoothstep(float(0), soft, diff), smoothstep(float(0), float(0.002), sceneD));
+      // three.js softParticles (NVIDIA / Lorach): fade in view metres where the
+      // billboard meets opaque depth. The band stays under a couple of metres so a
+      // launch puff in front of the gantry is not erased.
+      const band = min(max(size.mul(0.16), float(0.18)), float(1.6));
+      const depthFade = softParticles({ opacity: float(1), distance: band, contrast: float(1.35) });
       const dist = length(cameraPosition.sub(puff.xyz));
       const nearF = smoothstep(max(float(0.45), size.mul(0.15)), max(float(1.6), size.mul(0.55)), dist);
       const fogF = exp(dist.mul(U.fogDensity).mul(-3.2));
       const lifeA = shade.w;
       const alpha = shape.mul(lifeA).mul(depthFade).mul(nearF).mul(fogF);
       const heat = shade.z;
-      const warm = vec3(1.0, 0.42, 0.12);
+      // Engine light is white-hot in the core and amber at the edge. Steam keeps heat at 0,
+      // so this mix never paints a flame into a grate or a pot.
+      const warm = mix(vec3(1.0, 0.55, 0.22), vec3(1.05, 0.96, 0.82), smoothstep(float(0.35), float(0.95), heat));
       const world = positionWorld;
       const V = normalize(cameraPosition.sub(world));
       // A downward bias lets a sign under the puff light the belly.
@@ -133,10 +133,13 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       // Noise across the puff, so one side of a billboard is not the same brightness.
       const mottled = float(0.48).add(n.r.mul(0.4)).add(n.g.mul(0.46));
       const lampShade = float(0.55).add(n.r.mul(0.7));
+      // Grate and stall are tint.w = 1. The street pool lights the belly; it does not recolor the vapor.
+      const steam = smoothstep(float(0.9), float(0.99), softBody);
       const rgb = albedo.mul(authoredLiftU).mul(smokeBody).mul(phase).mul(underK)
         .add(lit.mul(smokeLamp).mul(lampK).mul(float(0.45).add(under)).mul(lampShade))
         .add(scatter.mul(lampK).mul(float(0.35)).mul(lampShade))
-        .add(warm.mul(heat).mul(belly).mul(float(1).sub(rim.mul(0.4))).mul(authoredLiftU).mul(float(0.24)).mul(mix(float(1), float(0.4), lampK)));
+        .add(lanternPool(world).mul(under).mul(steam).mul(float(0.65)))
+        .add(warm.mul(heat).mul(belly).mul(float(1).sub(rim.mul(0.4))).mul(authoredLiftU).mul(float(0.22)).mul(mix(float(1), float(0.35), lampK)));
       return vec4(rgb.mul(mottled), alpha);
     })();
     return m;

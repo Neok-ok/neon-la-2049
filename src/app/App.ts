@@ -1039,12 +1039,6 @@ export class App {
         : inSoutheast ? Math.max(0, 1 - alt / 110) * 0.5 : 0;
     this.ambience.setMachinery(Math.min(1, districtMach + far.rumble + far.southBay + far.harbor + far.east));
     setRefineryFlame(this.quality.tier, w.windDir, w.params.wind);
-    if (this.smoke) {
-      // Worker cells drop the sign list, so the tint comes from the streamed glow marks.
-      const marks: GlowMark[] = [];
-      this.streamer.collectSignMarks(cam.x, cam.y, cam.z, 72, marks);
-      this.smoke.setNeons(marks);
-    }
     this.smoke?.update(
       simDt, this.camera, this.query.layout, this.quality.tier,
       w.windDir, w.params.wind, w.params.rain,
