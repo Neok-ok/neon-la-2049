@@ -60,7 +60,7 @@ function gust(seed: number, age: number, h: number): { x: number; y: number; z: 
 /** Fraction up the pad column. Most of the mass stays in the framed shaft. */
 function launchAlong(r: Rng, low: boolean): number {
   const roll = r.next();
-  const nozzleShare = low ? 0.36 : 0.2;
+  const nozzleShare = low ? 0.22 : 0.16;
   if (roll < nozzleShare) return Math.pow(r.next(), 0.7) * (low ? 0.085 : 0.05);
   if (roll < 0.8) return (low ? 0.045 : 0.03) + r.next() * 0.27;
   return Math.min(0.97, 0.31 + r.next() * 0.66);
@@ -122,7 +122,7 @@ export class SmokePool {
       const lobe = 0.8 + (billow(along, r.next()) - 0.42) * 0.32;
       const ang = r.next() * Math.PI * 2;
       // Filled disc. An edge-biased radius was a shell of separate puffs.
-      const reach = ((low ? 18 : 12) * (0.78 + throat * 0.22) + along * (low ? 28 : 40)) * lobe;
+      const reach = ((low ? 13 : 11) * (0.78 + throat * 0.22) + along * (low ? 30 : 40)) * lobe;
       const rad = Math.sqrt(r.next()) * reach * 0.9;
       const bendS = Math.sin(along * 4.4) * (2.2 + along * 12);
       const bendD = Math.cos(along * 3.1 + 0.7) * (1.8 + along * 10);
@@ -178,10 +178,10 @@ export class SmokePool {
       p.shade = 0.5 + radial * 0.55 + r.next() * 0.16;
       p.heat = nozzle * (0.9 + r.next() * 0.25);
       const grow = 0.82 + Math.sin(p.along * Math.PI) * 0.16 + r.next() * 0.16;
-      const throat = 1 + nozzle * (low ? 0.62 : 0.18);
+      const throat = 1 + nozzle * (low ? 0.28 : 0.12);
       p.size0 *= grow * throat;
       p.size1 *= grow * throat;
-      p.alpha = Math.min(low ? 0.48 : 0.34, (0.14 + falloff * 0.24 + nozzle * (low ? 0.22 : 0.08)) * (0.82 + r.next() * 0.28));
+      p.alpha = Math.min(low ? 0.36 : 0.3, (0.12 + falloff * 0.2 + nozzle * (low ? 0.12 : 0.06)) * (0.82 + r.next() * 0.28));
       if (p.along > 0.72) {
         const t = (p.along - 0.72) / 0.28;
         p.size0 *= 1 - t * 0.18;
@@ -399,8 +399,8 @@ export class SmokePool {
     const n = gust(p.seed, p.age * 0.65, along * 5);
     // Stay just behind the bumper. Walking the trail toward the lens swings it off the car.
     // Clear of the boot so the root is visible behind the bumper, not eaten by the body.
-    const back = 0.88 + n.z * along * 0.06;
-    const climb = 0.02 + along * 4.6;
+    const back = 0.5 + along * 1.35 + n.z * along * 0.08;
+    const climb = 0.05 + along * 1.7;
     const side = (p.seed - 0.5) * (0.04 + along * 0.1) + n.x * (0.02 + along * 0.04);
     p.x = p.ox - fx * back + rx * side;
     p.y = p.floor + climb + n.y * along * 0.2;

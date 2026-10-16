@@ -270,17 +270,16 @@ export function stallPose(layout: CityLayout): SmokePose | null {
   const hz = -Math.cos(cook.heading);
   const rx = hz;
   const rz = -hx;
-  // Above the rim, looking up into the wisp, so the counter top falls below the frame.
-  const dist = 0.08;
-  const side = -1.12;
-  const fx = pot.x + hx * dist + rx * side;
-  const fz = pot.z + hz * dist + rz * side;
-  const lookX = pot.x - hx * 0.05;
-  const lookZ = pot.z - hz * 0.05;
+  // Beside the rim, slightly above it. Looking up from under the awning filled
+  // High and Ultra with the soffit. This view keeps the pot in frame.
+  const fx = pot.x + hx * 0.28 + rx * 1.05;
+  const fz = pot.z + hz * 0.28 + rz * 1.05;
+  const lookX = pot.x;
+  const lookZ = pot.z;
   const ground = layout.heightAt(fx, fz);
-  const eyeY = pot.y + 0.46;
+  const eyeY = pot.y + 0.42;
   const eye = eyeY - ground;
-  const lookY = pot.y + 0.7;
+  const lookY = pot.y + 0.08;
   const span = Math.hypot(lookX - fx, lookZ - fz) || 1;
   return {
     x: fx, y: eyeY, z: fz,
@@ -321,19 +320,19 @@ export function launchPose(layout: CityLayout): SmokePose | null {
 export function exhaustPose(layout: CityLayout, tails: readonly Tailpipe[]): SmokePose | null {
   const t = tails[0];
   if (!t) return null;
-  // Close, just above the boot. The car sits low in frame and the column
-  // climbs off the bumper gap into the sky, clear of the lamps.
-  const dist = 4.9;
-  const side = 0.85;
+  // Close, just above the boot. The trail stays in frame with the car.
+  // A look up the old tower put a chimney against the sky.
+  const dist = 4.35;
+  const side = 0.7;
   const rx = -t.fz;
   const rz = t.fx;
   const fx = t.x - t.fx * dist + rx * side;
   const fz = t.z - t.fz * dist + rz * side;
   const ground = layout.heightAt(fx, fz);
-  const eye = 1.42;
-  const lookX = t.x - t.fx * 0.4;
-  const lookZ = t.z - t.fz * 0.4;
-  const lookY = t.y + 1.15;
+  const eye = 1.32;
+  const lookX = t.x - t.fx * 0.55;
+  const lookZ = t.z - t.fz * 0.55;
+  const lookY = t.y + 0.72;
   return {
     x: fx, y: ground + eye, z: fz,
     heading: Math.atan2(lookX - fx, -(lookZ - fz)),

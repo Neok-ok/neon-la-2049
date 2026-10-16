@@ -342,10 +342,10 @@ export class SmokeField {
         const low = this.tier === 'low';
         const nozzle = Math.max(0, 1 - p.along / (low ? 0.085 : 0.05));
         heat = Math.max(heat, nozzle * 1.15);
-        lifeA = Math.min(low ? 0.5 : 0.36, lifeA);
+        lifeA = Math.min(low ? 0.38 : 0.32, lifeA);
         size *= 0.94 + p.seed * 0.12;
-        if (low && nozzle > 0.35) size *= 1.22;
-        const puffCap = low ? 28 : this.tier === 'medium' ? 16 : 13;
+        if (low && nozzle > 0.35) size *= 1.08;
+        const puffCap = low ? 20 : this.tier === 'medium' ? 16 : 13;
         size = Math.min(size, puffCap);
         if (dist < 22) lifeA *= Math.min(1, Math.max(0, (dist - 8) / 14));
       } else if (p.kind === 2) {
@@ -367,8 +367,8 @@ export class SmokeField {
       let lamp = lampOf(p.kind);
       if (p.kind === 4 || p.kind === 3) {
         const h = Math.min(1, Math.max(0, (p.y - p.floor) / 3.15));
-        lifeA *= 0.62 + (1 - h) * 0.38;
-        lamp *= 0.22 + (1 - h) * (1 - h) * 0.78;
+        lifeA *= 0.5 + (1 - h) * 0.32;
+        lamp *= 0.18 + (1 - h) * (1 - h) * 0.55;
       } else if (p.kind === 5) {
         const h = Math.min(1, Math.max(0, (p.y - p.floor) / 0.42));
         lifeA *= 1 - h * 0.92;
@@ -394,11 +394,11 @@ export class SmokeField {
       let tg = rgb[1] * shadeK;
       let tb = rgb[2] * shadeK;
       if (p.kind === 4 || p.kind === 3) {
-        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 2.2));
+        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 1.05));
         const neon = this.nearestNeon(p.x, p.z);
         if (neon) {
-          const catchK = Math.min(0.92, neon.k * Math.pow(Math.max(0, 1 - h), 1.7));
-          const gain = 1.85;
+          const catchK = Math.min(0.48, neon.k * Math.pow(Math.max(0, 1 - h), 1.7));
+          const gain = 1.15;
           tr = tr * (1 - catchK) + neon.r * catchK * gain;
           tg = tg * (1 - catchK) + neon.g * catchK * gain;
           tb = tb * (1 - catchK) + neon.b * catchK * gain;
@@ -442,7 +442,8 @@ export class SmokeField {
     if (p.kind === 2) {
       const wx = Math.cos(this.windDir) * 0.55;
       const wz = Math.sin(this.windDir) * 0.55;
-      return { x: wx, y: 1, z: wz, w: (1.06 + p.along * 0.28) * jitter };
+      const billow = 0.82 + p.seed * 0.36;
+      return { x: wx, y: 1, z: wz, w: (1.15 + p.along * 0.7) * billow };
     }
     if (p.kind === 5) return { x: Math.sin(p.seed * 12) * 0.18, y: 1, z: Math.cos(p.seed * 9) * 0.18, w: 3.1 * (0.82 + p.seed * 0.36) };
     if (p.kind === 4 || p.kind === 3) {
