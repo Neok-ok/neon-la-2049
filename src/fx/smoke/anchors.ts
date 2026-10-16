@@ -60,10 +60,10 @@ function heroMouths(layout: CityLayout): Mouth[] {
       out.push(mouth({
         x: ox + fx * d + rx * side,
         y, z: oz + fz * d + rz * side,
-        kind: KIND.grate, weight: 1, life: 2.1,
-        size0: 0.07, size1: 0.15, heat: 0.04, radius: 0.08,
-        rise: 1.15, spread: 0.02, floor: y - 0.02, wind: 0.62,
-        turb: 0.95, aspect: 1, alpha: 0.36,
+        kind: KIND.grate, weight: 1, life: 2.2,
+        size0: 0.13, size1: 0.32, heat: 0.04, radius: 0.1,
+        rise: 1.05, spread: 0.02, floor: y - 0.02, wind: 0.16,
+        turb: 0.7, aspect: 1, alpha: 0.58,
       }));
     }
   };
@@ -79,10 +79,10 @@ function heroMouths(layout: CityLayout): Mouth[] {
     const dy = s.y - ground;
     if (near) {
       out.push(mouth({
-        x: s.x, y: s.y, z: s.z, kind: KIND.stall, weight: 5, life: 0.26,
-        size0: 0.028, size1: 0.055, heat: 1, radius: 0.012,
-        rise: 0.2, spread: 0.004, floor: s.y - 0.02, wind: 0.01,
-        turb: 0.22, aspect: 1, alpha: 0.92,
+        x: s.x, y: s.y, z: s.z, kind: KIND.stall, weight: 5, life: 0.48,
+        size0: 0.05, size1: 0.11, heat: 1, radius: 0.02,
+        rise: 0.22, spread: 0.006, floor: s.y - 0.02, wind: 0.012,
+        turb: 0.2, aspect: 1, alpha: 0.9,
       }));
     } else if (dy < 0.55) {
       // Baseline courtyard card. The visible plate is marketPlates.
@@ -98,10 +98,10 @@ function heroMouths(layout: CityLayout): Mouth[] {
   for (const s of marketPlates(layout)) {
     const ground = layout.heightAt(s.x, s.z);
     out.push(mouth({
-      x: s.x, y: s.y, z: s.z, kind: KIND.grate, weight: 1, life: 2.1,
-      size0: 0.07, size1: 0.15, heat: 0.05, radius: 0.1,
-      rise: 1.15, spread: 0.02, floor: ground, wind: 0.62,
-      turb: 0.95, aspect: 1, alpha: 0.38,
+      x: s.x, y: s.y, z: s.z, kind: KIND.grate, weight: 1, life: 2.2,
+      size0: 0.13, size1: 0.32, heat: 0.05, radius: 0.1,
+      rise: 1.05, spread: 0.02, floor: ground, wind: 0.16,
+      turb: 0.7, aspect: 1, alpha: 0.6,
     }));
   }
   heroes = out;
@@ -123,10 +123,10 @@ function curbMouths(layout: CityLayout, x: number, z: number, tier: Tier): Mouth
     const pose = poseOn(g, id, t, 1, side);
     const y = layout.heightAt(pose.x, pose.z);
     out.push(mouth({
-      x: pose.x, y: y + 0.22, z: pose.z, kind: KIND.grate, weight: 1, life: 2.1,
-      size0: 0.07, size1: 0.15, heat: 0.04, radius: 0.08,
-      rise: 1.15, spread: 0.02, floor: y, wind: 0.62,
-      turb: 0.95, aspect: 1, alpha: 0.36,
+      x: pose.x, y: y + 0.22, z: pose.z, kind: KIND.grate, weight: 1, life: 2.2,
+      size0: 0.13, size1: 0.32, heat: 0.04, radius: 0.1,
+      rise: 1.05, spread: 0.02, floor: y, wind: 0.16,
+      turb: 0.7, aspect: 1, alpha: 0.58,
     }));
     if (out.length >= keep) break;
   }
@@ -163,9 +163,9 @@ export function gatherMouths(
     const f = stacks[i]!;
     out.push(mouth({
       x: f.x, y: f.y, z: f.z, kind: KIND.stack, weight: i === 0 ? 6 : 0.35, life: 9.2,
-      size0: 1.25, size1: 2.6, heat: 0.95, radius: 0.7,
-      rise: 3.4, spread: 0.3, floor: f.y, wind: 0.28,
-      turb: 2.1, aspect: 1, alpha: 0.4,
+      size0: 2.05, size1: 4.4, heat: 0.95, radius: 0.85,
+      rise: 3.4, spread: 0.3, floor: f.y, wind: 0.2,
+      turb: 1.7, aspect: 1, alpha: 0.5,
     }));
   }
   const steam: Mouth[] = [];
@@ -186,10 +186,10 @@ export function gatherMouths(
     out.push(mouth({
       x: t.x, y: t.y + 0.06, z: t.z, kind: KIND.exhaust,
       weight: i === 0 ? 5.5 : 1.15,
-      life: 1.15,
-      size0: heavy ? 0.055 : 0.04, size1: heavy ? 0.16 : 0.11, heat: 0.02,
-      radius: 0.04, rise: 0.55, spread: 0.02, floor: t.y - 0.35, wind: 0,
-      turb: 0.35, aspect: 1, alpha: 0.55,
+      life: 1.2,
+      size0: heavy ? 0.08 : 0.055, size1: heavy ? 0.22 : 0.15, heat: 0.02,
+      radius: 0.04, rise: 0.7, spread: 0.02, floor: t.y - 0.35, wind: 0,
+      turb: 0.28, aspect: 1, alpha: 0.7,
       vx: t.vx, vz: t.vz, fx: t.fx, fz: t.fz,
     }));
   }
@@ -326,7 +326,7 @@ export function exhaustPose(layout: CityLayout, tails: readonly Tailpipe[]): Smo
   const eye = 0.62;
   const lookX = t.x - t.fx * 3.1;
   const lookZ = t.z - t.fz * 3.1;
-  const lookY = t.y + 1.55;
+  const lookY = t.y + 2.05;
   return {
     x: fx, y: ground + eye, z: fz,
     heading: Math.atan2(lookX - fx, -(lookZ - fz)),

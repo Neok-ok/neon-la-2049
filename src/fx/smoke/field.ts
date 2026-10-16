@@ -292,9 +292,9 @@ export class SmokeField {
       }
       if (p.kind === 0) {
         const edge = Math.min(1, Math.hypot(p.offS, p.offD) / (6 + p.along * 16));
-        const core = (1 - edge) * (1 - Math.min(1, p.along / 0.16));
-        heat = Math.max(heat, core * 0.85);
-        lifeA = Math.min(0.42, lifeA * (0.1 + edge * 0.85));
+        const nozzle = Math.max(0, 1 - p.along / 0.12);
+        heat = Math.max(heat, nozzle * (0.45 + (1 - edge) * 0.7));
+        lifeA = Math.min(0.55, lifeA * (0.12 + edge * 0.7 + nozzle * 0.8));
         size *= 0.42 + p.seed * 0.8;
         size = Math.min(size, Math.max(4.5, dist * 0.18));
         if (dist < 22) lifeA *= Math.min(1, Math.max(0, (dist - 8) / 14));
@@ -319,8 +319,8 @@ export class SmokeField {
         lifeA *= 1 - h * 0.9;
         lamp *= 0.22 + (1 - h) * (1 - h) * 0.78;
       } else if (p.kind === 5) {
-        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 0.16));
-        lifeA *= 1 - h * 0.95;
+        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 0.22));
+        lifeA *= 1 - h * 0.92;
       } else if (p.kind === 6) {
         lamp = 0.03;
       }
@@ -379,7 +379,7 @@ export class SmokeField {
     }
     if (p.kind === 6) {
       const L = Math.hypot(p.vx, p.vz);
-      if (L > 0.15) return { x: p.vx / L, y: 0.22, z: p.vz / L, w: 3.4 * jitter };
+      if (L > 0.15) return { x: p.vx / L, y: 0.48, z: p.vz / L, w: 4.6 * jitter };
       return { x: 0, y: 1, z: 0, w: 1.6 };
     }
     if (p.kind === 2) {
