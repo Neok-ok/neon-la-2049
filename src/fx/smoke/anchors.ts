@@ -61,9 +61,9 @@ function heroMouths(layout: CityLayout): Mouth[] {
         x: ox + fx * d + rx * side,
         y, z: oz + fz * d + rz * side,
         kind: KIND.grate, weight: 1, life: 2.2,
-        size0: 0.13, size1: 0.34, heat: 0, radius: 0.1,
+        size0: 0.18, size1: 0.46, heat: 0, radius: 0.12,
         rise: 1.05, spread: 0.02, floor: y - 0.02, wind: 0.32,
-        turb: 0.95, aspect: 1, alpha: 0.58,
+        turb: 0.95, aspect: 1, alpha: 0.7,
       }));
     }
   };
@@ -80,9 +80,9 @@ function heroMouths(layout: CityLayout): Mouth[] {
     if (near) {
       out.push(mouth({
         x: s.x, y: s.y, z: s.z, kind: KIND.stall, weight: 5, life: 0.7,
-        size0: 0.055, size1: 0.16, heat: 0, radius: 0.08,
-        rise: 0.7, spread: 0.012, floor: s.y - 0.02, wind: 0.02,
-        turb: 0.35, aspect: 1, alpha: 0.72,
+        size0: 0.16, size1: 0.48, heat: 0, radius: 0.11,
+        rise: 0.85, spread: 0.018, floor: s.y - 0.02, wind: 0.02,
+        turb: 0.4, aspect: 1, alpha: 0.82,
       }));
     } else if (dy < 0.55) {
       // Baseline courtyard card. The visible plate is marketPlates.
@@ -99,9 +99,9 @@ function heroMouths(layout: CityLayout): Mouth[] {
     const ground = layout.heightAt(s.x, s.z);
     out.push(mouth({
       x: s.x, y: s.y, z: s.z, kind: KIND.grate, weight: 1, life: 2.2,
-      size0: 0.13, size1: 0.34, heat: 0, radius: 0.1,
+      size0: 0.18, size1: 0.46, heat: 0, radius: 0.12,
       rise: 1.05, spread: 0.02, floor: ground, wind: 0.32,
-      turb: 0.95, aspect: 1, alpha: 0.6,
+      turb: 0.95, aspect: 1, alpha: 0.72,
     }));
   }
   heroes = out;
@@ -124,9 +124,9 @@ function curbMouths(layout: CityLayout, x: number, z: number, tier: Tier): Mouth
     const y = layout.heightAt(pose.x, pose.z);
     out.push(mouth({
       x: pose.x, y: y + 0.22, z: pose.z, kind: KIND.grate, weight: 1, life: 2.2,
-      size0: 0.13, size1: 0.34, heat: 0, radius: 0.1,
+      size0: 0.18, size1: 0.46, heat: 0, radius: 0.12,
       rise: 1.05, spread: 0.02, floor: y, wind: 0.32,
-      turb: 0.95, aspect: 1, alpha: 0.58,
+      turb: 0.95, aspect: 1, alpha: 0.7,
     }));
     if (out.length >= keep) break;
   }
@@ -186,10 +186,10 @@ export function gatherMouths(
     out.push(mouth({
       x: t.x, y: t.y + 0.04, z: t.z, kind: KIND.exhaust,
       weight: i === 0 ? 8 : 0.35,
-      life: 0.9,
-      size0: heavy ? 0.08 : 0.055, size1: heavy ? 0.18 : 0.12, heat: 0,
-      radius: 0.035, rise: 0.14, spread: 0.01, floor: t.y, wind: 0,
-      turb: 0.12, aspect: 1, alpha: 0.68,
+      life: 1.15,
+      size0: heavy ? 0.22 : 0.16, size1: heavy ? 0.52 : 0.4, heat: 0,
+      radius: 0.06, rise: 0.18, spread: 0.02, floor: t.y, wind: 0,
+      turb: 0.22, aspect: 1, alpha: 0.84,
       vx: t.vx, vz: t.vz, fx: t.fx, fz: t.fz,
     }));
   }
@@ -270,18 +270,19 @@ export function stallPose(layout: CityLayout): SmokePose | null {
   const hz = -Math.cos(cook.heading);
   const rx = hz;
   const rz = -hx;
-  // Out in the lane, looking slightly down at the pots. Closer, and any look
-  // upward, put the High and Ultra soffit across the top of the frame.
-  const dist = 4.05;
-  const side = 0.08;
+  // The noodle soffit and awning reach about 2.3 m past the facade, and the
+  // pot sits inside the counter. An eye at 4 m was still under that lip, so
+  // High and Ultra filled the frame with the ceiling. Stand past the lip.
+  const dist = 6.15;
+  const side = 0.35;
   const fx = pot.x + hx * dist + rx * side;
   const fz = pot.z + hz * dist + rz * side;
-  const lookX = pot.x;
-  const lookZ = pot.z;
+  const lookX = pot.x - rx * 0.15;
+  const lookZ = pot.z - rz * 0.15;
   const ground = layout.heightAt(fx, fz);
-  const eyeY = pot.y + 0.7;
+  const eyeY = ground + 1.48;
   const eye = eyeY - ground;
-  const lookY = pot.y + 0.12;
+  const lookY = pot.y + 0.4;
   const span = Math.hypot(lookX - fx, lookZ - fz) || 1;
   return {
     x: fx, y: eyeY, z: fz,
@@ -297,16 +298,17 @@ export function stallPose(layout: CityLayout): SmokePose | null {
 export function launchPose(layout: CityLayout): SmokePose | null {
   const plume = readLaunchPlume();
   if (!plume.live) return null;
-  // Off the stack's east face. That face was hiding the nozzle. The lattice
-  // stays in frame to the side, and the column rises past the service tower.
-  const dist = 98;
-  const ang = 2.15;
+  // The service stack stands on the nozzle. A head-on view of its face made
+  // the tower the subject. Step back and look up the shaft so the column
+  // above the crown is the frame, with the pad still at the foot.
+  const dist = 156;
+  const ang = 0.62;
   const px = plume.x + Math.cos(ang) * dist;
   const pz = plume.z + Math.sin(ang) * dist;
-  const feetY = plume.base + 6;
+  const feetY = plume.base + 10;
   const lookX = plume.x;
   const lookZ = plume.z;
-  const lookY = plume.base + 32;
+  const lookY = plume.base + 92;
   const span = Math.hypot(lookX - px, lookZ - pz) || 1;
   return {
     x: px, y: feetY, z: pz,
@@ -322,18 +324,19 @@ export function launchPose(layout: CityLayout): SmokePose | null {
 export function exhaustPose(layout: CityLayout, tails: readonly Tailpipe[]): SmokePose | null {
   const t = tails[0];
   if (!t) return null;
-  // Bumper height, just behind the car. Looking up the column framed a chimney.
-  const dist = 3.35;
-  const side = 0.72;
+  // Just behind the car, aimed at the wake rather than the lamp. A climb
+  // of the aim framed a chimney; the lamp itself framed an empty bumper.
+  const dist = 4.35;
+  const side = 0.78;
   const rx = -t.fz;
   const rz = t.fx;
   const fx = t.x - t.fx * dist + rx * side;
   const fz = t.z - t.fz * dist + rz * side;
   const ground = layout.heightAt(fx, fz);
-  const eye = 1.02;
-  const lookX = t.x - t.fx * 0.2;
-  const lookZ = t.z - t.fz * 0.2;
-  const lookY = t.y + 0.12;
+  const eye = 1.16;
+  const lookX = t.x - t.fx * 1.05;
+  const lookZ = t.z - t.fz * 1.05;
+  const lookY = t.y + 0.18;
   return {
     x: fx, y: ground + eye, z: fz,
     heading: Math.atan2(lookX - fx, -(lookZ - fz)),

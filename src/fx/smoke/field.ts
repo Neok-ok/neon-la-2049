@@ -22,7 +22,7 @@ import {
 } from './anchors';
 
 const TINT: Record<(typeof KIND_NAME)[number], [number, number, number]> = {
-  launch: [0.22, 0.21, 0.2],
+  launch: [0.52, 0.5, 0.46],
   ground: [0.16, 0.15, 0.14],
   stack: [0.26, 0.25, 0.23],
   vent: [0.78, 0.8, 0.84],
@@ -326,7 +326,7 @@ export class SmokeField {
         const low = this.tier === 'low';
         const nozzle = Math.max(0, 1 - p.along / (low ? 0.085 : 0.05));
         heat = Math.max(heat, nozzle * 1.15);
-        lifeA = Math.min(low ? 0.38 : 0.32, lifeA);
+        lifeA = Math.min(low ? 0.52 : 0.46, lifeA);
         size *= 0.94 + p.seed * 0.12;
         if (low && nozzle > 0.35) size *= 1.08;
         const puffCap = low ? 20 : this.tier === 'medium' ? 16 : 13;
@@ -335,9 +335,9 @@ export class SmokeField {
       } else if (p.kind === 2) {
         size *= 0.88 + p.seed * 0.28;
       } else if (p.kind === 6) {
-        size *= 0.85 + p.along * 0.2;
-        size = Math.min(size, this.tier === 'low' ? 0.32 : this.tier === 'medium' ? 0.26 : 0.22);
-        lifeA = Math.min(0.62, lifeA) * Math.pow(1 - Math.min(1, p.along), 0.85);
+        size *= 0.95 + p.along * 0.28;
+        size = Math.min(size, this.tier === 'low' ? 0.58 : this.tier === 'medium' ? 0.5 : 0.44);
+        lifeA = Math.min(0.58, lifeA) * (0.7 + 0.3 * Math.pow(1 - Math.min(1, p.along), 0.45));
         heat = 0;
       } else if (p.kind === 1) {
         size = Math.min(size, Math.max(2.5, dist * 0.06));
@@ -353,16 +353,16 @@ export class SmokeField {
       if (p.kind === 4 || p.kind === 3) {
         const h = Math.min(1, Math.max(0, (p.y - p.floor) / 2.8));
         const belly = (1 - h) * (1 - h);
-        lifeA *= 0.55 + belly * 0.4;
+        lifeA *= 0.68 + belly * 0.28;
         lamp *= 0.4 + belly * 0.55;
         heat = 0;
       } else if (p.kind === 5) {
-        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 0.7));
-        lifeA *= 1 - h * 0.88;
+        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 1.05));
+        lifeA *= 1 - h * 0.75;
         heat = 0;
         lamp = 0.85;
       } else if (p.kind === 6) {
-        lamp = 0.15 + Math.pow(1 - Math.min(1, p.along), 1.4) * 0.55;
+        lamp = 0.06;
       }
       shade[o + 1] = (cell + Math.min(0.999, lamp)) / 8;
       shade[o + 2] = heat;
@@ -392,8 +392,8 @@ export class SmokeField {
         tb = tb * (1 - wash) + 0.26 * wash;
       } else if (p.kind === 6) {
         // Tail lamps are red. The puff catches that only while it is still at the bumper.
-        const tail = Math.pow(1 - Math.min(1, p.along), 1.7);
-        const k = tail * 0.48;
+        const tail = Math.pow(Math.max(0, 1 - p.along / 0.18), 1.5);
+        const k = tail * 0.14;
         tr = tr * (1 - k) + 1.45 * k;
         tg = tg * (1 - k) + 0.08 * k;
         tb = tb * (1 - k) + 0.04 * k;
@@ -433,10 +433,10 @@ export class SmokeField {
       const L = Math.hypot(p.vx, p.vz) || 1;
       // Along the bumper, not up. A vertical card was the chimney.
       return {
-        x: -p.vx / L * 0.92,
-        y: 0.18,
-        z: -p.vz / L * 0.92,
-        w: (1.7 + p.along * 0.35) * jitter,
+        x: -p.vx / L * 0.85,
+        y: 0.28,
+        z: -p.vz / L * 0.85,
+        w: (1.22 + p.along * 0.18) * jitter,
       };
     }
     if (p.kind === 2) {

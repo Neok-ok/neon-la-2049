@@ -124,7 +124,7 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const rim = mix(rimHard, rimSoft, plumeK);
       // Noise breaks the bright rim so a lone puff is not a hard ring.
       const rimNoise = float(0.35).add(n.r.mul(0.9));
-      const back = mix(float(0.1), float(1.45).mul(rimNoise), rim);
+      const back = mix(float(0.55), float(1.2).mul(rimNoise), rim);
       const front = mix(float(1.08), float(0.4), rim);
       const phase = mix(back, front, softBody);
       const under = smoothstep(float(0.1), float(0.88), float(1).sub(suv.y));

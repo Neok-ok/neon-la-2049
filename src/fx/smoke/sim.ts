@@ -62,8 +62,8 @@ function launchAlong(r: Rng, low: boolean): number {
   const roll = r.next();
   const nozzleShare = low ? 0.22 : 0.16;
   if (roll < nozzleShare) return Math.pow(r.next(), 0.7) * (low ? 0.085 : 0.05);
-  if (roll < 0.8) return (low ? 0.045 : 0.03) + r.next() * 0.27;
-  return Math.min(0.97, 0.31 + r.next() * 0.66);
+  if (roll < 0.92) return (low ? 0.04 : 0.028) + r.next() * 0.34;
+  return Math.min(0.97, 0.38 + r.next() * 0.55);
 }
 
 /** Irregular swell. A single sine reads as a sausage link. */
@@ -122,7 +122,7 @@ export class SmokePool {
       const lobe = 0.8 + (billow(along, r.next()) - 0.42) * 0.32;
       const ang = r.next() * Math.PI * 2;
       // Filled disc. An edge-biased radius was a shell of separate puffs.
-      const reach = ((low ? 13 : 11) * (0.78 + throat * 0.22) + along * (low ? 30 : 40)) * lobe;
+      const reach = ((low ? 18 : 16) * (0.82 + throat * 0.2) + along * (low ? 36 : 44)) * lobe;
       const rad = Math.sqrt(r.next()) * reach * 0.9;
       const bendS = Math.sin(along * 4.4) * (2.2 + along * 12);
       const bendD = Math.cos(along * 3.1 + 0.7) * (1.8 + along * 10);
@@ -181,7 +181,7 @@ export class SmokePool {
       const throat = 1 + nozzle * (low ? 0.28 : 0.12);
       p.size0 *= grow * throat;
       p.size1 *= grow * throat;
-      p.alpha = Math.min(low ? 0.36 : 0.3, (0.12 + falloff * 0.2 + nozzle * (low ? 0.12 : 0.06)) * (0.82 + r.next() * 0.28));
+      p.alpha = Math.min(low ? 0.52 : 0.46, (0.22 + falloff * 0.28 + nozzle * (low ? 0.16 : 0.1)) * (0.86 + r.next() * 0.28));
       if (p.along < 0.1) {
         // The service stack sits on this point. Keep the core thin so the tower
         // shows, and leave the bright vapor on the flanks.
@@ -202,11 +202,11 @@ export class SmokePool {
       const ang = r.next() * Math.PI * 2;
       const lobe = billow(along * 2.1, m.x * 0.01 + m.z * 0.008);
       const neck = along < 0.05 ? 0.7 + (along / 0.05) * 0.3 : 1;
-      const fat = 0.78 + Math.abs(Math.sin(along * 6.6 + m.x * 0.01)) * 0.48;
+      const fat = 0.55 + Math.abs(Math.sin(along * 6.6 + m.x * 0.01)) * 0.72;
       // Radius stays inside the puff size so the column is one mass, not a stipple.
       const reach = (3.2 + along * 6.4) * (0.7 + lobe * 0.45) * neck * fat;
       const rad = Math.pow(r.next(), 0.4) * reach;
-      const lobe2 = Math.sin(along * 8.4 + m.z * 0.02) + Math.sin(along * 3.1 + m.x * 0.01) * 0.55;
+      const lobe2 = Math.sin(along * 8.4 + m.z * 0.02) * 1.6 + Math.sin(along * 3.1 + m.x * 0.01) * 0.9;
       p.offS = Math.cos(ang) * rad + lobe2 * along * 2.4;
       p.offD = Math.sin(ang) * rad + Math.cos(along * 6.2 + m.x * 0.01) * along * 2.1;
       p.y = m.y + along * 72;
@@ -224,20 +224,20 @@ export class SmokePool {
       const filament = Math.floor(r.next() * 5);
       const ang = filament * (Math.PI * 2 / 5) + r.next() * 0.55;
       // Most of the wisp stays on the rim. The tail thins out before it can reach the sign.
-      const along = r.next() * r.next();
+      const along = Math.pow(r.next(), 1.35);
       p.along = along;
-      const rim = 0.05 + r.next() * 0.05;
+      const rim = 0.04 + r.next() * 0.07;
       p.ox = m.x + Math.cos(ang) * rim;
       p.oz = m.z + Math.sin(ang) * rim;
-      p.x = p.ox + Math.sin(along * 13 + filament) * along * 0.06;
-      p.z = p.oz + Math.cos(along * 11 + filament * 1.7) * along * 0.05;
-      p.y = m.y - 0.01 + along * 0.72;
+      p.x = p.ox + Math.sin(along * 13 + filament) * along * 0.08;
+      p.z = p.oz + Math.cos(along * 11 + filament * 1.7) * along * 0.07;
+      p.y = m.y - 0.01 + along * 0.92;
       p.age = along * p.life * 0.35;
       p.heat = 0;
-      p.shade = 0.9 + r.next() * 0.35;
-      p.alpha *= (0.75 + r.next() * 0.35) * Math.pow(1 - along, 1.05);
-      p.size0 *= 0.7 + r.next() * 0.45;
-      p.size1 *= 0.8 + along * 0.6;
+      p.shade = 0.95 + r.next() * 0.3;
+      p.alpha *= (0.88 + r.next() * 0.25) * Math.pow(1 - along, 0.72);
+      p.size0 *= 0.9 + r.next() * 0.45;
+      p.size1 *= 1.05 + along * 0.7;
     }
     if (m.kind === KIND.grate || m.kind === KIND.vent) {
       const grate = m.kind === KIND.grate;
@@ -245,7 +245,7 @@ export class SmokePool {
       const disc = grate ? 0.28 : 0.14;
       const rad = Math.sqrt(r.next()) * disc;
       // Denser on the grate, still filled above it, so the column has a source.
-      const along = r.next() < 0.4 ? r.next() * 0.38 : r.next();
+      const along = r.next() < 0.55 ? r.next() * 0.72 : r.next();
       p.along = along;
       p.ox = m.x + Math.cos(ang) * rad;
       p.oz = m.z + Math.sin(ang) * rad;
@@ -263,13 +263,13 @@ export class SmokePool {
       p.size0 *= 1.15 + r.next() * 0.3;
       p.size1 *= 1.25 + r.next() * 0.28;
       const falloff = Math.pow(1 - Math.min(1, edge), 0.85);
-      p.alpha *= (0.38 + (1 - along) * 0.2) * (0.48 + falloff * 0.42);
+      p.alpha *= (0.55 + (1 - along) * 0.28) * (0.62 + falloff * 0.38);
     }
     if (m.kind === KIND.exhaust) {
-      // Short slices behind the bumper. A tall stack of cards read as a chimney.
-      const bands = 6;
+      // Short overlapping slices behind the bumper. A tall stack read as a chimney.
+      const bands = 8;
       const band = Math.floor(r.next() * bands);
-      const along = Math.min(0.92, (band + r.next() * 0.7) / bands);
+      const along = Math.min(0.96, (band + r.next()) / bands);
       p.along = along;
       const fl = Math.hypot(m.fx, m.fz) || 1;
       p.vx = m.fx / fl;
@@ -278,11 +278,11 @@ export class SmokePool {
       p.ox = m.x;
       p.oz = m.z;
       p.floor = m.y;
-      p.size0 *= 0.9 + along * 0.15;
-      p.size1 *= 1.05 + along * 0.45;
-      const fade = Math.pow(1 - along, 1.45);
-      p.alpha *= fade * (0.62 + r.next() * 0.25);
-      p.shade = 0.55 + r.next() * 0.3;
+      p.size0 *= 0.85 + r.next() * 0.4;
+      p.size1 *= 1.1 + along * 0.5;
+      const fade = Math.pow(1 - along * 0.82, 1.05);
+      p.alpha *= fade * (0.78 + r.next() * 0.28);
+      p.shade = 0.58 + r.next() * 0.28;
       p.heat = 0;
       this.placeExhaust(p);
     }
@@ -403,10 +403,10 @@ export class SmokePool {
     const rx = -fz;
     const rz = fx;
     const n = gust(p.seed, p.age * 0.65, along * 4);
-    // Under a metre back, and only a hand's breadth of rise. A climb of a metre was a chimney.
-    const back = 0.16 + along * 0.78 + n.z * along * 0.04;
-    const climb = 0.02 + along * 0.14;
-    const side = (p.seed - 0.5) * 0.05 + n.x * along * 0.03;
+    // A short wake: clear of the lamp, still under half a metre of rise.
+    const back = 0.22 + along * 2.15 + n.z * 0.06;
+    const climb = 0.04 + along * 0.36 + Math.abs(n.y) * 0.03;
+    const side = (p.seed - 0.5) * 0.14 + n.x * along * 0.05;
     p.x = p.ox - fx * back + rx * side;
     p.y = p.floor + climb + n.y * along * 0.04;
     p.z = p.oz - fz * back + rz * side;
@@ -424,6 +424,16 @@ export class SmokePool {
     p.y = plume.base + along * 420 + (n.y + c.y * 0.4) * (0.4 + along * 1.6);
     p.x = plume.x + p.offS * swell + (n.x * 0.35 + c.x * 0.45) * amp;
     p.z = plume.z + p.offD * swell + (n.z * 0.35 + c.z * 0.45) * amp;
+    // The service stack occupies the axis. Shift the lower shaft toward the
+    // lens so the nozzle sits on the near face, then let the column centre
+    // once it clears the crown.
+    const toCamX = cam.x - plume.x;
+    const toCamZ = cam.z - plume.z;
+    const cd = Math.hypot(toCamX, toCamZ) || 1;
+    const near = Math.max(0, 1 - along / 0.14);
+    const front = near * 8;
+    p.x += (toCamX / cd) * front;
+    p.z += (toCamZ / cd) * front;
     if (Math.hypot(p.x - cam.x, p.y - cam.y, p.z - cam.z) < 18) p.y += 24;
   }
 
@@ -438,8 +448,8 @@ export class SmokePool {
     const lobe = billow(along * 2.2, p.seed + p.ox * 0.01);
     const body = (1.3 + lobe * 2.6) * (0.18 + along * 1.05);
     const swell = 0.86 + lobe * 0.34;
-    const wave = Math.sin(along * 7.6 + 0.4) * (1.2 + along * 4.4);
-    const wave2 = Math.cos(along * 4.8 + 1.2) * (0.9 + along * 3.6);
+    const wave = Math.sin(along * 5.2 + 0.4) * (4.2 + along * 13);
+    const wave2 = Math.cos(along * 3.4 + 1.2) * (3.1 + along * 9.5);
     p.y = p.floor + along * height + (n.y * 0.45 + c.y * 0.35) * along * 3.2;
     p.x = p.ox + Math.cos(wind.dir) * lean + p.offS * swell + (c.x * 0.7 + n.x * 0.4) * body + wave;
     p.z = p.oz + Math.sin(wind.dir) * lean + p.offD * swell + (c.z * 0.7 + n.z * 0.4) * body + wave2;
