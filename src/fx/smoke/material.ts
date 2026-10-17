@@ -75,7 +75,10 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
         const toCamXZ = camXZ.div(max(length(camXZ), float(0.001)));
         const stallClear = toCamXZ.mul(size.mul(0.08).mul(puffK).mul(float(1).sub(exhaustK)).mul(lowK));
         const exhaustClear = vec3(trailAx.x.mul(0.35), abs(trailAx.y).add(0.8), trailAx.z.mul(0.35)).mul(size.mul(0.1).mul(exhaustK));
-        return center.add(side.mul(ox.mul(size))).add(up.mul(oy.mul(size).mul(stretch))).add(stallClear).add(exhaustClear);
+        // Low stall cards were centered on the lid, so the pot clipped a hole
+        // and the visible mass sat above the rim. Lift the card so its foot is the lid.
+        const stallUp = vec3(float(0), size.mul(0.4), float(0)).mul(puffK).mul(float(1).sub(exhaustK)).mul(lowK);
+        return center.add(side.mul(ox.mul(size))).add(up.mul(oy.mul(size).mul(stretch))).add(stallClear).add(exhaustClear).add(stallUp);
       })();
     m.colorNode = Fn(() => {
       const suv = uv();
@@ -100,6 +103,7 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const blendSoft = float(1).sub(smoothstep(float(0.55), float(0.9), lampK));
       const notStack = smoothstep(float(0.74), float(0.82), softBody);
       const columnSoft = notStack.mul(blendSoft);
+      const stackK = smoothstep(float(0.68), float(0.71), softBody).mul(float(1).sub(smoothstep(float(0.745), float(0.78), softBody)));
       // Plume: a noise-warped body, dead before the quad corner. A tight gaussian
       // read as a stack of spheres once the puffs stopped overlapping.
       const warp = vec2(n.r.sub(0.5).mul(0.32), n.g.sub(0.5).mul(0.26));
@@ -121,9 +125,15 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       // Grate and vent on Low. Detail 0 left alpha on the quad side, so the
       // street column read as cards. The stack (0.72) and Medium stay put.
       const grateK = smoothstep(float(0.9), float(0.98), softBody);
-      const grateClip = float(1).sub(smoothstep(float(0.34), float(0.48), rad));
+      // Low street was a tight disc, so the column broke into coins. A longer
+      // feather still dies before the quad side.
+      const grateClip = float(1).sub(smoothstep(float(0.22), float(0.52), rad));
+      const stackR = length(suv.sub(0.5).add(vec2(n.r.sub(0.5).mul(0.18), n.g.sub(0.5).mul(0.14))));
+      const stackBody = float(1).sub(smoothstep(float(0.0), float(0.58), stackR));
+      const stackEdge = float(1).sub(smoothstep(float(0.32), float(0.55), rad));
+      const edgeStack = stackBody.mul(stackEdge).mul(float(0.8).add(lobe.mul(0.25)));
       const edgeSteamUse = mix(edgeSteam, edgeSteam.mul(mix(float(1), grateClip, grateK)), lowK);
-      const edgeRound = mix(edgeSteamUse, edgePlume, plumeK);
+      const edgeRound = mix(mix(edgeSteamUse, edgeStack, stackK), edgePlume, plumeK);
       // 0.50 stall, 0.53 exhaust. Medium stall is the warped disc from the
       // passing still. Exhaust above Low keeps the gaussian. Low cannot share
       // either: the disc's tear cut a hole on the black wall, and the gaussian
@@ -134,27 +144,27 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const puffR = length(suv.sub(0.5).add(puffWarp));
       const puffBreak = n.r.mul(n.g);
       const puffBody = float(1).sub(smoothstep(float(0.0), float(0.5).add(puffBreak.mul(0.2)), puffR));
-      const puffTear = smoothstep(float(0.62), float(0.9), n.g).mul(smoothstep(float(0.28), float(0.62), rad));
+      // A deep tear read as holes on the lit wall. A shallow nick keeps the disc from going cut-paper.
+      const puffTear = smoothstep(float(0.78), float(0.96), n.g).mul(smoothstep(float(0.4), float(0.7), rad));
       const puffCorner = float(1).sub(smoothstep(float(0.4), float(0.66), rad));
-      const puffEdgeDisc = puffBody.mul(float(1).sub(puffTear.mul(0.48))).mul(puffCorner).mul(float(0.7).add(lobe.mul(0.45)));
+      const puffEdgeDisc = puffBody.mul(float(1).sub(puffTear.mul(0.12))).mul(puffCorner).mul(float(0.86).add(lobe.mul(0.22)));
       const puffWarpG = vec2(n.r.sub(0.5).mul(0.42).add(n.g.sub(0.5).mul(0.16)), n.g.sub(0.5).mul(0.38));
       const puffRG = length(suv.sub(0.5).add(puffWarpG));
-      const puffKFall = float(5.4).add(lobe.mul(1.5));
       // The gaussian was still bright on the flat side of the quad. That side
       // is the card edge in the exhaust column on every tier above Low.
-      const gaussRim = float(1).sub(smoothstep(float(0.38), float(0.48), rad));
-      const puffGauss = exp(puffRG.mul(puffRG).mul(puffKFall).mul(float(-1))).mul(float(0.78).add(lobe.mul(0.28))).mul(gaussRim);
-      // Low stall. The passing medium mask, without the tear that opened a hole
-      // on the black wall, and empty before the quad's flat side.
-      const puffWarpL = vec2(n.r.sub(0.5).mul(0.62).add(n.g.sub(0.5).mul(0.18)), n.g.sub(0.5).mul(0.5));
+      // Exhaust on every tier. The core falls off immediately and the rim feathers
+      // out before the quad side, so the trail is not a stack of bulbs.
+      const feather = float(1).sub(smoothstep(float(0.16), float(0.48), rad));
+      const puffGauss = exp(puffRG.mul(puffRG).mul(float(-3.6))).mul(feather).mul(float(0.55).add(lobe.mul(0.28)));
+      // Low stall. Filled across the mouth, a short warp so the center does not
+      // open a hole, and empty before the quad's flat side.
+      const puffWarpL = vec2(n.r.sub(0.5).mul(0.22).add(n.g.sub(0.5).mul(0.1)), n.g.sub(0.5).mul(0.18));
       const puffRL = length(suv.sub(0.5).add(puffWarpL));
-      const stallBody = float(1).sub(smoothstep(float(0.02), float(0.46).add(n.r.mul(0.06)), puffRL));
-      const rimKill = float(1).sub(smoothstep(float(0.38), float(0.48), rad));
-      const puffStall = stallBody.mul(rimKill).mul(float(0.62).add(lobe.mul(0.4)));
-      // Low exhaust. A long falloff, not a bright plateau, so the column is not
-      // a stack of bulbs. The quad side stays empty.
-      const er = length(suv.sub(0.5).add(vec2(n.r.sub(0.5).mul(0.14), n.g.sub(0.5).mul(0.08))));
-      const puffExhaust = float(1).sub(smoothstep(float(0.06), float(0.44), er)).mul(float(0.7).add(lobe.mul(0.28))).mul(rimKill);
+      const stallBody = float(1).sub(smoothstep(float(0.0), float(0.52).add(n.r.mul(0.04)), puffRL));
+      const stallRim = float(1).sub(smoothstep(float(0.4), float(0.5), rad));
+      const puffStall = stallBody.mul(stallRim).mul(float(0.84).add(lobe.mul(0.2)));
+      const er = length(suv.sub(0.5).add(vec2(n.r.sub(0.5).mul(0.12), n.g.sub(0.5).mul(0.08))));
+      const puffExhaust = exp(er.mul(er).mul(float(-3.6))).mul(feather).mul(float(0.55).add(lobe.mul(0.28)));
       const puffSoft = mix(puffStall, puffExhaust, exhaustK);
       const puffEdgeHi = mix(puffEdgeDisc, puffGauss, exhaustK);
       const puffEdge = mix(puffEdgeHi, puffSoft, lowK);
@@ -173,8 +183,13 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const grainUse = mix(grain, mix(mix(grainDisc, grainGauss, exhaustK), grainSoft, lowK), puffK);
       const tornDisc = float(0.88).add(tornRaw.mul(0.18));
       const tornGauss = float(0.94).add(n.r.mul(0.08));
-      const tornUse = mix(torn, mix(mix(tornDisc, tornGauss, exhaustK), float(0.98), lowK), puffK);
-      const powPuff = mix(mix(float(0.62), float(1.0), exhaustK), float(0.92), lowK);
+      // Medium and above launch was torn into gaps. Low keeps the mask that cleared.
+      const tornPlume = float(0.82).add(n.r.mul(0.16));
+      const tornColumn = mix(torn, tornPlume, plumeK.mul(float(1).sub(lowK)));
+      const tornUse = mix(tornColumn, mix(mix(tornDisc, tornGauss, exhaustK), float(0.98), lowK), puffK);
+      const powHi = mix(float(0.62), float(0.75), exhaustK);
+      const powLow = mix(float(0.92), float(0.8), exhaustK);
+      const powPuff = mix(powHi, powLow, lowK);
       const shapePow = mix(mix(mix(float(0.8), float(1.15), columnSoft), float(1.35), plumeK), powPuff, puffK);
       const shape = pow(max(tornUse.mul(edge).mul(grainUse).mul(fray), float(0)), shapePow);
       const size = max(puff.w, float(0.4));
@@ -187,12 +202,13 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const bandColumn = min(max(size.mul(0.16), min(float(0.18), size.mul(1.2))), float(1.6));
       const card = max(puff.w, float(0.05));
       const bandExhaust = max(card.mul(0.45), float(0.1));
-      // Stall's band is only the last couple of centimetres. A deeper fade erased
-      // the neck, so the cloud appeared to float above the lid. Exhaust keeps a
-      // wider band against the bumper.
-      const bandLow = clamp(card.mul(mix(float(0.2), float(0.34), exhaustK)), float(0.016), mix(float(0.03), float(0.14), exhaustK));
-      const bandHi = mix(bandColumn, bandExhaust, exhaustK);
-      const band = mix(bandColumn, mix(bandHi, bandLow, lowK), puffK);
+      // Stall sits about 20 cm in front of the lit wall. A 0.18 m band treated
+      // that wall as an intersection and erased the steam. Five centimetres
+      // feathers the lid and leaves the wall alone. Exhaust keeps a wider band.
+      const bandStall = float(0.05);
+      const bandLow = clamp(card.mul(mix(float(0.42), float(0.34), exhaustK)), float(0.042), mix(float(0.06), float(0.14), exhaustK));
+      const bandPuff = mix(bandStall, bandExhaust, exhaustK);
+      const band = mix(bandColumn, mix(bandPuff, bandLow, lowK), puffK);
       const contrast = mix(float(1.35), mix(mix(float(1.35), float(1.0), exhaustK), float(1.0), lowK), puffK);
       const sceneZ = perspectiveDepthToViewZ(viewportDepthTexture(), cameraNear, cameraFar);
       const delta = clamp(positionView.z.sub(sceneZ).div(band), 0, 1);
@@ -243,10 +259,11 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
         .add(scatter.mul(lampK).mul(float(0.35)).mul(lampShade))
         .add(lanternPool(world).mul(under).mul(steam).mul(float(0.65)))
         .add(warm.mul(heat).mul(belly).mul(float(1).sub(rim.mul(0.4))).mul(authoredLiftU).mul(float(0.22)).mul(mix(float(1), float(0.35), lampK)));
-      // Medium stall is unlifted: that is the passing exposure on the lit wall.
-      // Low stall needs a little more against the black interior. The same lift
-      // on exhaust was a white beam, so the tailpipe stays at 1.15.
-      const puffBright = mix(float(1.0), mix(mix(float(1.0), float(1.2), lowK), float(1.15), exhaustK), puffK);
+      // Medium stall was darker than the lit wall, so the vapor disappeared.
+      // Low needs a smaller lift on the black interior. Exhaust stays near the
+      // body so the trail does not blow out white.
+      const stallLift = mix(float(1.5), float(1.28), lowK);
+      const puffBright = mix(float(1.0), mix(stallLift, float(1.08), exhaustK), puffK);
       return vec4(rgb.mul(mottled).mul(puffBright), alpha);
     })();
     return m;

@@ -359,13 +359,14 @@ export class SmokeField {
         const low = this.tier === 'low';
         const nozzle = Math.max(0, 1 - p.along / (low ? 0.07 : 0.05));
         heat = Math.max(heat, nozzle * 1.15);
-        lifeA = Math.min(low ? 0.36 : 0.3, lifeA);
+        lifeA = Math.min(low ? 0.36 : 0.34, lifeA);
         size *= 0.86 + p.seed * 0.28;
         if (low && nozzle > 0.35) size *= 1.06;
         const puffCap = low ? 16 : this.tier === 'medium' ? 13 : this.tier === 'high' ? 11 : 10;
         size = Math.min(size, puffCap);
-        // Medium's shaft was thin enough to open holes. High and ultra stay put.
-        if (this.tier === 'medium') size = Math.min(puffCap, size * 1.1);
+        // Medium and above were thin enough that the shaft opened into separate puffs.
+        // Low keeps the fill that cleared.
+        if (!low) size = Math.min(puffCap, size * (this.tier === 'medium' ? 1.14 : 1.18));
         // Far side of the shaft fades so the column has depth instead of a stack of discs.
         const axisD = Math.hypot(p.ox - cx, p.oz - cz);
         const puffD = Math.hypot(p.x - cx, p.z - cz);
@@ -373,40 +374,40 @@ export class SmokeField {
         lifeA *= Math.min(1, 0.58 + (1 - depthT) * 0.26);
         if (dist < 22) lifeA *= Math.min(1, Math.max(0, (dist - 8) / 14));
       } else if (p.kind === 2) {
-        size *= 0.88 + p.seed * 0.28;
+        size *= 0.9 + p.seed * 0.2;
         if (this.tier === 'medium') size *= 1.08;
+        else if (this.tier === 'low') size *= 1.08;
+        else size *= 1.06;
       } else if (p.kind === 6) {
-        // Small at the pipe, wider and thinner as it rises. One alpha for every
-        // tier: Low was more opaque, which turned the same disc into a sticker.
-        size *= (0.8 + p.seed * 0.35) * (0.85 + p.along * 0.95);
-        // Low stays large enough that the puffs overlap into one column. The
-        // shader kills the quad side, so the size is not a facet. Medium and
-        // above keep their caps.
-        size = Math.min(size, this.tier === 'low' ? 0.52 : this.tier === 'medium' ? 0.5 : 0.42);
+        // Small at the pipe, wider and much thinner as it rises. A 0.5 m cap
+        // read as a chimney on a tailpipe.
+        size *= (0.7 + p.seed * 0.25) * (0.72 + p.along * 0.55);
+        size = Math.min(size, this.tier === 'low' ? 0.26 : this.tier === 'medium' ? 0.22 : 0.18);
         const away = Math.hypot(p.x - p.ox, p.z - p.oz);
         const lift = Math.max(0, p.y - p.floor);
-        const trail = Math.pow(1 - Math.min(1, p.along), 0.45);
-        const spread = 1 - Math.min(1, Math.max(0, away - (this.tier === 'low' ? 0.85 : 0.7)) / 1.05);
-        const roofStart = this.tier === 'low' ? 1.2 : 0.85;
-        const roofSpan = this.tier === 'low' ? 2.15 : 1.7;
-        const roof = 1 - Math.min(1, Math.max(0, lift - roofStart) / roofSpan);
-        lifeA = Math.min(this.tier === 'low' ? 0.38 : 0.34, lifeA) * (0.62 + 0.38 * trail) * spread * roof;
+        const trail = Math.pow(1 - Math.min(1, p.along), 0.55);
+        const spread = 1 - Math.min(1, Math.max(0, away - 0.22) / 0.5);
+        const roof = 1 - Math.min(1, Math.max(0, lift - 0.22) / 1.05);
+        lifeA = Math.min(this.tier === 'low' ? 0.24 : 0.2, lifeA) * (0.4 + 0.6 * trail) * spread * roof;
         // A car down the block must not stamp discs onto the grate or the flare.
         if (dist > 10) lifeA *= Math.max(0, 1 - (dist - 10) / 8);
         heat = 0;
       } else if (p.kind === 5) {
-        // Medium and above use the cap from the passing still. Low stays
-        // smaller; its shader fades with that size instead of a 0.18 m band.
-        size = Math.min(Math.max(size, this.tier === 'low' ? 0.11 : 0), this.tier === 'low' ? 0.15 : 0.17);
+        // Low is a short cloud on the lid. Medium and above stay a little smaller
+        // so the wisp does not become a disc on the lit wall.
+        size = Math.min(Math.max(size, this.tier === 'low' ? 0.14 : 0.1), this.tier === 'low' ? 0.2 : 0.18);
         const away = Math.hypot(p.x - p.ox, p.z - p.oz);
-        lifeA *= 1 - Math.min(1, Math.max(0, away - (this.tier === 'low' ? 0.22 : 0.28)) / 0.4);
-        if (this.tier === 'low') lifeA = Math.min(0.8, lifeA * 1.2);
+        lifeA *= 1 - Math.min(1, Math.max(0, away - (this.tier === 'low' ? 0.24 : 0.3)) / 0.45);
+        if (this.tier === 'low') lifeA = Math.min(0.86, lifeA * 1.35);
+        else lifeA = Math.min(0.7, lifeA * 1.12);
       } else if (p.kind === 1) {
         size = Math.min(size, Math.max(2.5, dist * 0.06));
       }
-      if ((p.kind === 4 || p.kind === 3) && (this.tier === 'high' || this.tier === 'ultra')) {
+      if (p.kind === 4 || p.kind === 3) {
         // High and ultra were leaving separate coins. Medium already reads as one column.
-        size *= 1.1;
+        // Low's clip was tight enough to split the same column into discs.
+        if (this.tier === 'high' || this.tier === 'ultra') size *= 1.1;
+        else if (this.tier === 'low') size *= 1.08;
       }
       const o = i * 4;
       puff[o] = p.x;
@@ -441,7 +442,7 @@ export class SmokeField {
         shadeK = Math.min(1.2, 0.48 + radial * 0.62 + p.seed * 0.12);
       } else if (p.kind === 2) {
         const mouth = Math.max(0, 1 - Math.max(0, p.y - p.floor) / 10);
-        shadeK *= 0.22 + p.seed * 0.95 + mouth * 0.4;
+        shadeK *= 0.55 + p.seed * 0.4 + mouth * 0.22;
       } else if (p.kind === 5) {
         shadeK *= 1.2;
       }
@@ -481,7 +482,7 @@ export class SmokeField {
       move[o + 2] = stretch.z;
       // Low exhaust stretched toward a ribbon, and the ribbon's sides were the
       // facets. The rise axis is unchanged.
-      const lowStretch = p.kind === 6 ? 1.7 : p.kind === 5 ? 1.4 : stretch.w;
+      const lowStretch = p.kind === 6 ? 1.28 : p.kind === 5 ? 1.35 : stretch.w;
       move[o + 3] = this.tier === 'low' && (p.kind === 6 || p.kind === 5) ? Math.min(stretch.w, lowStretch) : stretch.w;
     }
     this.puff.needsUpdate = true;

@@ -283,7 +283,7 @@ export class SmokePool {
       p.y = m.y + along * 72;
       p.x = m.x + p.offS;
       p.z = m.z + p.offD;
-      p.shade = 0.28 + r.next() * 0.85;
+      p.shade = 0.46 + r.next() * 0.38;
       const belly = Math.max(0, 1 - along / 0.08);
       p.heat = belly * belly * (0.55 + r.next() * 0.35);
       p.alpha *= (0.7 + (1 - along) * 0.22) * (0.65 + r.next() * 0.4);
@@ -297,31 +297,31 @@ export class SmokePool {
       if (!low) {
         const ang = r.next() * Math.PI * 2;
         const rim = 0.02 + Math.sqrt(r.next()) * 0.1;
-        const along = Math.pow(r.next(), 1.15);
+        const along = Math.pow(r.next(), 1.45);
         p.along = along;
         p.ox = m.x + Math.cos(ang) * rim;
         p.oz = m.z + Math.sin(ang) * rim;
         p.x = p.ox;
         p.z = p.oz;
-        p.y = m.y + 0.03 + along * 0.05;
-        p.age = r.next() * p.life * 0.8;
+        p.y = m.y + 0.02 + along * 0.04;
+        p.age = r.next() * p.life * 0.55;
         p.heat = 0;
-        p.shade = 0.78 + r.next() * 0.28;
-        p.alpha = m.alpha * (0.55 + r.next() * 0.4) * (1 - along * 0.25);
-        const width = (scale >= 1.05 ? 0.1 : 0.09) * (0.75 + r.next() * 0.5);
+        p.shade = 0.82 + r.next() * 0.22;
+        p.alpha = m.alpha * (0.72 + r.next() * 0.32) * (1 - along * 0.2);
+        const width = (scale >= 1.05 ? 0.12 : 0.11) * (0.8 + r.next() * 0.4);
         p.size0 = width;
-        p.size1 = width * (1.35 + r.next() * 0.7);
-        p.vy = m.rise * (0.75 + r.next() * 0.7);
+        p.size1 = width * (1.25 + r.next() * 0.4);
+        p.vy = m.rise * (0.48 + r.next() * 0.35);
         p.vx = Math.cos(ang) * (0.02 + r.next() * 0.05);
         p.vz = Math.sin(ang) * (0.02 + r.next() * 0.05);
         p.spin = r.next() * Math.PI * 2;
         p.spinRate = (r.next() - 0.5) * 1.1;
       } else {
-        // Same birth as the passing wisps, filled across the mouth so a ring
-        // does not read as a hole, and a few centimetres clear of the lid.
+        // Filled across the mouth, born on the lid. A fast rise left the mass
+        // in the air with a thin neck.
         const ang = r.next() * Math.PI * 2;
-        const rim = Math.sqrt(r.next()) * 0.11;
-        const along = Math.pow(r.next(), 1.15);
+        const rim = Math.sqrt(r.next()) * 0.1;
+        const along = Math.pow(r.next(), 1.7);
         p.along = along;
         p.ox = m.x + Math.cos(ang) * rim;
         p.oz = m.z + Math.sin(ang) * rim;
@@ -330,19 +330,19 @@ export class SmokePool {
         const toCamX = cam.x - m.x;
         const toCamZ = cam.z - m.z;
         const camD = Math.hypot(toCamX, toCamZ) || 1;
-        p.x += (toCamX / camD) * 0.035;
-        p.z += (toCamZ / camD) * 0.035;
+        p.x += (toCamX / camD) * 0.04;
+        p.z += (toCamZ / camD) * 0.04;
         p.ox = p.x;
         p.oz = p.z;
-        p.y = m.y + 0.04 + along * 0.05;
-        p.age = r.next() * p.life * 0.8;
+        p.y = m.y + 0.015 + along * 0.03;
+        p.age = r.next() * p.life * 0.45;
         p.heat = 0;
-        p.shade = 0.78 + r.next() * 0.28;
-        p.alpha = m.alpha * (0.62 + r.next() * 0.38) * (1 - along * 0.25);
-        const width = 0.095 * (0.75 + r.next() * 0.5);
+        p.shade = 0.84 + r.next() * 0.2;
+        p.alpha = m.alpha * (0.8 + r.next() * 0.25) * (1 - along * 0.35);
+        const width = 0.13 * (0.85 + r.next() * 0.35);
         p.size0 = width;
-        p.size1 = width * (1.35 + r.next() * 0.7);
-        p.vy = m.rise * (0.75 + r.next() * 0.7);
+        p.size1 = width * (1.18 + r.next() * 0.3);
+        p.vy = m.rise * (0.4 + r.next() * 0.28);
         p.vx = Math.cos(ang) * (0.02 + r.next() * 0.05);
         p.vz = Math.sin(ang) * (0.02 + r.next() * 0.05);
         p.spin = r.next() * Math.PI * 2;
@@ -394,18 +394,19 @@ export class SmokePool {
       const side = (r.next() - 0.5) * 0.22;
       p.vx = m.vx - fx * exit + rx * side;
       p.vz = m.vz - fz * exit + rz * side;
-      p.vy = 1.05 + r.next() * 0.5;
+      // A hard rise made a chimney. This still climbs, and it thins as it goes.
+      p.vy = 0.55 + r.next() * 0.32;
       p.along = r.next() * 0.06;
       // Backward axis. The step keeps a drift into clear air so the plume
       // is not painted onto the trunk and depth-tested away.
       p.offS = -fx;
       p.offD = -fz;
       p.age = r.next() * p.life * 0.2;
-      const pipe = (scale >= 1.3 ? 1.2 : scale >= 1.05 ? 1.05 : 0.92) * (m.size0 > 0.08 ? 0.08 : 0.055);
-      p.size0 = pipe * (0.55 + r.next() * 0.7);
-      p.size1 = pipe * (3.4 + r.next() * 2.6);
-      p.alpha = m.alpha * (0.55 + r.next() * 0.35);
-      p.shade = 0.72 + r.next() * 0.32;
+      const pipe = (scale >= 1.3 ? 0.95 : scale >= 1.05 ? 0.88 : 0.8) * (m.size0 > 0.08 ? 0.055 : 0.04);
+      p.size0 = pipe * (0.75 + r.next() * 0.4);
+      p.size1 = pipe * (1.7 + r.next() * 0.9);
+      p.alpha = m.alpha * (0.4 + r.next() * 0.28);
+      p.shade = 0.5 + r.next() * 0.28;
       p.heat = 0;
       p.spin = r.next() * Math.PI * 2;
       p.spinRate = (r.next() - 0.5) * 0.9;
@@ -460,10 +461,10 @@ export class SmokePool {
         p.along = Math.min(0.98, u);
         const h = Math.max(0, p.y - p.floor);
         const c = curlNoise(p.x * 1.15 + p.seed * 0.2, p.y * 0.9 + p.age * 0.35, p.z * 1.15, p.seed + 2.2);
-        // Curl grows with height so the plume opens instead of staying a bead string.
-        const amp = 0.2 + Math.min(0.5, h * 0.26);
-        const back = 0.16;
-        const rise = (1.2 * (1 - u * 0.28) + 0.2) * (1 - rain * 0.1);
+        // Curl grows with height so the plume opens and feathers instead of staying a rope.
+        const amp = 0.14 + Math.min(0.7, h * 0.42);
+        const back = 0.1;
+        const rise = (0.62 * (1 - u * 0.45) + 0.1) * (1 - rain * 0.12);
         p.vy = approach(p.vy, rise + c.y * 0.35, dt, 0.22);
         p.vx = approach(p.vx, p.offS * back + wx * 0.04 + c.x * amp, dt, 0.26);
         p.vz = approach(p.vz, p.offD * back + wz * 0.04 + c.z * amp, dt, 0.26);
@@ -492,7 +493,7 @@ export class SmokePool {
         const h = Math.max(0, p.y - p.floor);
         const c = curlNoise(p.x * 3.2 + p.seed * 0.2, p.y * 3.2 + p.age * 0.7, p.z * 3.2, p.seed);
         const amp = 0.12 + Math.min(0.34, h * 0.55);
-        const rise = p.rise * (1.15 - u * 0.55) * (1 - rain * 0.08);
+        const rise = p.rise * (0.62 - u * 0.28) * (1 - rain * 0.08);
         p.vx = approach(p.vx, wx * 0.04 + c.x * amp, dt, 0.28);
         p.vz = approach(p.vz, wz * 0.04 + c.z * amp, dt, 0.28);
         p.vy = approach(p.vy, rise + c.y * amp * 0.45, dt, 0.26);
@@ -619,7 +620,7 @@ export function billboardStretch(p: Puff, windDir: number, plumeUp: Xyz): { x: n
       x: kx,
       y: ky,
       z: kz,
-      w: Math.min(1.85, 1.12 + p.seed * 0.28 + p.along * 0.4),
+      w: Math.min(1.28, 1.02 + p.seed * 0.1 + p.along * 0.16),
     };
   }
   if (p.kind === KIND.stack) {
