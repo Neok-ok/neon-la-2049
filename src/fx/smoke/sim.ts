@@ -289,39 +289,62 @@ export class SmokePool {
     }
     if (m.kind === KIND.stall) {
       // Independent birth on the rim. Three shared angles became three ribbons.
-      const ang = r.next() * Math.PI * 2;
-      const rim = 0.02 + Math.sqrt(r.next()) * 0.1;
-      const along = Math.pow(r.next(), 1.15);
-      p.along = along;
-      p.ox = m.x + Math.cos(ang) * rim;
-      p.oz = m.z + Math.sin(ang) * rim;
-      p.x = p.ox;
-      p.z = p.oz;
-      p.y = m.y + 0.03 + along * 0.05;
-      // Low only. The card is small enough to sit inside the pot's depth cut.
-      // Medium and above scored on the rim without this step.
-      if (scale >= 1.3) {
+      const low = scale >= 1.3;
+      if (!low) {
+        const ang = r.next() * Math.PI * 2;
+        const rim = 0.02 + Math.sqrt(r.next()) * 0.1;
+        const along = Math.pow(r.next(), 1.15);
+        p.along = along;
+        p.ox = m.x + Math.cos(ang) * rim;
+        p.oz = m.z + Math.sin(ang) * rim;
+        p.x = p.ox;
+        p.z = p.oz;
+        p.y = m.y + 0.03 + along * 0.05;
+        p.age = r.next() * p.life * 0.8;
+        p.heat = 0;
+        p.shade = 0.78 + r.next() * 0.28;
+        p.alpha = m.alpha * (0.55 + r.next() * 0.4) * (1 - along * 0.25);
+        const width = (scale >= 1.05 ? 0.1 : 0.09) * (0.75 + r.next() * 0.5);
+        p.size0 = width;
+        p.size1 = width * (1.35 + r.next() * 0.7);
+        p.vy = m.rise * (0.75 + r.next() * 0.7);
+        p.vx = Math.cos(ang) * (0.02 + r.next() * 0.05);
+        p.vz = Math.sin(ang) * (0.02 + r.next() * 0.05);
+        p.spin = r.next() * Math.PI * 2;
+        p.spinRate = (r.next() - 0.5) * 1.1;
+      } else {
+        // Fill the mouth, not a ring, and sit just above the lid. A ring on the
+        // black wall read as a hole, and cards born in the lid were clipped away
+        // so the wisps floated.
+        const ang = r.next() * Math.PI * 2;
+        const rim = Math.sqrt(r.next()) * 0.07;
+        const along = Math.pow(r.next(), 1.4);
+        p.along = along;
+        p.ox = m.x + Math.cos(ang) * rim;
+        p.oz = m.z + Math.sin(ang) * rim;
+        p.x = p.ox;
+        p.z = p.oz;
         const toCamX = cam.x - m.x;
         const toCamZ = cam.z - m.z;
         const camD = Math.hypot(toCamX, toCamZ) || 1;
-        const nudge = 0.06;
-        p.x += (toCamX / camD) * nudge;
-        p.z += (toCamZ / camD) * nudge;
+        p.x += (toCamX / camD) * 0.04;
+        p.z += (toCamZ / camD) * 0.04;
         p.ox = p.x;
         p.oz = p.z;
+        p.y = m.y + 0.06 + along * 0.04;
+        p.age = r.next() * p.life * 0.45;
+        p.heat = 0;
+        p.shade = 0.82 + r.next() * 0.22;
+        p.alpha = m.alpha * (0.7 + r.next() * 0.35) * (1 - along * 0.2);
+        const width = 0.12 * (0.85 + r.next() * 0.4);
+        p.size0 = width;
+        p.size1 = width * (1.25 + r.next() * 0.45);
+        p.vy = m.rise * (0.65 + r.next() * 0.5);
+        p.vx = Math.cos(ang) * (0.01 + r.next() * 0.03);
+        p.vz = Math.sin(ang) * (0.01 + r.next() * 0.03);
+        p.spin = r.next() * Math.PI * 2;
+        p.spinRate = (r.next() - 0.5) * 0.6;
       }
-      p.age = r.next() * p.life * 0.8;
-      p.heat = 0;
-      p.shade = 0.78 + r.next() * 0.28;
-      p.alpha = m.alpha * (0.55 + r.next() * 0.4) * (1 - along * 0.25);
-      const width = (scale >= 1.3 ? 0.085 : scale >= 1.05 ? 0.1 : 0.09) * (0.75 + r.next() * 0.5);
-      p.size0 = width;
-      p.size1 = width * (1.35 + r.next() * 0.7);
-      p.vy = m.rise * (0.75 + r.next() * 0.7);
-      p.vx = Math.cos(ang) * (0.02 + r.next() * 0.05);
-      p.vz = Math.sin(ang) * (0.02 + r.next() * 0.05);
-      p.spin = r.next() * Math.PI * 2;
-      p.spinRate = (r.next() - 0.5) * 1.1;
     }
     if (m.kind === KIND.grate || m.kind === KIND.vent) {
       const grate = m.kind === KIND.grate;

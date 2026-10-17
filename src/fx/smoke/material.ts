@@ -69,7 +69,11 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
         const lowK = float(1).sub(smoothstep(float(0.05), float(0.2), smokeDetail));
         const exhaustK = smoothstep(float(0.512), float(0.528), tint.w);
         const trailAx = normalize(mix(move.xyz, vec3(0, 1, 0), step(length(move.xyz), float(0.2))));
-        const stallClear = toCam.mul(size.mul(0.16).mul(puffK).mul(float(1).sub(exhaustK)).mul(lowK));
+        // Horizontal only. The full camera vector lifted the wisp off the rim
+        // and into the black wall.
+        const camXZ = vec3(toCam.x, float(0), toCam.z);
+        const toCamXZ = camXZ.div(max(length(camXZ), float(0.001)));
+        const stallClear = toCamXZ.mul(size.mul(0.08).mul(puffK).mul(float(1).sub(exhaustK)).mul(lowK));
         const exhaustClear = vec3(trailAx.x.mul(0.35), abs(trailAx.y).add(0.8), trailAx.z.mul(0.35)).mul(size.mul(0.1).mul(exhaustK));
         return center.add(side.mul(ox.mul(size))).add(up.mul(oy.mul(size).mul(stretch))).add(stallClear).add(exhaustClear);
       })();
@@ -137,11 +141,20 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const puffRG = length(suv.sub(0.5).add(puffWarpG));
       const puffKFall = float(5.4).add(lobe.mul(1.5));
       const puffGauss = exp(puffRG.mul(puffRG).mul(puffKFall).mul(float(-1))).mul(float(0.78).add(lobe.mul(0.28)));
-      // Noise moves the radius. It does not multiply a hole through the core.
-      // The reach stays under 0.48, so the flat side of the quad is empty.
-      const reach = clamp(float(0.45).add(n.r.sub(0.5).mul(0.05)).add(n.g.sub(0.5).mul(0.03)), float(0.4), float(0.475));
-      const tSoft = clamp(reach.sub(rad).div(reach), float(0), float(1));
-      const puffSoft = tSoft.mul(tSoft).mul(float(3).sub(tSoft.mul(2))).mul(float(0.9).add(lobe.mul(0.14)));
+      // Low stall: two warped lobes, empty before the quad's flat side. A single
+      // disc read as a cotton ball on the black wall, and a tear read as a hole.
+      const wuv = suv.add(vec2(n.r.sub(0.5).mul(0.2), n.g.sub(0.5).mul(0.16)));
+      const wr = length(wuv.sub(0.5));
+      const lobeOff = vec2(float(0.5).add(n.g.sub(0.5).mul(0.24)), float(0.44).add(n.r.sub(0.5).mul(0.16)));
+      const lr = length(wuv.sub(lobeOff));
+      const atlas = float(0.78).add(n.r.mul(0.16)).add(n.g.mul(0.12));
+      const rimKill = float(1).sub(smoothstep(float(0.4), float(0.48), rad));
+      const puffStall = exp(wr.mul(wr).mul(float(-5.4))).mul(float(0.82)).add(exp(lr.mul(lr).mul(float(-10))).mul(float(0.5))).mul(atlas).mul(rimKill);
+      // Low exhaust: a wide plateau so the bulbs merge into one column, with a
+      // short rim that is gone before the quad side. That side was the facet.
+      const er = length(suv.sub(0.5).add(vec2(n.r.sub(0.5).mul(0.1), n.g.sub(0.5).mul(0.07))));
+      const puffExhaust = float(1).sub(smoothstep(float(0.2), float(0.46), er)).mul(float(0.88).add(lobe.mul(0.16))).mul(rimKill);
+      const puffSoft = mix(puffStall, puffExhaust, exhaustK);
       const puffEdgeHi = mix(puffEdgeDisc, puffGauss, exhaustK);
       const puffEdge = mix(puffEdgeHi, puffSoft, lowK);
       const edge = mix(edgeRound, puffEdge, puffK);
