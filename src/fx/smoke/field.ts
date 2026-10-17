@@ -363,6 +363,8 @@ export class SmokeField {
         if (low && nozzle > 0.35) size *= 1.06;
         const puffCap = low ? 16 : this.tier === 'medium' ? 13 : this.tier === 'high' ? 11 : 10;
         size = Math.min(size, puffCap);
+        // Medium's shaft was thin enough to open holes. High and ultra stay put.
+        if (this.tier === 'medium') size = Math.min(puffCap, size * 1.1);
         // Far side of the shaft fades so the column has depth instead of a stack of discs.
         const axisD = Math.hypot(p.ox - cx, p.oz - cz);
         const puffD = Math.hypot(p.x - cx, p.z - cz);
@@ -371,6 +373,7 @@ export class SmokeField {
         if (dist < 22) lifeA *= Math.min(1, Math.max(0, (dist - 8) / 14));
       } else if (p.kind === 2) {
         size *= 0.88 + p.seed * 0.28;
+        if (this.tier === 'medium') size *= 1.08;
       } else if (p.kind === 6) {
         // Small at the pipe, wider and thinner as it rises. One alpha for every
         // tier: Low was more opaque, which turned the same disc into a sticker.
@@ -399,6 +402,10 @@ export class SmokeField {
         if (this.tier === 'low') lifeA = Math.min(0.8, lifeA * 1.2);
       } else if (p.kind === 1) {
         size = Math.min(size, Math.max(2.5, dist * 0.06));
+      }
+      if ((p.kind === 4 || p.kind === 3) && (this.tier === 'high' || this.tier === 'ultra')) {
+        // High and ultra were leaving separate coins. Medium already reads as one column.
+        size *= 1.1;
       }
       const o = i * 4;
       puff[o] = p.x;

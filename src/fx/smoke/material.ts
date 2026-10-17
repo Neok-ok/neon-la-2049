@@ -140,7 +140,10 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const puffWarpG = vec2(n.r.sub(0.5).mul(0.42).add(n.g.sub(0.5).mul(0.16)), n.g.sub(0.5).mul(0.38));
       const puffRG = length(suv.sub(0.5).add(puffWarpG));
       const puffKFall = float(5.4).add(lobe.mul(1.5));
-      const puffGauss = exp(puffRG.mul(puffRG).mul(puffKFall).mul(float(-1))).mul(float(0.78).add(lobe.mul(0.28)));
+      // The gaussian was still bright on the flat side of the quad. That side
+      // is the card edge in the exhaust column on every tier above Low.
+      const gaussRim = float(1).sub(smoothstep(float(0.38), float(0.48), rad));
+      const puffGauss = exp(puffRG.mul(puffRG).mul(puffKFall).mul(float(-1))).mul(float(0.78).add(lobe.mul(0.28))).mul(gaussRim);
       // Low stall. The passing medium mask, without the tear that opened a hole
       // on the black wall, and empty before the quad's flat side.
       const puffWarpL = vec2(n.r.sub(0.5).mul(0.62).add(n.g.sub(0.5).mul(0.18)), n.g.sub(0.5).mul(0.5));
