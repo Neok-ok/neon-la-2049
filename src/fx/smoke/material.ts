@@ -61,12 +61,15 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
         // born in the pot or the bumper is clipped into a flat polygon. Shift
         // that card into clear air. Plume, stack, and grate stay put.
         const puffK = smoothstep(float(0.42), float(0.48), tint.w).mul(float(1).sub(smoothstep(float(0.56), float(0.64), tint.w)));
-        // 0.50 stall, 0.53 exhaust. Stall steps toward the lens, off the pot.
+        // 0.50 stall, 0.53 exhaust. Low stall steps toward the lens, off the pot.
+        // Medium and above stay where they were when that still passed: the lit
+        // wall is just behind the card, and a lens step erased it.
         // Exhaust steps up along the trail. Toward the lens from a rear camera
         // pushed the plume down onto the roof.
+        const lowK = float(1).sub(smoothstep(float(0.05), float(0.2), smokeDetail));
         const exhaustK = smoothstep(float(0.512), float(0.528), tint.w);
         const trailAx = normalize(mix(move.xyz, vec3(0, 1, 0), step(length(move.xyz), float(0.2))));
-        const stallClear = toCam.mul(size.mul(0.12).mul(puffK).mul(float(1).sub(exhaustK)));
+        const stallClear = toCam.mul(size.mul(0.16).mul(puffK).mul(float(1).sub(exhaustK)).mul(lowK));
         const exhaustClear = vec3(trailAx.x.mul(0.35), abs(trailAx.y).add(0.8), trailAx.z.mul(0.35)).mul(size.mul(0.1).mul(exhaustK));
         return center.add(side.mul(ox.mul(size))).add(up.mul(oy.mul(size).mul(stretch))).add(stallClear).add(exhaustClear);
       })();
@@ -100,45 +103,80 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const lobe = n.r.mul(0.62).add(n.g.mul(0.38));
       const plumeBody = float(1).sub(smoothstep(float(0.04), float(0.56), warped));
       const plumeGrain = float(0.28).add(smoothstep(float(0.16), float(0.72), lobe).mul(0.85));
-      const cornerKill = float(1).sub(smoothstep(float(0.44), float(0.68), rad));
+      // Low is smokeDetail 0. Medium is 0.45, so this is 0 there and the
+      // medium stall mask stays the one that passed.
+      const lowK = float(1).sub(smoothstep(float(0.05), float(0.2), smokeDetail));
+      const cornerMed = float(1).sub(smoothstep(float(0.44), float(0.68), rad));
+      // The flat side of a launch card is r = 0.5. Low cards are the largest,
+      // and that side was still bright. The body of the mask is unchanged.
+      const cornerLow = cornerMed.mul(float(1).sub(smoothstep(float(0.46), float(0.5), rad)));
+      const cornerKill = mix(cornerLow, cornerMed, smoothstep(float(0.05), float(0.2), smokeDetail));
       const edgePlume = plumeBody.mul(plumeGrain).mul(cornerKill);
       const edgeWide = float(1).sub(smoothstep(float(0.02), float(0.7), rad));
       const edgeSteam = mix(edgeDisc, edgeWide, columnSoft);
-      const edgeRound = mix(edgeSteam, edgePlume, plumeK);
-      // Soft puff (stall, exhaust). A gaussian billboard: density is exp(-r^2),
-      // warped by the atlas, and still falling at the quad corner. A smoothstep
-      // disc plus a noise tear read as a cut-paper hole on the stall's black wall,
-      // and as a coin at the tailpipe. The edge does not use smokeDetail, so Low
-      // (detail 0) keeps the same falloff as Medium.
+      // Grate and vent on Low. Detail 0 left alpha on the quad side, so the
+      // street column read as cards. The stack (0.72) and Medium stay put.
+      const grateK = smoothstep(float(0.9), float(0.98), softBody);
+      const grateClip = float(1).sub(smoothstep(float(0.34), float(0.48), rad));
+      const edgeSteamUse = mix(edgeSteam, edgeSteam.mul(mix(float(1), grateClip, grateK)), lowK);
+      const edgeRound = mix(edgeSteamUse, edgePlume, plumeK);
+      // 0.50 stall, 0.53 exhaust. Medium stall is the warped disc from the
+      // passing still. Exhaust above Low keeps the gaussian. Low cannot share
+      // either: the disc's tear cut a hole on the black wall, and the gaussian
+      // was still bright at r = 0.5, which is the straight card edge.
       const puffK = smoothstep(float(0.42), float(0.48), softBody).mul(float(1).sub(smoothstep(float(0.56), float(0.64), softBody)));
-      const puffWarp = vec2(n.r.sub(0.5).mul(0.42).add(n.g.sub(0.5).mul(0.16)), n.g.sub(0.5).mul(0.38));
+      const exhaustK = smoothstep(float(0.512), float(0.528), softBody);
+      const puffWarp = vec2(n.r.sub(0.5).mul(0.7).add(n.g.sub(0.5).mul(0.22)), n.g.sub(0.5).mul(0.62));
       const puffR = length(suv.sub(0.5).add(puffWarp));
+      const puffBreak = n.r.mul(n.g);
+      const puffBody = float(1).sub(smoothstep(float(0.0), float(0.5).add(puffBreak.mul(0.2)), puffR));
+      const puffTear = smoothstep(float(0.62), float(0.9), n.g).mul(smoothstep(float(0.28), float(0.62), rad));
+      const puffCorner = float(1).sub(smoothstep(float(0.4), float(0.66), rad));
+      const puffEdgeDisc = puffBody.mul(float(1).sub(puffTear.mul(0.48))).mul(puffCorner).mul(float(0.7).add(lobe.mul(0.45)));
+      const puffWarpG = vec2(n.r.sub(0.5).mul(0.42).add(n.g.sub(0.5).mul(0.16)), n.g.sub(0.5).mul(0.38));
+      const puffRG = length(suv.sub(0.5).add(puffWarpG));
       const puffKFall = float(5.4).add(lobe.mul(1.5));
-      const puffBody = exp(puffR.mul(puffR).mul(puffKFall).mul(float(-1)));
-      const puffMottle = float(0.78).add(lobe.mul(0.28));
-      const puffEdge = puffBody.mul(puffMottle);
+      const puffGauss = exp(puffRG.mul(puffRG).mul(puffKFall).mul(float(-1))).mul(float(0.78).add(lobe.mul(0.28)));
+      // Noise moves the radius. It does not multiply a hole through the core.
+      // The reach stays under 0.48, so the flat side of the quad is empty.
+      const reach = clamp(float(0.45).add(n.r.sub(0.5).mul(0.05)).add(n.g.sub(0.5).mul(0.03)), float(0.4), float(0.475));
+      const tSoft = clamp(reach.sub(rad).div(reach), float(0), float(1));
+      const puffSoft = tSoft.mul(tSoft).mul(float(3).sub(tSoft.mul(2))).mul(float(0.9).add(lobe.mul(0.14)));
+      const puffEdgeHi = mix(puffEdgeDisc, puffGauss, exhaustK);
+      const puffEdge = mix(puffEdgeHi, puffSoft, lowK);
       const edge = mix(edgeRound, puffEdge, puffK);
-      const torn = mix(n.r, n.r.mul(float(0.55).add(n.g.mul(0.7))), smokeDetail);
+      const tornRaw = mix(n.r, n.r.mul(float(0.55).add(n.g.mul(0.7))), smokeDetail);
+      const torn = mix(tornRaw, float(0.78).add(n.r.mul(0.22)), grateK.mul(lowK));
       const frayRound = mix(float(1), float(0.5).add(n.g.mul(0.7)), softBody);
-      const fray = mix(frayRound, float(0.92).add(n.g.mul(0.1)), puffK);
+      const frayDisc = float(0.88).add(n.g.mul(0.2));
+      const frayGauss = float(0.92).add(n.g.mul(0.1));
+      const fraySoft = float(0.97).add(n.g.mul(0.04));
+      const fray = mix(frayRound, mix(mix(frayDisc, frayGauss, exhaustK), fraySoft, lowK), puffK);
       const grain = float(0.42).add(n.g.mul(0.78));
-      const grainUse = mix(grain, float(0.9).add(n.g.mul(0.12)), puffK);
-      const tornUse = mix(torn, float(0.94).add(n.r.mul(0.08)), puffK);
-      const shapePow = mix(mix(mix(float(0.8), float(1.15), columnSoft), float(1.35), plumeK), float(1.0), puffK);
+      const grainDisc = float(0.78).add(n.g.mul(0.3));
+      const grainGauss = float(0.9).add(n.g.mul(0.12));
+      const grainSoft = float(0.94).add(n.g.mul(0.08));
+      const grainUse = mix(grain, mix(mix(grainDisc, grainGauss, exhaustK), grainSoft, lowK), puffK);
+      const tornDisc = float(0.88).add(tornRaw.mul(0.18));
+      const tornGauss = float(0.94).add(n.r.mul(0.08));
+      const tornUse = mix(torn, mix(mix(tornDisc, tornGauss, exhaustK), float(0.98), lowK), puffK);
+      const powPuff = mix(mix(float(0.62), float(1.0), exhaustK), float(0.92), lowK);
+      const shapePow = mix(mix(mix(float(0.8), float(1.15), columnSoft), float(1.35), plumeK), powPuff, puffK);
       const shape = pow(max(tornUse.mul(edge).mul(grainUse).mul(fray), float(0)), shapePow);
       const size = max(puff.w, float(0.4));
       // Soft particles, NVIDIA / Lorach, the same curve as three's softParticles().
       // Inlined: that helper names a GLSL argument `input`, which WebGL rejects.
-      // Column and plume keep the 0.18 m floor and contrast 1.35.
-      // A stall or exhaust card is smaller than that floor. Contrast 1.35 then
-      // collapsed the fade into one pixel against the pot or the bumper, which
-      // is the cut-paper edge. Those cards fade linearly across their own size.
+      // Column, plume, and medium stall keep the 0.18 m floor and contrast 1.35.
+      // A wider band treated the lit stall wall, about 20 cm behind the card, as
+      // an intersection and erased the steam. Low cards are smaller than that
+      // floor, so the same band cut a hole. Low fades across the card itself.
       const bandColumn = min(max(size.mul(0.16), min(float(0.18), size.mul(1.2))), float(1.6));
-      // Only the last few centimetres. A wider band treated a lit stall wall
-      // 20 cm behind the card as an intersection and erased the steam.
-      const bandPuff = max(max(puff.w, float(0.05)).mul(0.45), float(0.1));
-      const band = mix(bandColumn, bandPuff, puffK);
-      const contrast = mix(float(1.35), float(1.0), puffK);
+      const card = max(puff.w, float(0.05));
+      const bandExhaust = max(card.mul(0.45), float(0.1));
+      const bandLow = clamp(card.mul(mix(float(0.42), float(0.34), exhaustK)), float(0.035), mix(float(0.08), float(0.14), exhaustK));
+      const bandHi = mix(bandColumn, bandExhaust, exhaustK);
+      const band = mix(bandColumn, mix(bandHi, bandLow, lowK), puffK);
+      const contrast = mix(float(1.35), mix(mix(float(1.35), float(1.0), exhaustK), float(1.0), lowK), puffK);
       const sceneZ = perspectiveDepthToViewZ(viewportDepthTexture(), cameraNear, cameraFar);
       const delta = clamp(positionView.z.sub(sceneZ).div(band), 0, 1);
       const above = step(float(0.5), delta);
@@ -188,12 +226,10 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
         .add(scatter.mul(lampK).mul(float(0.35)).mul(lampShade))
         .add(lanternPool(world).mul(under).mul(steam).mul(float(0.65)))
         .add(warm.mul(heat).mul(belly).mul(float(1).sub(rim.mul(0.4))).mul(authoredLiftU).mul(float(0.22)).mul(mix(float(1), float(0.35), lampK)));
-      // Puffs have to read on a lit beige wall and on the black Low interior.
-      // The shared body is tuned for the plume; this lift is stall and exhaust only.
-      // Stall needs the lift to read on a lit wall. The same lift turned exhaust
-      // into a white beam. 0.50 is stall, 0.53 is exhaust.
-      const exhaustK = smoothstep(float(0.512), float(0.528), softBody);
-      const puffBright = mix(float(1.0), mix(float(2.6), float(1.15), exhaustK), puffK);
+      // Medium stall is unlifted: that is the passing exposure on the lit wall.
+      // Low stall needs a little more against the black interior. The same lift
+      // on exhaust was a white beam, so the tailpipe stays at 1.15.
+      const puffBright = mix(float(1.0), mix(mix(float(1.0), float(1.45), lowK), float(1.15), exhaustK), puffK);
       return vec4(rgb.mul(mottled).mul(puffBright), alpha);
     })();
     return m;

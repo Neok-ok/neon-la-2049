@@ -297,24 +297,24 @@ export class SmokePool {
       p.oz = m.z + Math.sin(ang) * rim;
       p.x = p.ox;
       p.z = p.oz;
-      // Above the lid, and a few centimetres toward the lens, so the card is
-      // not depth-cut by the pot into a hole on the back wall.
-      const toCamX = cam.x - m.x;
-      const toCamZ = cam.z - m.z;
-      const camD = Math.hypot(toCamX, toCamZ) || 1;
-      const nudge = 0.07;
-      p.x += (toCamX / camD) * nudge;
-      p.z += (toCamZ / camD) * nudge;
-      p.ox = p.x;
-      p.oz = p.z;
-      p.y = m.y + 0.08 + along * 0.06;
+      p.y = m.y + 0.03 + along * 0.05;
+      // Low only. The card is small enough to sit inside the pot's depth cut.
+      // Medium and above scored on the rim without this step.
+      if (scale >= 1.3) {
+        const toCamX = cam.x - m.x;
+        const toCamZ = cam.z - m.z;
+        const camD = Math.hypot(toCamX, toCamZ) || 1;
+        const nudge = 0.06;
+        p.x += (toCamX / camD) * nudge;
+        p.z += (toCamZ / camD) * nudge;
+        p.ox = p.x;
+        p.oz = p.z;
+      }
       p.age = r.next() * p.life * 0.8;
       p.heat = 0;
       p.shade = 0.78 + r.next() * 0.28;
-      // One alpha on every tier. The gaussian is less filled than the old disc,
-      // so the core sits a little higher or the lit wall swallows it.
-      p.alpha = m.alpha * (0.72 + r.next() * 0.32) * (1 - along * 0.16);
-      const width = (scale >= 1.3 ? 0.12 : scale >= 1.05 ? 0.11 : 0.095) * (0.78 + r.next() * 0.4);
+      p.alpha = m.alpha * (0.55 + r.next() * 0.4) * (1 - along * 0.25);
+      const width = (scale >= 1.3 ? 0.085 : scale >= 1.05 ? 0.1 : 0.09) * (0.75 + r.next() * 0.5);
       p.size0 = width;
       p.size1 = width * (1.35 + r.next() * 0.7);
       p.vy = m.rise * (0.75 + r.next() * 0.7);
