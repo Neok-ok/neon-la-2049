@@ -51,6 +51,7 @@ import {
   mountFarDistricts, requestFarLaunch, sampleFarFrame,
 } from './farDistricts';
 import { setRefineryFlame } from '../districts/_shared/refinery/flames';
+import { SmokeField, smokeActive } from '../fx/smoke';
 import { installArtsHolos } from '../districts/arts-district/holos';
 import { sampleDistrictLook } from '../atmosphere/districtLook';
 import '../atmosphere/looks';
@@ -143,6 +144,7 @@ export class App {
   traffic!: SpinnerTraffic;
   lanes!: LaneTraffic;
   ground!: GroundTraffic;
+  smoke: SmokeField | null = null;
   rain!: Precipitation;
   snow!: Precipitation;
   cams!: CameraSystem;
@@ -313,6 +315,7 @@ export class App {
     this.lanes = new LaneTraffic(this.scene, this.query, settingsFor('ultra').laneTraffic);
     await paceLoad('streets', 0.94, true);
     this.ground = new GroundTraffic(this.scene, this.query, settingsFor('ultra').groundTraffic, settingsFor('ultra').freewayTraffic);
+    if (smokeActive()) this.smoke = new SmokeField(this.scene, this.quality.tier);
     const ultra = settingsFor('ultra');
     await paceLoad('streets', 0.97, true);
     this.rain = new Precipitation('rain', ultra.rainCount);
@@ -324,6 +327,7 @@ export class App {
     addEventListener('pagehide', () => {
       this.crowd.dispose();
       this.dancer.dispose();
+      this.smoke?.dispose();
     });
     installInteriors();
     this.interiors = new InteriorSystem(this.scene, this.query, this.quality.tier);
@@ -341,7 +345,7 @@ export class App {
     fly.blocksExtra = (x, y, z) => this.interiors.blocksFly(x, y, z);
     this.interiors.bind({
       toggle: [this.streamer.root, this.holos.group, this.crowd.mesh, this.dancer.mesh, ...this.traffic.nodes, ...this.ground.nodes],
-      suppress: [this.rain.mesh, this.snow.mesh, this.haze.group, this.wet.mesh, this.air.glowMesh, this.air.breathMesh, ...this.lanes.nodes, fly.spinner],
+      suppress: [this.rain.mesh, this.snow.mesh, this.haze.group, this.wet.mesh, this.air.glowMesh, this.air.breathMesh, ...this.lanes.nodes, fly.spinner, ...(this.smoke ? [this.smoke.root] : [])],
       landmarks: this.landmarks.root,
     });
     const walk = new WalkController(this.camera, this.input, this.query);
@@ -712,6 +716,7 @@ export class App {
     this.cams.fly.setSpinnerTier(tier);
     this.crowd.setLod(tier, this.renderer);
     this.dancer.setLod(tier, this.renderer);
+    this.smoke?.setTier(tier);
     this.slowMs = 0;
     this.ui.setAppliedTier(tier);
   }
@@ -963,7 +968,8 @@ export class App {
     this.holos.update(this.camera, this.quality, this.streamer.billboards());
     this.traffic.update(simDt, this.camera, this.quality.traffic);
     this.lanes.update(simDt, this.camera, this.quality.laneTraffic);
-    this.ground.update(simDt, this.camera, this.quality.groundTraffic, this.quality.freewayTraffic, this.quality.tier, this.elapsed);
+    const streetBudget = Math.max(this.quality.groundTraffic, this.smoke && this.quality.tier === 'low' ? 8 : 0);
+    this.ground.update(simDt, this.camera, streetBudget, this.quality.freewayTraffic, this.quality.tier, this.elapsed);
     this.photoMod?.preAtmosphere();
     const sky = this.atmosphere.update(simDt, this.elapsed, this.renderer, {
       storm: stormDrive.on,
@@ -1033,11 +1039,19 @@ export class App {
         : inSoutheast ? Math.max(0, 1 - alt / 110) * 0.5 : 0;
     this.ambience.setMachinery(Math.min(1, districtMach + far.rumble + far.southBay + far.harbor + far.east));
     setRefineryFlame(this.quality.tier, w.windDir, w.params.wind);
+    this.camera.updateMatrixWorld();
+    const e = this.camera.matrixWorld.elements;
+    const aim = 4.2;
+    const ax = cam.x - e[8] * aim;
+    const az = cam.z - e[10] * aim;
+    this.smoke?.update(
+      simDt, this.camera, this.query.layout, this.quality.tier,
+      w.windDir, w.params.wind, w.params.rain,
+      this.ground.tailpipes(6, ax, az, 24),
+    );
     this.ambience.setTraffic(this.ground.bed);
     this.ambience.setSurf(coast.surf, coast.impact, coast.crest);
     this.ambience.update(w.params.rain, w.params.snow, w.params.wind, alt, aboveClouds);
-    this.camera.updateMatrixWorld();
-    const e = this.camera.matrixWorld.elements;
     const cook = marketSpots(this.query.layout).noodle?.cook ?? null;
     const hall = far.hall;
     const nearHall = !!hall && inEast && alt < 28 && Math.hypot(cam.x - hall.x, cam.z - hall.z) < 48;
@@ -1274,6 +1288,9 @@ export class App {
     x: number; y: number; z: number; heading: number; pitch: number;
     mode: 'walk' | 'fly'; cockpit?: boolean;
     feet?: { x: number; y: number; z: number };
+    lock?: boolean;
+    eye?: number;
+    fov?: number;
   } | null | undefined): boolean {
     if (!p) return false;
     this.query.fabricAt(p.x, p.z);
@@ -1281,13 +1298,21 @@ export class App {
     if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
     this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
     if (p.mode === 'walk') {
+      const eye = p.eye ?? 1.7;
+      this.cams.walk.locked = !!p.lock;
+      this.cams.walk.eye = eye;
       this.cams.walk.pitch = p.pitch;
       this.cams.walk.heading = p.heading;
       if (p.feet) {
         this.cams.walk.pos.set(p.feet.x, p.feet.y, p.feet.z);
-        this.camera.position.set(p.feet.x, p.feet.y + 1.7, p.feet.z);
+        this.camera.position.set(p.feet.x, p.feet.y + eye, p.feet.z);
         this.camera.rotation.set(p.pitch, -p.heading, 0, 'YXZ');
         this.camera.updateMatrixWorld();
+      }
+      this.cams.walk.holdFov = p.fov ?? 0;
+      if (p.fov && p.fov > 1) {
+        this.camera.fov = p.fov;
+        this.camera.updateProjectionMatrix();
       }
     }
     return true;
@@ -1607,6 +1632,20 @@ export class App {
       /** Stage 7 cameras: the causeway, the plaza, the pyramid face, a satellite, the factories, a convoy, the old pyramids, the atrium. */
       /** Stage 10 cameras: crest, terraces, apron from the water, spray, drowned piers, coastal blocks, aerial. */
       /** X2 cameras: a signalled crossing, the 110 trench, Broadway, a night aerial, the same crossing in rain. */
+      smokeSeal: () => {
+        this.smoke?.seal();
+        return true;
+      },
+      smokeRewarm: () => {
+        this.smoke?.rewarm();
+        return true;
+      },
+      smokeView: (kind: 'stall' | 'exhaust' | 'street' | 'launch') => {
+        if (!this.smoke) return false;
+        const p = this.smoke.pose(kind, this.query.layout);
+        if (p?.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
+        return this.applyDistrictPose(p);
+      },
       trafficView: (kind: TrafficView) => {
         const p = trafficCamera(this.query.layout, kind);
         if (!p) return false;
@@ -1615,6 +1654,8 @@ export class App {
         if (p.mode === 'fly') this.cams.fly.cockpit = !!p.cockpit;
         this.cams.setPose({ position: new Vector3(p.x, p.y, p.z), heading: p.heading, pitch: p.pitch });
         if (p.mode === 'walk') {
+          this.cams.walk.locked = false;
+          this.cams.walk.eye = 1.7;
           this.cams.walk.pitch = p.pitch;
           this.cams.walk.heading = p.heading;
           if (p.feet) {
@@ -1963,6 +2004,7 @@ export class App {
         beacons: this.landmarks.beacons.count,
         launch: farLaunchPhase(),
         launchPad: farLaunchPad(),
+        smoke: this.smoke?.snapshot() ?? null,
         gantryTris: farGantryTris(),
         farMs: this.boot.farMs,
         querySyncs: this.query.syncCount,

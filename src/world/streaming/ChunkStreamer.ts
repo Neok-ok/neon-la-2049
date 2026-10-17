@@ -55,6 +55,8 @@ interface Slot {
   panels: HologramSpec[];
   /** LOD0 signs big enough to halo. Stride 7: x, y, z, r, g, b, area. World space. */
   glows: Float32Array | null;
+  /** LOD0 shop signs, including the small blades. Same stride. Smoke tint only. */
+  signMarks: Float32Array | null;
   /** CPU bytes of the mesh currently showing, including detail batches. */
   bytes: number;
 }
@@ -354,7 +356,7 @@ export class ChunkStreamer {
   }
 
   private mkSlot(key: string, x0: number, z0: number, size: number): Slot {
-    return { key, x0, z0, size, want: -1, shownLod: -1, shown: null, pendingLod: -1, dist: 0, panels: [], glows: null, bytes: 0 };
+    return { key, x0, z0, size, want: -1, shownLod: -1, shown: null, pendingLod: -1, dist: 0, panels: [], glows: null, signMarks: null, bytes: 0 };
   }
 
   private dropDetails(group: Group | null): void {
@@ -396,6 +398,7 @@ export class ChunkStreamer {
     s.want = -1;
     s.panels = [];
     s.glows = null;
+    s.signMarks = null;
     s.bytes = 0;
   }
 
@@ -417,20 +420,28 @@ export class ChunkStreamer {
     return out;
   }
 
-  /**
-   * Nearest LOD0 signs above `minArea`, appended to `out` (the caller clears it).
-   * Capped so a dressed market chunk cannot hand the halo pass thousands of blades.
-   */
+  /** Shop signs near the camera, including blades too small to halo. */
+  collectSignMarks(x: number, y: number, z: number, range: number, out: GlowMark[]): void {
+    this.collectPacked(x, y, z, range, 0.3, out, (slot) => slot.signMarks);
+  }
+
   collectSignGlows(x: number, y: number, z: number, range: number, minArea: number, out: GlowMark[]): void {
+    this.collectPacked(x, y, z, range, minArea, out, (slot) => slot.glows);
+  }
+
+  private collectPacked(
+    x: number, y: number, z: number, range: number, minArea: number, out: GlowMark[],
+    buffer: (slot: Slot) => Float32Array | null,
+  ): void {
     const r2 = range * range;
     const pad = range + CHUNK;
     for (const s of this.supers.values()) {
       this.visitShown(s, (slot) => {
-        if (slot.shownLod !== 0 || !slot.glows) return;
+        const g = buffer(slot);
+        if (slot.shownLod !== 0 || !g) return;
         const dx0 = slot.x0 + slot.size * 0.5 - x;
         const dz0 = slot.z0 + slot.size * 0.5 - z;
         if (dx0 * dx0 + dz0 * dz0 > pad * pad) return;
-        const g = slot.glows;
         for (let i = 0; i < g.length; i += 7) {
           const area = g[i + 6] ?? 0;
           if (area < minArea) continue;
@@ -860,6 +871,7 @@ export class ChunkStreamer {
     if (n > 0) g.add(this.buildSigns(r.signs, n));
     slot.panels = hologramsFromSignBuffer(slot.key, slot.x0, slot.z0, r.signs, n);
     slot.glows = lod === 0 ? packSignGlows(r.signs, n, slot.x0, slot.z0) : null;
+    slot.signMarks = lod === 0 ? packSignMarks(r.signs, n, slot.x0, slot.z0) : null;
     if (lod === 0 && this.quality.streetDetail) {
       const blocks: ChunkBlock[] = [];
       for (let i = 0; i < r.blocks.length; i += BLOCK_STRIDE) {
@@ -910,15 +922,24 @@ export class ChunkStreamer {
   }
 }
 
+/** Shop signs. The halo list stays at 8 m²; this one keeps the blades the steam can catch. */
+function packSignMarks(signs: Float32Array, n: number, x0: number, z0: number): Float32Array | null {
+  return packSigns(signs, n, x0, z0, 0.3);
+}
+
 /** Signs of at least 8 m². Smaller blades stay on the sign mesh and do not grow a halo. */
 function packSignGlows(signs: Float32Array, n: number, x0: number, z0: number): Float32Array | null {
+  return packSigns(signs, n, x0, z0, 8);
+}
+
+function packSigns(signs: Float32Array, n: number, x0: number, z0: number, minArea: number): Float32Array | null {
   const tmp: number[] = [];
   for (let i = 0; i < n; i++) {
     const o = i * SIGN_STRIDE;
     const w = signs[o + 4] ?? 0;
     const h = signs[o + 5] ?? 0;
     const area = w * h;
-    if (area < 8) continue;
+    if (area < minArea) continue;
     const color = Math.max(0, Math.min(SIGN_RGB.length - 1, Math.round(signs[o + 6] ?? 0)));
     const rgb = SIGN_RGB[color] ?? SIGN_RGB[2] ?? [1, 0.55, 0.12];
     tmp.push((signs[o] ?? 0) + x0, signs[o + 1] ?? 0, (signs[o + 2] ?? 0) + z0, rgb[0], rgb[1], rgb[2], area);

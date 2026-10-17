@@ -1,5 +1,6 @@
 // Ground traffic on the shared street graph. One instanced draw per vehicle class.
-// Low tier draws light streaks only. Higher tiers keep real cars near the camera and streaks farther out.
+// Low tier draws light streaks. A positive street budget (smoke is live) also keeps a few
+// real cars so exhaust has a bumper. Higher tiers keep real cars near the camera.
 // Signals are clocks. Cars walk the graph, stop at a red line, and leave a gap. No physics.
 import {
   BoxGeometry, BufferGeometry, DynamicDrawUsage, Frustum, InstancedBufferAttribute, InstancedMesh, Matrix4, Sphere,
@@ -583,7 +584,9 @@ export class GroundTraffic {
     const step = Math.min(Math.max(dt, 0), 0.05);
     this.collect(g, cam.x, cam.z);
     const dens = this.query.layout.districtAt(cam.x, cam.z).traffic;
-    const wantS = tier === 'low' ? 0 : Math.round(streetBudget * Math.max(0, dens));
+    const wantS = tier === 'low'
+      ? Math.min(8, Math.max(0, Math.round(streetBudget)))
+      : Math.round(streetBudget * Math.max(0, dens));
     const wantF = tier === 'low' || !this.freewayPick.length ? 0 : freewayBudget;
     this.fill(this.street, wantS, false, g, cam.x, cam.z);
     this.fill(this.freeway, wantF, true, g, cam.x, cam.z);
@@ -714,5 +717,42 @@ export class GroundTraffic {
     if (this.freewayPick.length && alt < 45) bed = Math.max(bed, 0.32);
     const fade = alt < 28 ? 1 : Math.max(0, 1 - (alt - 28) / 150);
     this.bed = Math.min(1, bed * fade);
+  }
+
+  /** Rear bumper of the nearest live vehicles. The smoke field hangs exhaust on these. */
+  tailpipes(max: number, camX: number, camZ: number, maxDist: number): Array<{
+    x: number; y: number; z: number; vx: number; vz: number; fx: number; fz: number; heavy: number;
+  }> {
+    const near: { c: Agent; d2: number }[] = [];
+    const r2 = maxDist * maxDist;
+    const take = (list: Agent[]) => {
+      for (const c of list) {
+        if (!c.live) continue;
+        const d2 = (c.p.x - camX) ** 2 + (c.p.z - camZ) ** 2;
+        if (d2 > r2) continue;
+        near.push({ c, d2 });
+      }
+    };
+    take(this.street);
+    take(this.freeway);
+    near.sort((a, b) => a.d2 - b.d2);
+    const n = Math.min(max, near.length);
+    const out: Array<{ x: number; y: number; z: number; vx: number; vz: number; fx: number; fz: number; heavy: number }> = [];
+    for (let i = 0; i < n; i++) {
+      const c = near[i]!.c;
+      const heavy = c.mesh === 'box' || c.mesh === 'hauler' || c.mesh === 'tanker' ? 1 : 0;
+      const back = c.len * 0.5 + 0.22;
+      out.push({
+        x: c.p.x - c.fwd.x * back,
+        y: c.p.y + (heavy ? 0.9 : 0.42),
+        z: c.p.z - c.fwd.z * back,
+        vx: c.fwd.x * c.speed,
+        vz: c.fwd.z * c.speed,
+        fx: c.fwd.x,
+        fz: c.fwd.z,
+        heavy,
+      });
+    }
+    return out;
   }
 }

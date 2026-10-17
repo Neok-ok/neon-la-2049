@@ -118,6 +118,11 @@ export interface Dressing {
   bibi: ShopSpot | null;
   /** Queues and awning clusters. The chunk worker ignores this. */
   life: CrowdLifeSpot[];
+  /**
+   * Courtyard grate drawn after the prop sample. Not part of `props`, so medium's
+   * thin() keeps the same stools and steam cards as the baseline.
+   */
+  plates: MarketProp[];
 }
 
 interface Axes {
@@ -196,6 +201,7 @@ export function dressBlock(b: MarketBlock, layout: CityLayout): Dressing {
   const props: MarketProp[] = [];
   const steam: SteamPoint[] = [];
   const pools: PoolLight[] = [];
+  const plates: MarketProp[] = [];
   let noodle: ShopSpot | null = null;
   let bibi: ShopSpot | null = null;
   const life: CrowdLifeSpot[] = [];
@@ -689,7 +695,31 @@ export function dressBlock(b: MarketBlock, layout: CityLayout): Dressing {
     }
   }
 
-  // courtyard grate + steam, and a catwalk on some blocks
+  // The packed block seed is a float32, so the main thread and the chunk disagree
+  // if the plate is drawn from `rng`. This key is the block centre on both sides.
+  // The historical draws below stay on `rng` so the catwalk, the cards, and thin() do not move.
+  const grateKey = (Math.imul(Math.round(b.cx * 10), 73856093) ^ Math.imul(Math.round(b.cz * 10), 19349663) ^ 0x91a7e) >>> 0;
+  const grateRng = new Rng(grateKey);
+  if (grateRng.chance(0.7)) {
+    const [gx, gz] = world(grateRng.range(-1.2, 1.2), grateRng.range(-1.2, 1.2));
+    const yaw = grateRng.range(0, Math.PI);
+    const y = b.ground + 0.02;
+    plates.push({
+      template: 'quadY', x: gx, y, z: gz, yaw, sx: 1.1, sy: 1, sz: 1.1,
+      color: [0.34, 0.35, 0.36], emissive: [0.04, 0.045, 0.05], metal: 0.22, rank: 0,
+    });
+    const c = Math.cos(yaw);
+    const s = Math.sin(yaw);
+    for (let i = 0; i < 5; i++) {
+      const u = (i - 2) * 0.18;
+      plates.push({
+        template: 'box',
+        x: gx + u * s, y: y + 0.02, z: gz + u * c, yaw,
+        sx: 1.02, sy: 0.035, sz: 0.045,
+        color: [0.04, 0.04, 0.045], emissive: [0, 0, 0], metal: 0.55, rank: 0,
+      });
+    }
+  }
   if (rng.chance(0.7)) {
     const [gx, gz] = world(rng.range(-2, 2), rng.range(-2, 2));
     prop('quadY', gx, b.ground + 0.02, gz, rng.range(0, 1.5), 1.1, 1, 1.1, [0.05, 0.05, 0.055], [0, 0, 0], 0.8, 1);
@@ -756,5 +786,5 @@ export function dressBlock(b: MarketBlock, layout: CityLayout): Dressing {
     prop('box', x + nx * 0.34, b.ground + 1.15, z + nz * 0.34, yaw, 0.62, 0.9, 0.04, vc, vc.map((v) => v * 0.9) as [number, number, number], 0.1, 1);
   }
 
-  return { boxes, signs, props, steam, pools, noodle, bibi, life };
+  return { boxes, signs, props, steam, pools, noodle, bibi, life, plates };
 }

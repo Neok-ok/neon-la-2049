@@ -63,6 +63,7 @@ registerDetail('little-tokyo-market', ['little-tokyo-market'], (ctx) => {
   const scale = ctx.quality.detailScale;
   const cap = CAP[ctx.quality.tier];
   const props: MarketProp[] = [];
+  const plates: MarketProp[] = [];
   const steam: Array<{ x: number; y: number; z: number; seed: number; rank: number }> = [];
   const pools: Array<{ x: number; y: number; z: number; yaw: number; len: number; wid: number; rgb: [number, number, number]; intensity: number; rank: number }> = [];
 
@@ -74,6 +75,7 @@ registerDetail('little-tokyo-market', ['little-tokyo-market'], (ctx) => {
     };
     const d = dressBlock(mb, ctx.layout);
     for (const p of d.props) if (keepRank(p.rank, scale)) props.push(p);
+    for (const p of d.plates) plates.push(p);
     for (const s of d.steam) if (keepRank(s.rank, scale)) steam.push(s);
     for (const p of d.pools) if (keepRank(p.rank, scale)) pools.push(p);
   }
@@ -86,6 +88,17 @@ registerDetail('little-tokyo-market', ['little-tokyo-market'], (ctx) => {
   const group = new Group();
   group.name = 'little-tokyo-market';
   const keptProps = thin(props, cap.props);
+  // The patterned grate is outside the sample, so a cap cannot drop the plate or reshuffle the stall.
+  for (const p of plates) keptProps.push(p);
+  // Low strides the chunk hard enough to skip the noodle pots. Put those cylinders
+  // back after the sample. Medium and ultra keep the baseline list.
+  if (scale < 0.45) {
+    const kept = new Set(keptProps);
+    for (const p of props) {
+      if (kept.has(p)) continue;
+      if (p.template === 'cyl' && p.sx === 0.28 && p.sy === 0.22 && p.sz === 0.28) keptProps.push(p);
+    }
+  }
   for (const mesh of buildKitMeshes(keptProps as unknown as KitInstance[], 'lt-kit')) group.add(mesh);
 
   const steamKept = thin(steam, Math.min(cap.steam, ctx.quality.steam));

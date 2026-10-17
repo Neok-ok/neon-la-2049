@@ -21,6 +21,12 @@ const {
 export const flareWind = uniform(new Vector2(1.8, 0.4));
 /** 1 is the medium flame. High and ultra sit above it. */
 export const flareGain = uniform(1);
+/** 1 is the authored sprite. Particle smoke shrinks it so the column can wrap the core. */
+export const flareSmokeCover = uniform(1);
+
+export function setFlareSmokeCover(amount: number): void {
+  flareSmokeCover.value = amount;
+}
 
 const GAIN: Record<Tier, number> = { low: 0.62, medium: 0.92, high: 1.28, ultra: 1.6 };
 
@@ -34,6 +40,24 @@ export function setRefineryFlame(tier: Tier, windRad: number, wind: number): voi
 }
 
 let material: MeshBasicNodeMaterial | null = null;
+const registry: RefineryFlame[] = [];
+
+/** Nearest flare mouths, distance-sorted. The particle field sits smoke on these. */
+export function flamesNear(x: number, z: number, radius: number, max: number): RefineryFlame[] {
+  const r2 = radius * radius;
+  const hit: { f: RefineryFlame; d: number }[] = [];
+  for (const f of registry) {
+    const dx = f.x - x;
+    const dz = f.z - z;
+    const d = dx * dx + dz * dz;
+    if (d <= r2) hit.push({ f, d });
+  }
+  hit.sort((a, b) => a.d - b.d);
+  const n = Math.max(0, max);
+  const out: RefineryFlame[] = [];
+  for (let i = 0; i < hit.length && out.length < n; i++) out.push(hit[i]!.f);
+  return out;
+}
 
 function flameMaterial(): MeshBasicNodeMaterial {
   if (material) return material;
@@ -55,7 +79,7 @@ function flameMaterial(): MeshBasicNodeMaterial {
       .add(1.0);
     const authored = c.w.mul(flick).mul(float(0.82).add(flareGain.mul(0.18)));
     const dist = length(center.sub(cameraPosition));
-    const s = max(authored, dist.mul(MIN_ANGLE));
+    const s = max(authored, dist.mul(MIN_ANGLE)).mul(flareSmokeCover);
     // 0 at the base corner, 1 at the tip. The wind lives in that shear.
     const lift = k.y.mul(0.5).add(0.5);
     return center
@@ -78,7 +102,7 @@ function flameMaterial(): MeshBasicNodeMaterial {
     const spread = clamp(authored.div(world), 0.38, 1.0);
     const att = exp(fogDepth(cameraPosition, c.xyz).mul(-0.16));
     const day = U.night.mul(0.62).add(0.38);
-    const a = col.mul(spread).mul(att).mul(day).mul(flareGain).mul(2.6);
+    const a = col.mul(spread).mul(att).mul(day).mul(flareGain).mul(flareSmokeCover).mul(2.6);
     return vec4(a, float(1));
   })();
   material = m;
@@ -91,6 +115,7 @@ function flameMaterial(): MeshBasicNodeMaterial {
  */
 export function mountRefineryFlames(parent: Object3D, flames: readonly RefineryFlame[], name = 'refinery-flares'): Mesh | null {
   if (!flames.length) return null;
+  for (const f of flames) registry.push(f);
   const n = flames.length;
   const pos = new Float32Array(n * 4 * 3);
   const ctr = new Float32Array(n * 4 * 4);
