@@ -190,7 +190,10 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
         .add(warm.mul(heat).mul(belly).mul(float(1).sub(rim.mul(0.4))).mul(authoredLiftU).mul(float(0.22)).mul(mix(float(1), float(0.35), lampK)));
       // Puffs have to read on a lit beige wall and on the black Low interior.
       // The shared body is tuned for the plume; this lift is stall and exhaust only.
-      const puffBright = mix(float(1.0), float(2.6), puffK);
+      // Stall needs the lift to read on a lit wall. The same lift turned exhaust
+      // into a white beam. 0.50 is stall, 0.53 is exhaust.
+      const exhaustK = smoothstep(float(0.512), float(0.528), softBody);
+      const puffBright = mix(float(1.0), mix(float(2.6), float(1.15), exhaustK), puffK);
       return vec4(rgb.mul(mottled).mul(puffBright), alpha);
     })();
     return m;
