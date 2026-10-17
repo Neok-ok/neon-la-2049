@@ -57,7 +57,12 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
         const ref = normalize(mix(axis, fallback, smoothstep(float(0.82), float(0.98), aligned)));
         const side = normalize(cross(ref, toCam));
         const up = cross(toCam, side);
-        return center.add(side.mul(ox.mul(size))).add(up.mul(oy.mul(size).mul(stretch)));
+        // Stall and exhaust only. A camera-facing card is one depth, so a card
+        // born in the pot or the bumper is clipped into a flat polygon. Shift
+        // that card into clear air. Plume, stack, and grate stay put.
+        const puffK = smoothstep(float(0.42), float(0.48), tint.w).mul(float(1).sub(smoothstep(float(0.56), float(0.64), tint.w)));
+        const clear = toCam.mul(size.mul(0.22).mul(puffK));
+        return center.add(side.mul(ox.mul(size))).add(up.mul(oy.mul(size).mul(stretch))).add(clear);
       })();
     m.colorNode = Fn(() => {
       const suv = uv();
@@ -94,37 +99,43 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const edgeWide = float(1).sub(smoothstep(float(0.02), float(0.7), rad));
       const edgeSteam = mix(edgeDisc, edgeWide, columnSoft);
       const edgeRound = mix(edgeSteam, edgePlume, plumeK);
-      // Soft puff (stall, exhaust). Noise-warped body, not a pinched ribbon.
-      // The same idea as the plume mask, sized to one sprite: Lorach's soft
-      // edge is applied later against the depth buffer.
+      // Soft puff (stall, exhaust). A gaussian billboard: density is exp(-r^2),
+      // warped by the atlas, and still falling at the quad corner. A smoothstep
+      // disc plus a noise tear read as a cut-paper hole on the stall's black wall,
+      // and as a coin at the tailpipe. The edge does not use smokeDetail, so Low
+      // (detail 0) keeps the same falloff as Medium.
       const puffK = smoothstep(float(0.42), float(0.48), softBody).mul(float(1).sub(smoothstep(float(0.56), float(0.64), softBody)));
-      const puffWarp = vec2(n.r.sub(0.5).mul(0.7).add(n.g.sub(0.5).mul(0.22)), n.g.sub(0.5).mul(0.62));
+      const puffWarp = vec2(n.r.sub(0.5).mul(0.42).add(n.g.sub(0.5).mul(0.16)), n.g.sub(0.5).mul(0.38));
       const puffR = length(suv.sub(0.5).add(puffWarp));
-      const puffBreak = n.r.mul(n.g);
-      const puffBody = float(1).sub(smoothstep(float(0.0), float(0.5).add(puffBreak.mul(0.2)), puffR));
-      const puffTear = smoothstep(float(0.62), float(0.9), n.g).mul(smoothstep(float(0.28), float(0.62), rad));
-      const puffCorner = float(1).sub(smoothstep(float(0.4), float(0.66), rad));
-      const puffEdge = puffBody.mul(float(1).sub(puffTear.mul(0.48))).mul(puffCorner).mul(float(0.7).add(lobe.mul(0.45)));
+      const puffKFall = float(9.2).add(lobe.mul(2.4));
+      const puffBody = exp(puffR.mul(puffR).mul(puffKFall).mul(float(-1)));
+      const puffMottle = float(0.78).add(lobe.mul(0.28));
+      const puffEdge = puffBody.mul(puffMottle);
       const edge = mix(edgeRound, puffEdge, puffK);
       const torn = mix(n.r, n.r.mul(float(0.55).add(n.g.mul(0.7))), smokeDetail);
       const frayRound = mix(float(1), float(0.5).add(n.g.mul(0.7)), softBody);
-      const fray = mix(frayRound, float(0.88).add(n.g.mul(0.2)), puffK);
+      const fray = mix(frayRound, float(0.92).add(n.g.mul(0.1)), puffK);
       const grain = float(0.42).add(n.g.mul(0.78));
-      const grainUse = mix(grain, float(0.78).add(n.g.mul(0.3)), puffK);
-      const tornUse = mix(torn, float(0.88).add(torn.mul(0.18)), puffK);
-      const shapePow = mix(mix(mix(float(0.8), float(1.15), columnSoft), float(1.35), plumeK), float(0.62), puffK);
+      const grainUse = mix(grain, float(0.9).add(n.g.mul(0.12)), puffK);
+      const tornUse = mix(torn, float(0.94).add(n.r.mul(0.08)), puffK);
+      const shapePow = mix(mix(mix(float(0.8), float(1.15), columnSoft), float(1.35), plumeK), float(1.0), puffK);
       const shape = pow(max(tornUse.mul(edge).mul(grainUse).mul(fray), float(0)), shapePow);
       const size = max(puff.w, float(0.4));
       // Soft particles, NVIDIA / Lorach, the same curve as three's softParticles().
       // Inlined: that helper names a GLSL argument `input`, which WebGL rejects.
-      // Large puffs keep the 0.18 m floor. A stall wisp is smaller than that,
-      // and the floor was erasing the rim where the vapor meets the pot.
-      const band = min(max(size.mul(0.16), min(float(0.18), size.mul(1.2))), float(1.6));
+      // Column and plume keep the 0.18 m floor and contrast 1.35.
+      // A stall or exhaust card is smaller than that floor. Contrast 1.35 then
+      // collapsed the fade into one pixel against the pot or the bumper, which
+      // is the cut-paper edge. Those cards fade linearly across their own size.
+      const bandColumn = min(max(size.mul(0.16), min(float(0.18), size.mul(1.2))), float(1.6));
+      const bandPuff = max(max(puff.w, float(0.05)).mul(1.8), float(0.32));
+      const band = mix(bandColumn, bandPuff, puffK);
+      const contrast = mix(float(1.35), float(1.0), puffK);
       const sceneZ = perspectiveDepthToViewZ(viewportDepthTexture(), cameraNear, cameraFar);
       const delta = clamp(positionView.z.sub(sceneZ).div(band), 0, 1);
       const above = step(float(0.5), delta);
       const folded = mix(delta, float(1).sub(delta), above);
-      const half = pow(clamp(folded.mul(2), 0, 1), float(1.35)).mul(0.5);
+      const half = pow(clamp(folded.mul(2), 0, 1), contrast).mul(0.5);
       const depthFade = mix(half, float(1).sub(half), above);
       const dist = length(cameraPosition.sub(puff.xyz));
       const nearF = smoothstep(max(float(0.45), size.mul(0.15)), max(float(1.6), size.mul(0.55)), dist);

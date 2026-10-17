@@ -198,7 +198,7 @@ export function exhaustMouths(tails: readonly Tailpipe[], tier: Tier): Mouth[] {
     out.push(mouth({
       x: t.x - t.fx * back + px * pipe, y: t.y + 0.18, z: t.z - t.fz * back + pz * pipe, kind: KIND.exhaust,
       weight: i === 0 ? 12 : 0.25,
-      life: 2.05,
+      life: 2.45,
       size0: heavy ? 0.16 : 0.11, size1: heavy ? 0.55 : 0.38, heat: 0,
       radius: 0.05, rise: 0.85, spread: 0.08, floor: t.y, wind: 0.08,
       turb: 0.9, aspect: 1, alpha: 0.78,
@@ -339,18 +339,19 @@ export function launchPose(layout: CityLayout): SmokePose | null {
 export function exhaustPose(layout: CityLayout, tails: readonly Tailpipe[]): SmokePose | null {
   const t = tails[0];
   if (!t) return null;
-  // Close enough that a metre of plume is the subject, with the street still in frame.
-  const dist = 6.0;
-  const side = 2.35;
+  // Rear quarter, close enough that the plume is the subject. A wider sidewalk
+  // offset put the crowd between the lens and a short string of discs.
+  const dist = 5.2;
+  const side = 1.45;
   const rx = -t.fz;
   const rz = t.fx;
   const fx = t.x - t.fx * dist + rx * side;
   const fz = t.z - t.fz * dist + rz * side;
   const ground = layout.heightAt(fx, fz);
-  const eye = 2.25;
-  const lookX = t.x - t.fx * 1.2;
-  const lookZ = t.z - t.fz * 1.2;
-  const lookY = t.y + 1.05;
+  const eye = 2.4;
+  const lookX = t.x - t.fx * 0.7;
+  const lookZ = t.z - t.fz * 0.7;
+  const lookY = t.y + 0.95;
   return {
     x: fx, y: ground + eye, z: fz,
     heading: Math.atan2(lookX - fx, -(lookZ - fz)),
@@ -358,7 +359,7 @@ export function exhaustPose(layout: CityLayout, tails: readonly Tailpipe[]): Smo
     mode: 'walk',
     lock: true,
     eye,
-    fov: 30,
+    fov: 28,
     feet: { x: fx, y: ground, z: fz },
   };
 }

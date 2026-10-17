@@ -297,12 +297,26 @@ export class SmokePool {
       p.oz = m.z + Math.sin(ang) * rim;
       p.x = p.ox;
       p.z = p.oz;
-      p.y = m.y + 0.03 + along * 0.05;
+      // Above the lid, and a few centimetres toward the lens, so the card is
+      // not depth-cut by the pot into a hole on the back wall.
+      const toCamX = cam.x - m.x;
+      const toCamZ = cam.z - m.z;
+      const camD = Math.hypot(toCamX, toCamZ) || 1;
+      const nudge = 0.07;
+      p.x += (toCamX / camD) * nudge;
+      p.z += (toCamZ / camD) * nudge;
+      p.ox = p.x;
+      p.oz = p.z;
+      p.y = m.y + 0.08 + along * 0.06;
       p.age = r.next() * p.life * 0.8;
       p.heat = 0;
       p.shade = 0.78 + r.next() * 0.28;
+      // Medium keeps the alpha that already read as steam. Low is a little
+      // thinner because its cards are wider.
       p.alpha = m.alpha * (0.55 + r.next() * 0.4) * (1 - along * 0.25);
-      const width = (scale >= 1.3 ? 0.085 : scale >= 1.05 ? 0.1 : 0.09) * (0.75 + r.next() * 0.5);
+      if (scale >= 1.3) p.alpha *= 0.85;
+      // Low (scale 1.42) is the wide card. A smaller Low card was the hole.
+      const width = (scale >= 1.3 ? 0.14 : scale >= 1.05 ? 0.105 : 0.09) * (0.72 + r.next() * 0.55);
       p.size0 = width;
       p.size1 = width * (1.35 + r.next() * 0.7);
       p.vy = m.rise * (0.75 + r.next() * 0.7);
@@ -351,22 +365,22 @@ export class SmokePool {
       p.floor = m.y;
       p.x = m.x + rx * Math.cos(ang) * rad;
       p.z = m.z + rz * Math.cos(ang) * rad;
-      p.y = m.y + 0.03 + r.next() * 0.05;
-      const exit = 0.7 + r.next() * 1.15;
-      const side = (r.next() - 0.5) * 0.4;
+      p.y = m.y + 0.04 + r.next() * 0.06;
+      const exit = 0.45 + r.next() * 0.7;
+      const side = (r.next() - 0.5) * 0.55;
       p.vx = m.vx - fx * exit + rx * side;
       p.vz = m.vz - fz * exit + rz * side;
-      p.vy = 0.55 + r.next() * 0.6;
-      p.along = r.next() * 0.08;
+      p.vy = 1.15 + r.next() * 0.85;
+      p.along = r.next() * 0.06;
       // Backward axis. The step keeps a drift into clear air so the plume
       // is not painted onto the trunk and depth-tested away.
       p.offS = -fx;
       p.offD = -fz;
-      p.age = r.next() * p.life * 0.12;
-      const pipe = (scale >= 1.3 ? 1.25 : scale >= 1.05 ? 1.08 : 1) * (m.size0 > 0.08 ? 0.11 : 0.075);
-      p.size0 = pipe * (0.65 + r.next() * 0.5);
-      p.size1 = pipe * (2.2 + r.next() * 1.8);
-      p.alpha = m.alpha * (0.62 + r.next() * 0.35);
+      p.age = r.next() * p.life * 0.2;
+      const pipe = (scale >= 1.3 ? 1.2 : scale >= 1.05 ? 1.05 : 0.92) * (m.size0 > 0.08 ? 0.08 : 0.055);
+      p.size0 = pipe * (0.55 + r.next() * 0.7);
+      p.size1 = pipe * (3.4 + r.next() * 2.6);
+      p.alpha = m.alpha * (0.38 + r.next() * 0.28);
       p.shade = 0.72 + r.next() * 0.32;
       p.heat = 0;
       p.spin = r.next() * Math.PI * 2;
@@ -421,13 +435,14 @@ export class SmokePool {
         const u = p.age / Math.max(0.2, p.life);
         p.along = Math.min(0.98, u);
         const h = Math.max(0, p.y - p.floor);
-        const c = curlNoise(p.x * 1.35 + p.seed * 0.15, p.y * 1.35 + p.age * 0.45, p.z * 1.35, p.seed + 2.2);
-        const amp = 0.32 + Math.min(0.55, h * 0.28);
-        const back = 0.72;
-        const rise = (0.8 + (1 - u) * 0.28) * (1 - rain * 0.1);
-        p.vy = approach(p.vy, rise + c.y * 0.2, dt, 0.28);
-        p.vx = approach(p.vx, p.offS * back + wx * 0.04 + c.x * amp, dt, 0.32);
-        p.vz = approach(p.vz, p.offD * back + wz * 0.04 + c.z * amp, dt, 0.32);
+        const c = curlNoise(p.x * 1.15 + p.seed * 0.2, p.y * 0.9 + p.age * 0.35, p.z * 1.15, p.seed + 2.2);
+        // Curl grows with height so the plume opens instead of staying a bead string.
+        const amp = 0.38 + Math.min(1.15, h * 0.62);
+        const back = 0.42 * (1 - u * 0.35);
+        const rise = (1.45 * (1 - u * 0.42) + 0.25) * (1 - rain * 0.12);
+        p.vy = approach(p.vy, rise + c.y * 0.55, dt, 0.22);
+        p.vx = approach(p.vx, p.offS * back + wx * 0.06 + c.x * amp, dt, 0.26);
+        p.vz = approach(p.vz, p.offD * back + wz * 0.06 + c.z * amp, dt, 0.26);
         p.x += p.vx * dt;
         p.y += p.vy * dt;
         p.z += p.vz * dt;
@@ -563,13 +578,15 @@ export function billboardStretch(p: Puff, windDir: number, plumeUp: Xyz): { x: n
   }
   if (p.kind === KIND.exhaust) {
     const sp = Math.hypot(p.vx, p.vy, p.vz);
-    const kx = sp > 0.08 ? p.vx / sp : 0;
-    const kz = sp > 0.08 ? p.vz / sp : 0;
+    const kx = sp > 0.2 ? p.vx / sp : 0;
+    const ky = sp > 0.2 ? p.vy / sp : 1;
+    const kz = sp > 0.2 ? p.vz / sp : 0;
+    // Along the rise. Past ~2 the gaussian reads as a ribbon; under ~1.15 it is a coin.
     return {
-      x: kx * 0.4,
-      y: 1,
-      z: kz * 0.4,
-      w: Math.min(1.65, (1.05 + p.seed * 0.35) * (1 + p.along * 0.28)),
+      x: kx,
+      y: ky,
+      z: kz,
+      w: Math.min(1.85, 1.12 + p.seed * 0.28 + p.along * 0.4),
     };
   }
   if (p.kind === KIND.stack) {
