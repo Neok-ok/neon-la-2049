@@ -191,10 +191,12 @@ export class SmokePool {
       const ang = r.next() * Math.PI * 2;
       // A filled core that widens slowly. A radius that grew with height
       // left the crown as a shell of separate spheres.
-      const reach = ((low ? 16 : 13) * (0.88 + throat * 0.14) + along * (low ? 26 : 22)) * lobe;
-      const rad = Math.pow(r.next(), 0.58) * reach * 0.82;
-      const bendS = Math.sin(along * 3.6) * (1.4 + along * 7);
-      const bendD = Math.cos(along * 2.7 + 0.7) * (1.2 + along * 6);
+      // Low is a filled shaft, not a shell. A wide shell left a notch the tower showed through.
+      const reach = ((low ? 14 : 13) * (0.88 + throat * 0.14) + along * (low ? 18 : 22)) * lobe;
+      const rad = Math.pow(r.next(), low ? 1.05 : 0.58) * reach * (low ? 0.72 : 0.82);
+      const bendK = low ? 0.35 : 1;
+      const bendS = Math.sin(along * 3.6) * (1.4 + along * 7) * bendK;
+      const bendD = Math.cos(along * 2.7 + 0.7) * (1.2 + along * 6) * bendK;
       const n2 = Math.sin(along * 8.4 + 1.4) * (0.8 + along * 2.2);
       const n3 = Math.cos(along * 6.2 + 0.6) * (0.8 + along * 2);
       p.offS = Math.cos(ang) * rad + bendS + n2;
