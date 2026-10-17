@@ -1287,6 +1287,7 @@ export class App {
     feet?: { x: number; y: number; z: number };
     lock?: boolean;
     eye?: number;
+    fov?: number;
   } | null | undefined): boolean {
     if (!p) return false;
     this.query.fabricAt(p.x, p.z);
@@ -1304,6 +1305,11 @@ export class App {
         this.camera.position.set(p.feet.x, p.feet.y + eye, p.feet.z);
         this.camera.rotation.set(p.pitch, -p.heading, 0, 'YXZ');
         this.camera.updateMatrixWorld();
+      }
+      this.cams.walk.holdFov = p.fov ?? 0;
+      if (p.fov && p.fov > 1) {
+        this.camera.fov = p.fov;
+        this.camera.updateProjectionMatrix();
       }
     }
     return true;

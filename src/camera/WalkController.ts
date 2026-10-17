@@ -24,6 +24,8 @@ export class WalkController implements Controller {
   /** Smoke stills hold an authored eye height. Movement clears it. */
   locked = false;
   eye = HUMAN.eye;
+  /** Stall stills tighten the lens. 0 keeps the walk field of view. */
+  holdFov = 0;
   /**
    * When set, a flyer near a roof door starts there instead of on the street.
    * Wired from the interior system. Street doors do not use it.
@@ -63,10 +65,16 @@ export class WalkController implements Controller {
     if (!this.active) return;
     const inp = this.input;
     if (this.locked) {
-      if (Math.abs(inp.forward) > 0.2 || Math.abs(inp.strafe) > 0.2) this.locked = false;
-      else {
+      if (Math.abs(inp.forward) > 0.2 || Math.abs(inp.strafe) > 0.2) {
+        this.locked = false;
+        this.holdFov = 0;
+      } else {
         this.camera.position.set(this.pos.x, this.pos.y + this.eye, this.pos.z);
         this.camera.rotation.set(this.pitch, -this.heading, 0, 'YXZ');
+        if (this.holdFov > 1 && Math.abs(this.camera.fov - this.holdFov) > 0.01) {
+          this.camera.fov = this.holdFov;
+          this.camera.updateProjectionMatrix();
+        }
         return;
       }
     }

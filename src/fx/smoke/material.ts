@@ -70,31 +70,51 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const auv = vec2(col.div(4.0), row.div(2.0)).add(suv.mul(vec2(0.25, 0.5)));
       const n = mask.sample(auv);
       const rad = length(suv.sub(0.5));
-      // tint.w is 0 on the plume and 1 on steam. Steam fades early so the quad
-      // corner never reads as a hard disc.
+      // tint.w: 0 plume, 0.72 stack, 0.84 exhaust streak, 0.93 stall wisp, 1 grate.
       const softBody = tint.w;
       const edgeIn = mix(float(0.14), float(0.0), softBody);
       const edgeOut = mix(float(0.8), float(0.58), softBody);
       // A reversed smoothstep is undefined on SwiftShader and cuts a quad into a triangle.
       const edgeDisc = float(1).sub(smoothstep(edgeIn, edgeOut, rad));
-      // Plume only (tint.w is 0). A gaussian dies before the quad corner.
       const plumeK = float(1).sub(smoothstep(float(0.0), float(0.22), softBody));
-      // Stall keeps the tight disc (lamp weight near 1). Grate and exhaust soften so
-      // overlapping puffs read as one mass. The stack (tint.w 0.72) stays as it was.
+      // Grate softens into one mass. The stack (tint.w 0.72) stays on the tight disc.
       // smoothstep edges stay in ascending order.
       const blendSoft = float(1).sub(smoothstep(float(0.55), float(0.9), lampK));
       const notStack = smoothstep(float(0.74), float(0.82), softBody);
       const columnSoft = notStack.mul(blendSoft);
-      const ragged = max(rad.add(n.r.sub(0.5).mul(0.1)), float(0));
-      const edgePlume = exp(ragged.mul(ragged).mul(float(-6.4)));
+      // Plume: a noise-warped body, dead before the quad corner. A tight gaussian
+      // read as a stack of spheres once the puffs stopped overlapping.
+      const warp = vec2(n.r.sub(0.5).mul(0.32), n.g.sub(0.5).mul(0.26));
+      const warped = length(suv.sub(0.5).add(warp));
+      const lobe = n.r.mul(0.62).add(n.g.mul(0.38));
+      const plumeBody = float(1).sub(smoothstep(float(0.04), float(0.56), warped));
+      const plumeGrain = float(0.28).add(smoothstep(float(0.16), float(0.72), lobe).mul(0.85));
+      const cornerKill = float(1).sub(smoothstep(float(0.44), float(0.68), rad));
+      const edgePlume = plumeBody.mul(plumeGrain).mul(cornerKill);
       const edgeWide = float(1).sub(smoothstep(float(0.02), float(0.7), rad));
       const edgeSteam = mix(edgeDisc, edgeWide, columnSoft);
-      const edge = mix(edgeSteam, edgePlume, plumeK);
+      const edgeRound = mix(edgeSteam, edgePlume, plumeK);
+      // Exhaust and stall are streaks along the billboard's long axis (uv.y).
+      // The cross-axis pinch is what keeps a puff from reading as a disc.
+      const spine = n.r.sub(0.5).mul(0.42);
+      const across = abs(suv.x.sub(float(0.5)).sub(spine.mul(suv.y.mul(0.7).add(0.15))));
+      const streakPinch = exp(across.mul(across).mul(float(-14)));
+      const wispPinch = exp(across.mul(across).mul(float(-22)));
+      const tip = smoothstep(float(0.0), float(0.14), suv.y).mul(float(1).sub(smoothstep(float(0.55), float(0.98), suv.y)));
+      const streakEdge = streakPinch.mul(tip).mul(float(0.4).add(n.g.mul(0.75)));
+      const wispEdge = wispPinch.mul(tip).mul(float(0.5).add(n.g.mul(0.65)));
+      const streakK = smoothstep(float(0.78), float(0.83), softBody).mul(float(1).sub(smoothstep(float(0.87), float(0.91), softBody)));
+      const wispK = smoothstep(float(0.88), float(0.92), softBody).mul(float(1).sub(smoothstep(float(0.96), float(0.995), softBody)));
+      const edge = mix(mix(edgeRound, wispEdge, wispK), streakEdge, streakK);
       const torn = mix(n.r, n.r.mul(float(0.55).add(n.g.mul(0.7))), smokeDetail);
-      const fray = mix(float(1), float(0.5).add(n.g.mul(0.7)), softBody);
+      const frayRound = mix(float(1), float(0.5).add(n.g.mul(0.7)), softBody);
+      const streakK2 = max(wispK, streakK);
+      const fray = mix(frayRound, float(0.82).add(n.g.mul(0.22)), streakK2);
       const grain = float(0.42).add(n.g.mul(0.78));
+      const grainUse = mix(grain, float(0.72).add(n.g.mul(0.4)), streakK2);
+      const tornUse = mix(torn, float(0.62).add(torn.mul(0.38)), streakK2);
       const shapePow = mix(mix(float(0.8), float(1.15), columnSoft), float(1.35), plumeK);
-      const shape = pow(max(torn.mul(edge).mul(grain).mul(fray), float(0)), shapePow);
+      const shape = pow(max(tornUse.mul(edge).mul(grainUse).mul(fray), float(0)), shapePow);
       const size = max(puff.w, float(0.4));
       // Soft particles, NVIDIA / Lorach, the same curve as three's softParticles().
       // Inlined: that helper names a GLSL argument `input`, which WebGL rejects.
@@ -122,9 +142,13 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const rimHard = smoothstep(float(0.05), float(0.42), rad);
       const rimSoft = smoothstep(float(0.2), float(0.78), rad);
       const rim = mix(rimHard, rimSoft, plumeK);
-      // Noise breaks the bright rim so a lone puff is not a hard ring.
+      // A bright ring on each plume puff is the sphere stack. The crown stays
+      // close to one brightness; noise does the breakup.
       const rimNoise = float(0.35).add(n.r.mul(0.9));
-      const back = mix(float(0.55), float(1.2).mul(rimNoise), rim);
+      const rimPlume = smoothstep(float(0.3), float(0.72), warped).mul(float(0.3).add(n.r.mul(0.35)));
+      const backSoft = mix(float(0.55), float(1.2).mul(rimNoise), rim);
+      const backPlume = mix(float(0.84), float(1.02), rimPlume);
+      const back = mix(backSoft, backPlume, plumeK);
       const front = mix(float(1.08), float(0.4), rim);
       const phase = mix(back, front, softBody);
       const under = smoothstep(float(0.1), float(0.88), float(1).sub(suv.y));
@@ -137,8 +161,8 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       // Noise across the puff, so one side of a billboard is not the same brightness.
       const mottled = float(0.48).add(n.r.mul(0.4)).add(n.g.mul(0.46));
       const lampShade = float(0.55).add(n.r.mul(0.7));
-      // Grate and stall are tint.w = 1. The street pool lights the belly; it does not recolor the vapor.
-      const steam = smoothstep(float(0.9), float(0.99), softBody);
+      // Grate is tint.w = 1. Stall wisps sit at 0.93 and still take the pool.
+      const steam = max(smoothstep(float(0.9), float(0.99), softBody), wispK);
       const rgb = albedo.mul(authoredLiftU).mul(smokeBody).mul(phase).mul(underK)
         .add(lit.mul(smokeLamp).mul(lampK).mul(float(0.45).add(under)).mul(lampShade))
         .add(scatter.mul(lampK).mul(float(0.35)).mul(lampShade))

@@ -324,21 +324,28 @@ export class SmokeField {
       }
       if (p.kind === 0) {
         const low = this.tier === 'low';
-        const nozzle = Math.max(0, 1 - p.along / (low ? 0.085 : 0.05));
+        const nozzle = Math.max(0, 1 - p.along / (low ? 0.07 : 0.05));
         heat = Math.max(heat, nozzle * 1.15);
-        lifeA = Math.min(low ? 0.52 : 0.46, lifeA);
-        size *= 0.94 + p.seed * 0.12;
-        if (low && nozzle > 0.35) size *= 1.08;
-        const puffCap = low ? 20 : this.tier === 'medium' ? 16 : 13;
+        lifeA = Math.min(low ? 0.36 : 0.3, lifeA);
+        size *= 0.86 + p.seed * 0.28;
+        if (low && nozzle > 0.35) size *= 1.06;
+        const puffCap = low ? 16 : this.tier === 'medium' ? 13 : this.tier === 'high' ? 11 : 10;
         size = Math.min(size, puffCap);
+        // Far side of the shaft fades so the column has depth instead of a stack of discs.
+        const axisD = Math.hypot(p.ox - cx, p.oz - cz);
+        const puffD = Math.hypot(p.x - cx, p.z - cz);
+        const depthT = Math.max(-1, Math.min(1, (puffD - axisD) / 12));
+        lifeA *= Math.min(1, 0.58 + (1 - depthT) * 0.26);
         if (dist < 22) lifeA *= Math.min(1, Math.max(0, (dist - 8) / 14));
       } else if (p.kind === 2) {
         size *= 0.88 + p.seed * 0.28;
       } else if (p.kind === 6) {
-        size *= 0.95 + p.along * 0.28;
-        size = Math.min(size, this.tier === 'low' ? 0.58 : this.tier === 'medium' ? 0.5 : 0.44);
-        lifeA = Math.min(0.58, lifeA) * (0.7 + 0.3 * Math.pow(1 - Math.min(1, p.along), 0.45));
+        size *= 0.9 + p.along * 0.28;
+        size = Math.min(size, this.tier === 'low' ? 0.13 : this.tier === 'medium' ? 0.11 : 0.095);
+        lifeA = Math.min(0.5, lifeA) * (0.28 + 0.72 * Math.pow(1 - Math.min(1, p.along), 1.15));
         heat = 0;
+      } else if (p.kind === 5) {
+        size = Math.min(size, this.tier === 'low' ? 0.07 : 0.058);
       } else if (p.kind === 1) {
         size = Math.min(size, Math.max(2.5, dist * 0.06));
       }
@@ -357,10 +364,10 @@ export class SmokeField {
         lamp *= 0.4 + belly * 0.55;
         heat = 0;
       } else if (p.kind === 5) {
-        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 1.05));
-        lifeA *= 1 - h * 0.75;
+        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 0.85));
+        lifeA *= (1 - h * 0.82) * 0.95;
         heat = 0;
-        lamp = 0.85;
+        lamp = 0.88;
       } else if (p.kind === 6) {
         lamp = 0.06;
       }
@@ -407,8 +414,8 @@ export class SmokeField {
       tint[o] = tr;
       tint[o + 1] = tg;
       tint[o + 2] = tb;
-      // 0 backlit plume, 0.72 filled stack, 0.84 thin exhaust, 1 soft steam.
-      tint[o + 3] = p.kind === 0 ? 0 : p.kind === 2 ? 0.72 : p.kind === 6 ? 0.84 : 1;
+      // 0 plume, 0.72 stack, 0.84 exhaust streak, 0.93 stall wisp, 1 grate and vent.
+      tint[o + 3] = p.kind === 0 ? 0 : p.kind === 2 ? 0.72 : p.kind === 6 ? 0.84 : p.kind === 5 ? 0.93 : 1;
       const stretch = this.stretchOf(p);
       move[o] = stretch.x;
       move[o + 1] = stretch.y;
@@ -427,16 +434,16 @@ export class SmokeField {
   private stretchOf(p: Puff): { x: number; y: number; z: number; w: number } {
     const jitter = 0.94 + p.seed * 0.12;
     if (p.kind === 0) {
-      return { x: this.plumeUp.x, y: this.plumeUp.y, z: this.plumeUp.z, w: (1.06 + p.along * 0.1) * jitter };
+      return { x: this.plumeUp.x, y: this.plumeUp.y, z: this.plumeUp.z, w: (1.45 + p.along * 0.55) * jitter };
     }
     if (p.kind === 6) {
       const L = Math.hypot(p.vx, p.vz) || 1;
-      // Along the bumper, not up. A vertical card was the chimney.
+      // Along the wake. The quad is tailpipe-wide; the stretch is the motion smear.
       return {
-        x: -p.vx / L * 0.85,
-        y: 0.28,
-        z: -p.vz / L * 0.85,
-        w: (1.22 + p.along * 0.18) * jitter,
+        x: -p.vx / L,
+        y: 0.08 + p.along * 0.16,
+        z: -p.vz / L,
+        w: (2.8 + p.along * 4.4) * jitter,
       };
     }
     if (p.kind === 2) {
@@ -445,7 +452,7 @@ export class SmokeField {
       const billow = 0.82 + p.seed * 0.36;
       return { x: wx, y: 1, z: wz, w: (1.15 + p.along * 0.7) * billow };
     }
-    if (p.kind === 5) return { x: Math.sin(p.seed * 12) * 0.12, y: 1, z: Math.cos(p.seed * 9) * 0.12, w: 1.85 * (0.86 + p.seed * 0.28) };
+    if (p.kind === 5) return { x: Math.sin(p.seed * 12) * 0.16, y: 1, z: Math.cos(p.seed * 9) * 0.16, w: (2.6 + p.along * 1.6) * (0.82 + p.seed * 0.3) };
     if (p.kind === 4 || p.kind === 3) {
       const h = Math.min(1, Math.max(0, (p.y - p.floor) / 3.05));
       const wx = Math.cos(this.windDir) * h * 0.7;

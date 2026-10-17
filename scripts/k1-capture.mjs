@@ -243,7 +243,7 @@ for (const tier of TIERS) {
       if (!png || png.length < 1000) {
         log(`${tier} ${shot.name} GRAB EMPTY`);
       } else {
-        const file = join(OUT, `k1-2026-10-15-${shot.name}-${tier}.png`);
+        const file = join(OUT, `k1-2026-10-17-${shot.name}-${tier}.png`);
         writeFileSync(file, png);
         log(`${tier} ${shot.name} ${((Date.now() - t0) / 1000).toFixed(1)}s ${png.length}b ${JSON.stringify(snap)} err=${errors.at(-1) ?? ''}`);
       }

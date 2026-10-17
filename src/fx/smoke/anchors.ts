@@ -79,10 +79,10 @@ function heroMouths(layout: CityLayout): Mouth[] {
     const dy = s.y - ground;
     if (near) {
       out.push(mouth({
-        x: s.x, y: s.y, z: s.z, kind: KIND.stall, weight: 5, life: 0.7,
-        size0: 0.16, size1: 0.48, heat: 0, radius: 0.11,
-        rise: 0.85, spread: 0.018, floor: s.y - 0.02, wind: 0.02,
-        turb: 0.4, aspect: 1, alpha: 0.82,
+        x: s.x, y: s.y, z: s.z, kind: KIND.stall, weight: 5, life: 1.15,
+        size0: 0.045, size1: 0.07, heat: 0, radius: 0.12,
+        rise: 0.62, spread: 0.012, floor: s.y - 0.02, wind: 0.015,
+        turb: 0.28, aspect: 1, alpha: 0.7,
       }));
     } else if (dy < 0.55) {
       // Baseline courtyard card. The visible plate is marketPlates.
@@ -147,7 +147,7 @@ export function gatherMouths(
     const base = plume.base;
     out.push(mouth({
       x: plume.x, y: base + 4, z: plume.z, kind: KIND.launch, weight: 1, life: 6.4,
-      size0: 12, size1: 30, heat: 0.55, radius: 6,
+      size0: 7.5, size1: 14, heat: 0.55, radius: 6,
       rise: 2, spread: 0.2, floor: base, wind: 0.02,
       turb: 1.35, aspect: 1, alpha: 0.58,
     }));
@@ -183,13 +183,17 @@ export function gatherMouths(
   for (let i = 0; i < tails.length && i < tailKeep; i++) {
     const t = tails[i]!;
     const heavy = t.heavy > 0;
+    // One pipe, off the centreline, still on the bumper. The wake is drawn behind it.
+    const px = -t.fz;
+    const pz = t.fx;
+    const pipe = heavy ? 0.42 : 0.32;
     out.push(mouth({
-      x: t.x, y: t.y + 0.04, z: t.z, kind: KIND.exhaust,
+      x: t.x + px * pipe, y: t.y + 0.02, z: t.z + pz * pipe, kind: KIND.exhaust,
       weight: i === 0 ? 8 : 0.35,
-      life: 1.15,
-      size0: heavy ? 0.22 : 0.16, size1: heavy ? 0.52 : 0.4, heat: 0,
-      radius: 0.06, rise: 0.18, spread: 0.02, floor: t.y, wind: 0,
-      turb: 0.22, aspect: 1, alpha: 0.84,
+      life: 1.35,
+      size0: heavy ? 0.07 : 0.048, size1: heavy ? 0.1 : 0.07, heat: 0,
+      radius: 0.04, rise: 0.08, spread: 0.01, floor: t.y, wind: 0,
+      turb: 0.35, aspect: 1, alpha: 0.62,
       vx: t.vx, vz: t.vz, fx: t.fx, fz: t.fz,
     }));
   }
@@ -208,6 +212,8 @@ export interface SmokePose {
   /** Hold this eye height. Walk gravity would drop an elevated still. */
   lock?: boolean;
   eye?: number;
+  /** Vertical field of view in degrees. The stall still tightens past the walk default. */
+  fov?: number;
 }
 
 /** Grate in the foreground, column rising toward the shop neon behind it. */
@@ -270,19 +276,21 @@ export function stallPose(layout: CityLayout): SmokePose | null {
   const hz = -Math.cos(cook.heading);
   const rx = hz;
   const rz = -hx;
-  // The noodle soffit and awning reach about 2.3 m past the facade, and the
-  // pot sits inside the counter. An eye at 4 m was still under that lip, so
-  // High and Ultra filled the frame with the ceiling. Stand past the lip.
-  const dist = 6.15;
-  const side = 0.35;
+  // The pot is 2.65 m inside the facade and the awning reaches about 2.25 m
+  // into the street, so the lip is ~4.9 m from the rim. Stand just past that
+  // lip. A 32° lens puts the rims and the rising wisps in the middle and
+  // leaves the header sign at the top edge. The walk 70° lens made the sign
+  // the subject.
+  const dist = 5.2;
+  const side = 0.62;
   const fx = pot.x + hx * dist + rx * side;
   const fz = pot.z + hz * dist + rz * side;
-  const lookX = pot.x - rx * 0.15;
-  const lookZ = pot.z - rz * 0.15;
+  const lookX = pot.x - rx * 0.08;
+  const lookZ = pot.z - rz * 0.08;
   const ground = layout.heightAt(fx, fz);
-  const eyeY = ground + 1.48;
+  const eyeY = ground + 1.3;
   const eye = eyeY - ground;
-  const lookY = pot.y + 0.4;
+  const lookY = pot.y + 0.1;
   const span = Math.hypot(lookX - fx, lookZ - fz) || 1;
   return {
     x: fx, y: eyeY, z: fz,
@@ -291,6 +299,7 @@ export function stallPose(layout: CityLayout): SmokePose | null {
     mode: 'walk',
     lock: true,
     eye,
+    fov: 32,
     feet: { x: fx, y: ground, z: fz },
   };
 }
@@ -324,19 +333,20 @@ export function launchPose(layout: CityLayout): SmokePose | null {
 export function exhaustPose(layout: CityLayout, tails: readonly Tailpipe[]): SmokePose | null {
   const t = tails[0];
   if (!t) return null;
-  // Just behind the car, aimed at the wake rather than the lamp. A climb
-  // of the aim framed a chimney; the lamp itself framed an empty bumper.
-  const dist = 4.35;
-  const side = 0.78;
+  // Rear quarter, not down the pipe. A chase along the trail turns every
+  // stretched billboard into a disc the width of the bumper. From the side
+  // the wake lies across the frame and the stretch reads.
+  const dist = 1.7;
+  const side = 1.62;
   const rx = -t.fz;
   const rz = t.fx;
   const fx = t.x - t.fx * dist + rx * side;
   const fz = t.z - t.fz * dist + rz * side;
   const ground = layout.heightAt(fx, fz);
-  const eye = 1.16;
-  const lookX = t.x - t.fx * 1.05;
-  const lookZ = t.z - t.fz * 1.05;
-  const lookY = t.y + 0.18;
+  const eye = 0.78;
+  const lookX = t.x - t.fx * 0.72 + rx * 0.06;
+  const lookZ = t.z - t.fz * 0.72 + rz * 0.06;
+  const lookY = t.y + 0.04;
   return {
     x: fx, y: ground + eye, z: fz,
     heading: Math.atan2(lookX - fx, -(lookZ - fz)),
