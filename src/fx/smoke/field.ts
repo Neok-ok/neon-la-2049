@@ -374,24 +374,26 @@ export class SmokeField {
       } else if (p.kind === 6) {
         // Small at the pipe, wider and thinner as it rises. One alpha for every
         // tier: Low was more opaque, which turned the same disc into a sticker.
-        size *= (0.62 + p.seed * 0.7) * (0.72 + p.along * 1.55);
-        size = Math.min(size, this.tier === 'low' ? 0.78 : this.tier === 'medium' ? 0.62 : 0.5);
+        size *= (0.8 + p.seed * 0.35) * (0.85 + p.along * 0.95);
+        size = Math.min(size, this.tier === 'low' ? 0.62 : this.tier === 'medium' ? 0.5 : 0.42);
         const away = Math.hypot(p.x - p.ox, p.z - p.oz);
         const lift = Math.max(0, p.y - p.floor);
-        const trail = Math.pow(1 - Math.min(1, p.along), 0.7);
-        const spread = 1 - Math.min(1, Math.max(0, away - 2.1) / 1.5);
-        const roof = 1 - Math.min(1, Math.max(0, lift - 2.35) / 1.15);
-        lifeA = Math.min(0.38, lifeA) * (0.42 + 0.58 * trail) * spread * roof;
+        const trail = Math.pow(1 - Math.min(1, p.along), 0.55);
+        const spread = 1 - Math.min(1, Math.max(0, away - 0.85) / 1.15);
+        const roof = 1 - Math.min(1, Math.max(0, lift - 2.15) / 1.25);
+        lifeA = Math.min(0.55, lifeA) * (0.7 + 0.3 * trail) * spread * roof;
         // A car down the block must not stamp discs onto the grate or the flare.
         if (dist > 10) lifeA *= Math.max(0, 1 - (dist - 10) / 8);
         heat = 0;
       } else if (p.kind === 5) {
         // Low is larger than Medium. The previous cap (0.15 vs 0.17) put the
         // whole card inside the pot's depth cut, which read as a hole.
-        size = Math.min(size, this.tier === 'low' ? 0.26 : this.tier === 'medium' ? 0.18 : 0.15);
+        // Same cap on Low and Medium. A smaller Low card was the hole; a
+        // thinner Medium card vanished on the lit wall.
+        size = Math.min(size, this.tier === 'low' || this.tier === 'medium' ? 0.2 : 0.16);
         const away = Math.hypot(p.x - p.ox, p.z - p.oz);
         lifeA *= 1 - Math.min(1, Math.max(0, away - 0.34) / 0.45);
-        lifeA = Math.min(this.tier === 'low' ? 0.4 : 0.5, lifeA);
+        lifeA = Math.min(0.68, lifeA);
       } else if (p.kind === 1) {
         size = Math.min(size, Math.max(2.5, dist * 0.06));
       }
@@ -460,8 +462,8 @@ export class SmokeField {
       tint[o] = tr;
       tint[o + 1] = tg;
       tint[o + 2] = tb;
-      // 0 plume, 0.5 soft puff (stall and exhaust), 0.72 stack, 1 grate and vent.
-      tint[o + 3] = p.kind === 0 ? 0 : p.kind === 2 ? 0.72 : p.kind === 6 || p.kind === 5 ? 0.5 : 1;
+      // 0 plume, 0.50 stall, 0.53 exhaust, 0.72 stack, 1 grate and vent.
+      tint[o + 3] = p.kind === 0 ? 0 : p.kind === 2 ? 0.72 : p.kind === 6 ? 0.53 : p.kind === 5 ? 0.5 : 1;
       const stretch = billboardStretch(p, this.windDir, this.plumeUp);
       move[o] = stretch.x;
       move[o + 1] = stretch.y;

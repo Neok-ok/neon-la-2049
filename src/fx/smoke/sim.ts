@@ -311,12 +311,10 @@ export class SmokePool {
       p.age = r.next() * p.life * 0.8;
       p.heat = 0;
       p.shade = 0.78 + r.next() * 0.28;
-      // Medium keeps the alpha that already read as steam. Low is a little
-      // thinner because its cards are wider.
-      p.alpha = m.alpha * (0.55 + r.next() * 0.4) * (1 - along * 0.25);
-      if (scale >= 1.3) p.alpha *= 0.85;
-      // Low (scale 1.42) is the wide card. A smaller Low card was the hole.
-      const width = (scale >= 1.3 ? 0.14 : scale >= 1.05 ? 0.105 : 0.09) * (0.72 + r.next() * 0.55);
+      // One alpha on every tier. The gaussian is less filled than the old disc,
+      // so the core sits a little higher or the lit wall swallows it.
+      p.alpha = m.alpha * (0.72 + r.next() * 0.32) * (1 - along * 0.16);
+      const width = (scale >= 1.3 ? 0.12 : scale >= 1.05 ? 0.11 : 0.095) * (0.78 + r.next() * 0.4);
       p.size0 = width;
       p.size1 = width * (1.35 + r.next() * 0.7);
       p.vy = m.rise * (0.75 + r.next() * 0.7);
@@ -366,11 +364,11 @@ export class SmokePool {
       p.x = m.x + rx * Math.cos(ang) * rad;
       p.z = m.z + rz * Math.cos(ang) * rad;
       p.y = m.y + 0.04 + r.next() * 0.06;
-      const exit = 0.45 + r.next() * 0.7;
-      const side = (r.next() - 0.5) * 0.55;
+      const exit = 0.1 + r.next() * 0.28;
+      const side = (r.next() - 0.5) * 0.22;
       p.vx = m.vx - fx * exit + rx * side;
       p.vz = m.vz - fz * exit + rz * side;
-      p.vy = 1.15 + r.next() * 0.85;
+      p.vy = 1.05 + r.next() * 0.5;
       p.along = r.next() * 0.06;
       // Backward axis. The step keeps a drift into clear air so the plume
       // is not painted onto the trunk and depth-tested away.
@@ -380,7 +378,7 @@ export class SmokePool {
       const pipe = (scale >= 1.3 ? 1.2 : scale >= 1.05 ? 1.05 : 0.92) * (m.size0 > 0.08 ? 0.08 : 0.055);
       p.size0 = pipe * (0.55 + r.next() * 0.7);
       p.size1 = pipe * (3.4 + r.next() * 2.6);
-      p.alpha = m.alpha * (0.38 + r.next() * 0.28);
+      p.alpha = m.alpha * (0.55 + r.next() * 0.35);
       p.shade = 0.72 + r.next() * 0.32;
       p.heat = 0;
       p.spin = r.next() * Math.PI * 2;
@@ -437,15 +435,22 @@ export class SmokePool {
         const h = Math.max(0, p.y - p.floor);
         const c = curlNoise(p.x * 1.15 + p.seed * 0.2, p.y * 0.9 + p.age * 0.35, p.z * 1.15, p.seed + 2.2);
         // Curl grows with height so the plume opens instead of staying a bead string.
-        const amp = 0.38 + Math.min(1.15, h * 0.62);
-        const back = 0.42 * (1 - u * 0.35);
-        const rise = (1.45 * (1 - u * 0.42) + 0.25) * (1 - rain * 0.12);
-        p.vy = approach(p.vy, rise + c.y * 0.55, dt, 0.22);
-        p.vx = approach(p.vx, p.offS * back + wx * 0.06 + c.x * amp, dt, 0.26);
-        p.vz = approach(p.vz, p.offD * back + wz * 0.06 + c.z * amp, dt, 0.26);
+        const amp = 0.12 + Math.min(0.38, h * 0.18);
+        const back = 0.16;
+        const rise = (1.2 * (1 - u * 0.28) + 0.2) * (1 - rain * 0.1);
+        p.vy = approach(p.vy, rise + c.y * 0.35, dt, 0.22);
+        p.vx = approach(p.vx, p.offS * back + wx * 0.04 + c.x * amp, dt, 0.26);
+        p.vz = approach(p.vz, p.offD * back + wz * 0.04 + c.z * amp, dt, 0.26);
         p.x += p.vx * dt;
         p.y += p.vy * dt;
         p.z += p.vz * dt;
+        // Stay in the air behind the bumper. Curl that crosses the bumper
+        // plane is drawn through the trunk and reads as a cut disc.
+        const into = (p.x - p.ox) * -p.offS + (p.z - p.oz) * -p.offD;
+        if (into > 0.02) {
+          p.x += p.offS * (into - 0.02);
+          p.z += p.offD * (into - 0.02);
+        }
         if (p.y < p.floor + 0.02) {
           p.y = p.floor + 0.02;
           p.vy = Math.max(0.2, Math.abs(p.vy));

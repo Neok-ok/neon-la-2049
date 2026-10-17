@@ -61,8 +61,14 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
         // born in the pot or the bumper is clipped into a flat polygon. Shift
         // that card into clear air. Plume, stack, and grate stay put.
         const puffK = smoothstep(float(0.42), float(0.48), tint.w).mul(float(1).sub(smoothstep(float(0.56), float(0.64), tint.w)));
-        const clear = toCam.mul(size.mul(0.22).mul(puffK));
-        return center.add(side.mul(ox.mul(size))).add(up.mul(oy.mul(size).mul(stretch))).add(clear);
+        // 0.50 stall, 0.53 exhaust. Stall steps toward the lens, off the pot.
+        // Exhaust steps up along the trail. Toward the lens from a rear camera
+        // pushed the plume down onto the roof.
+        const exhaustK = smoothstep(float(0.512), float(0.528), tint.w);
+        const trailAx = normalize(mix(move.xyz, vec3(0, 1, 0), step(length(move.xyz), float(0.2))));
+        const stallClear = toCam.mul(size.mul(0.12).mul(puffK).mul(float(1).sub(exhaustK)));
+        const exhaustClear = vec3(trailAx.x.mul(0.35), abs(trailAx.y).add(0.8), trailAx.z.mul(0.35)).mul(size.mul(0.1).mul(exhaustK));
+        return center.add(side.mul(ox.mul(size))).add(up.mul(oy.mul(size).mul(stretch))).add(stallClear).add(exhaustClear);
       })();
     m.colorNode = Fn(() => {
       const suv = uv();
@@ -107,7 +113,7 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const puffK = smoothstep(float(0.42), float(0.48), softBody).mul(float(1).sub(smoothstep(float(0.56), float(0.64), softBody)));
       const puffWarp = vec2(n.r.sub(0.5).mul(0.42).add(n.g.sub(0.5).mul(0.16)), n.g.sub(0.5).mul(0.38));
       const puffR = length(suv.sub(0.5).add(puffWarp));
-      const puffKFall = float(9.2).add(lobe.mul(2.4));
+      const puffKFall = float(5.4).add(lobe.mul(1.5));
       const puffBody = exp(puffR.mul(puffR).mul(puffKFall).mul(float(-1)));
       const puffMottle = float(0.78).add(lobe.mul(0.28));
       const puffEdge = puffBody.mul(puffMottle);
@@ -128,7 +134,9 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       // collapsed the fade into one pixel against the pot or the bumper, which
       // is the cut-paper edge. Those cards fade linearly across their own size.
       const bandColumn = min(max(size.mul(0.16), min(float(0.18), size.mul(1.2))), float(1.6));
-      const bandPuff = max(max(puff.w, float(0.05)).mul(1.8), float(0.32));
+      // Only the last few centimetres. A wider band treated a lit stall wall
+      // 20 cm behind the card as an intersection and erased the steam.
+      const bandPuff = max(max(puff.w, float(0.05)).mul(0.45), float(0.1));
       const band = mix(bandColumn, bandPuff, puffK);
       const contrast = mix(float(1.35), float(1.0), puffK);
       const sceneZ = perspectiveDepthToViewZ(viewportDepthTexture(), cameraNear, cameraFar);
@@ -180,7 +188,10 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
         .add(scatter.mul(lampK).mul(float(0.35)).mul(lampShade))
         .add(lanternPool(world).mul(under).mul(steam).mul(float(0.65)))
         .add(warm.mul(heat).mul(belly).mul(float(1).sub(rim.mul(0.4))).mul(authoredLiftU).mul(float(0.22)).mul(mix(float(1), float(0.35), lampK)));
-      return vec4(rgb.mul(mottled), alpha);
+      // Puffs have to read on a lit beige wall and on the black Low interior.
+      // The shared body is tuned for the plume; this lift is stall and exhaust only.
+      const puffBright = mix(float(1.0), float(1.55), puffK);
+      return vec4(rgb.mul(mottled).mul(puffBright), alpha);
     })();
     return m;
   });
