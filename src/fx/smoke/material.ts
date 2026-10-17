@@ -77,7 +77,7 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
         const exhaustClear = vec3(trailAx.x.mul(0.35), abs(trailAx.y).add(0.8), trailAx.z.mul(0.35)).mul(size.mul(0.1).mul(exhaustK));
         // Low stall cards were centered on the lid, so the pot clipped a hole
         // and the visible mass sat above the rim. Lift the card so its foot is the lid.
-        const stallUp = vec3(float(0), size.mul(0.4), float(0)).mul(puffK).mul(float(1).sub(exhaustK)).mul(lowK);
+        const stallUp = vec3(float(0), size.mul(0.22), float(0)).mul(puffK).mul(float(1).sub(exhaustK)).mul(lowK);
         return center.add(side.mul(ox.mul(size))).add(up.mul(oy.mul(size).mul(stretch))).add(stallClear).add(exhaustClear).add(stallUp);
       })();
     m.colorNode = Fn(() => {
@@ -155,16 +155,16 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       // Exhaust on every tier. The core falls off immediately and the rim feathers
       // out before the quad side, so the trail is not a stack of bulbs.
       const feather = float(1).sub(smoothstep(float(0.16), float(0.48), rad));
-      const puffGauss = exp(puffRG.mul(puffRG).mul(float(-3.6))).mul(feather).mul(float(0.55).add(lobe.mul(0.28)));
+      const puffGauss = exp(puffRG.mul(puffRG).mul(float(-2.6))).mul(feather).mul(float(0.78).add(lobe.mul(0.18)));
       // Low stall. Filled across the mouth, a short warp so the center does not
       // open a hole, and empty before the quad's flat side.
       const puffWarpL = vec2(n.r.sub(0.5).mul(0.22).add(n.g.sub(0.5).mul(0.1)), n.g.sub(0.5).mul(0.18));
       const puffRL = length(suv.sub(0.5).add(puffWarpL));
       const stallBody = float(1).sub(smoothstep(float(0.0), float(0.52).add(n.r.mul(0.04)), puffRL));
       const stallRim = float(1).sub(smoothstep(float(0.4), float(0.5), rad));
-      const puffStall = stallBody.mul(stallRim).mul(float(0.84).add(lobe.mul(0.2)));
+      const puffStall = stallBody.mul(stallRim).mul(float(0.74).add(lobe.mul(0.22)));
       const er = length(suv.sub(0.5).add(vec2(n.r.sub(0.5).mul(0.12), n.g.sub(0.5).mul(0.08))));
-      const puffExhaust = exp(er.mul(er).mul(float(-3.6))).mul(feather).mul(float(0.55).add(lobe.mul(0.28)));
+      const puffExhaust = exp(er.mul(er).mul(float(-2.6))).mul(feather).mul(float(0.78).add(lobe.mul(0.18)));
       const puffSoft = mix(puffStall, puffExhaust, exhaustK);
       const puffEdgeHi = mix(puffEdgeDisc, puffGauss, exhaustK);
       const puffEdge = mix(puffEdgeHi, puffSoft, lowK);

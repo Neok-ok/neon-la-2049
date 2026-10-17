@@ -381,25 +381,25 @@ export class SmokeField {
       } else if (p.kind === 6) {
         // Small at the pipe, wider and much thinner as it rises. A 0.5 m cap
         // read as a chimney on a tailpipe.
-        size *= (0.7 + p.seed * 0.25) * (0.72 + p.along * 0.55);
-        size = Math.min(size, this.tier === 'low' ? 0.26 : this.tier === 'medium' ? 0.22 : 0.18);
+        size *= (0.85 + p.seed * 0.22) * (0.78 + p.along * 0.55);
+        size = Math.min(size, this.tier === 'low' ? 0.34 : this.tier === 'medium' ? 0.28 : 0.22);
         const away = Math.hypot(p.x - p.ox, p.z - p.oz);
         const lift = Math.max(0, p.y - p.floor);
         const trail = Math.pow(1 - Math.min(1, p.along), 0.55);
-        const spread = 1 - Math.min(1, Math.max(0, away - 0.22) / 0.5);
-        const roof = 1 - Math.min(1, Math.max(0, lift - 0.22) / 1.05);
-        lifeA = Math.min(this.tier === 'low' ? 0.24 : 0.2, lifeA) * (0.4 + 0.6 * trail) * spread * roof;
+        const spread = 1 - Math.min(1, Math.max(0, away - 0.16) / 0.32);
+        const roof = 1 - Math.min(1, Math.max(0, lift - 0.4) / 1.15);
+        lifeA = Math.min(this.tier === 'low' ? 0.32 : 0.28, lifeA) * (0.48 + 0.52 * trail) * spread * roof;
         // A car down the block must not stamp discs onto the grate or the flare.
         if (dist > 10) lifeA *= Math.max(0, 1 - (dist - 10) / 8);
         heat = 0;
       } else if (p.kind === 5) {
         // Low is a short cloud on the lid. Medium and above stay a little smaller
         // so the wisp does not become a disc on the lit wall.
-        size = Math.min(Math.max(size, this.tier === 'low' ? 0.14 : 0.1), this.tier === 'low' ? 0.2 : 0.18);
+        size = Math.min(Math.max(size, 0.09), this.tier === 'low' ? 0.13 : 0.16);
         const away = Math.hypot(p.x - p.ox, p.z - p.oz);
-        lifeA *= 1 - Math.min(1, Math.max(0, away - (this.tier === 'low' ? 0.24 : 0.3)) / 0.45);
-        if (this.tier === 'low') lifeA = Math.min(0.86, lifeA * 1.35);
-        else lifeA = Math.min(0.7, lifeA * 1.12);
+        lifeA *= 1 - Math.min(1, Math.max(0, away - (this.tier === 'low' ? 0.2 : 0.28)) / 0.4);
+        if (this.tier === 'low') lifeA = Math.min(0.75, lifeA * 1.12);
+        else lifeA = Math.min(0.66, lifeA * 1.16);
       } else if (p.kind === 1) {
         size = Math.min(size, Math.max(2.5, dist * 0.06));
       }
@@ -482,7 +482,7 @@ export class SmokeField {
       move[o + 2] = stretch.z;
       // Low exhaust stretched toward a ribbon, and the ribbon's sides were the
       // facets. The rise axis is unchanged.
-      const lowStretch = p.kind === 6 ? 1.28 : p.kind === 5 ? 1.35 : stretch.w;
+      const lowStretch = p.kind === 6 ? 1.45 : p.kind === 5 ? 1.28 : stretch.w;
       move[o + 3] = this.tier === 'low' && (p.kind === 6 || p.kind === 5) ? Math.min(stretch.w, lowStretch) : stretch.w;
     }
     this.puff.needsUpdate = true;

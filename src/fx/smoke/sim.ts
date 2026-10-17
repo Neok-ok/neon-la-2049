@@ -339,10 +339,10 @@ export class SmokePool {
         p.heat = 0;
         p.shade = 0.84 + r.next() * 0.2;
         p.alpha = m.alpha * (0.8 + r.next() * 0.25) * (1 - along * 0.35);
-        const width = 0.13 * (0.85 + r.next() * 0.35);
+        const width = 0.095 * (0.85 + r.next() * 0.3);
         p.size0 = width;
-        p.size1 = width * (1.18 + r.next() * 0.3);
-        p.vy = m.rise * (0.4 + r.next() * 0.28);
+        p.size1 = width * (1.12 + r.next() * 0.22);
+        p.vy = m.rise * (0.26 + r.next() * 0.14);
         p.vx = Math.cos(ang) * (0.02 + r.next() * 0.05);
         p.vz = Math.sin(ang) * (0.02 + r.next() * 0.05);
         p.spin = r.next() * Math.PI * 2;
@@ -395,18 +395,18 @@ export class SmokePool {
       p.vx = m.vx - fx * exit + rx * side;
       p.vz = m.vz - fz * exit + rz * side;
       // A hard rise made a chimney. This still climbs, and it thins as it goes.
-      p.vy = 0.55 + r.next() * 0.32;
+      p.vy = 0.72 + r.next() * 0.34;
       p.along = r.next() * 0.06;
       // Backward axis. The step keeps a drift into clear air so the plume
       // is not painted onto the trunk and depth-tested away.
       p.offS = -fx;
       p.offD = -fz;
       p.age = r.next() * p.life * 0.2;
-      const pipe = (scale >= 1.3 ? 0.95 : scale >= 1.05 ? 0.88 : 0.8) * (m.size0 > 0.08 ? 0.055 : 0.04);
-      p.size0 = pipe * (0.75 + r.next() * 0.4);
-      p.size1 = pipe * (1.7 + r.next() * 0.9);
-      p.alpha = m.alpha * (0.4 + r.next() * 0.28);
-      p.shade = 0.5 + r.next() * 0.28;
+      const pipe = (scale >= 1.3 ? 1.05 : scale >= 1.05 ? 0.95 : 0.85) * (m.size0 > 0.08 ? 0.065 : 0.048);
+      p.size0 = pipe * (0.85 + r.next() * 0.35);
+      p.size1 = pipe * (2.1 + r.next() * 1.0);
+      p.alpha = m.alpha * (0.5 + r.next() * 0.28);
+      p.shade = 0.58 + r.next() * 0.24;
       p.heat = 0;
       p.spin = r.next() * Math.PI * 2;
       p.spinRate = (r.next() - 0.5) * 0.9;
@@ -462,9 +462,9 @@ export class SmokePool {
         const h = Math.max(0, p.y - p.floor);
         const c = curlNoise(p.x * 1.15 + p.seed * 0.2, p.y * 0.9 + p.age * 0.35, p.z * 1.15, p.seed + 2.2);
         // Curl grows with height so the plume opens and feathers instead of staying a rope.
-        const amp = 0.14 + Math.min(0.7, h * 0.42);
-        const back = 0.1;
-        const rise = (0.62 * (1 - u * 0.45) + 0.1) * (1 - rain * 0.12);
+        const amp = 0.08 + Math.min(0.32, h * 0.18);
+        const back = 0.12;
+        const rise = (0.82 * (1 - u * 0.32) + 0.12) * (1 - rain * 0.1);
         p.vy = approach(p.vy, rise + c.y * 0.35, dt, 0.22);
         p.vx = approach(p.vx, p.offS * back + wx * 0.04 + c.x * amp, dt, 0.26);
         p.vz = approach(p.vz, p.offD * back + wz * 0.04 + c.z * amp, dt, 0.26);
@@ -493,7 +493,7 @@ export class SmokePool {
         const h = Math.max(0, p.y - p.floor);
         const c = curlNoise(p.x * 3.2 + p.seed * 0.2, p.y * 3.2 + p.age * 0.7, p.z * 3.2, p.seed);
         const amp = 0.12 + Math.min(0.34, h * 0.55);
-        const rise = p.rise * (0.62 - u * 0.28) * (1 - rain * 0.08);
+        const rise = p.rise * (0.32 - u * 0.1) * (1 - rain * 0.08);
         p.vx = approach(p.vx, wx * 0.04 + c.x * amp, dt, 0.28);
         p.vz = approach(p.vz, wz * 0.04 + c.z * amp, dt, 0.28);
         p.vy = approach(p.vy, rise + c.y * amp * 0.45, dt, 0.26);
@@ -620,7 +620,7 @@ export function billboardStretch(p: Puff, windDir: number, plumeUp: Xyz): { x: n
       x: kx,
       y: ky,
       z: kz,
-      w: Math.min(1.28, 1.02 + p.seed * 0.1 + p.along * 0.16),
+      w: Math.min(1.48, 1.08 + p.seed * 0.12 + p.along * 0.26),
     };
   }
   if (p.kind === KIND.stack) {
