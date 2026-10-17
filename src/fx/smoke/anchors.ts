@@ -79,10 +79,10 @@ function heroMouths(layout: CityLayout): Mouth[] {
     const dy = s.y - ground;
     if (near) {
       out.push(mouth({
-        x: s.x, y: s.y, z: s.z, kind: KIND.stall, weight: 5, life: 0.72,
-        size0: 0.045, size1: 0.07, heat: 0, radius: 0.12,
-        rise: 0.34, spread: 0.012, floor: s.y - 0.02, wind: 0.015,
-        turb: 0.28, aspect: 1, alpha: 0.7,
+        x: s.x, y: s.y, z: s.z, kind: KIND.stall, weight: 5, life: 1.7,
+        size0: 0.1, size1: 0.18, heat: 0, radius: 0.12,
+        rise: 0.42, spread: 0.05, floor: s.y - 0.02, wind: 0.04,
+        turb: 0.8, aspect: 1, alpha: 0.9,
       }));
     } else if (dy < 0.55) {
       // Baseline courtyard card. The visible plate is marketPlates.
@@ -178,22 +178,30 @@ export function gatherMouths(
   for (const g of nearestSources(steam, x, z, GRATE_KEEP[tier], KIND.grate)) out.push(g);
   for (const v of nearestSources(steam, x, z, VENT_KEEP[tier], KIND.vent)) out.push(v);
   const stalls = nearestSources(steam, x, z, 2, KIND.stall);
-  for (const s of stalls) out.push({ ...s, weight: 4 });
+  for (let i = 0; i < stalls.length; i++) out.push({ ...stalls[i]!, weight: i === 0 ? 7 : 1.1 });
+  for (const m of exhaustMouths(tails, tier)) out.push(m);
+  return out;
+}
+
+/** One mouth per nearby bumper. Rebuilt every frame so a moving pipe keeps its plume. */
+export function exhaustMouths(tails: readonly Tailpipe[], tier: Tier): Mouth[] {
   const tailKeep = tier === 'low' ? 3 : tier === 'medium' ? 4 : 5;
+  const out: Mouth[] = [];
   for (let i = 0; i < tails.length && i < tailKeep; i++) {
     const t = tails[i]!;
     const heavy = t.heavy > 0;
-    // One pipe, off the centreline, still on the bumper. The wake is drawn behind it.
     const px = -t.fz;
     const pz = t.fx;
-    const pipe = heavy ? 0.42 : 0.32;
+    const pipe = heavy ? 0.48 : 0.36;
+    // Clear of the rear face. A puff born in the bumper is depth-tested away.
+    const back = 0.34;
     out.push(mouth({
-      x: t.x + px * pipe, y: t.y + 0.02, z: t.z + pz * pipe, kind: KIND.exhaust,
-      weight: i === 0 ? 8 : 0.35,
-      life: 1.35,
-      size0: heavy ? 0.07 : 0.048, size1: heavy ? 0.1 : 0.07, heat: 0,
-      radius: 0.04, rise: 0.08, spread: 0.01, floor: t.y, wind: 0,
-      turb: 0.35, aspect: 1, alpha: 0.62,
+      x: t.x - t.fx * back + px * pipe, y: t.y + 0.18, z: t.z - t.fz * back + pz * pipe, kind: KIND.exhaust,
+      weight: i === 0 ? 12 : 0.25,
+      life: 2.05,
+      size0: heavy ? 0.16 : 0.11, size1: heavy ? 0.55 : 0.38, heat: 0,
+      radius: 0.05, rise: 0.85, spread: 0.08, floor: t.y, wind: 0.08,
+      turb: 0.9, aspect: 1, alpha: 0.78,
       vx: t.vx, vz: t.vz, fx: t.fx, fz: t.fz,
     }));
   }
@@ -331,20 +339,18 @@ export function launchPose(layout: CityLayout): SmokePose | null {
 export function exhaustPose(layout: CityLayout, tails: readonly Tailpipe[]): SmokePose | null {
   const t = tails[0];
   if (!t) return null;
-  // Rear quarter, not down the pipe. A chase along the trail turns every
-  // stretched billboard into a disc the width of the bumper. From the side
-  // the wake lies across the frame and the stretch reads.
-  const dist = 1.7;
-  const side = 1.62;
+  // Close enough that a metre of plume is the subject, with the street still in frame.
+  const dist = 5.1;
+  const side = 2.05;
   const rx = -t.fz;
   const rz = t.fx;
   const fx = t.x - t.fx * dist + rx * side;
   const fz = t.z - t.fz * dist + rz * side;
   const ground = layout.heightAt(fx, fz);
-  const eye = 0.78;
-  const lookX = t.x - t.fx * 0.72 + rx * 0.06;
-  const lookZ = t.z - t.fz * 0.72 + rz * 0.06;
-  const lookY = t.y + 0.04;
+  const eye = 1.4;
+  const lookX = t.x - t.fx * 1.2;
+  const lookZ = t.z - t.fz * 1.2;
+  const lookY = t.y + 0.78;
   return {
     x: fx, y: ground + eye, z: fz,
     heading: Math.atan2(lookX - fx, -(lookZ - fz)),
@@ -352,6 +358,7 @@ export function exhaustPose(layout: CityLayout, tails: readonly Tailpipe[]): Smo
     mode: 'walk',
     lock: true,
     eye,
+    fov: 30,
     feet: { x: fx, y: ground, z: fz },
   };
 }

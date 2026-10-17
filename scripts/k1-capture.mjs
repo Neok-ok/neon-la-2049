@@ -164,6 +164,10 @@ async function settle(page, shot) {
           await wait(0);
         }
       };
+      if (name === 'traffic') {
+        window.__nla.smokeView('exhaust');
+        window.__nla.smokeRewarm?.();
+      }
       await pump(8);
       if (name === 'launch') {
         window.__nla.smokeView('launch');

@@ -70,7 +70,7 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const auv = vec2(col.div(4.0), row.div(2.0)).add(suv.mul(vec2(0.25, 0.5)));
       const n = mask.sample(auv);
       const rad = length(suv.sub(0.5));
-      // tint.w: 0 plume, 0.72 stack, 0.84 exhaust streak, 0.93 stall wisp, 1 grate.
+      // tint.w: 0 plume, 0.5 soft puff, 0.72 stack, 1 grate and vent.
       const softBody = tint.w;
       const edgeIn = mix(float(0.14), float(0.0), softBody);
       const edgeOut = mix(float(0.8), float(0.58), softBody);
@@ -94,27 +94,25 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const edgeWide = float(1).sub(smoothstep(float(0.02), float(0.7), rad));
       const edgeSteam = mix(edgeDisc, edgeWide, columnSoft);
       const edgeRound = mix(edgeSteam, edgePlume, plumeK);
-      // Exhaust and stall are streaks along the billboard's long axis (uv.y).
-      // The cross-axis pinch is what keeps a puff from reading as a disc.
-      const spine = n.r.sub(0.5).mul(0.42);
-      const across = abs(suv.x.sub(float(0.5)).sub(spine.mul(suv.y.mul(0.7).add(0.15))));
-      const streakPinch = exp(across.mul(across).mul(float(-14)));
-      const wispPinch = exp(across.mul(across).mul(float(-16)));
-      const tip = smoothstep(float(0.0), float(0.14), suv.y).mul(float(1).sub(smoothstep(float(0.55), float(0.98), suv.y)));
-      const wispTip = smoothstep(float(0.0), float(0.06), suv.y).mul(float(1).sub(smoothstep(float(0.78), float(0.99), suv.y)));
-      const streakEdge = streakPinch.mul(tip).mul(float(0.4).add(n.g.mul(0.75)));
-      const wispEdge = wispPinch.mul(wispTip).mul(float(0.62).add(n.g.mul(0.45)));
-      const streakK = smoothstep(float(0.78), float(0.83), softBody).mul(float(1).sub(smoothstep(float(0.87), float(0.91), softBody)));
-      const wispK = smoothstep(float(0.88), float(0.92), softBody).mul(float(1).sub(smoothstep(float(0.96), float(0.995), softBody)));
-      const edge = mix(mix(edgeRound, wispEdge, wispK), streakEdge, streakK);
+      // Soft puff (stall, exhaust). Noise-warped body, not a pinched ribbon.
+      // The same idea as the plume mask, sized to one sprite: Lorach's soft
+      // edge is applied later against the depth buffer.
+      const puffK = smoothstep(float(0.42), float(0.48), softBody).mul(float(1).sub(smoothstep(float(0.56), float(0.64), softBody)));
+      const puffWarp = vec2(n.r.sub(0.5).mul(0.7).add(n.g.sub(0.5).mul(0.22)), n.g.sub(0.5).mul(0.62));
+      const puffR = length(suv.sub(0.5).add(puffWarp));
+      const puffBreak = n.r.mul(n.g);
+      const puffBody = float(1).sub(smoothstep(float(0.0), float(0.5).add(puffBreak.mul(0.2)), puffR));
+      const puffTear = smoothstep(float(0.62), float(0.9), n.g).mul(smoothstep(float(0.28), float(0.62), rad));
+      const puffCorner = float(1).sub(smoothstep(float(0.4), float(0.66), rad));
+      const puffEdge = puffBody.mul(float(1).sub(puffTear.mul(0.78))).mul(puffCorner).mul(float(0.62).add(lobe.mul(0.55)));
+      const edge = mix(edgeRound, puffEdge, puffK);
       const torn = mix(n.r, n.r.mul(float(0.55).add(n.g.mul(0.7))), smokeDetail);
       const frayRound = mix(float(1), float(0.5).add(n.g.mul(0.7)), softBody);
-      const streakK2 = max(wispK, streakK);
-      const fray = mix(frayRound, float(0.82).add(n.g.mul(0.22)), streakK2);
+      const fray = mix(frayRound, float(0.88).add(n.g.mul(0.2)), puffK);
       const grain = float(0.42).add(n.g.mul(0.78));
-      const grainUse = mix(grain, float(0.72).add(n.g.mul(0.4)), streakK2);
-      const tornUse = mix(torn, float(0.62).add(torn.mul(0.38)), streakK2);
-      const shapePow = mix(mix(float(0.8), float(1.15), columnSoft), float(1.35), plumeK);
+      const grainUse = mix(grain, float(0.78).add(n.g.mul(0.3)), puffK);
+      const tornUse = mix(torn, float(0.88).add(torn.mul(0.18)), puffK);
+      const shapePow = mix(mix(mix(float(0.8), float(1.15), columnSoft), float(1.35), plumeK), float(0.62), puffK);
       const shape = pow(max(tornUse.mul(edge).mul(grainUse).mul(fray), float(0)), shapePow);
       const size = max(puff.w, float(0.4));
       // Soft particles, NVIDIA / Lorach, the same curve as three's softParticles().
@@ -165,7 +163,7 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const mottled = float(0.48).add(n.r.mul(0.4)).add(n.g.mul(0.46));
       const lampShade = float(0.55).add(n.r.mul(0.7));
       // Grate is tint.w = 1. Stall wisps sit at 0.93 and still take the pool.
-      const steam = max(smoothstep(float(0.9), float(0.99), softBody), wispK);
+      const steam = max(smoothstep(float(0.9), float(0.99), softBody), puffK);
       const rgb = albedo.mul(authoredLiftU).mul(smokeBody).mul(phase).mul(underK)
         .add(lit.mul(smokeLamp).mul(lampK).mul(float(0.45).add(under)).mul(lampShade))
         .add(scatter.mul(lampK).mul(float(0.35)).mul(lampShade))

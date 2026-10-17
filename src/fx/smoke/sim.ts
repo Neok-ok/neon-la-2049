@@ -44,6 +44,68 @@ function curl(seed: number, age: number, h: number): { x: number; y: number; z: 
   };
 }
 
+function lattice(ix: number, iy: number, iz: number, seed: number): number {
+  let n = Math.imul(ix, 374761393) ^ Math.imul(iy, 668265263) ^ Math.imul(iz, 1274126177) ^ Math.imul(seed, 2246822519);
+  n = Math.imul(n ^ (n >>> 13), 1274126177);
+  return ((n ^ (n >>> 16)) >>> 0) / 4294967296;
+}
+
+function fade(t: number): number {
+  return t * t * (3 - 2 * t);
+}
+
+/** Trilinear value noise. One octave: the eddy is the wisp, not a second ribbon. */
+function vnoise(x: number, y: number, z: number, seed: number): number {
+  const x0 = Math.floor(x);
+  const y0 = Math.floor(y);
+  const z0 = Math.floor(z);
+  const fx = fade(x - x0);
+  const fy = fade(y - y0);
+  const fz = fade(z - z0);
+  const s = seed | 0;
+  const n000 = lattice(x0, y0, z0, s);
+  const n100 = lattice(x0 + 1, y0, z0, s);
+  const n010 = lattice(x0, y0 + 1, z0, s);
+  const n110 = lattice(x0 + 1, y0 + 1, z0, s);
+  const n001 = lattice(x0, y0, z0 + 1, s);
+  const n101 = lattice(x0 + 1, y0, z0 + 1, s);
+  const n011 = lattice(x0, y0 + 1, z0 + 1, s);
+  const n111 = lattice(x0 + 1, y0 + 1, z0 + 1, s);
+  const x00 = n000 + (n100 - n000) * fx;
+  const x10 = n010 + (n110 - n010) * fx;
+  const x01 = n001 + (n101 - n001) * fx;
+  const x11 = n011 + (n111 - n011) * fx;
+  const y0v = x00 + (x10 - x00) * fy;
+  const y1v = x01 + (x11 - x01) * fy;
+  return y0v + (y1v - y0v) * fz;
+}
+
+/**
+ * Curl of a vector potential sampled from value noise.
+ * Bridson, "Curl-Noise for Procedural Fluid Flow": the finite-difference
+ * curl is divergence-free, so puffs loop instead of lining up on a streak.
+ * Returned at roughly unit length so the caller sets metres per second.
+ */
+export function curlNoise(x: number, y: number, z: number, seed: number): Xyz {
+  const e = 0.22;
+  const s = (Math.floor(seed * 997) | 0) || 1;
+  const pot = (px: number, py: number, pz: number) => ({
+    x: vnoise(px, py, pz, s + 3),
+    y: vnoise(px + 5.2, py, pz, s + 19),
+    z: vnoise(px, py + 4.4, pz + 2.2, s + 41),
+  });
+  const p0 = pot(x, y, z);
+  const px = pot(x + e, y, z);
+  const py = pot(x, y + e, z);
+  const pz = pot(x, y, z + e);
+  const inv = 1 / e;
+  const cx = (py.z - p0.z - (pz.y - p0.y)) * inv;
+  const cy = (pz.x - p0.x - (px.z - p0.z)) * inv;
+  const cz = (px.y - p0.y - (py.x - p0.x)) * inv;
+  const len = Math.hypot(cx, cy, cz) || 1;
+  return { x: cx / len, y: cy / len, z: cz / len };
+}
+
 /** Bounded gust so a column frays instead of sliding as one ribbon. */
 function gust(seed: number, age: number, h: number): { x: number; y: number; z: number } {
   const a = age * 1.7 + seed * 12.3;
@@ -226,25 +288,28 @@ export class SmokePool {
       p.size1 *= (0.8 + along * 0.4) * bulge;
     }
     if (m.kind === KIND.stall) {
-      const filament = Math.floor(r.next() * 3);
-      const ang = filament * (Math.PI * 2 / 3) + (r.next() - 0.5) * 0.28;
-      // A few rising filaments on the rim. A filled disc above the pot was a bank.
-      const along = Math.pow(r.next(), 1.7);
+      // Independent birth on the rim. Three shared angles became three ribbons.
+      const ang = r.next() * Math.PI * 2;
+      const rim = 0.02 + Math.sqrt(r.next()) * 0.1;
+      const along = Math.pow(r.next(), 1.15);
       p.along = along;
-      const rim = 0.09 + r.next() * 0.04;
       p.ox = m.x + Math.cos(ang) * rim;
       p.oz = m.z + Math.sin(ang) * rim;
-      p.x = p.ox + Math.sin(along * 9 + filament) * 0.012;
-      p.z = p.oz + Math.cos(along * 8 + filament * 1.3) * 0.01;
-      p.y = m.y + along * 0.38;
-      p.age = along * p.life * 0.92;
+      p.x = p.ox;
+      p.z = p.oz;
+      p.y = m.y + 0.03 + along * 0.05;
+      p.age = r.next() * p.life * 0.8;
       p.heat = 0;
-      p.shade = 1.05 + r.next() * 0.2;
-      p.alpha *= (0.95 + r.next() * 0.25) * Math.pow(1 - along, 0.62);
-      const width = (scale >= 1.3 ? 0.055 : scale >= 1.05 ? 0.048 : 0.044) * (0.85 + r.next() * 0.3);
+      p.shade = 0.78 + r.next() * 0.28;
+      p.alpha = m.alpha * (0.55 + r.next() * 0.4) * (1 - along * 0.25);
+      const width = (scale >= 1.3 ? 0.13 : scale >= 1.05 ? 0.11 : 0.095) * (0.7 + r.next() * 0.55);
       p.size0 = width;
-      p.size1 = width * (1.05 + along * 0.25);
-      p.vy = m.rise * (0.75 + r.next() * 0.4);
+      p.size1 = width * (1.35 + r.next() * 0.7);
+      p.vy = m.rise * (0.75 + r.next() * 0.7);
+      p.vx = Math.cos(ang) * (0.02 + r.next() * 0.05);
+      p.vz = Math.sin(ang) * (0.02 + r.next() * 0.05);
+      p.spin = r.next() * Math.PI * 2;
+      p.spinRate = (r.next() - 0.5) * 1.1;
     }
     if (m.kind === KIND.grate || m.kind === KIND.vent) {
       const grate = m.kind === KIND.grate;
@@ -273,26 +338,39 @@ export class SmokePool {
       p.alpha *= (0.55 + (1 - along) * 0.28) * (0.62 + falloff * 0.38);
     }
     if (m.kind === KIND.exhaust) {
-      // Three braided filaments behind one pipe. Equal slices stacked into a card.
-      const filament = Math.floor(r.next() * 3);
-      const along = Math.min(0.98, Math.pow(r.next(), 0.78));
-      p.along = along;
-      p.offS = filament;
+      // Born in the pipe, then integrated. A locked lane was a ribbon on the road.
       const fl = Math.hypot(m.fx, m.fz) || 1;
-      p.vx = m.fx / fl;
-      p.vz = m.fz / fl;
-      p.vy = 0;
+      const fx = m.fx / fl;
+      const fz = m.fz / fl;
+      const rx = -fz;
+      const rz = fx;
+      const ang = r.next() * Math.PI * 2;
+      const rad = Math.sqrt(r.next()) * (m.size0 > 0.08 ? 0.05 : 0.032);
       p.ox = m.x;
       p.oz = m.z;
       p.floor = m.y;
-      const pipe = (scale >= 1.3 ? 1.15 : scale >= 1.05 ? 1.05 : 1) * (m.size0 > 0.06 ? 0.075 : 0.052);
-      p.size0 = pipe * (0.82 + r.next() * 0.32);
-      p.size1 = pipe * (1.02 + along * 0.4);
-      const fade = Math.pow(1 - along * 0.9, 1.25);
-      p.alpha *= fade * (0.7 + r.next() * 0.35);
-      p.shade = 0.78 + r.next() * 0.28;
+      p.x = m.x + rx * Math.cos(ang) * rad;
+      p.z = m.z + rz * Math.cos(ang) * rad;
+      p.y = m.y + 0.03 + r.next() * 0.05;
+      const exit = 0.7 + r.next() * 1.15;
+      const side = (r.next() - 0.5) * 0.4;
+      p.vx = m.vx - fx * exit + rx * side;
+      p.vz = m.vz - fz * exit + rz * side;
+      p.vy = 0.55 + r.next() * 0.6;
+      p.along = r.next() * 0.08;
+      // Backward axis. The step keeps a drift into clear air so the plume
+      // is not painted onto the trunk and depth-tested away.
+      p.offS = -fx;
+      p.offD = -fz;
+      p.age = r.next() * p.life * 0.12;
+      const pipe = (scale >= 1.3 ? 1.25 : scale >= 1.05 ? 1.08 : 1) * (m.size0 > 0.08 ? 0.11 : 0.075);
+      p.size0 = pipe * (0.65 + r.next() * 0.5);
+      p.size1 = pipe * (2.2 + r.next() * 1.8);
+      p.alpha = m.alpha * (0.62 + r.next() * 0.35);
+      p.shade = 0.72 + r.next() * 0.32;
       p.heat = 0;
-      this.placeExhaust(p);
+      p.spin = r.next() * Math.PI * 2;
+      p.spinRate = (r.next() - 0.5) * 0.9;
     }
     if (m.kind === KIND.ground && plume && plume.live) {
       // Skirt outside the shaft. A ring through the foot stacks into a slab.
@@ -340,7 +418,23 @@ export class SmokePool {
         continue;
       }
       if (p.kind === KIND.exhaust) {
-        this.placeExhaust(p);
+        const u = p.age / Math.max(0.2, p.life);
+        p.along = Math.min(0.98, u);
+        const h = Math.max(0, p.y - p.floor);
+        const c = curlNoise(p.x * 1.35 + p.seed * 0.15, p.y * 1.35 + p.age * 0.45, p.z * 1.35, p.seed + 2.2);
+        const amp = 0.32 + Math.min(0.55, h * 0.28);
+        const back = 0.72;
+        const rise = (0.8 + (1 - u) * 0.28) * (1 - rain * 0.1);
+        p.vy = approach(p.vy, rise + c.y * 0.2, dt, 0.28);
+        p.vx = approach(p.vx, p.offS * back + wx * 0.04 + c.x * amp, dt, 0.32);
+        p.vz = approach(p.vz, p.offD * back + wz * 0.04 + c.z * amp, dt, 0.32);
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.z += p.vz * dt;
+        if (p.y < p.floor + 0.02) {
+          p.y = p.floor + 0.02;
+          p.vy = Math.max(0.2, Math.abs(p.vy));
+        }
         list[w++] = p;
         continue;
       }
@@ -349,14 +443,13 @@ export class SmokePool {
       const sink = rain * (p.kind === KIND.ground ? 0.15 : 0.45);
       const phase = p.seed * 6.28;
       if (p.kind === KIND.stall) {
-        const n = gust(p.seed, p.age, p.y - p.floor);
-        const c = curl(p.seed, p.age * 1.6, p.y - p.floor);
-        const sway = Math.sin(p.age * 6.2 + phase) * 0.012;
-        p.vx = approach(p.vx, (p.ox + sway - p.x) * 7 + n.x * 0.1 + c.x * 0.08, dt, 0.05);
-        p.vz = approach(p.vz, (p.oz + sway * 0.7 - p.z) * 7 + n.z * 0.1 + c.z * 0.08, dt, 0.05);
-        // Keep rising off the rim. A cap piled the vapor into a bank under the sign.
-        const rise = p.rise * (1.05 - u * 0.45);
-        p.vy = approach(p.vy, rise + n.y * 0.04, dt, 0.08);
+        const h = Math.max(0, p.y - p.floor);
+        const c = curlNoise(p.x * 3.2 + p.seed * 0.2, p.y * 3.2 + p.age * 0.7, p.z * 3.2, p.seed);
+        const amp = 0.12 + Math.min(0.34, h * 0.55);
+        const rise = p.rise * (1.15 - u * 0.55) * (1 - rain * 0.08);
+        p.vx = approach(p.vx, wx * 0.04 + c.x * amp, dt, 0.28);
+        p.vz = approach(p.vz, wz * 0.04 + c.z * amp, dt, 0.28);
+        p.vy = approach(p.vy, rise + c.y * amp * 0.45, dt, 0.26);
       } else if (p.kind === KIND.grate || p.kind === KIND.vent) {
         const h = Math.max(0, p.y - p.floor);
         const h01 = Math.min(1, h / 3.0);
@@ -393,36 +486,6 @@ export class SmokePool {
       list[w++] = p;
     }
     list.length = w;
-  }
-
-  /**
-   * Thin filaments behind the pipe. They stretch back, fray, and stay
-   * inside a hand's width of the bumper line. A filled volume there was one card.
-   */
-  private placeExhaust(p: Puff): void {
-    const along = Math.min(0.98, p.along);
-    let fx = p.vx;
-    let fz = p.vz;
-    const fl = Math.hypot(fx, fz);
-    if (fl < 1e-4) {
-      fx = 0;
-      fz = 1;
-    } else {
-      fx /= fl;
-      fz /= fl;
-    }
-    const rx = -fz;
-    const rz = fx;
-    const filament = Math.round(p.offS);
-    const n = gust(p.seed, p.age * 1.35 + filament * 1.7, along * 5);
-    const c = curl(p.seed + filament * 2.1, p.age * 0.9, along * 3.2);
-    const back = 0.06 + along * 1.55 + n.z * along * 0.08;
-    const climb = 0.015 + along * along * 0.22 + Math.abs(n.y) * 0.03;
-    const lane = (filament - 1) * 0.06;
-    const side = lane + (n.x * 0.85 + c.x * 0.55) * along * 0.18;
-    p.x = p.ox - fx * back + rx * side;
-    p.y = p.floor + climb + c.y * along * 0.03;
-    p.z = p.oz - fz * back + rz * side;
   }
 
   /** Hold a vertical column on the pad. Lobes drift, the nozzle stays put. */
@@ -471,4 +534,63 @@ export class SmokePool {
   kindCount(kind: KindId): number {
     return this.kindN[kind] ?? 0;
   }
+
+  /** Drop one kind when its mouth jumps to another bumper. */
+  dropKind(kind: KindId): void {
+    const list = this.live;
+    let w = 0;
+    for (let i = 0; i < list.length; i++) {
+      const p = list[i]!;
+      if (p.kind === kind) {
+        this.kindN[kind]!--;
+        this.free.push(p);
+        continue;
+      }
+      list[w++] = p;
+    }
+    list.length = w;
+  }
+}
+
+/**
+ * World axis the billboard stretches along, plus the stretch factor.
+ * Stall and exhaust stay near square. A factor of six is a ribbon.
+ */
+export function billboardStretch(p: Puff, windDir: number, plumeUp: Xyz): { x: number; y: number; z: number; w: number } {
+  const jitter = 0.94 + p.seed * 0.12;
+  if (p.kind === KIND.launch) {
+    return { x: plumeUp.x, y: plumeUp.y, z: plumeUp.z, w: (1.45 + p.along * 0.55) * jitter };
+  }
+  if (p.kind === KIND.exhaust) {
+    const sp = Math.hypot(p.vx, p.vy, p.vz);
+    const kx = sp > 0.08 ? p.vx / sp : 0;
+    const kz = sp > 0.08 ? p.vz / sp : 0;
+    return {
+      x: kx * 0.4,
+      y: 1,
+      z: kz * 0.4,
+      w: Math.min(1.65, (1.05 + p.seed * 0.35) * (1 + p.along * 0.28)),
+    };
+  }
+  if (p.kind === KIND.stack) {
+    const wx = Math.cos(windDir) * 0.55;
+    const wz = Math.sin(windDir) * 0.55;
+    const billow = 0.82 + p.seed * 0.36;
+    return { x: wx, y: 1, z: wz, w: (1.15 + p.along * 0.7) * billow };
+  }
+  if (p.kind === KIND.stall) {
+    return {
+      x: Math.sin(p.seed * 12.7 + p.age * 0.8) * 0.38,
+      y: 1,
+      z: Math.cos(p.seed * 9.1 + p.age * 0.5) * 0.38,
+      w: Math.min(1.75, (1.05 + p.seed * 0.45) * (1 + p.along * 0.3)),
+    };
+  }
+  if (p.kind === KIND.grate || p.kind === KIND.vent) {
+    const h = Math.min(1, Math.max(0, (p.y - p.floor) / 3.05));
+    const wx = Math.cos(windDir) * h * 0.7;
+    const wz = Math.sin(windDir) * h * 0.7;
+    return { x: wx, y: 1, z: wz, w: (1.04 + h * 0.38) * jitter };
+  }
+  return { x: 0, y: 1, z: 0, w: 1.2 * jitter };
 }

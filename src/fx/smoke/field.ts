@@ -14,11 +14,11 @@ import { setLaunchColumnCover } from '../../districts/lax-spaceport/launch';
 import { setFlareSmokeCover } from '../../districts/_shared/refinery/flames';
 import { readLaunchPlume } from './bridge';
 import { smokeDetail, smokeMaterial } from './material';
-import { launchStretchAxis, SmokePool, type Wind } from './sim';
+import { billboardStretch, launchStretchAxis, SmokePool, type Wind } from './sim';
 import { PUFF_CAP, PUFF_DETAIL, PUFF_SCALE, aliveBudget } from './tiers';
-import { KIND_NAME, type Mouth, type Puff, type SmokeSnapshot } from './types';
+import { KIND_NAME, type Mouth, type SmokeSnapshot } from './types';
 import {
-  exhaustPose, gatherMouths, launchPose, stallPose, streetSteamPose, type SmokePose, type Tailpipe,
+  exhaustMouths, exhaustPose, gatherMouths, launchPose, stallPose, streetSteamPose, type SmokePose, type Tailpipe,
 } from './anchors';
 
 const TINT: Record<(typeof KIND_NAME)[number], [number, number, number]> = {
@@ -28,12 +28,12 @@ const TINT: Record<(typeof KIND_NAME)[number], [number, number, number]> = {
   vent: [0.78, 0.8, 0.84],
   grate: [0.82, 0.84, 0.88],
   stall: [0.9, 0.92, 0.95],
-  exhaust: [0.42, 0.43, 0.44],
+  exhaust: [0.9, 0.91, 0.93],
 };
 
-/** How much practical light this kind takes. Exhaust stays a grey trail. */
+/** How much practical light this kind takes. Exhaust catches the street, not a lamp. */
 function lampOf(kind: number): number {
-  if (kind === 6) return 0.03;
+  if (kind === 6) return 0.28;
   if (kind === 0 || kind === 1) return 0.06;
   if (kind === 2) return 0.42;
   if (kind === 4 || kind === 3) return 0.5;
@@ -70,6 +70,9 @@ export class SmokeField {
   private potKey = '';
   private potMeshes: Mesh[] = [];
   private readonly plumeUp = { x: 0, y: 1, z: 0 };
+  private exhaustX = 0;
+  private exhaustZ = 0;
+  private exhaustOn = false;
   private readonly camDir = new Vector3();
   private readonly forward = { x: 0, y: 0, z: -1 };
 
@@ -113,6 +116,11 @@ export class SmokeField {
     this.holdStep = true;
   }
 
+  /** Grow the plume again after a camera jump. Capture freezes dt, so warm is the only clock. */
+  rewarm(): void {
+    this.warmLeft = WARM_FRAMES;
+  }
+
   pose(kind: 'stall' | 'exhaust' | 'street' | 'launch', layout: CityLayout): SmokePose | null {
     if (kind === 'stall') return stallPose(layout);
     if (kind === 'street') return streetSteamPose(layout);
@@ -149,6 +157,7 @@ export class SmokeField {
       this.mouths = gatherMouths(layout, cam.x, cam.y, cam.z, this.tier, tails);
       this.gatherAt = now;
     }
+    this.refreshExhaust(tails);
     const wind: Wind = { dir: windDir, speed: windSpeed, rain };
     this.windDir = windDir;
     const sub = this.warmLeft > 0 ? 16 : 1;
@@ -171,6 +180,29 @@ export class SmokeField {
     if (this.warmLeft > 0) this.warmLeft--;
     this.syncPots();
     this.upload(cam.x, cam.y, cam.z);
+  }
+
+  /** Tailpipes move. Replace exhaust mouths every frame so the plume stays on the bumper. */
+  private refreshExhaust(tails: readonly Tailpipe[]): void {
+    let w = 0;
+    for (let i = 0; i < this.mouths.length; i++) {
+      if (this.mouths[i]!.kind !== 6) this.mouths[w++] = this.mouths[i]!;
+    }
+    this.mouths.length = w;
+    const next = exhaustMouths(tails, this.tier);
+    for (const m of next) this.mouths.push(m);
+    const hero = next[0];
+    if (hero) {
+      const jump = this.exhaustOn && Math.hypot(hero.x - this.exhaustX, hero.z - this.exhaustZ) > 2.5;
+      if (jump) {
+        this.pool.dropKind(6);
+        this.kindAcc[6] = 0;
+        this.warmLeft = Math.max(this.warmLeft, WARM_FRAMES);
+      }
+      this.exhaustX = hero.x;
+      this.exhaustZ = hero.z;
+      this.exhaustOn = true;
+    }
   }
 
   /** A closed pot on each stall mouth. The dressed cylinder is an open dark ring and does not read. */
@@ -340,12 +372,19 @@ export class SmokeField {
       } else if (p.kind === 2) {
         size *= 0.88 + p.seed * 0.28;
       } else if (p.kind === 6) {
-        size *= 0.9 + p.along * 0.28;
-        size = Math.min(size, this.tier === 'low' ? 0.13 : this.tier === 'medium' ? 0.11 : 0.095);
-        lifeA = Math.min(0.42, lifeA) * (0.34 + 0.66 * Math.pow(1 - Math.min(1, p.along), 1.05));
+        size *= 0.85 + p.along * 1.05;
+        size = Math.min(size, this.tier === 'low' ? 0.72 : this.tier === 'medium' ? 0.58 : 0.46);
+        const away = Math.hypot(p.x - p.ox, p.z - p.oz);
+        const lift = Math.max(0, p.y - p.floor);
+        const trail = Math.pow(1 - Math.min(1, p.along), 0.85);
+        const spread = 1 - Math.min(1, Math.max(0, away - 1.5) / 1.3);
+        const roof = 1 - Math.min(1, Math.max(0, lift - 1.45) / 0.85);
+        lifeA = Math.min(this.tier === 'low' ? 0.58 : 0.46, lifeA) * (0.45 + 0.55 * trail) * spread * roof;
         heat = 0;
       } else if (p.kind === 5) {
-        size = Math.min(size, this.tier === 'low' ? 0.07 : 0.058);
+        size = Math.min(size, this.tier === 'low' ? 0.22 : 0.17);
+        const away = Math.hypot(p.x - p.ox, p.z - p.oz);
+        lifeA *= 1 - Math.min(1, Math.max(0, away - 0.28) / 0.4);
       } else if (p.kind === 1) {
         size = Math.min(size, Math.max(2.5, dist * 0.06));
       }
@@ -364,12 +403,12 @@ export class SmokeField {
         lamp *= 0.4 + belly * 0.55;
         heat = 0;
       } else if (p.kind === 5) {
-        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 0.85));
-        lifeA *= (1 - h * 0.82) * 0.95;
+        const h = Math.min(1, Math.max(0, (p.y - p.floor) / 0.62));
+        lifeA *= (1 - h * 0.42);
         heat = 0;
-        lamp = 0.88;
+        lamp = 0.9;
       } else if (p.kind === 6) {
-        lamp = 0.06;
+        lamp = 0.32;
       }
       shade[o + 1] = (cell + Math.min(0.999, lamp)) / 8;
       shade[o + 2] = heat;
@@ -384,7 +423,7 @@ export class SmokeField {
         const mouth = Math.max(0, 1 - Math.max(0, p.y - p.floor) / 10);
         shadeK *= 0.22 + p.seed * 0.95 + mouth * 0.4;
       } else if (p.kind === 5) {
-        shadeK *= 1.35;
+        shadeK *= 1.2;
       }
       let tr = rgb[0] * shadeK;
       let tg = rgb[1] * shadeK;
@@ -414,9 +453,9 @@ export class SmokeField {
       tint[o] = tr;
       tint[o + 1] = tg;
       tint[o + 2] = tb;
-      // 0 plume, 0.72 stack, 0.84 exhaust streak, 0.93 stall wisp, 1 grate and vent.
-      tint[o + 3] = p.kind === 0 ? 0 : p.kind === 2 ? 0.72 : p.kind === 6 ? 0.84 : p.kind === 5 ? 0.93 : 1;
-      const stretch = this.stretchOf(p);
+      // 0 plume, 0.5 soft puff (stall and exhaust), 0.72 stack, 1 grate and vent.
+      tint[o + 3] = p.kind === 0 ? 0 : p.kind === 2 ? 0.72 : p.kind === 6 || p.kind === 5 ? 0.5 : 1;
+      const stretch = billboardStretch(p, this.windDir, this.plumeUp);
       move[o] = stretch.x;
       move[o + 1] = stretch.y;
       move[o + 2] = stretch.z;
@@ -428,38 +467,6 @@ export class SmokeField {
     this.move.needsUpdate = true;
     this.mesh.count = n;
     this.mesh.visible = n > 0;
-  }
-
-  /** World axis the billboard stretches along, plus the stretch factor. */
-  private stretchOf(p: Puff): { x: number; y: number; z: number; w: number } {
-    const jitter = 0.94 + p.seed * 0.12;
-    if (p.kind === 0) {
-      return { x: this.plumeUp.x, y: this.plumeUp.y, z: this.plumeUp.z, w: (1.45 + p.along * 0.55) * jitter };
-    }
-    if (p.kind === 6) {
-      const L = Math.hypot(p.vx, p.vz) || 1;
-      // Along the wake. The quad is tailpipe-wide; the stretch is the motion smear.
-      return {
-        x: -p.vx / L,
-        y: 0.08 + p.along * 0.16,
-        z: -p.vz / L,
-        w: (2.8 + p.along * 4.4) * jitter,
-      };
-    }
-    if (p.kind === 2) {
-      const wx = Math.cos(this.windDir) * 0.55;
-      const wz = Math.sin(this.windDir) * 0.55;
-      const billow = 0.82 + p.seed * 0.36;
-      return { x: wx, y: 1, z: wz, w: (1.15 + p.along * 0.7) * billow };
-    }
-    if (p.kind === 5) return { x: Math.sin(p.seed * 12) * 0.1, y: 1, z: Math.cos(p.seed * 9) * 0.1, w: (6.2 + p.along * 2.4) * (0.9 + p.seed * 0.16) };
-    if (p.kind === 4 || p.kind === 3) {
-      const h = Math.min(1, Math.max(0, (p.y - p.floor) / 3.05));
-      const wx = Math.cos(this.windDir) * h * 0.7;
-      const wz = Math.sin(this.windDir) * h * 0.7;
-      return { x: wx, y: 1, z: wz, w: (1.04 + h * 0.38) * jitter };
-    }
-    return { x: 0, y: 1, z: 0, w: 1.2 * jitter };
   }
 
   snapshot(): SmokeSnapshot {

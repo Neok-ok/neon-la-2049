@@ -1039,16 +1039,19 @@ export class App {
         : inSoutheast ? Math.max(0, 1 - alt / 110) * 0.5 : 0;
     this.ambience.setMachinery(Math.min(1, districtMach + far.rumble + far.southBay + far.harbor + far.east));
     setRefineryFlame(this.quality.tier, w.windDir, w.params.wind);
+    this.camera.updateMatrixWorld();
+    const e = this.camera.matrixWorld.elements;
+    const aim = 6;
+    const ax = cam.x - e[8] * aim;
+    const az = cam.z - e[10] * aim;
     this.smoke?.update(
       simDt, this.camera, this.query.layout, this.quality.tier,
       w.windDir, w.params.wind, w.params.rain,
-      this.ground.tailpipes(10, cam.x, cam.z, 80),
+      this.ground.tailpipes(6, ax, az, 24),
     );
     this.ambience.setTraffic(this.ground.bed);
     this.ambience.setSurf(coast.surf, coast.impact, coast.crest);
     this.ambience.update(w.params.rain, w.params.snow, w.params.wind, alt, aboveClouds);
-    this.camera.updateMatrixWorld();
-    const e = this.camera.matrixWorld.elements;
     const cook = marketSpots(this.query.layout).noodle?.cook ?? null;
     const hall = far.hall;
     const nearHall = !!hall && inEast && alt < 28 && Math.hypot(cam.x - hall.x, cam.z - hall.z) < 48;
@@ -1631,6 +1634,10 @@ export class App {
       /** X2 cameras: a signalled crossing, the 110 trench, Broadway, a night aerial, the same crossing in rain. */
       smokeSeal: () => {
         this.smoke?.seal();
+        return true;
+      },
+      smokeRewarm: () => {
+        this.smoke?.rewarm();
         return true;
       },
       smokeView: (kind: 'stall' | 'exhaust' | 'street' | 'launch') => {
