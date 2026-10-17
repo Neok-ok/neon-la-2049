@@ -316,7 +316,7 @@ export class SmokePool {
         // Same birth as the passing wisps, filled across the mouth so a ring
         // does not read as a hole, and a few centimetres clear of the lid.
         const ang = r.next() * Math.PI * 2;
-        const rim = Math.sqrt(r.next()) * 0.09;
+        const rim = Math.sqrt(r.next()) * 0.11;
         const along = Math.pow(r.next(), 1.15);
         p.along = along;
         p.ox = m.x + Math.cos(ang) * rim;

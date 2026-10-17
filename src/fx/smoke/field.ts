@@ -393,7 +393,7 @@ export class SmokeField {
       } else if (p.kind === 5) {
         // Medium and above use the cap from the passing still. Low stays
         // smaller; its shader fades with that size instead of a 0.18 m band.
-        size = Math.min(size, this.tier === 'low' ? 0.16 : 0.17);
+        size = Math.min(Math.max(size, this.tier === 'low' ? 0.11 : 0), this.tier === 'low' ? 0.15 : 0.17);
         const away = Math.hypot(p.x - p.ox, p.z - p.oz);
         lifeA *= 1 - Math.min(1, Math.max(0, away - (this.tier === 'low' ? 0.22 : 0.28)) / 0.4);
         if (this.tier === 'low') lifeA = Math.min(0.8, lifeA * 1.2);

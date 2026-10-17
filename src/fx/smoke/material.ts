@@ -184,7 +184,10 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const bandColumn = min(max(size.mul(0.16), min(float(0.18), size.mul(1.2))), float(1.6));
       const card = max(puff.w, float(0.05));
       const bandExhaust = max(card.mul(0.45), float(0.1));
-      const bandLow = clamp(card.mul(mix(float(0.42), float(0.34), exhaustK)), float(0.035), mix(float(0.08), float(0.14), exhaustK));
+      // Stall's band is only the last couple of centimetres. A deeper fade erased
+      // the neck, so the cloud appeared to float above the lid. Exhaust keeps a
+      // wider band against the bumper.
+      const bandLow = clamp(card.mul(mix(float(0.2), float(0.34), exhaustK)), float(0.016), mix(float(0.03), float(0.14), exhaustK));
       const bandHi = mix(bandColumn, bandExhaust, exhaustK);
       const band = mix(bandColumn, mix(bandHi, bandLow, lowK), puffK);
       const contrast = mix(float(1.35), mix(mix(float(1.35), float(1.0), exhaustK), float(1.0), lowK), puffK);
