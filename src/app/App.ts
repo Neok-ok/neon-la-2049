@@ -1041,7 +1041,7 @@ export class App {
     setRefineryFlame(this.quality.tier, w.windDir, w.params.wind);
     this.camera.updateMatrixWorld();
     const e = this.camera.matrixWorld.elements;
-    const aim = 6;
+    const aim = 4.2;
     const ax = cam.x - e[8] * aim;
     const az = cam.z - e[10] * aim;
     this.smoke?.update(

@@ -302,7 +302,7 @@ export class SmokePool {
       p.heat = 0;
       p.shade = 0.78 + r.next() * 0.28;
       p.alpha = m.alpha * (0.55 + r.next() * 0.4) * (1 - along * 0.25);
-      const width = (scale >= 1.3 ? 0.13 : scale >= 1.05 ? 0.11 : 0.095) * (0.7 + r.next() * 0.55);
+      const width = (scale >= 1.3 ? 0.085 : scale >= 1.05 ? 0.1 : 0.09) * (0.75 + r.next() * 0.5);
       p.size0 = width;
       p.size1 = width * (1.35 + r.next() * 0.7);
       p.vy = m.rise * (0.75 + r.next() * 0.7);

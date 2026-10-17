@@ -382,7 +382,7 @@ export class SmokeField {
         lifeA = Math.min(this.tier === 'low' ? 0.58 : 0.46, lifeA) * (0.45 + 0.55 * trail) * spread * roof;
         heat = 0;
       } else if (p.kind === 5) {
-        size = Math.min(size, this.tier === 'low' ? 0.22 : 0.17);
+        size = Math.min(size, this.tier === 'low' ? 0.15 : 0.17);
         const away = Math.hypot(p.x - p.ox, p.z - p.oz);
         lifeA *= 1 - Math.min(1, Math.max(0, away - 0.28) / 0.4);
       } else if (p.kind === 1) {

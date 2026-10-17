@@ -104,7 +104,7 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const puffBody = float(1).sub(smoothstep(float(0.0), float(0.5).add(puffBreak.mul(0.2)), puffR));
       const puffTear = smoothstep(float(0.62), float(0.9), n.g).mul(smoothstep(float(0.28), float(0.62), rad));
       const puffCorner = float(1).sub(smoothstep(float(0.4), float(0.66), rad));
-      const puffEdge = puffBody.mul(float(1).sub(puffTear.mul(0.78))).mul(puffCorner).mul(float(0.62).add(lobe.mul(0.55)));
+      const puffEdge = puffBody.mul(float(1).sub(puffTear.mul(0.48))).mul(puffCorner).mul(float(0.7).add(lobe.mul(0.45)));
       const edge = mix(edgeRound, puffEdge, puffK);
       const torn = mix(n.r, n.r.mul(float(0.55).add(n.g.mul(0.7))), smokeDetail);
       const frayRound = mix(float(1), float(0.5).add(n.g.mul(0.7)), softBody);

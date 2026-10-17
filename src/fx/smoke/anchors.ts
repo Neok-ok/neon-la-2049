@@ -340,17 +340,17 @@ export function exhaustPose(layout: CityLayout, tails: readonly Tailpipe[]): Smo
   const t = tails[0];
   if (!t) return null;
   // Close enough that a metre of plume is the subject, with the street still in frame.
-  const dist = 5.6;
-  const side = 3.3;
+  const dist = 6.0;
+  const side = 2.35;
   const rx = -t.fz;
   const rz = t.fx;
   const fx = t.x - t.fx * dist + rx * side;
   const fz = t.z - t.fz * dist + rz * side;
   const ground = layout.heightAt(fx, fz);
-  const eye = 1.7;
+  const eye = 2.25;
   const lookX = t.x - t.fx * 1.2;
   const lookZ = t.z - t.fz * 1.2;
-  const lookY = t.y + 0.78;
+  const lookY = t.y + 1.05;
   return {
     x: fx, y: ground + eye, z: fz,
     heading: Math.atan2(lookX - fx, -(lookZ - fz)),
@@ -358,7 +358,7 @@ export function exhaustPose(layout: CityLayout, tails: readonly Tailpipe[]): Smo
     mode: 'walk',
     lock: true,
     eye,
-    fov: 34,
+    fov: 30,
     feet: { x: fx, y: ground, z: fz },
   };
 }
