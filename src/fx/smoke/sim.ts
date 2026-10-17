@@ -142,6 +142,8 @@ function billow(along: number, seed: number): number {
 
 export class SmokePool {
   live: Puff[] = [];
+  /** How far up the shaft the plume stays in front of the service tower. */
+  launchFront = 0.14;
   private free: Puff[] = [];
   private rng: Rng;
   readonly kindN = [0, 0, 0, 0, 0, 0, 0];
@@ -548,8 +550,10 @@ export class SmokePool {
     const toCamX = cam.x - plume.x;
     const toCamZ = cam.z - plume.z;
     const cd = Math.hypot(toCamX, toCamZ) || 1;
-    const near = Math.max(0, 1 - along / 0.14);
-    const front = near * 8;
+    // Low keeps the shaft in front of the tower higher up. Above that the
+    // tower cut a dark notch through the column. Medium and above stay at 0.14.
+    const near = Math.max(0, 1 - along / this.launchFront);
+    const front = near * (this.launchFront > 0.2 ? 12 : 8);
     p.x += (toCamX / cd) * front;
     p.z += (toCamZ / cd) * front;
     if (Math.hypot(p.x - cam.x, p.y - cam.y, p.z - cam.z) < 18) p.y += 24;

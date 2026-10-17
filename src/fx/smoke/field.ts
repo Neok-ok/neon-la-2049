@@ -139,6 +139,7 @@ export class SmokeField {
     tails: readonly Tailpipe[],
   ): void {
     if (tier !== this.tier) this.setTier(tier);
+    this.pool.launchFront = tier === 'low' ? 0.32 : 0.14;
     this.tails = tails as Tailpipe[];
     const cam = camera.position;
     const moved = this.hasCam ? Math.hypot(cam.x - this.lastX, cam.z - this.lastZ) : 0;
