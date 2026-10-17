@@ -226,8 +226,8 @@ export class SmokePool {
       p.size1 *= (0.8 + along * 0.4) * bulge;
     }
     if (m.kind === KIND.stall) {
-      const filament = Math.floor(r.next() * 4);
-      const ang = filament * (Math.PI / 2) + (r.next() - 0.5) * 0.42;
+      const filament = Math.floor(r.next() * 3);
+      const ang = filament * (Math.PI * 2 / 3) + (r.next() - 0.5) * 0.28;
       // A few rising filaments on the rim. A filled disc above the pot was a bank.
       const along = Math.pow(r.next(), 1.7);
       p.along = along;

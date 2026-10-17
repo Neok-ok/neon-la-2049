@@ -452,7 +452,7 @@ export class SmokeField {
       const billow = 0.82 + p.seed * 0.36;
       return { x: wx, y: 1, z: wz, w: (1.15 + p.along * 0.7) * billow };
     }
-    if (p.kind === 5) return { x: Math.sin(p.seed * 12) * 0.16, y: 1, z: Math.cos(p.seed * 9) * 0.16, w: (2.6 + p.along * 1.6) * (0.82 + p.seed * 0.3) };
+    if (p.kind === 5) return { x: Math.sin(p.seed * 12) * 0.1, y: 1, z: Math.cos(p.seed * 9) * 0.1, w: (6.2 + p.along * 2.4) * (0.9 + p.seed * 0.16) };
     if (p.kind === 4 || p.kind === 3) {
       const h = Math.min(1, Math.max(0, (p.y - p.floor) / 3.05));
       const wx = Math.cos(this.windDir) * h * 0.7;

@@ -99,10 +99,11 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const spine = n.r.sub(0.5).mul(0.42);
       const across = abs(suv.x.sub(float(0.5)).sub(spine.mul(suv.y.mul(0.7).add(0.15))));
       const streakPinch = exp(across.mul(across).mul(float(-14)));
-      const wispPinch = exp(across.mul(across).mul(float(-22)));
+      const wispPinch = exp(across.mul(across).mul(float(-16)));
       const tip = smoothstep(float(0.0), float(0.14), suv.y).mul(float(1).sub(smoothstep(float(0.55), float(0.98), suv.y)));
+      const wispTip = smoothstep(float(0.0), float(0.06), suv.y).mul(float(1).sub(smoothstep(float(0.78), float(0.99), suv.y)));
       const streakEdge = streakPinch.mul(tip).mul(float(0.4).add(n.g.mul(0.75)));
-      const wispEdge = wispPinch.mul(tip).mul(float(0.5).add(n.g.mul(0.65)));
+      const wispEdge = wispPinch.mul(wispTip).mul(float(0.62).add(n.g.mul(0.45)));
       const streakK = smoothstep(float(0.78), float(0.83), softBody).mul(float(1).sub(smoothstep(float(0.87), float(0.91), softBody)));
       const wispK = smoothstep(float(0.88), float(0.92), softBody).mul(float(1).sub(smoothstep(float(0.96), float(0.995), softBody)));
       const edge = mix(mix(edgeRound, wispEdge, wispK), streakEdge, streakK);
