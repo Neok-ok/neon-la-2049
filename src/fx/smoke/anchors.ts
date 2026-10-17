@@ -79,9 +79,9 @@ function heroMouths(layout: CityLayout): Mouth[] {
     const dy = s.y - ground;
     if (near) {
       out.push(mouth({
-        x: s.x, y: s.y, z: s.z, kind: KIND.stall, weight: 5, life: 1.15,
+        x: s.x, y: s.y, z: s.z, kind: KIND.stall, weight: 5, life: 0.72,
         size0: 0.045, size1: 0.07, heat: 0, radius: 0.12,
-        rise: 0.62, spread: 0.012, floor: s.y - 0.02, wind: 0.015,
+        rise: 0.34, spread: 0.012, floor: s.y - 0.02, wind: 0.015,
         turb: 0.28, aspect: 1, alpha: 0.7,
       }));
     } else if (dy < 0.55) {
@@ -276,21 +276,19 @@ export function stallPose(layout: CityLayout): SmokePose | null {
   const hz = -Math.cos(cook.heading);
   const rx = hz;
   const rz = -hx;
-  // The pot is 2.65 m inside the facade and the awning reaches about 2.25 m
-  // into the street, so the lip is ~4.9 m from the rim. Stand just past that
-  // lip. A 32° lens puts the rims and the rising wisps in the middle and
-  // leaves the header sign at the top edge. The walk 70° lens made the sign
-  // the subject.
-  const dist = 5.2;
-  const side = 0.62;
+  // Just in front of one rim. The NOODLES panel is on the back wall, only
+  // ~0.4 m above the broth, so a wider lens makes that sign the subject.
+  // A 20° lens aimed at the rim leaves the panel at the top edge.
+  const dist = 1.55;
+  const side = 0.78;
   const fx = pot.x + hx * dist + rx * side;
   const fz = pot.z + hz * dist + rz * side;
-  const lookX = pot.x - rx * 0.08;
-  const lookZ = pot.z - rz * 0.08;
+  const lookX = pot.x;
+  const lookZ = pot.z;
   const ground = layout.heightAt(fx, fz);
-  const eyeY = ground + 1.3;
+  const eyeY = ground + 1.32;
   const eye = eyeY - ground;
-  const lookY = pot.y + 0.1;
+  const lookY = pot.y + 0.02;
   const span = Math.hypot(lookX - fx, lookZ - fz) || 1;
   return {
     x: fx, y: eyeY, z: fz,
@@ -299,7 +297,7 @@ export function stallPose(layout: CityLayout): SmokePose | null {
     mode: 'walk',
     lock: true,
     eye,
-    fov: 32,
+    fov: 20,
     feet: { x: fx, y: ground, z: fz },
   };
 }

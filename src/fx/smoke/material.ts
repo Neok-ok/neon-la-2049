@@ -118,7 +118,9 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const size = max(puff.w, float(0.4));
       // Soft particles, NVIDIA / Lorach, the same curve as three's softParticles().
       // Inlined: that helper names a GLSL argument `input`, which WebGL rejects.
-      const band = min(max(size.mul(0.16), float(0.18)), float(1.6));
+      // Large puffs keep the 0.18 m floor. A stall wisp is smaller than that,
+      // and the floor was erasing the rim where the vapor meets the pot.
+      const band = min(max(size.mul(0.16), min(float(0.18), size.mul(1.2))), float(1.6));
       const sceneZ = perspectiveDepthToViewZ(viewportDepthTexture(), cameraNear, cameraFar);
       const delta = clamp(positionView.z.sub(sceneZ).div(band), 0, 1);
       const above = step(float(0.5), delta);

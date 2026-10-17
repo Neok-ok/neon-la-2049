@@ -63,6 +63,8 @@ async function evalOr(page, fn, arg, ms, fallback) {
       page.evaluate(fn, arg),
       new Promise((resolve) => { timer = setTimeout(() => resolve(fallback), ms); }),
     ]);
+  } catch (err) {
+    return fallback ?? (err instanceof Error ? err.message : String(err));
   } finally {
     clearTimeout(timer);
   }
@@ -202,6 +204,7 @@ async function settle(page, shot) {
       stack: sm.stack, exhaust: sm.exhaust, alive: sm.alive, mouths: sm.mouths,
       lod0: st.lod0, draws: st.drawCalls, far: st.farMs,
       cam: cam ? [Math.round(cam.x), Math.round(cam.y), Math.round(cam.z)] : null,
+      fov: Math.round(window.__nla?.app?.camera?.fov ?? 0),
     };
   }, shot.name, 8000, { ok: false, why: 'eval-timeout' });
   log(`  stats ${shot.name} ${JSON.stringify(s)}`);
@@ -217,40 +220,44 @@ const browser = await chromium.launch({
 for (const tier of TIERS) {
   for (const shot of shots) {
     if (!SCENES.has(shot.name)) continue;
-    const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
-    await pump(ctx);
-    const page = await ctx.newPage();
-    page.setDefaultTimeout(180000);
-    const errors = [];
-    page.on('pageerror', (e) => errors.push(String(e).slice(0, 400)));
-    page.on('console', (m) => {
-      if (m.type() === 'error') errors.push(m.text().slice(0, 400));
-    });
-    const t0 = Date.now();
-    try {
-      log(`${tier} ${shot.name} boot`);
-      await boot(page, tier);
-      log(`${tier} ${shot.name} settle`);
-      const snap = await settle(page, shot);
-      let png = null;
-      if (shot._png) {
-        const comma = shot._png.indexOf(',');
-        png = Buffer.from(shot._png.slice(comma + 1), 'base64');
-      } else {
-        await evalOr(page, () => document.getElementById('loading')?.remove(), undefined, 3000, null);
-        png = await Promise.race([grab(page), sleep(30000).then(() => null)]);
+    let saved = false;
+    for (let attempt = 1; attempt <= 2 && !saved; attempt++) {
+      const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
+      await pump(ctx);
+      const page = await ctx.newPage();
+      page.setDefaultTimeout(180000);
+      const errors = [];
+      page.on('pageerror', (e) => errors.push(String(e).slice(0, 400)));
+      page.on('console', (m) => {
+        if (m.type() === 'error') errors.push(m.text().slice(0, 400));
+      });
+      const t0 = Date.now();
+      try {
+        log(`${tier} ${shot.name} boot${attempt > 1 ? ' retry' : ''}`);
+        await boot(page, tier);
+        log(`${tier} ${shot.name} settle`);
+        const snap = await settle(page, shot);
+        let png = null;
+        if (shot._png) {
+          const comma = shot._png.indexOf(',');
+          png = Buffer.from(shot._png.slice(comma + 1), 'base64');
+        } else {
+          await evalOr(page, () => document.getElementById('loading')?.remove(), undefined, 3000, null);
+          png = await Promise.race([grab(page), sleep(30000).then(() => null)]);
+        }
+        if (!png || png.length < 1000) {
+          log(`${tier} ${shot.name} GRAB EMPTY`);
+        } else {
+          const file = join(OUT, `k1-2026-10-17-${shot.name}-${tier}.png`);
+          writeFileSync(file, png);
+          saved = true;
+          log(`${tier} ${shot.name} ${((Date.now() - t0) / 1000).toFixed(1)}s ${png.length}b ${JSON.stringify(snap)} err=${errors.at(-1) ?? ''}`);
+        }
+      } catch (err) {
+        log(`${tier} ${shot.name} FAIL ${err instanceof Error ? err.message : err} ${errors.at(-1) ?? ''}`);
       }
-      if (!png || png.length < 1000) {
-        log(`${tier} ${shot.name} GRAB EMPTY`);
-      } else {
-        const file = join(OUT, `k1-2026-10-17-${shot.name}-${tier}.png`);
-        writeFileSync(file, png);
-        log(`${tier} ${shot.name} ${((Date.now() - t0) / 1000).toFixed(1)}s ${png.length}b ${JSON.stringify(snap)} err=${errors.at(-1) ?? ''}`);
-      }
-    } catch (err) {
-      log(`${tier} ${shot.name} FAIL ${err instanceof Error ? err.message : err} ${errors.at(-1) ?? ''}`);
+      await ctx.close();
     }
-    await ctx.close();
   }
 }
 

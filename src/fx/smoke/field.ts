@@ -28,7 +28,7 @@ const TINT: Record<(typeof KIND_NAME)[number], [number, number, number]> = {
   vent: [0.78, 0.8, 0.84],
   grate: [0.82, 0.84, 0.88],
   stall: [0.9, 0.92, 0.95],
-  exhaust: [0.7, 0.72, 0.74],
+  exhaust: [0.42, 0.43, 0.44],
 };
 
 /** How much practical light this kind takes. Exhaust stays a grey trail. */
@@ -342,7 +342,7 @@ export class SmokeField {
       } else if (p.kind === 6) {
         size *= 0.9 + p.along * 0.28;
         size = Math.min(size, this.tier === 'low' ? 0.13 : this.tier === 'medium' ? 0.11 : 0.095);
-        lifeA = Math.min(0.5, lifeA) * (0.28 + 0.72 * Math.pow(1 - Math.min(1, p.along), 1.15));
+        lifeA = Math.min(0.42, lifeA) * (0.34 + 0.66 * Math.pow(1 - Math.min(1, p.along), 1.05));
         heat = 0;
       } else if (p.kind === 5) {
         size = Math.min(size, this.tier === 'low' ? 0.07 : 0.058);

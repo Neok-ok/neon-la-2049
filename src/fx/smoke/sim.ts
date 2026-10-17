@@ -229,19 +229,19 @@ export class SmokePool {
       const filament = Math.floor(r.next() * 4);
       const ang = filament * (Math.PI / 2) + (r.next() - 0.5) * 0.42;
       // A few rising filaments on the rim. A filled disc above the pot was a bank.
-      const along = Math.pow(r.next(), 0.85);
+      const along = Math.pow(r.next(), 1.7);
       p.along = along;
       const rim = 0.09 + r.next() * 0.04;
       p.ox = m.x + Math.cos(ang) * rim;
       p.oz = m.z + Math.sin(ang) * rim;
       p.x = p.ox + Math.sin(along * 9 + filament) * 0.012;
       p.z = p.oz + Math.cos(along * 8 + filament * 1.3) * 0.01;
-      p.y = m.y + along * 0.55;
+      p.y = m.y + along * 0.38;
       p.age = along * p.life * 0.92;
       p.heat = 0;
-      p.shade = 0.92 + r.next() * 0.2;
-      p.alpha *= (0.75 + r.next() * 0.3) * Math.pow(1 - along, 0.85);
-      const width = (scale >= 1.3 ? 0.05 : scale >= 1.05 ? 0.044 : 0.04) * (0.82 + r.next() * 0.36);
+      p.shade = 1.05 + r.next() * 0.2;
+      p.alpha *= (0.95 + r.next() * 0.25) * Math.pow(1 - along, 0.62);
+      const width = (scale >= 1.3 ? 0.055 : scale >= 1.05 ? 0.048 : 0.044) * (0.85 + r.next() * 0.3);
       p.size0 = width;
       p.size1 = width * (1.05 + along * 0.25);
       p.vy = m.rise * (0.75 + r.next() * 0.4);
@@ -418,8 +418,8 @@ export class SmokePool {
     const c = curl(p.seed + filament * 2.1, p.age * 0.9, along * 3.2);
     const back = 0.06 + along * 1.55 + n.z * along * 0.08;
     const climb = 0.015 + along * along * 0.22 + Math.abs(n.y) * 0.03;
-    const lane = (filament - 1) * 0.028;
-    const side = lane + (n.x * 0.65 + c.x * 0.4) * along * 0.11;
+    const lane = (filament - 1) * 0.06;
+    const side = lane + (n.x * 0.85 + c.x * 0.55) * along * 0.18;
     p.x = p.ox - fx * back + rx * side;
     p.y = p.floor + climb + c.y * along * 0.03;
     p.z = p.oz - fz * back + rz * side;
