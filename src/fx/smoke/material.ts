@@ -146,7 +146,7 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const puffBody = float(1).sub(smoothstep(float(0.0), float(0.5).add(puffBreak.mul(0.2)), puffR));
       // A deep tear read as holes on the lit wall. A shallow nick keeps the disc from going cut-paper.
       const puffTear = smoothstep(float(0.78), float(0.96), n.g).mul(smoothstep(float(0.4), float(0.7), rad));
-      const puffCorner = float(1).sub(smoothstep(float(0.4), float(0.66), rad));
+      const puffCorner = float(1).sub(smoothstep(float(0.22), float(0.58), rad));
       const puffEdgeDisc = puffBody.mul(float(1).sub(puffTear.mul(0.12))).mul(puffCorner).mul(float(0.86).add(lobe.mul(0.22)));
       const puffWarpG = vec2(n.r.sub(0.5).mul(0.42).add(n.g.sub(0.5).mul(0.16)), n.g.sub(0.5).mul(0.38));
       const puffRG = length(suv.sub(0.5).add(puffWarpG));
@@ -262,7 +262,7 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       // Medium stall was darker than the lit wall, so the vapor disappeared.
       // Low needs a smaller lift on the black interior. Exhaust stays near the
       // body so the trail does not blow out white.
-      const stallLift = mix(float(1.5), float(1.28), lowK);
+      const stallLift = mix(float(1.38), float(1.16), lowK);
       const puffBright = mix(float(1.0), mix(stallLift, float(1.08), exhaustK), puffK);
       return vec4(rgb.mul(mottled).mul(puffBright), alpha);
     })();

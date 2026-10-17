@@ -382,7 +382,7 @@ export class SmokeField {
         // Small at the pipe, wider and much thinner as it rises. A 0.5 m cap
         // read as a chimney on a tailpipe.
         size *= (0.85 + p.seed * 0.22) * (0.78 + p.along * 0.55);
-        size = Math.min(size, this.tier === 'low' ? 0.34 : this.tier === 'medium' ? 0.28 : 0.22);
+        size = Math.min(size, this.tier === 'low' ? 0.36 : this.tier === 'medium' ? 0.32 : 0.26);
         const away = Math.hypot(p.x - p.ox, p.z - p.oz);
         const lift = Math.max(0, p.y - p.floor);
         const trail = Math.pow(1 - Math.min(1, p.along), 0.55);
@@ -395,11 +395,11 @@ export class SmokeField {
       } else if (p.kind === 5) {
         // Low is a short cloud on the lid. Medium and above stay a little smaller
         // so the wisp does not become a disc on the lit wall.
-        size = Math.min(Math.max(size, 0.09), this.tier === 'low' ? 0.13 : 0.16);
+        size = Math.min(Math.max(size, 0.09), this.tier === 'low' ? 0.12 : 0.18);
         const away = Math.hypot(p.x - p.ox, p.z - p.oz);
         lifeA *= 1 - Math.min(1, Math.max(0, away - (this.tier === 'low' ? 0.2 : 0.28)) / 0.4);
-        if (this.tier === 'low') lifeA = Math.min(0.75, lifeA * 1.12);
-        else lifeA = Math.min(0.66, lifeA * 1.16);
+        if (this.tier === 'low') lifeA = Math.min(0.58, lifeA * 0.92);
+        else lifeA = Math.min(0.62, lifeA * 1.08);
       } else if (p.kind === 1) {
         size = Math.min(size, Math.max(2.5, dist * 0.06));
       }
