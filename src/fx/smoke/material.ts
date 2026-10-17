@@ -141,19 +141,17 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       const puffRG = length(suv.sub(0.5).add(puffWarpG));
       const puffKFall = float(5.4).add(lobe.mul(1.5));
       const puffGauss = exp(puffRG.mul(puffRG).mul(puffKFall).mul(float(-1))).mul(float(0.78).add(lobe.mul(0.28)));
-      // Low stall: two warped lobes, empty before the quad's flat side. A single
-      // disc read as a cotton ball on the black wall, and a tear read as a hole.
-      const wuv = suv.add(vec2(n.r.sub(0.5).mul(0.2), n.g.sub(0.5).mul(0.16)));
-      const wr = length(wuv.sub(0.5));
-      const lobeOff = vec2(float(0.5).add(n.g.sub(0.5).mul(0.24)), float(0.44).add(n.r.sub(0.5).mul(0.16)));
-      const lr = length(wuv.sub(lobeOff));
-      const atlas = float(0.78).add(n.r.mul(0.16)).add(n.g.mul(0.12));
-      const rimKill = float(1).sub(smoothstep(float(0.4), float(0.48), rad));
-      const puffStall = exp(wr.mul(wr).mul(float(-5.4))).mul(float(0.82)).add(exp(lr.mul(lr).mul(float(-10))).mul(float(0.5))).mul(atlas).mul(rimKill);
-      // Low exhaust: a wide plateau so the bulbs merge into one column, with a
-      // short rim that is gone before the quad side. That side was the facet.
-      const er = length(suv.sub(0.5).add(vec2(n.r.sub(0.5).mul(0.1), n.g.sub(0.5).mul(0.07))));
-      const puffExhaust = float(1).sub(smoothstep(float(0.2), float(0.46), er)).mul(float(0.88).add(lobe.mul(0.16))).mul(rimKill);
+      // Low stall. The passing medium mask, without the tear that opened a hole
+      // on the black wall, and empty before the quad's flat side.
+      const puffWarpL = vec2(n.r.sub(0.5).mul(0.62).add(n.g.sub(0.5).mul(0.18)), n.g.sub(0.5).mul(0.5));
+      const puffRL = length(suv.sub(0.5).add(puffWarpL));
+      const stallBody = float(1).sub(smoothstep(float(0.02), float(0.46).add(n.r.mul(0.06)), puffRL));
+      const rimKill = float(1).sub(smoothstep(float(0.38), float(0.48), rad));
+      const puffStall = stallBody.mul(rimKill).mul(float(0.62).add(lobe.mul(0.4)));
+      // Low exhaust. A long falloff, not a bright plateau, so the column is not
+      // a stack of bulbs. The quad side stays empty.
+      const er = length(suv.sub(0.5).add(vec2(n.r.sub(0.5).mul(0.14), n.g.sub(0.5).mul(0.08))));
+      const puffExhaust = float(1).sub(smoothstep(float(0.06), float(0.44), er)).mul(float(0.7).add(lobe.mul(0.28))).mul(rimKill);
       const puffSoft = mix(puffStall, puffExhaust, exhaustK);
       const puffEdgeHi = mix(puffEdgeDisc, puffGauss, exhaustK);
       const puffEdge = mix(puffEdgeHi, puffSoft, lowK);
@@ -242,7 +240,7 @@ export function smokeMaterial(): MeshBasicNodeMaterial {
       // Medium stall is unlifted: that is the passing exposure on the lit wall.
       // Low stall needs a little more against the black interior. The same lift
       // on exhaust was a white beam, so the tailpipe stays at 1.15.
-      const puffBright = mix(float(1.0), mix(mix(float(1.0), float(1.45), lowK), float(1.15), exhaustK), puffK);
+      const puffBright = mix(float(1.0), mix(mix(float(1.0), float(1.2), lowK), float(1.15), exhaustK), puffK);
       return vec4(rgb.mul(mottled).mul(puffBright), alpha);
     })();
     return m;

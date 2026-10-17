@@ -313,12 +313,11 @@ export class SmokePool {
         p.spin = r.next() * Math.PI * 2;
         p.spinRate = (r.next() - 0.5) * 1.1;
       } else {
-        // Fill the mouth, not a ring, and sit just above the lid. A ring on the
-        // black wall read as a hole, and cards born in the lid were clipped away
-        // so the wisps floated.
+        // Same birth as the passing wisps, filled across the mouth so a ring
+        // does not read as a hole, and a few centimetres clear of the lid.
         const ang = r.next() * Math.PI * 2;
-        const rim = Math.sqrt(r.next()) * 0.07;
-        const along = Math.pow(r.next(), 1.4);
+        const rim = Math.sqrt(r.next()) * 0.09;
+        const along = Math.pow(r.next(), 1.15);
         p.along = along;
         p.ox = m.x + Math.cos(ang) * rim;
         p.oz = m.z + Math.sin(ang) * rim;
@@ -327,23 +326,23 @@ export class SmokePool {
         const toCamX = cam.x - m.x;
         const toCamZ = cam.z - m.z;
         const camD = Math.hypot(toCamX, toCamZ) || 1;
-        p.x += (toCamX / camD) * 0.04;
-        p.z += (toCamZ / camD) * 0.04;
+        p.x += (toCamX / camD) * 0.035;
+        p.z += (toCamZ / camD) * 0.035;
         p.ox = p.x;
         p.oz = p.z;
-        p.y = m.y + 0.06 + along * 0.04;
-        p.age = r.next() * p.life * 0.45;
+        p.y = m.y + 0.04 + along * 0.05;
+        p.age = r.next() * p.life * 0.8;
         p.heat = 0;
-        p.shade = 0.82 + r.next() * 0.22;
-        p.alpha = m.alpha * (0.7 + r.next() * 0.35) * (1 - along * 0.2);
-        const width = 0.12 * (0.85 + r.next() * 0.4);
+        p.shade = 0.78 + r.next() * 0.28;
+        p.alpha = m.alpha * (0.62 + r.next() * 0.38) * (1 - along * 0.25);
+        const width = 0.095 * (0.75 + r.next() * 0.5);
         p.size0 = width;
-        p.size1 = width * (1.25 + r.next() * 0.45);
-        p.vy = m.rise * (0.65 + r.next() * 0.5);
-        p.vx = Math.cos(ang) * (0.01 + r.next() * 0.03);
-        p.vz = Math.sin(ang) * (0.01 + r.next() * 0.03);
+        p.size1 = width * (1.35 + r.next() * 0.7);
+        p.vy = m.rise * (0.75 + r.next() * 0.7);
+        p.vx = Math.cos(ang) * (0.02 + r.next() * 0.05);
+        p.vz = Math.sin(ang) * (0.02 + r.next() * 0.05);
         p.spin = r.next() * Math.PI * 2;
-        p.spinRate = (r.next() - 0.5) * 0.6;
+        p.spinRate = (r.next() - 0.5) * 1.1;
       }
     }
     if (m.kind === KIND.grate || m.kind === KIND.vent) {
