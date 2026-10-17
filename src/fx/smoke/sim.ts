@@ -435,7 +435,7 @@ export class SmokePool {
         const h = Math.max(0, p.y - p.floor);
         const c = curlNoise(p.x * 1.15 + p.seed * 0.2, p.y * 0.9 + p.age * 0.35, p.z * 1.15, p.seed + 2.2);
         // Curl grows with height so the plume opens instead of staying a bead string.
-        const amp = 0.12 + Math.min(0.38, h * 0.18);
+        const amp = 0.2 + Math.min(0.5, h * 0.26);
         const back = 0.16;
         const rise = (1.2 * (1 - u * 0.28) + 0.2) * (1 - rain * 0.1);
         p.vy = approach(p.vy, rise + c.y * 0.35, dt, 0.22);

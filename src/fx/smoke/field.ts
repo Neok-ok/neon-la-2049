@@ -378,10 +378,10 @@ export class SmokeField {
         size = Math.min(size, this.tier === 'low' ? 0.62 : this.tier === 'medium' ? 0.5 : 0.42);
         const away = Math.hypot(p.x - p.ox, p.z - p.oz);
         const lift = Math.max(0, p.y - p.floor);
-        const trail = Math.pow(1 - Math.min(1, p.along), 0.55);
-        const spread = 1 - Math.min(1, Math.max(0, away - 0.85) / 1.15);
-        const roof = 1 - Math.min(1, Math.max(0, lift - 2.15) / 1.25);
-        lifeA = Math.min(0.55, lifeA) * (0.7 + 0.3 * trail) * spread * roof;
+        const trail = Math.pow(1 - Math.min(1, p.along), 0.45);
+        const spread = 1 - Math.min(1, Math.max(0, away - 0.7) / 1.05);
+        const roof = 1 - Math.min(1, Math.max(0, lift - 0.85) / 1.7);
+        lifeA = Math.min(0.34, lifeA) * (0.62 + 0.38 * trail) * spread * roof;
         // A car down the block must not stamp discs onto the grate or the flare.
         if (dist > 10) lifeA *= Math.max(0, 1 - (dist - 10) / 8);
         heat = 0;
@@ -393,7 +393,7 @@ export class SmokeField {
         size = Math.min(size, this.tier === 'low' || this.tier === 'medium' ? 0.2 : 0.16);
         const away = Math.hypot(p.x - p.ox, p.z - p.oz);
         lifeA *= 1 - Math.min(1, Math.max(0, away - 0.34) / 0.45);
-        lifeA = Math.min(0.68, lifeA);
+        lifeA = Math.min(0.82, lifeA);
       } else if (p.kind === 1) {
         size = Math.min(size, Math.max(2.5, dist * 0.06));
       }
