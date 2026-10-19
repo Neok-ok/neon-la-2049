@@ -1,0 +1,917 @@
+// Cards and ray-marched volumes stay behind their flags. Lit soft shells are
+// the later prototype: built only when a shell flag is on, or when the page
+// was opened with smoke=shell for a still. Buffers for the card path are still
+// the size of the tier that is showing, and only allocated when that flag is on.
+import {
+  BufferAttribute, BufferGeometry, DynamicDrawUsage, InstancedMesh, Mesh, type Scene,
+} from 'three/webgpu';
+import type { Tier } from '../../core/quality';
+import { params } from '../../core/params';
+import { resources } from '../../core/memory';
+import { kitSteamGain } from '../../districts/_shared/kit/materials';
+import type { PunctualInput } from '../../lighting/validate.ts';
+import type { CityQuery } from '../../world/CityQuery';
+import {
+  SMOKE_CARDS, SMOKE_EXHAUST_VOLUME, SMOKE_LAUNCH_SHELL, SMOKE_LAUNCH_VOLUME, SMOKE_LIVE, SMOKE_MANHOLE_SHELL, SMOKE_MANHOLE_VOLUME,
+} from './flags';
+import { smokeRain, smokeMaterial } from './material';
+import { launchDrive, type LaunchDrive } from './launchDrive';
+import { barrelLights, beginSmokeGather, pumpSmokeGather, type SmokeGather } from './places';
+import { concealLive, liveCount, liveMesh, syncLive } from './live';
+import { puffCount, puffRain, puffVolumeMesh, syncPuffs, type PuffPlacement } from './puffs';
+import { shellCount, shellMesh, shellRain, shellsRequested, syncShells, type ShellPlacement } from './shells';
+import { columnRadius, integrate, killParticle, plumeLean, smokeRand, smokeWindScale, spawnEmitter, spawnParticle } from './sim';
+import {
+  LAUNCH_COLUMN_CAP, LAUNCH_GROUND_CAP, LAUNCH_SHELL, MANHOLE_SHELL, PUFF_CAP, RATE_SCALE, SMOKE_CAP, streetCap,
+} from './tiers';
+import { KIND, createPool, type Emitter, type Pool, type Tailpipe, type Wind } from './types';
+import {
+  launchVolumeMesh, syncVolumeSteps, volBase, volBound, volDensity, volEngine, volGroundR,
+  volHalf, volHeight, volWind, volumeActive,
+} from './volume';
+
+/** Share of the street budget. Indexed by KIND. Launch kinds stay on their own slots. */
+const KIND_SHARE = [0.16, 0.12, 0.12, 0.1, 0.14, 0.22, 0.14];
+/** Card opacity. Stack cards overlap into one column, so each stamp stays lighter. */
+const KIND_ALPHA = [0.62, 0.62, 0.66, 0.64, 0.7, 0.72, 0.9, 0.46, 0.62];
+/** How many aged cards one emitter may seed, so a still shows the plume and not the first puff. */
+const SEED_CAP = [24, 16, 20, 16, 16, 42];
+
+export interface SmokeFrame {
+  dt: number;
+  time: number;
+  tier: Tier;
+  camX: number;
+  camY: number;
+  camZ: number;
+  wind: number;
+  windDir: number;
+  rain: number;
+  /** Compass radians. Street steam uses it so a pot plume sits in the look direction. */
+  heading: number;
+  query: CityQuery;
+  tails: readonly Tailpipe[];
+}
+
+export interface SmokeSnapshot {
+  particles: number;
+  emitters: number;
+  draws: number;
+  volume: boolean;
+  launch: boolean;
+  puffs: number;
+  shells: number;
+  cap: number;
+  street: number;
+  ground: number;
+  column: number;
+  byKind: number[];
+  near: Array<{ kind: number; dist: number; dy: number }>;
+}
+
+let punctual: PunctualInput[] = [];
+
+export function smokePunctual(): PunctualInput[] {
+  return punctual;
+}
+
+/** Street mouths the breath discs should not sit on. Vent, manhole, stall. */
+const mouths: Array<{ x: number; z: number }> = [];
+
+export function noteMouths(list: readonly { x: number; z: number; kind: number }[]): void {
+  mouths.length = 0;
+  for (const e of list) {
+    if (e.kind === KIND.vent || e.kind === KIND.manhole || e.kind === KIND.stall) {
+      mouths.push({ x: e.x, z: e.z });
+    }
+  }
+}
+
+export function smokeCovers(x: number, z: number, radius: number): boolean {
+  const r2 = radius * radius;
+  for (const m of mouths) {
+    const dx = m.x - x;
+    const dz = m.z - z;
+    if (dx * dx + dz * dz < r2) return true;
+  }
+  return false;
+}
+
+export class SmokeField {
+  private pool: Pool = createPool(0);
+  private geo: BufferGeometry | null = null;
+  private mesh: Mesh | null = null;
+  private volume: Mesh | null = null;
+  private puffs: InstancedMesh | null = null;
+  private shells: InstancedMesh | null = null;
+  private live: InstancedMesh | null = null;
+  private gather: SmokeGather | null = null;
+  private tier: Tier = 'low';
+  private emitters: Emitter[] = [];
+  private anchorX = 1e9;
+  private anchorZ = 1e9;
+  private gatherAt = -1e9;
+  private launchId = 0;
+  private lingered = false;
+  private groundAcc = 0;
+  private columnAcc = 0;
+  private order: number[] = [];
+  private dist: number[] = [];
+  private camX = 0;
+  private camY = 0;
+  private camZ = 0;
+
+  constructor(scene: Scene) {
+    this.tier = 'low';
+    if (SMOKE_LIVE) {
+      this.live = liveMesh();
+      scene.add(this.live);
+    }
+    if (SMOKE_CARDS) {
+      const cap = SMOKE_CAP.low;
+      this.pool = createPool(cap);
+      this.geo = resources.geometry(() => buildGeo(cap), { label: 'smoke-billboards', owner: 'smoke', evictable: true });
+      this.mesh = new Mesh(this.geo, smokeMaterial(false));
+      this.mesh.name = 'smoke-field';
+      this.mesh.frustumCulled = false;
+      this.mesh.renderOrder = 8;
+      this.mesh.visible = false;
+      scene.add(this.mesh);
+    } else {
+      this.pool = createPool(0);
+    }
+    if (SMOKE_LAUNCH_VOLUME) {
+      this.volume = launchVolumeMesh();
+      scene.add(this.volume);
+    }
+    if (SMOKE_MANHOLE_VOLUME || SMOKE_EXHAUST_VOLUME) {
+      this.puffs = puffVolumeMesh();
+      scene.add(this.puffs);
+    }
+    if (shellsRequested()) {
+      this.shells = shellMesh();
+      scene.add(this.shells);
+    }
+  }
+
+  conceal(): void {
+    if (this.mesh) this.mesh.visible = false;
+    if (this.volume) this.volume.visible = false;
+    if (this.puffs) this.puffs.visible = false;
+    if (this.shells) this.shells.visible = false;
+    concealLive();
+  }
+
+  snapshot(): SmokeSnapshot {
+    const drive = launchDrive();
+    return {
+      particles: this.pool.n,
+      emitters: this.emitters.length,
+      draws: (this.mesh?.visible ? 1 : 0) + (this.volume?.visible ? 1 : 0) + (this.puffs?.visible ? 1 : 0) + (this.shells?.visible ? 1 : 0) + (this.live?.visible ? 1 : 0),
+      volume: !!this.volume?.visible,
+      launch: drive.burning || (drive.id > 0 && drive.age < 180),
+      puffs: puffCount(),
+      shells: shellCount() + liveCount(),
+      cap: this.pool.cap,
+      street: this.pool.slotN[0],
+      ground: this.pool.slotN[1],
+      column: this.pool.slotN[2],
+      byKind: this.pool.kindN.slice(),
+      near: this.nearest(),
+    };
+  }
+
+  private nearest(): Array<{ kind: number; dist: number; dy: number }> {
+    const pool = this.pool;
+    const rows: Array<{ kind: number; dist: number; dy: number }> = [];
+    for (let i = 0; i < pool.n; i++) {
+      const dx = pool.x[i]! - this.camX;
+      const dy = pool.y[i]! - this.camY;
+      const dz = pool.z[i]! - this.camZ;
+      const dist = Math.hypot(dx, dy, dz);
+      if (dist > 40) continue;
+      rows.push({ kind: pool.kind[i]!, dist: Math.round(dist * 10) / 10, dy: Math.round(dy * 10) / 10 });
+    }
+    rows.sort((a, b) => a.dist - b.dist);
+    return rows.slice(0, 6);
+  }
+
+  update(frame: SmokeFrame): void {
+    const dt = Math.min(0.08, Math.max(0, frame.dt));
+    this.camX = frame.camX;
+    this.camY = frame.camY;
+    this.camZ = frame.camZ;
+    this.ensure(frame.tier);
+    smokeRain.value = frame.rain;
+    const wind: Wind = { dir: frame.windDir, speed: frame.wind, rain: frame.rain };
+    const wantGather = SMOKE_LIVE || SMOKE_CARDS || SMOKE_LAUNCH_VOLUME || SMOKE_MANHOLE_VOLUME || SMOKE_EXHAUST_VOLUME || shellsRequested();
+    if (wantGather) this.stepGather(frame, wind);
+    const drive = launchDrive();
+    if (SMOKE_CARDS) {
+      this.noteLaunch(drive, wind, frame.camX, frame.camZ);
+      let left = dt;
+      while (left > 1e-4) {
+        const h = Math.min(0.034, left);
+        const scale = RATE_SCALE[frame.tier];
+        const cap = streetCap(frame.tier);
+        for (const e of this.emitters) {
+          const share = KIND_SHARE[e.kind] ?? 0.08;
+          const kindCap = Math.max(3, Math.floor(cap * share));
+          spawnEmitter(this.pool, e, cap, scale, wind, h, kindCap);
+        }
+        this.emitLaunch(h, drive, frame.tier, wind);
+        this.emitTails(h, frame, wind);
+        integrate(this.pool, h, wind, frame.query, frame.time, frame.camX, frame.camZ);
+        left -= h;
+      }
+      this.write(frame.camX, frame.camY, frame.camZ);
+    } else if (this.mesh) {
+      this.mesh.visible = false;
+    }
+    this.placeVolume(drive, frame.tier);
+    this.placePuffs(frame, wind);
+    this.placeShells(drive, frame, wind);
+    if (SMOKE_LIVE) {
+      const n = syncLive({
+        tier: frame.tier,
+        time: frame.time,
+        wind: frame.wind,
+        windDir: frame.windDir,
+        rain: frame.rain,
+        camX: frame.camX,
+        camY: frame.camY,
+        camZ: frame.camZ,
+        emitters: this.emitters,
+        drive,
+        tails: frame.tails,
+      });
+      kitSteamGain.value = n > 0 ? 0 : 1;
+    }
+    this.writeLights(drive, frame.camX, frame.camZ);
+  }
+
+  /**
+   * A few blocks per frame. `insideSolid` on a cold cell is the hitch the load
+   * budget measures, so the scan does not finish in the opening task.
+   */
+  private stepGather(frame: SmokeFrame, wind: Wind): void {
+    const moved = Math.hypot(frame.camX - this.anchorX, frame.camZ - this.anchorZ) > 26;
+    const due = this.emitters.length === 0 || moved || frame.time - this.gatherAt > 3.5;
+    if (!this.gather && frame.time > 0.3 && due) {
+      this.gather = beginSmokeGather(
+        frame.query.layout, frame.query, frame.camX, frame.camY, frame.camZ, frame.heading, frame.tier,
+      );
+      this.anchorX = frame.camX;
+      this.anchorZ = frame.camZ;
+      this.gatherAt = frame.time;
+    }
+    if (!this.gather) return;
+    const done = pumpSmokeGather(this.gather, 3);
+    if (!done) return;
+    this.emitters = done;
+    noteMouths(this.emitters);
+    this.gather = null;
+    if (SMOKE_CARDS) this.seedEmitters(wind, frame.tier);
+  }
+
+  /** A still should show a plume, not the first puff leaving the grate. */
+  private seedEmitters(wind: Wind, tier: Tier): void {
+    const cap = streetCap(tier);
+    const wx = Math.cos(wind.dir) * wind.speed;
+    const wz = Math.sin(wind.dir) * wind.speed;
+    const rainCut = 1 + wind.rain * 0.35;
+    for (const e of this.emitters) {
+      const share = KIND_SHARE[e.kind] ?? 0.08;
+      const kindCap = Math.max(4, Math.floor(cap * share));
+      const have = this.pool.kindN[e.kind] ?? 0;
+      if (have >= kindCap * 0.55) continue;
+      const ceiling = SEED_CAP[e.kind] ?? 4;
+      const want = Math.min(kindCap - have, ceiling, Math.max(3, Math.round(e.rate * Math.min(e.life, 12) * 0.45)));
+      for (let n = 0; n < want; n++) {
+        const age = smokeRand() * Math.min(e.life * 0.82, e.life / rainCut * 0.9);
+        const ang = smokeRand() * Math.PI * 2;
+        const rise = e.rise * age;
+        const shear = 1 + Math.min(2.1, rise / 60);
+        const adv = smokeWindScale(e.kind) * 0.85;
+        spawnParticle(this.pool, {
+          x: e.x + Math.cos(ang) * (e.radius + age * e.spread) + wx * shear * age * adv,
+          y: e.y + rise * (0.55 + smokeRand() * 0.5),
+          z: e.z + Math.sin(ang) * (e.radius + age * e.spread) + wz * shear * age * adv,
+          vx: Math.cos(ang) * e.spread,
+          vy: e.rise * 0.6,
+          vz: Math.sin(ang) * e.spread,
+          life: e.life * (0.85 + smokeRand() * 0.3),
+          age,
+          size0: e.size0,
+          size1: e.size1,
+          kind: e.kind,
+          heat: e.heat * Math.max(0, 1 - age / Math.max(1.5, e.life * 0.45)),
+          fade: e.fade,
+          aspect: e.aspect,
+          floorY: e.floorY,
+          slot: 0,
+          slotCap: cap,
+        });
+      }
+    }
+  }
+
+  private ensure(tier: Tier): void {
+    if (!SMOKE_CARDS || !this.mesh) {
+      this.tier = tier;
+      return;
+    }
+    const cap = SMOKE_CAP[tier];
+    const lit = tier !== 'low';
+    this.mesh.material = smokeMaterial(lit);
+    if (this.tier === tier && this.pool.cap === cap && this.geo) return;
+    this.tier = tier;
+    if (this.geo) resources.release(this.geo);
+    this.pool = createPool(cap);
+    this.geo = resources.geometry(() => buildGeo(cap), { label: 'smoke-billboards', owner: 'smoke', evictable: true });
+    this.mesh.geometry = this.geo;
+    this.order = [];
+    this.dist = [];
+    this.launchId = 0;
+  }
+
+  private noteLaunch(drive: LaunchDrive, wind: Wind, camX: number, camZ: number): void {
+    if (drive.id <= 0) return;
+    if (drive.id !== this.launchId) {
+      this.launchId = drive.id;
+      this.lingered = false;
+      this.groundAcc = 0;
+      this.columnAcc = 0;
+      this.dropSlot(1);
+      this.dropSlot(2);
+      this.prefill(drive, wind);
+    }
+    if (!drive.burning && !this.lingered && drive.age > 2) {
+      this.lingered = true;
+      for (let i = 0; i < this.pool.n; i++) {
+        if (this.pool.slot[i] !== 2 && this.pool.slot[i] !== 1) continue;
+        const extra = this.pool.slot[i] === 1 ? 90 : 70;
+        this.pool.life[i] = this.pool.age[i]! + extra;
+      }
+    }
+  }
+
+  private dropSlot(slot: 1 | 2): void {
+    for (let i = this.pool.n - 1; i >= 0; i--) {
+      if (this.pool.slot[i] === slot) killParticle(this.pool, i);
+    }
+  }
+
+  private prefill(drive: LaunchDrive, wind: Wind): void {
+    const tier = drive.tier;
+    const gCap = LAUNCH_GROUND_CAP[tier];
+    const cCap = LAUNCH_COLUMN_CAP[tier];
+    const grown = Math.min(1, Math.max(0.35, drive.age / 10));
+    const gCount = tier === 'low' ? gCap : Math.min(gCap, Math.max(10, Math.floor(gCap * grown * 0.85)));
+    for (let n = 0; n < gCount; n++) {
+      const puff = groundPuff(drive, grown, ((n + 0.5) / gCount) * Math.PI * 2);
+      const size1 = tier === 'low' ? 48 + smokeRand() * 16 : 18 + smokeRand() * 12;
+      spawnParticle(this.pool, {
+        x: puff.x,
+        y: puff.y + smokeRand() * 10,
+        z: puff.z,
+        vx: Math.cos(puff.ang) * 0.35,
+        vy: 0.45,
+        vz: Math.sin(puff.ang) * 0.35,
+        life: 140,
+        age: smokeRand() * 8,
+        size0: size1,
+        size1,
+        kind: KIND.ground,
+        heat: Math.exp(-puff.ring / 34) * 0.8,
+        fade: 4500,
+        aspect: 1.05,
+        floorY: drive.y,
+        slot: 1,
+        slotCap: gCap,
+      });
+    }
+    const len = Math.max(80, drive.headY - drive.y);
+    const span = Math.min(len * 0.94, 1500);
+    for (let n = 0; n < cCap; n++) {
+      // Almost no hot discs. They read as fireballs. The ribbon is the spine.
+      const core = smokeRand() < 0.05;
+      const band = Math.min(span, 780);
+      const low = Math.min(span, 280);
+      const along = core
+        ? 6 + smokeRand() * 80
+        : smokeRand() < 0.8
+          ? Math.pow(smokeRand(), 0.75) * low
+          : low * 0.6 + smokeRand() * Math.max(40, band - low * 0.6);
+      const ang = smokeRand() * Math.PI * 2;
+      const want = columnRadius(along, 0);
+      const rad = core ? want * (0.04 + smokeRand() * 0.08) : want * (0.42 + smokeRand() * 0.55);
+      const lean = plumeLean(along, len, wind.speed);
+      const size = want * (core ? 0.2 : 0.62 + smokeRand() * 0.16);
+      spawnParticle(this.pool, {
+        x: drive.x + Math.cos(wind.dir) * lean + Math.cos(ang) * rad,
+        y: drive.y + along,
+        z: drive.z + Math.sin(wind.dir) * lean + Math.sin(ang) * rad,
+        vx: Math.cos(ang) * 0.25,
+        vy: core ? 1.6 : 0.7,
+        vz: Math.sin(ang) * 0.25,
+        life: 48,
+        age: smokeRand() * 6,
+        size0: size,
+        size1: size,
+        kind: KIND.column,
+        heat: core ? 1.2 : 0.08 + 0.52 * Math.max(0, 1 - rad / Math.max(want, 1)),
+        fade: 5200,
+        aspect: 1.05,
+        floorY: drive.y,
+        slot: 2,
+        slotCap: cCap,
+      });
+    }
+  }
+
+  private emitLaunch(dt: number, drive: LaunchDrive, tier: Tier, wind: Wind): void {
+    if (!drive.burning || drive.id <= 0) return;
+    const gCap = LAUNCH_GROUND_CAP[tier];
+    const cCap = LAUNCH_COLUMN_CAP[tier];
+    if (drive.age < 28 && this.pool.slotN[1] < gCap) {
+      this.groundAcc += (tier === 'low' ? 4 : 8) * dt;
+      const grown = Math.min(1, drive.age / 10);
+      while (this.groundAcc >= 1 && this.pool.slotN[1] < gCap) {
+        const puff = groundPuff(drive, grown);
+        const size1 = 20 + (puff.ring < 36 ? 12 : 8);
+        const ok = spawnParticle(this.pool, {
+          x: puff.x,
+          y: puff.y,
+          z: puff.z,
+          vx: Math.cos(puff.ang) * 0.35,
+          vy: 0.5,
+          vz: Math.sin(puff.ang) * 0.35,
+          life: 120,
+          age: 0,
+          size0: size1 * 0.7,
+          size1,
+          kind: KIND.ground,
+          heat: Math.exp(-puff.ring / 34) * 0.8,
+          fade: 4500,
+          aspect: 1.05,
+          floorY: drive.y,
+          slot: 1,
+          slotCap: gCap,
+        });
+        if (!ok) {
+          this.groundAcc = Math.min(this.groundAcc, 2);
+          break;
+        }
+        this.groundAcc -= 1;
+      }
+    }
+    this.columnAcc += (tier === 'ultra' ? 6 : tier === 'high' ? 4.5 : tier === 'medium' ? 2.4 : 1.4) * dt;
+    const len = Math.max(80, drive.headY - drive.y);
+    while (this.columnAcc >= 1 && this.pool.slotN[2] < cCap) {
+      const core = smokeRand() < 0.08;
+      const along = core
+        ? 4 + smokeRand() * Math.min(len, 160)
+        : 6 + smokeRand() * Math.min(len, 420);
+      const ang = smokeRand() * Math.PI * 2;
+      const want = columnRadius(along, 0);
+      const rad = core ? want * (0.04 + smokeRand() * 0.1) : want * (0.4 + smokeRand() * 0.62);
+      const lean = plumeLean(along, len, wind.speed);
+      const size = want * (core ? 0.2 : 0.6 + smokeRand() * 0.16);
+      const ok = spawnParticle(this.pool, {
+        x: drive.x + Math.cos(wind.dir) * lean + Math.cos(ang) * rad,
+        y: drive.y + along,
+        z: drive.z + Math.sin(wind.dir) * lean + Math.sin(ang) * rad,
+        vx: Math.cos(ang) * 0.25,
+        vy: core ? 1.8 : 1.1,
+        vz: Math.sin(ang) * 0.25,
+        life: 36,
+        age: 0,
+        size0: size * 0.7,
+        size1: size,
+        kind: KIND.column,
+        heat: core ? 1.2 : 0.08 + 0.52 * Math.max(0, 1 - rad / Math.max(want, 1)),
+        fade: 5200,
+        aspect: 1.2,
+        floorY: drive.y,
+        slot: 2,
+        slotCap: cCap,
+      });
+      if (!ok) {
+        this.columnAcc = Math.min(this.columnAcc, 2);
+        break;
+      }
+      this.columnAcc -= 1;
+    }
+  }
+
+  private emitTails(dt: number, frame: SmokeFrame, wind: Wind): void {
+    const cap = streetCap(frame.tier);
+    const scale = RATE_SCALE[frame.tier];
+    const tails = frame.tails.slice().sort((a, b) => {
+      const da = (a.x - frame.camX) ** 2 + (a.z - frame.camZ) ** 2;
+      const db = (b.x - frame.camX) ** 2 + (b.z - frame.camZ) ** 2;
+      return da - db;
+    });
+    let forced = 0;
+    for (const t of tails) {
+      const ground = frame.query.groundHeight(t.x, t.z);
+      if (t.heavy === 2 && t.y < ground + 14) continue;
+      const dx = t.x - frame.camX;
+      const dz = t.z - frame.camZ;
+      const ahead = dx * Math.sin(frame.heading) + dz * -Math.cos(frame.heading);
+      if (ahead < 2) continue;
+      const rate = (1.1 + t.drive * (t.heavy === 2 ? 2.2 : 4.2)) * scale;
+      const exhaustCap = Math.max(4, Math.floor(cap * (KIND_SHARE[KIND.exhaust] ?? 0.1)));
+      if ((this.pool.kindN[KIND.exhaust] ?? 0) >= exhaustCap) break;
+      const must = forced < 1 && t.heavy !== 2 && smokeRand() < dt * 8;
+      if (must) forced += 1;
+      if (!must && smokeRand() > rate * dt) continue;
+      const spin = t.heavy === 2;
+      const truck = t.heavy === 1;
+      const wakeX = (t.wx ?? Math.cos(wind.dir) * wind.speed * 0.15) * 0.72;
+      const wakeZ = (t.wz ?? Math.sin(wind.dir) * wind.speed * 0.15) * 0.72;
+      spawnParticle(this.pool, {
+        x: t.x, y: t.y, z: t.z,
+        vx: wakeX,
+        vy: spin ? 0.4 : 0.35,
+        vz: wakeZ,
+        life: spin ? 2.2 : truck ? 1.9 : 1.7,
+        age: 0,
+        size0: spin ? 0.45 : truck ? 0.42 : 0.38,
+        size1: spin ? 1.05 : truck ? 0.95 : 0.85,
+        kind: KIND.exhaust,
+        heat: truck ? 0.08 : 0.02,
+        fade: spin ? 90 : 55,
+        aspect: spin ? 1.35 : 1.45,
+        floorY: spin ? t.y - 2 : ground,
+        slot: 0,
+        slotCap: cap,
+      });
+    }
+  }
+
+  private write(camX: number, camY: number, camZ: number): void {
+    const geo = this.geo;
+    if (!geo) return;
+    const pool = this.pool;
+    const n = pool.n;
+    if (this.mesh) this.mesh.visible = n > 0;
+    if (!n) {
+      geo.setDrawRange(0, 0);
+      return;
+    }
+    const order = this.order;
+    const dist = this.dist;
+    order.length = n;
+    for (let i = 0; i < n; i++) {
+      const dx = pool.x[i]! - camX;
+      const dy = pool.y[i]! - camY;
+      const dz = pool.z[i]! - camZ;
+      dist[i] = dx * dx + dy * dy + dz * dz;
+      order[i] = i;
+    }
+    order.sort((a, b) => dist[b]! - dist[a]!);
+    const ctr = geo.getAttribute('sctr') as BufferAttribute;
+    const meta = geo.getAttribute('smeta') as BufferAttribute;
+    const extra = geo.getAttribute('sxtra') as BufferAttribute;
+    const ca = ctr.array as Float32Array;
+    const ma = meta.array as Float32Array;
+    const xa = extra.array as Float32Array;
+    for (let s = 0; s < n; s++) {
+      const i = order[s]!;
+      const life = Math.max(0.2, pool.life[i]!);
+      const u = Math.min(1, pool.age[i]! / life);
+      const size = pool.size0[i]! + (pool.size1[i]! - pool.size0[i]!) * Math.pow(u, 0.55);
+      const fadeIn = Math.min(1, u / 0.06);
+      const fadeOut = Math.min(1, (1 - u) / 0.28);
+      const kind = pool.kind[i]!;
+      let px = pool.x[i]!;
+      let py = pool.y[i]!;
+      let pz = pool.z[i]!;
+      let baseA = KIND_ALPHA[kind] ?? 0.5;
+      const d = Math.sqrt(dist[i]!);
+      if (kind === KIND.exhaust && d < 3.6) baseA *= Math.max(0.4, (d - 1.1) / 2.5);
+      // The stall camera stands in the wisp. A vent in the lens is a wall, so it thins.
+      if (kind === KIND.stall && d < 1.5) baseA *= Math.max(0.4, (d - 0.45) / 1.05);
+      if (kind === KIND.vent && d < 3.4) baseA *= Math.max(0.12, (d - 1.6) / 1.8);
+      if (kind === KIND.manhole && d < 2.2) baseA *= Math.max(0.2, (d - 0.7) / 1.5);
+      let heat = pool.heat[i]!;
+      if (kind === KIND.column && heat > 0.8) baseA *= 1.2;
+      if (this.tier === 'low' && kind === KIND.ground) baseA = Math.min(0.98, baseA * 2.4);
+      if (kind === KIND.barrel || kind === KIND.stack) heat *= Math.max(0, 1 - u * 1.2);
+      const alpha = fadeIn * fadeOut * baseA;
+      // A fat fade against the street deletes a knee-high wisp whose card meets the asphalt.
+      let soft = Math.max(0.12, Math.min(4.5, size * 0.08));
+      if (kind === KIND.manhole || kind === KIND.exhaust || kind === KIND.vent) {
+        soft = Math.max(0.04, Math.min(0.4, size * 0.035));
+      }
+      for (let k = 0; k < 4; k++) {
+        const v = (s * 4 + k) * 4;
+        ca[v] = px;
+        ca[v + 1] = py;
+        ca[v + 2] = pz;
+        ca[v + 3] = size;
+        ma[v] = u;
+        ma[v + 1] = pool.kind[i]!;
+        ma[v + 2] = pool.seed[i]!;
+        ma[v + 3] = alpha;
+        xa[v] = heat;
+        xa[v + 1] = pool.aspect[i]!;
+        xa[v + 2] = soft;
+        xa[v + 3] = pool.fade[i]!;
+      }
+    }
+    geo.setDrawRange(0, n * 6);
+    ctr.needsUpdate = true;
+    meta.needsUpdate = true;
+    extra.needsUpdate = true;
+  }
+
+  private placeVolume(drive: LaunchDrive, tier: Tier): void {
+    const alive = drive.id > 0 && drive.age > 0.2 && drive.age < 200;
+    if (!SMOKE_LAUNCH_VOLUME || !this.volume || !volumeActive(tier) || !alive) {
+      if (this.volume) this.volume.visible = false;
+      volDensity.value = 0;
+      return;
+    }
+    const colH = Math.min(1500, Math.max(80, drive.headY - drive.y));
+    const height = colH;
+    // Wide enough that the burn camera sits inside the box. The march itself
+    // is the tighter cylinder in the shader, centred on the pad.
+    const halfW = 120;
+    const wx = Math.cos(drive.windDir) * drive.wind;
+    const wz = Math.sin(drive.windDir) * drive.wind;
+    const cx = drive.x;
+    const cy = drive.y + height * 0.5;
+    const cz = drive.z;
+    this.volume.position.set(cx, cy, cz);
+    this.volume.scale.set(halfW * 2, height, halfW * 2);
+    this.volume.visible = true;
+    volBase.value.set(cx, cy, cz);
+    volHalf.value.set(halfW, height * 0.5, halfW);
+    volWind.value.set(wx, 0, wz);
+    volEngine.value.set(drive.x, drive.y + 10, drive.z);
+    volHeight.value = colH;
+    volGroundR.value = 44;
+    volBound.value = 86;
+    const fade = drive.burning ? 1 : Math.max(0, 1 - Math.max(0, drive.age - 36) / 110);
+    volDensity.value = fade;
+    syncVolumeSteps(tier);
+  }
+
+  /** Manhole sheets and exhaust wakes. Cards are not a fallback. */
+  private placePuffs(frame: SmokeFrame, wind: Wind): void {
+    puffRain.value = frame.rain;
+    const list: PuffPlacement[] = [];
+    const cap = PUFF_CAP[frame.tier];
+    if (SMOKE_MANHOLE_VOLUME) {
+      const holes = this.emitters.filter((e) => e.kind === KIND.manhole);
+      holes.sort((a, b) => {
+        const da = (a.x - frame.camX) ** 2 + (a.z - frame.camZ) ** 2;
+        const db = (b.x - frame.camX) ** 2 + (b.z - frame.camZ) ** 2;
+        return da - db;
+      });
+      const wx = Math.cos(wind.dir) * wind.speed;
+      const wz = Math.sin(wind.dir) * wind.speed;
+      const n = Math.min(holes.length, 3, cap);
+      for (let i = 0; i < n; i++) {
+        const e = holes[i]!;
+        const dist = Math.hypot(e.x - frame.camX, e.z - frame.camZ);
+        if (dist < 4.2 || dist > 16) continue;
+        list.push({
+          x: e.x + wx * 0.05,
+          y: e.y + 0.62,
+          z: e.z + wz * 0.05,
+          hx: 1.15,
+          hy: 0.55,
+          hz: 1.0,
+          ax: wx,
+          ay: 0.2,
+          az: wz,
+          mode: 0,
+          seed: fract(e.x * 0.17 + e.z * 0.31),
+          radius: 0.9,
+        });
+      }
+    }
+    if (SMOKE_EXHAUST_VOLUME) {
+      const tails = frame.tails.slice().sort((a, b) => {
+        const da = (a.x - frame.camX) ** 2 + (a.z - frame.camZ) ** 2;
+        const db = (b.x - frame.camX) ** 2 + (b.z - frame.camZ) ** 2;
+        return da - db;
+      });
+      for (const t of tails) {
+        if (list.length >= cap) break;
+        if (t.heavy === 2) continue;
+        const dx = t.x - frame.camX;
+        const dz = t.z - frame.camZ;
+        const ahead = dx * Math.sin(frame.heading) + dz * -Math.cos(frame.heading);
+        if (ahead < -6 || dx * dx + dz * dz > 48 * 48) continue;
+        list.push(exhaustPuff(t));
+      }
+    }
+    syncPuffs(frame.tier, list);
+  }
+
+  /**
+   * Lit soft shells. Launch curtains stand left and right of the flame so a
+   * ray does not travel down a filled cone. The manhole is a short stack on
+   * the nearest grate.
+   */
+  private placeShells(drive: LaunchDrive, frame: SmokeFrame, wind: Wind): void {
+    shellRain.value = frame.rain;
+    if (!this.shells) return;
+    const list: ShellPlacement[] = [];
+    const launchOn = SMOKE_LAUNCH_SHELL || params.smoke === 'shell';
+    const holeOn = SMOKE_MANHOLE_SHELL || params.smoke === 'shell';
+    if (launchOn && drive.id > 0 && drive.age > 0.2 && drive.age < 200) {
+      const n = LAUNCH_SHELL[frame.tier];
+      const len = Math.max(80, drive.headY - drive.y);
+      const vx = drive.x - frame.camX;
+      const vz = drive.z - frame.camZ;
+      const vlen = Math.hypot(vx, vz) || 1;
+      const rx = -vz / vlen;
+      const rz = vx / vlen;
+      const pairs = Math.max(1, Math.ceil(n / 2));
+      const span = 220;
+      const stepH = pairs <= 1 ? 0 : span / (pairs - 1);
+      const halfH = Math.min(58, stepH * 0.62 + 10);
+      const tx = -vx / vlen;
+      const tz = -vz / vlen;
+      for (let i = 0; i < n; i++) {
+        const band = Math.floor(i / 2);
+        const front = i % 2 === 0;
+        const u = pairs === 1 ? 0.45 : band / (pairs - 1);
+        const h = 24 + u * span;
+        const lean = plumeLean(h, len, drive.wind);
+        const rad = columnRadius(h, frame.time);
+        const ox = front ? tx * 6 : rx * rad * 0.22;
+        const oz = front ? tz * 6 : rz * rad * 0.22;
+        list.push({
+          x: drive.x + Math.cos(drive.windDir) * lean + ox,
+          y: drive.y + h,
+          z: drive.z + Math.sin(drive.windDir) * lean + oz,
+          halfW: rad * 0.9,
+          halfH,
+          seed: fract(i * 0.37 + 0.21),
+          kind: 1,
+          heat: Math.exp(-h / 70) * 0.45,
+          peak: 0.82,
+          soft: 8,
+          freq: 4.6,
+        });
+      }
+    }
+    if (holeOn) {
+      const holes = this.emitters.filter((e) => e.kind === KIND.manhole);
+      holes.sort((a, b) => {
+        const da = (a.x - frame.camX) ** 2 + (a.z - frame.camZ) ** 2;
+        const db = (b.x - frame.camX) ** 2 + (b.z - frame.camZ) ** 2;
+        return da - db;
+      });
+      const hero = holes.find((e) => {
+        const dist = Math.hypot(e.x - frame.camX, e.z - frame.camZ);
+        return dist >= 3.4 && dist <= 18;
+      });
+      if (hero) {
+        const layers = MANHOLE_SHELL[frame.tier];
+        const wx = Math.cos(wind.dir) * Math.min(6, wind.speed) * 0.45;
+        const wz = Math.sin(wind.dir) * Math.min(6, wind.speed) * 0.45;
+        for (let i = 0; i < layers && list.length < 12; i++) {
+          const rise = 0.55 + i * 0.85;
+          list.push({
+            x: hero.x + wx * (0.05 + i * 0.12),
+            y: hero.y + rise,
+            z: hero.z + wz * (0.05 + i * 0.12),
+            halfW: 0.62 + i * 0.16,
+            halfH: 0.48 + i * 0.14,
+            seed: fract(hero.x * 0.17 + hero.z * 0.31 + i * 0.19),
+            kind: 0,
+            heat: 0,
+            peak: 1,
+            soft: 0.4,
+            freq: 3.1,
+          });
+        }
+      }
+    }
+    syncShells(list);
+  }
+
+  private writeLights(drive: LaunchDrive, camX: number, camZ: number): void {
+    const lights: PunctualInput[] = [];
+    if (SMOKE_LAUNCH_VOLUME && drive.burning && drive.id > 0) {
+      lights.push({ preset: 'flare', x: drive.x, y: drive.y + 6, z: drive.z, candela: 8000, range: 64 });
+      lights.push({
+        preset: 'flare',
+        x: drive.x + Math.cos(drive.windDir) * 8,
+        y: drive.y + 18,
+        z: drive.z + Math.sin(drive.windDir) * 8,
+        candela: 2500,
+        range: 48,
+      });
+    }
+    if (SMOKE_CARDS) {
+      for (const b of barrelLights(this.emitters, camX, camZ, 3)) {
+        lights.push({ preset: 'flare', x: b.x, y: b.y + 0.4, z: b.z, candela: 420, range: 3.5 });
+      }
+    }
+    punctual = lights;
+  }
+}
+
+function fract(v: number): number {
+  return v - Math.floor(v);
+}
+
+/** Wake behind the bumper. wx/wz point along travel; the plume trails the other way. */
+function exhaustPuff(t: Tailpipe): PuffPlacement {
+  const fx = t.wx ?? 0;
+  const fz = t.wz ?? 0;
+  const sp = Math.hypot(fx, fz);
+  const dirx = sp > 0.2 ? fx / sp : 0;
+  const dirz = sp > 0.2 ? fz / sp : 1;
+  const truck = t.heavy === 1;
+  const spin = t.heavy === 2;
+  const len = spin ? 7.5 : truck ? 9.0 : 7.2;
+  const wide = spin ? 0.55 : truck ? 0.75 : 0.5;
+  const tall = spin ? 0.9 : truck ? 1.15 : 0.85;
+  const ax = -dirx;
+  const ay = 0.14;
+  const az = -dirz;
+  const al = Math.hypot(ax, ay, az) || 1;
+  const ux = ax / al;
+  const uy = ay / al;
+  const uz = az / al;
+  const half = len * 0.5;
+  const cx = t.x + ux * 1.5;
+  const cy = t.y + (truck ? 1.25 : 0.95);
+  const cz = t.z + uz * 1.5;
+  return {
+    x: cx,
+    y: cy,
+    z: cz,
+    hx: Math.abs(ux) * half + wide + 0.2,
+    hy: tall * 0.5 + Math.abs(uy) * half + 0.15,
+    hz: Math.abs(uz) * half + wide + 0.2,
+    ax: ux * half,
+    ay: uy * half,
+    az: uz * half,
+    mode: 1 + Math.min(1, Math.max(0, t.drive)) * 0.45,
+    seed: fract(t.x * 0.13 + t.z * 0.27 + t.y * 0.05),
+    radius: truck ? 0.58 : 0.4,
+  };
+}
+
+/** Ground billow on a ring the width of the LAX street, around the pad. */
+function groundPuff(
+  drive: LaunchDrive, grown: number, angIn?: number,
+): { x: number; y: number; z: number; ring: number; ang: number } {
+  const ang = angIn ?? smokeRand() * Math.PI * 2;
+  const ring = (26 + smokeRand() * 28) * Math.max(0.7, grown);
+  const x = drive.x + Math.cos(ang) * ring;
+  const z = drive.z + Math.sin(ang) * ring;
+  const y = drive.y + 3 + smokeRand() * 12;
+  return { x, y, z, ring, ang };
+}
+
+function buildGeo(cap: number): BufferGeometry {
+  const pos = new Float32Array(cap * 4 * 3);
+  const ctr = new Float32Array(cap * 4 * 4);
+  const meta = new Float32Array(cap * 4 * 4);
+  const extra = new Float32Array(cap * 4 * 4);
+  const corner = new Float32Array(cap * 4 * 2);
+  const idx = new Uint16Array(cap * 6);
+  const cs = [-1, -1, 1, -1, 1, 1, -1, 1];
+  for (let i = 0; i < cap; i++) {
+    for (let k = 0; k < 4; k++) {
+      const v = i * 4 + k;
+      corner[v * 2] = cs[k * 2]!;
+      corner[v * 2 + 1] = cs[k * 2 + 1]!;
+    }
+    const b = i * 6;
+    const v0 = i * 4;
+    idx[b] = v0;
+    idx[b + 1] = v0 + 1;
+    idx[b + 2] = v0 + 2;
+    idx[b + 3] = v0;
+    idx[b + 4] = v0 + 2;
+    idx[b + 5] = v0 + 3;
+  }
+  const g = new BufferGeometry();
+  const cA = new BufferAttribute(ctr, 4);
+  const mA = new BufferAttribute(meta, 4);
+  const xA = new BufferAttribute(extra, 4);
+  cA.setUsage(DynamicDrawUsage);
+  mA.setUsage(DynamicDrawUsage);
+  xA.setUsage(DynamicDrawUsage);
+  g.setAttribute('position', new BufferAttribute(pos, 3));
+  g.setAttribute('sctr', cA);
+  g.setAttribute('smeta', mA);
+  g.setAttribute('sxtra', xA);
+  g.setAttribute('scorner', new BufferAttribute(corner, 2));
+  g.setIndex(new BufferAttribute(idx, 1));
+  g.setDrawRange(0, 0);
+  return g;
+}
